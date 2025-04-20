@@ -1,4 +1,5 @@
-# cccp.sh - Conventional Commits Compliance Program
+# cccp.sh 
+## Conventional Commits Compliance Program
 
 A comprehensive tool for enforcing and managing conventional commits in your Git workflow. This program helps maintain consistent commit messages and automate version management through semantic versioning.
 
@@ -23,6 +24,7 @@ Your computer must have the following technology(s) installed:
 
 To install the hook on your machine, run the following script inside this project folder:
 ```bash
+wget https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh
 chmod +x cccp.sh
 ./cccp.sh install
 ```
@@ -44,12 +46,12 @@ Where:
 ### Commands
 
 ```bash
-cccp.sh [command] [options]
+./cccp.sh [command] [options]
 ```
 
 Available commands:
 - `commit <message>`    - Create a commit with a conventional commit message
-- `install`            - Install git hooks for commit message validation
+- `install`            - Install git hooks for commit message validation (this command is idempotent)
 - `version`            - Generate version information file
 - `changelog`          - Generate or update CHANGELOG.md
 - `help`               - Show help message
@@ -62,6 +64,7 @@ Available commands:
 ```
 <type>(<scope>): <subject>
 ```
+You can have multiple scopes (api,ui) and if you use monorepos, they can have subscopes too (api/login)
 
 #### Types
 - `feat`     - New feature
