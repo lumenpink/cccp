@@ -24,6 +24,7 @@ fi
 . "$GIT_ROOT/src/hooks/commit_msg.sh"
 . "$GIT_ROOT/src/hooks/post_commit.sh"
 . "$GIT_ROOT/src/utils/help.sh"
+. "$GIT_ROOT/src/utils/update.sh"
 
 # -----------------------------------------------------------------------------
 # Main script entry point
@@ -74,6 +75,10 @@ main() {
             ;;
         "post-commit")
             post_commit
+            exit 0
+            ;;
+        "update")
+            update_script
             exit 0
             ;;
         *)

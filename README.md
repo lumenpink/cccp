@@ -54,6 +54,7 @@ Available commands:
 - `install`            - Install git hooks for commit message validation (this command is idempotent)
 - `version`            - Generate version information file
 - `changelog`          - Generate or update CHANGELOG.md
+- `update`             - Update the script to the latest version
 - `help`               - Show help message
 
 ### Git Hooks
@@ -108,6 +109,7 @@ cccp.sh commit 'fix(api/auth): resolve login issue'
 cccp.sh install
 cccp.sh version
 cccp.sh changelog
+cccp.sh update
 ```
 
 > Note: After installation, git hooks will automatically validate commit messages and update the changelog and version information after each commit.

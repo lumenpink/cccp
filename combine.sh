@@ -161,8 +161,12 @@ main() {
             post_commit
             exit 0
             ;;
+        "update")
+            update_script
+            exit 0
+            ;;
         *)
-            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit]"
+            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit|update]"
             exit 1
             ;;
     esac

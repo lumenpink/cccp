@@ -13,6 +13,9 @@ GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 # the file name of the script to be used as a git hook
 GIT_HOOK_FILE="cccp.sh"
 
+# URL for updating the script
+UPDATE_URL="https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh"
+
 # Commit types following conventional commits specification
 COMMIT_TYPES="feat fix perf refactor revert chore build ci docs ops style test merge"
 
