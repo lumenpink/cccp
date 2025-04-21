@@ -27,6 +27,7 @@ if [ -z "$GIT_ROOT" ]; then
     exit 1
 fi
 GIT_HOOK_FILE="cccp.sh"
+UPDATE_URL="https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh"
 COMMIT_TYPES="feat fix perf refactor revert chore build ci docs ops style test merge"
 COMMIT_SCOPES="ui docs api docker db"
 COMMIT_SUBSCOPES="components pages services utils auth"
@@ -566,6 +567,7 @@ show_help() {
     echo "  install            Install git hooks for commit message validation"
     echo "  version            Generate version information file"
     echo "  changelog          Generate or update CHANGELOG.md"
+    echo "  update             Update the script to the latest version"
     echo "  help               Show this help message"
     echo ""
     echo "Git Hooks:"
@@ -616,6 +618,7 @@ show_help() {
     echo "  $0 install"
     echo "  $0 version"
     echo "  $0 changelog"
+    echo "  $0 update"
     echo ""
     echo "Note: After installation, git hooks will automatically validate commit messages"
     echo "and update the changelog and version information after each commit."
@@ -709,8 +712,12 @@ main() {
             post_commit
             exit 0
             ;;
+        "update")
+            update_script
+            exit 0
+            ;;
         *)
-            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit]"
+            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit|update]"
             exit 1
             ;;
     esac

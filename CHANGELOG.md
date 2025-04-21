@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - add updatescript function
 
 ### Bug Fixes
 
