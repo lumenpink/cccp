@@ -9,10 +9,19 @@
 # Enable error handling
 set -eu
 
+# Verify required tools
+for tool in git sed grep date cut tr; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: Required tool '$tool' is not installed or not in PATH." >&2
+        echo "Please install $tool to use cccp.sh." >&2
+        exit 1
+    fi
+done
+
 # Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
+    echo "Error: Not a git repository. This script must be executed within a valid Git repository." >&2
     exit 1
 fi
 
@@ -28,37 +37,43 @@ if [ -z "$GIT_ROOT" ]; then
 fi
 GIT_HOOK_FILE="cccp.sh"
 UPDATE_URL="https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh"
+DEFAULT_BASE_VERSION="0.2.0"
 COMMIT_TYPES="feat fix perf refactor revert chore build ci docs ops style test merge"
-COMMIT_SCOPES="ui docs api docker db"
-COMMIT_SUBSCOPES="components pages services utils auth"
+COMMIT_SCOPES="ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build"
+COMMIT_SUBSCOPES="components pages services utils auth models views controllers handlers"
 CHANGELOG_TYPES="feat fix perf refactor merge"
 DISABLE_SUBSCOPES=${DISABLE_SUBSCOPES:-0}
 DISABLE_MULTIPLE_SCOPES=${DISABLE_MULTIPLE_SCOPES:-0}
-ALLOW_ANY_SUBSCOPE=${ALLOW_ANY_SUBSCOPE:-0}
-ALLOW_ANY_SCOPE=${ALLOW_ANY_SCOPE:-0}
-GIT_HOOKS_LIST="commit-msg post-commit" 
+ALLOW_ANY_SUBSCOPE=${ALLOW_ANY_SUBSCOPE:-1}
+ALLOW_ANY_SCOPE=${ALLOW_ANY_SCOPE:-1}
+GIT_HOOKS_LIST="commit-msg post-commit"
 
 # =============================================================================
 # Validation Functions
 # =============================================================================
-set -eu
+check_prerequisites() {
+    missing_tools=""
+    for tool in git sed grep date cut tr; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_tools="$missing_tools $tool"
+        fi
+    done
 
-# Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
-    exit 1
-fi
+    if [ -n "$missing_tools" ]; then
+        echo "Error: Required system tools are missing from PATH:$missing_tools" >&2
+        echo "Please install the missing tools and ensure they are accessible in your PATH." >&2
+        return 1
+    fi
 
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+    # Verify that we are inside a Git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository. This command must be executed within a valid Git repository." >&2
+        return 1
+    fi
 
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
+    return 0
+}
 
-# -----------------------------------------------------------------------------
-# Validate commit message format
-# -----------------------------------------------------------------------------
 validate_commit_message() {
     commit_msg="$1"
     type=""
@@ -70,20 +85,41 @@ validate_commit_message() {
         echo "Error: Commit message can't be empty"
         return 1
     fi
-    
-    # Extract type, scope, and subject from commit message
-    if echo "$commit_msg" | grep -q "^[^:]*([^)]*):"; then
-        type=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\1/')
-        scope_part=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\2/')
-        subject=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\3/')
+
+    # Check if header contains a colon
+    if ! echo "$commit_msg" | grep -q ":"; then
+        echo "Error: Commit message must follow format '<type>(<scope>): <subject>' or '<type>: <subject>'"
+        return 1
+    fi
+
+    # Extract header line before colon
+    header_prefix=$(echo "$commit_msg" | sed -E 's/:.*$//')
+    subject=$(echo "$commit_msg" | sed -E 's/^[^:]*:[[:space:]]*//')
+
+    # Detect breaking change marker '!'
+    is_breaking=0
+    if echo "$header_prefix" | grep -q '!$'; then
+        is_breaking=1
+        header_prefix="${header_prefix%!}"
+    fi
+
+    # Check for empty parentheses e.g. feat():
+    if echo "$header_prefix" | grep -Fq '()'; then
+        echo "Error: Scope cannot be empty"
+        return 1
+    fi
+
+    # Extract type and scope
+    if echo "$header_prefix" | grep -q "^[^(]*([^)]*)$"; then
+        type=$(echo "$header_prefix" | sed -E 's/^([^(]+)\(([^)]*)\)$/\1/')
+        scope_part=$(echo "$header_prefix" | sed -E 's/^([^(]+)\(([^)]*)\)$/\2/')
     else
-        type=$(echo "$commit_msg" | sed -E 's/^([^:]*):(.*)$/\1/')
+        type="$header_prefix"
         scope_part=""
-        subject=$(echo "$commit_msg" | sed -E 's/^([^:]*):(.*)$/\2/')
     fi
     
     # Clean up subject
-    subject=$(echo "$subject" | sed -E 's/^[ ]+//')
+    subject=$(echo "$subject" | sed -E 's/^[[:space:]]+//')
     
     # Validate type
     valid_type=0
@@ -103,13 +139,7 @@ validate_commit_message() {
         echo "Error: Commit message must have a subject"
         return 1
     fi
-    
-    # Check for empty parentheses
-    if echo "$commit_msg" | grep -q "^[^:]*():"; then
-        echo "Error: Scope cannot be empty"
-        return 1
-    fi
-    
+
     if [ -z "$scope_part" ]; then
         return 0
     fi
@@ -120,15 +150,18 @@ validate_commit_message() {
     scope_count=0
     for scope_item in $scope_part; do
         scope_count=$((scope_count + 1))
+        # Trim leading and trailing whitespace
+        scope_item=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
         
         if echo "$scope_item" | grep -q "/"; then
             if [ "$DISABLE_SUBSCOPES" = "1" ]; then
                 echo "Error: Subscopes are disabled"
+                IFS="$OLD_IFS"
                 return 1
             fi
             
-            scope=$(echo "$scope_item" | cut -d'/' -f1)
-            subscope=$(echo "$scope_item" | cut -d'/' -f2)
+            scope=$(echo "$scope_item" | cut -d'/' -f1 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+            subscope=$(echo "$scope_item" | cut -d'/' -f2 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             # Validate scope
             valid_scope=0
@@ -147,6 +180,7 @@ validate_commit_message() {
             
             if [ $valid_scope -eq 0 ]; then
                 echo "Error: Invalid scope '$scope'. Must be one of: $COMMIT_SCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
             
@@ -167,10 +201,11 @@ validate_commit_message() {
             
             if [ $valid_subscope -eq 0 ]; then
                 echo "Error: Invalid subscope '$subscope'. Must be one of: $COMMIT_SUBSCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
         else
-            scope=$scope_item
+            scope=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             valid_scope=0
             if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
@@ -188,6 +223,7 @@ validate_commit_message() {
             
             if [ $valid_scope -eq 0 ]; then
                 echo "Error: Invalid scope '$scope'. Must be one of: $COMMIT_SCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
         fi
@@ -195,6 +231,7 @@ validate_commit_message() {
     
     if [ $scope_count -gt 1 ] && [ "$DISABLE_MULTIPLE_SCOPES" = "1" ]; then
         echo "Error: Multiple scopes are disabled"
+        IFS="$OLD_IFS"
         return 1
     fi
     
@@ -206,19 +243,6 @@ validate_commit_message() {
 # =============================================================================
 # Changelog Functions
 # =============================================================================
-set -eu
-
-# Get the git root directory
-GIT_ROOT=$(git rev-parse --show-toplevel)
-if [ $? -ne 0 ]; then
-    echo "Error: Not a git repository" >&2
-    exit 1
-fi
-
-# Source the configuration file
-. "$GIT_ROOT/src/config/config.sh"
-
-# Function to format commit message with scope
 format_commit_message() {
     local msg="$1"
     # Extract scope and message, then format with scope in parentheses
@@ -284,6 +308,7 @@ generate_changelog() {
         echo
     } > "$changelog_file"
 
+    # Get all tags sorted by version
     local tags=$(git tag -l --sort=-v:refname)
     if [ -n "$tags" ]; then
         local prev_tag=""
@@ -326,7 +351,6 @@ generate_changelog() {
                     
                     echo
                 } >> "$changelog_file"
-
             fi
             prev_tag="$tag"
         done
@@ -368,58 +392,95 @@ generate_changelog() {
                     echo "$first_perf_commits"
                 fi
             } >> "$changelog_file"
-
         fi
     fi
 } 
 
+
 # =============================================================================
 # Version Functions
 # =============================================================================
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
-    exit 1
-fi
-
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
-
-# -----------------------------------------------------------------------------
-# Generate version information
-# -----------------------------------------------------------------------------
 generate_version_info() {
-    last_tag=$(git describe --tags --abbrev=0 --always)
-    commit_count=$(git rev-list --count $last_tag..HEAD)
-    current_date=$(date +%Y%m%d)
-    # Get the short hash of the second-to-last commit
-    second_to_last_commit_hash=$(git log -n 2 --format=%h | tail -n 1)    
-    echo "${last_tag}+${commit_count}.${current_date}.${second_to_last_commit_hash}" > VERSION
-    echo "Version information written to VERSION file"
+    if command -v check_prerequisites >/dev/null 2>&1; then
+        check_prerequisites
+    fi
+
+    last_tag=""
+    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+
+    # Check if the most recent tag is a valid SemVer
+    raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    if [ -n "$raw_tag" ] && echo "$raw_tag" | grep -qE '^v?[0-9]+\.[0-9]+'; then
+        last_tag="$raw_tag"
+    else
+        # Search for the latest SemVer tag in the repository
+        for t in $(git tag -l 'v[0-9]*' '[0-9]*' --sort=-v:refname 2>/dev/null); do
+            if echo "$t" | grep -qE '^v?[0-9]+\.[0-9]+'; then
+                last_tag="$t"
+                break
+            fi
+        done
+    fi
+
+    if [ -z "$last_tag" ]; then
+        base_version="$default_base"
+        commit_range="HEAD"
+        commit_count=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+    else
+        base_version="${last_tag#v}"
+        commit_range="$last_tag..HEAD"
+        commit_count=$(git rev-list --count "$commit_range" 2>/dev/null || echo "0")
+    fi
+
+    # Extract major, minor, patch numbers ensuring they are valid integers
+    major=$(echo "$base_version" | cut -d. -f1 | tr -cd '0-9')
+    minor=$(echo "$base_version" | cut -d. -f2 | tr -cd '0-9')
+    patch=$(echo "$base_version" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | tr -cd '0-9')
+
+    major=${major:-0}
+    minor=${minor:-0}
+    patch=${patch:-0}
+
+    # If exactly on a tagged release with no new commits
+    if [ -n "$last_tag" ] && [ "$commit_count" -eq 0 ]; then
+        final_version="$base_version"
+    else
+        # Predict the next version bump based on conventional commits in range
+        has_breaking=0
+        has_feat=0
+
+        # Check for breaking changes (BREAKING CHANGE: in footer or ! before colon in header)
+        if git log "$commit_range" --format="%s%n%b" 2>/dev/null | grep -qE "(^BREAKING[ -]CHANGE:|^[a-zA-Z]+(\([^)]+\))?!:)"; then
+            has_breaking=1
+        elif git log "$commit_range" --format="%s" 2>/dev/null | grep -qE "^feat(\([^)]+\))?:"; then
+            has_feat=1
+        fi
+
+        if [ "$has_breaking" -eq 1 ]; then
+            next_major=$((major + 1))
+            target_version="${next_major}.0.0"
+        elif [ "$has_feat" -eq 1 ]; then
+            next_minor=$((minor + 1))
+            target_version="${major}.${next_minor}.0"
+        else
+            next_patch=$((patch + 1))
+            target_version="${major}.${minor}.${next_patch}"
+        fi
+
+        current_date=$(date +%Y%m%d)
+        current_commit_hash=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+        final_version="${target_version}-dev.${commit_count}+${current_date}.${current_commit_hash}"
+    fi
+
+    echo "$final_version" > "$GIT_ROOT/VERSION"
+    echo "Version information written to VERSION file: $final_version"
 } 
 
 
 # =============================================================================
 # Hooks Functions
 # =============================================================================
-set -eu
-
-# Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository" >&2
-    exit 1
-fi
-
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
-
-# -----------------------------------------------------------------------------
-# Install git hooks
-# -----------------------------------------------------------------------------
 install_git_hooks() {
     # Create hooks directory if it doesn't exist
     mkdir -p "$GIT_HOOKS_DIR"
@@ -463,22 +524,6 @@ install_git_hooks() {
 # =============================================================================
 # Commit Message Hook Function
 # =============================================================================
-set -eu
-
-# Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository" >&2
-    exit 1
-fi
-
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
-
-# Function to validate the commit message
 commit_msg() {
     # Check if the hook is active to prevent infinite loops
     # If the hook is active, exit the script
@@ -507,24 +552,6 @@ commit_msg() {
 # =============================================================================
 # Post Commit Hook Function
 # =============================================================================
-set -eu
-
-# Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
-    exit 1
-fi
-
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
-
-# -----------------------------------------------------------------------------
-# Post-commit hook
-# -----------------------------------------------------------------------------
 post_commit() {
     # Check if the hook is active to prevent infinite loops
     # If the hook is active, exit the script
@@ -544,14 +571,6 @@ post_commit() {
 # =============================================================================
 # Help Functions
 # =============================================================================
-set -eu
-
-# =============================================================================
-# Help Functions
-# =============================================================================
-# -----------------------------------------------------------------------------
-# Display help information
-# -----------------------------------------------------------------------------
 show_help() {
     echo "Git Conventional Commits Helper Script"
     echo "====================================="
@@ -628,24 +647,6 @@ show_help() {
 # =============================================================================
 # Commit Functions
 # =============================================================================
-set -eu
-
-# Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
-    exit 1
-fi
-
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
-
-# -----------------------------------------------------------------------------
-# Commit changes
-# -----------------------------------------------------------------------------
 commit() {
     message="$1"
     

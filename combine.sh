@@ -13,23 +13,17 @@ extract_functions() {
     local file="$1"
     # Extract only function definitions and their contents
     awk '
-    BEGIN { in_function = 0; brace_count = 0 }
-    /^[[:space:]]*[a-zA-Z_][a-zA-Z0-9_]*()/ {
-        if (in_function == 0) {
-            in_function = 1
-            print
-            next
-        }
+    BEGIN { in_function = 0 }
+    /^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\)/ {
+        in_function = 1
+        print
+        next
     }
     in_function == 1 {
         print
-        if ($0 ~ /{/) brace_count++
-        if ($0 ~ /}/) {
-            brace_count--
-            if (brace_count == 0) {
-                in_function = 0
-                print ""
-            }
+        if ($0 ~ /^}/) {
+            in_function = 0
+            print ""
         }
     }
     ' "$file"
@@ -48,10 +42,19 @@ cat > "$OUTPUT_FILE" << 'EOF'
 # Enable error handling
 set -eu
 
+# Verify required tools
+for tool in git sed grep date cut tr; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: Required tool '$tool' is not installed or not in PATH." >&2
+        echo "Please install $tool to use cccp.sh." >&2
+        exit 1
+    fi
+done
+
 # Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
+    echo "Error: Not a git repository. This script must be executed within a valid Git repository." >&2
     exit 1
 fi
 

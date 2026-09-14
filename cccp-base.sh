@@ -9,9 +9,18 @@ set -eu
 # standards, version management, and changelog generation.
 # =============================================================================
 
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+# Verify required tools
+for tool in git sed grep date cut tr; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: Required tool '$tool' is not installed or not in PATH." >&2
+        echo "Please install $tool to use cccp.sh." >&2
+        exit 1
+    fi
+done
+
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
+    echo "Error: Not a git repository. This script must be executed within a valid Git repository." >&2
     exit 1
 fi
 

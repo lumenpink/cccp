@@ -14,32 +14,54 @@ cccp.sh is a Git hook-based solution that:
 
 ## Prerequisites
 
-Your computer must have the following technology(s) installed:
-- git (https://git-scm.com/)
+Your system must have the following tools installed and available in your `PATH`:
+- `git` (https://git-scm.com/)
+- Standard POSIX utilities: `sed`, `grep`, `date`, `cut`, `tr`
+
+`cccp.sh` automatically verifies the availability of these prerequisites upon execution. If any requirement is missing or if the command is executed outside of a Git repository, it immediately terminates with a clear and explanatory error message.
 
 > [!IMPORTANT]
-> If you are using Windows as your operating system, you must run all commands through the "git bash" application.
+> If you are using Windows as your operating system, you must run all commands through the "Git Bash" terminal application.
 
 ## Installation
 
-To install the hook on your machine, run the following script inside this project folder:
+To install the Git hooks in your repository, run:
 ```bash
 wget https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh
 chmod +x cccp.sh
 ./cccp.sh install
 ```
 
-## Version Numbering
+This registers the `commit-msg` and `post-commit` hooks in `.git/hooks/`.
 
-The version number follows the format: `<major>.<minor>.<patch>+<commit_count>.<date>.<commit_hash>`
+## Predictive Semantic Versioning
 
-For example: `1.0.0+31.20250419.88338c1`
+Rather than simply reflecting historical release tags, `cccp.sh` implements **Predictive Semantic Versioning**. It scans commit messages following the Conventional Commits specification since the last valid SemVer tag (or fallback base) to anticipate and compute the **next target release version**.
 
-Where:
-- `1.0.0` is the semantic version tag
-- `+31` is the number of commits since the last tag
-- `20250419` is the current date in YYYYMMDD format
-- `88338c1` is the short hash of the second-to-last commit
+### Format
+
+- **Development Mode** (commits ahead of base tag):
+  ```
+  <target_major>.<target_minor>.<target_patch>-dev.<commit_count>+<date>.<commit_hash>
+  ```
+  *Example:* `0.3.0-dev.6+20260914.790f5b4`
+
+- **Tagged Release** (exact checkout on a clean tag):
+  ```
+  <major>.<minor>.<patch>
+  ```
+  *Example:* `0.3.0`
+
+### Next Version Bump Rules
+
+| Conventional Commit Trigger | Inferred Bump | Target Version Calculation |
+| :--- | :--- | :--- |
+| `BREAKING CHANGE:` in body/footer, or `!` before `:` (e.g. `feat!:`, `refactor(auth)!:`) | **MAJOR** | `(major + 1).0.0` |
+| `feat:` or `feat(<scope>):` | **MINOR** | `major.(minor + 1).0` |
+| `fix:`, `perf:`, `refactor:`, `chore:`, etc. | **PATCH** | `major.minor.(patch + 1)` |
+| Clean tag checkout (0 commits ahead) | **NONE** | Exact tag version |
+
+The highest priority bump detected in the commit range determines the predicted version.
 
 ## Usage
 
@@ -50,28 +72,31 @@ Where:
 ```
 
 Available commands:
-- `commit <message>`    - Create a commit with a conventional commit message
-- `install`            - Install git hooks for commit message validation (this command is idempotent)
-- `version`            - Generate version information file
-- `changelog`          - Generate or update CHANGELOG.md
-- `update`             - Update the script to the latest version
-- `help`               - Show help message
+- `commit <message>`    - Create a commit after validating message formatting
+- `install`             - Install Git hooks for commit message validation and automated versioning
+- `version`             - Generate and write predictive version information to `VERSION`
+- `changelog`           - Generate or update `CHANGELOG.md`
+- `update`              - Self-update the script to the latest upstream release
+- `help`                - Display usage help message
 
 ### Git Hooks
-- `commit-msg`         - Validates commit messages for conventional commit format
-- `post-commit`        - Automatically updates changelog and version after commit
+
+- `commit-msg`: Validates commit messages for Conventional Commits compliance before saving the commit.
+- `post-commit`: Automatically updates `CHANGELOG.md` and generates the predicted `VERSION` file.
 
 ### Commit Message Format
-```
-<type>(<scope>): <subject>
-```
-You can have multiple scopes (api,ui) and if you use monorepos, they can have subscopes too (api/login)
 
-#### Types
-- `feat`     - New feature
-- `fix`      - Bug fix
-- `perf`     - Performance improvement
-- `refactor` - Code refactoring
+```text
+<type>(<scope>): <subject>
+<type>(<scope>)!: <subject>
+<type>!: <subject>
+```
+
+#### Supported Types
+- `feat`     - New feature (triggers Minor bump)
+- `fix`      - Bug fix (triggers Patch bump)
+- `perf`     - Performance improvement (triggers Patch bump)
+- `refactor` - Code refactoring (triggers Patch bump)
 - `revert`   - Revert changes
 - `chore`    - Maintenance tasks
 - `build`    - Build system changes
@@ -82,47 +107,52 @@ You can have multiple scopes (api,ui) and if you use monorepos, they can have su
 - `test`     - Test related changes
 - `merge`    - Merge commits
 
-#### Scopes
-- `ui`       - User interface changes
-- `docs`     - Documentation changes
-- `api`      - API changes
-- `docker`   - Docker related changes
-- `db`       - Database changes
+#### Breaking Changes
+Breaking changes can be signaled in two standard ways:
+1. Appending an exclamation mark `!` right before the colon:
+   `feat(api)!: drop deprecated endpoints` or `refactor!: restructure configuration format`
+2. Adding a `BREAKING CHANGE:` or `BREAKING-CHANGE:` block in the commit body/footer.
 
-#### Subscopes
-- `components` - UI components
-- `pages`      - Page components
-- `services`   - Service layer
-- `utils`      - Utility functions
-- `auth`       - Authentication related
+#### Scopes and Subscopes
+- **Scopes**: Categorize the module or subsystem (e.g., `ui`, `api`, `auth`, `updater`, `db`).
+- **Multiple Scopes**: Comma-separated scopes are supported (e.g., `feat(api, ui): update endpoint`).
+- **Subscopes**: Monorepo or hierarchical paths using `/` (e.g., `fix(api/auth): token expiration`).
 
-### Environment Variables
-- `DISABLE_SUBSCOPES`         - Set to 1 to disable subscopes
-- `DISABLE_MULTIPLE_SCOPES`   - Set to 1 to disable multiple scopes
-- `ALLOW_ANY_SUBSCOPE`        - Set to 1 to allow any subscope
-- `ALLOW_ANY_SCOPE`           - Set to 1 to allow any scope
+### Configuration & Environment Variables
+
+- `ALLOW_ANY_SCOPE=1` (Default: `1`): Allows any non-empty scope. Set to `0` to enforce strict matching against `COMMIT_SCOPES`.
+- `ALLOW_ANY_SUBSCOPE=1` (Default: `1`): Allows any non-empty subscope. Set to `0` to enforce strict matching against `COMMIT_SUBSCOPES`.
+- `DISABLE_SUBSCOPES=1`: Prohibits slash-delimited subscopes.
+- `DISABLE_MULTIPLE_SCOPES=1`: Prohibits comma-separated multiple scopes.
+- `DEFAULT_BASE_VERSION="0.2.0"`: Fallback base version used when no SemVer tags exist in the Git history.
 
 ### Examples
-```bash
-cccp.sh commit 'feat(ui): add new button'
-cccp.sh commit 'fix(api/auth): resolve login issue'
-cccp.sh install
-cccp.sh version
-cccp.sh changelog
-cccp.sh update
-```
 
-> Note: After installation, git hooks will automatically validate commit messages and update the changelog and version information after each commit.
+```bash
+# Feature commit
+./cccp.sh commit 'feat(updater): support rollback command'
+
+# Breaking change commit
+./cccp.sh commit 'refactor(api)!: migrate to typed response objects'
+
+# Subscope commit
+./cccp.sh commit 'fix(auth/token): validate PKCE verifier length'
+
+# Multiple scopes
+./cccp.sh commit 'docs(api, cli): update usage instructions'
+
+# Generate predicted version
+./cccp.sh version
+```
 
 ## Benefits
 
-- Consistent commit history
-- Automated version management
-- Better changelog generation
-- Improved collaboration
-- Clear project documentation
-- Simplified release process
+- Consistent, audit-ready commit history
+- Anticipatory, automated SemVer 2.0 version calculation
+- Instant local Git hook validation with clear diagnostics
+- Zero external runtime dependencies in production
 
 ## Support
 
 If you encounter any issues or have questions, please open an issue in the project repository.
+

@@ -17,6 +17,32 @@ GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 . "$GIT_ROOT/src/config/config.sh"
 
 # -----------------------------------------------------------------------------
+# Verify system prerequisites
+# -----------------------------------------------------------------------------
+check_prerequisites() {
+    missing_tools=""
+    for tool in git sed grep date cut tr; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            missing_tools="$missing_tools $tool"
+        fi
+    done
+
+    if [ -n "$missing_tools" ]; then
+        echo "Error: Required system tools are missing from PATH:$missing_tools" >&2
+        echo "Please install the missing tools and ensure they are accessible in your PATH." >&2
+        return 1
+    fi
+
+    # Verify that we are inside a Git repository
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository. This command must be executed within a valid Git repository." >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# -----------------------------------------------------------------------------
 # Validate commit message format
 # -----------------------------------------------------------------------------
 validate_commit_message() {
@@ -30,20 +56,41 @@ validate_commit_message() {
         echo "Error: Commit message can't be empty"
         return 1
     fi
-    
-    # Extract type, scope, and subject from commit message
-    if echo "$commit_msg" | grep -q "^[^:]*([^)]*):"; then
-        type=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\1/')
-        scope_part=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\2/')
-        subject=$(echo "$commit_msg" | sed -E 's/^([^(]+)\(([^)]*)\):(.*)$/\3/')
+
+    # Check if header contains a colon
+    if ! echo "$commit_msg" | grep -q ":"; then
+        echo "Error: Commit message must follow format '<type>(<scope>): <subject>' or '<type>: <subject>'"
+        return 1
+    fi
+
+    # Extract header line before colon
+    header_prefix=$(echo "$commit_msg" | sed -E 's/:.*$//')
+    subject=$(echo "$commit_msg" | sed -E 's/^[^:]*:[[:space:]]*//')
+
+    # Detect breaking change marker '!'
+    is_breaking=0
+    if echo "$header_prefix" | grep -q '!$'; then
+        is_breaking=1
+        header_prefix="${header_prefix%!}"
+    fi
+
+    # Check for empty parentheses e.g. feat():
+    if echo "$header_prefix" | grep -Fq '()'; then
+        echo "Error: Scope cannot be empty"
+        return 1
+    fi
+
+    # Extract type and scope
+    if echo "$header_prefix" | grep -q "^[^(]*([^)]*)$"; then
+        type=$(echo "$header_prefix" | sed -E 's/^([^(]+)\(([^)]*)\)$/\1/')
+        scope_part=$(echo "$header_prefix" | sed -E 's/^([^(]+)\(([^)]*)\)$/\2/')
     else
-        type=$(echo "$commit_msg" | sed -E 's/^([^:]*):(.*)$/\1/')
+        type="$header_prefix"
         scope_part=""
-        subject=$(echo "$commit_msg" | sed -E 's/^([^:]*):(.*)$/\2/')
     fi
     
     # Clean up subject
-    subject=$(echo "$subject" | sed -E 's/^[ ]+//')
+    subject=$(echo "$subject" | sed -E 's/^[[:space:]]+//')
     
     # Validate type
     valid_type=0
@@ -63,13 +110,7 @@ validate_commit_message() {
         echo "Error: Commit message must have a subject"
         return 1
     fi
-    
-    # Check for empty parentheses
-    if echo "$commit_msg" | grep -q "^[^:]*():"; then
-        echo "Error: Scope cannot be empty"
-        return 1
-    fi
-    
+
     if [ -z "$scope_part" ]; then
         return 0
     fi
@@ -80,15 +121,18 @@ validate_commit_message() {
     scope_count=0
     for scope_item in $scope_part; do
         scope_count=$((scope_count + 1))
+        # Trim leading and trailing whitespace
+        scope_item=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
         
         if echo "$scope_item" | grep -q "/"; then
             if [ "$DISABLE_SUBSCOPES" = "1" ]; then
                 echo "Error: Subscopes are disabled"
+                IFS="$OLD_IFS"
                 return 1
             fi
             
-            scope=$(echo "$scope_item" | cut -d'/' -f1)
-            subscope=$(echo "$scope_item" | cut -d'/' -f2)
+            scope=$(echo "$scope_item" | cut -d'/' -f1 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+            subscope=$(echo "$scope_item" | cut -d'/' -f2 | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             # Validate scope
             valid_scope=0
@@ -107,6 +151,7 @@ validate_commit_message() {
             
             if [ $valid_scope -eq 0 ]; then
                 echo "Error: Invalid scope '$scope'. Must be one of: $COMMIT_SCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
             
@@ -127,10 +172,11 @@ validate_commit_message() {
             
             if [ $valid_subscope -eq 0 ]; then
                 echo "Error: Invalid subscope '$subscope'. Must be one of: $COMMIT_SUBSCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
         else
-            scope=$scope_item
+            scope=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             valid_scope=0
             if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
@@ -148,6 +194,7 @@ validate_commit_message() {
             
             if [ $valid_scope -eq 0 ]; then
                 echo "Error: Invalid scope '$scope'. Must be one of: $COMMIT_SCOPES"
+                IFS="$OLD_IFS"
                 return 1
             fi
         fi
@@ -155,6 +202,7 @@ validate_commit_message() {
     
     if [ $scope_count -gt 1 ] && [ "$DISABLE_MULTIPLE_SCOPES" = "1" ]; then
         echo "Error: Multiple scopes are disabled"
+        IFS="$OLD_IFS"
         return 1
     fi
     
