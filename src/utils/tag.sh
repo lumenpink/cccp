@@ -25,11 +25,17 @@ if [ -f "$GIT_ROOT/src/utils/changelog.sh" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Create release tag, update VERSION file and CHANGELOG.md
+# Create release tag, commit updated VERSION/CHANGELOG, and tag the release commit
 # -----------------------------------------------------------------------------
 create_tag() {
     if command -v check_prerequisites >/dev/null 2>&1; then
         check_prerequisites
+    fi
+
+    # Ensure working tree has no uncommitted changes to tracked files
+    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        echo "Error: Working directory has uncommitted changes. Please commit or stash them before creating a tag." >&2
+        return 1
     fi
 
     target_ver=""
@@ -119,24 +125,38 @@ create_tag() {
         message="Release $tag_name"
     fi
 
-    # Create annotated tag
-    git tag -a "$tag_name" -m "$message"
+    # Update VERSION file with clean SemVer version
+    echo "$clean_ver" > "$GIT_ROOT/VERSION"
 
-    # Update VERSION and CHANGELOG.md
-    if command -v generate_version_info >/dev/null 2>&1; then
-        generate_version_info >/dev/null 2>&1 || echo "$clean_ver" > "$GIT_ROOT/VERSION"
-    else
-        echo "$clean_ver" > "$GIT_ROOT/VERSION"
-    fi
+    # Create temporary tag to allow generate_changelog to group commits under this release
+    git tag -a "$tag_name" -m "$message"
 
     if command -v generate_changelog >/dev/null 2>&1; then
         generate_changelog
     fi
 
-    echo "Tag '$tag_name' created successfully."
+    # Commit the release files (VERSION and CHANGELOG.md)
+    export HOOK_ACTIVE=1
+    git add "$GIT_ROOT/VERSION" "$GIT_ROOT/CHANGELOG.md"
+    if ! git commit -m "chore(release): $tag_name"; then
+        unset HOOK_ACTIVE
+        echo "Error: Failed to create release commit." >&2
+        git tag -d "$tag_name" >/dev/null 2>&1 || true
+        return 1
+    fi
+    unset HOOK_ACTIVE
+
+    # Move tag to the release commit
+    git tag -f -a "$tag_name" -m "$message"
+
+    current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+    echo "Release commit created: chore(release): $tag_name"
+    echo "Tag '$tag_name' created successfully on release commit."
     echo "Updated VERSION: $clean_ver"
     echo "Updated CHANGELOG.md"
     echo ""
-    echo "To push the tag to remote, run:"
+    echo "To push the release and tag to remote, run:"
+    echo "  git push origin $current_branch"
     echo "  git push origin $tag_name"
 }

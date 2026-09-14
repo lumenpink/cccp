@@ -27,8 +27,18 @@ Describe 'tag'
   AfterAll 'cleanup'
 
   Describe 'create_tag'
-    It 'creates tag with major version number'
+    It 'fails when working directory has uncommitted changes'
+      echo "uncommitted change" >> README.md
       When call create_tag 2
+      The error should include "Working directory has uncommitted changes"
+      The status should be failure
+      # Revert uncommitted change for subsequent tests
+      git checkout -- README.md
+    End
+
+    It 'creates tag with major version number and release commit'
+      When call create_tag 2
+      The output should include "Release commit created: chore(release): v2.0.0"
       The output should include "Tag 'v2.0.0' created successfully."
       The contents of file VERSION should eq "2.0.0"
       The file CHANGELOG.md should be exist

@@ -82,7 +82,7 @@ Available commands:
 
 ### Release Tagging (`tag`)
 
-The `tag` command generates an annotated Git tag, syncs `VERSION`, and rebuilds `CHANGELOG.md`:
+The `tag` command enforces a clean working tree, updates `VERSION` and `CHANGELOG.md`, creates a release commit (`chore(release): <tag>`), and tags that commit with an annotated Git tag:
 
 ```bash
 ./cccp.sh tag                     # Auto-tags with the predicted SemVer version (e.g. v1.2.0)
