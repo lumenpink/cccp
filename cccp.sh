@@ -400,6 +400,66 @@ generate_changelog() {
 # =============================================================================
 # Version Functions
 # =============================================================================
+calculate_target_version() {
+    last_tag=""
+    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+
+    # Check if the most recent tag is a valid SemVer
+    raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    if [ -n "$raw_tag" ] && echo "$raw_tag" | grep -qE '^v?[0-9]+\.[0-9]+'; then
+        last_tag="$raw_tag"
+    else
+        # Search for the latest SemVer tag in the repository
+        for t in $(git tag -l 'v[0-9]*' '[0-9]*' --sort=-v:refname 2>/dev/null); do
+            if echo "$t" | grep -qE '^v?[0-9]+\.[0-9]+'; then
+                last_tag="$t"
+                break
+            fi
+        done
+    fi
+
+    if [ -z "$last_tag" ]; then
+        base_version="$default_base"
+        commit_range="HEAD"
+    else
+        base_version="${last_tag#v}"
+        commit_range="$last_tag..HEAD"
+    fi
+
+    # Extract major, minor, patch numbers ensuring they are valid integers
+    major=$(echo "$base_version" | cut -d. -f1 | tr -cd '0-9')
+    minor=$(echo "$base_version" | cut -d. -f2 | tr -cd '0-9')
+    patch=$(echo "$base_version" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | tr -cd '0-9')
+
+    major=${major:-0}
+    minor=${minor:-0}
+    patch=${patch:-0}
+
+    # Predict the next version bump based on conventional commits in range
+    has_breaking=0
+    has_feat=0
+
+    # Check for breaking changes (BREAKING CHANGE: in footer or ! before colon in header)
+    if git log "$commit_range" --format="%s%n%b" 2>/dev/null | grep -qE "(^BREAKING[ -]CHANGE:|^[a-zA-Z]+(\([^)]+\))?!:)"; then
+        has_breaking=1
+    elif git log "$commit_range" --format="%s" 2>/dev/null | grep -qE "^feat(\([^)]+\))?:"; then
+        has_feat=1
+    fi
+
+    if [ "$has_breaking" -eq 1 ]; then
+        next_major=$((major + 1))
+        target_version="${next_major}.0.0"
+    elif [ "$has_feat" -eq 1 ]; then
+        next_minor=$((minor + 1))
+        target_version="${major}.${next_minor}.0"
+    else
+        next_patch=$((patch + 1))
+        target_version="${major}.${minor}.${next_patch}"
+    fi
+
+    echo "$target_version"
+}
+
 generate_version_info() {
     if command -v check_prerequisites >/dev/null 2>&1; then
         check_prerequisites
@@ -432,41 +492,11 @@ generate_version_info() {
         commit_count=$(git rev-list --count "$commit_range" 2>/dev/null || echo "0")
     fi
 
-    # Extract major, minor, patch numbers ensuring they are valid integers
-    major=$(echo "$base_version" | cut -d. -f1 | tr -cd '0-9')
-    minor=$(echo "$base_version" | cut -d. -f2 | tr -cd '0-9')
-    patch=$(echo "$base_version" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1 | tr -cd '0-9')
-
-    major=${major:-0}
-    minor=${minor:-0}
-    patch=${patch:-0}
-
     # If exactly on a tagged release with no new commits
     if [ -n "$last_tag" ] && [ "$commit_count" -eq 0 ]; then
         final_version="$base_version"
     else
-        # Predict the next version bump based on conventional commits in range
-        has_breaking=0
-        has_feat=0
-
-        # Check for breaking changes (BREAKING CHANGE: in footer or ! before colon in header)
-        if git log "$commit_range" --format="%s%n%b" 2>/dev/null | grep -qE "(^BREAKING[ -]CHANGE:|^[a-zA-Z]+(\([^)]+\))?!:)"; then
-            has_breaking=1
-        elif git log "$commit_range" --format="%s" 2>/dev/null | grep -qE "^feat(\([^)]+\))?:"; then
-            has_feat=1
-        fi
-
-        if [ "$has_breaking" -eq 1 ]; then
-            next_major=$((major + 1))
-            target_version="${next_major}.0.0"
-        elif [ "$has_feat" -eq 1 ]; then
-            next_minor=$((minor + 1))
-            target_version="${major}.${next_minor}.0"
-        else
-            next_patch=$((patch + 1))
-            target_version="${major}.${minor}.${next_patch}"
-        fi
-
+        target_version=$(calculate_target_version)
         current_date=$(date +%Y%m%d)
         current_commit_hash=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -476,6 +506,124 @@ generate_version_info() {
     echo "$final_version" > "$GIT_ROOT/VERSION"
     echo "Version information written to VERSION file: $final_version"
 } 
+
+
+# =============================================================================
+# Tag Functions
+# =============================================================================
+create_tag() {
+    if command -v check_prerequisites >/dev/null 2>&1; then
+        check_prerequisites
+    fi
+
+    target_ver=""
+    no_prefix=0
+    message=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --no-v|--no-prefix)
+                no_prefix=1
+                shift
+                ;;
+            -m|--message)
+                if [ $# -lt 2 ]; then
+                    echo "Error: -m option requires a message argument" >&2
+                    return 1
+                fi
+                message="$2"
+                shift 2
+                ;;
+            -h|--help)
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "tag"
+                else
+                    echo "Usage: $0 tag [version] [--no-v] [-m \"message\"]"
+                fi
+                return 0
+                ;;
+            -*)
+                echo "Error: Unknown option '$1'" >&2
+                echo "Run '$0 help tag' for usage." >&2
+                return 1
+                ;;
+            *)
+                if [ -z "$target_ver" ]; then
+                    target_ver="$1"
+                else
+                    echo "Error: Unexpected argument '$1'" >&2
+                    return 1
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # If no version argument was provided, use the predictive version
+    if [ -z "$target_ver" ]; then
+        if ! command -v calculate_target_version >/dev/null 2>&1; then
+            echo "Error: calculate_target_version function not found" >&2
+            return 1
+        fi
+        clean_ver=$(calculate_target_version)
+        if [ -z "$clean_ver" ]; then
+            echo "Error: Could not calculate predictive version" >&2
+            return 1
+        fi
+    else
+        # Normalize provided version argument: accepts 2, 2.1, 2.1.0, v2, v2.1, v2.1.0
+        clean_ver=$(echo "$target_ver" | sed -E 's/^[vV]//')
+        if echo "$clean_ver" | grep -qE '^[0-9]+$'; then
+            clean_ver="${clean_ver}.0.0"
+        elif echo "$clean_ver" | grep -qE '^[0-9]+\.[0-9]+$'; then
+            clean_ver="${clean_ver}.0"
+        elif echo "$clean_ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            :
+        else
+            echo "Error: Invalid version format '$target_ver'. Expected: 2, 2.1, 2.1.0 or v2.1.0" >&2
+            return 1
+        fi
+    fi
+
+    # Determine final tag name with or without 'v' prefix
+    if [ "$no_prefix" -eq 1 ]; then
+        tag_name="$clean_ver"
+    else
+        tag_name="v$clean_ver"
+    fi
+
+    # Verify if tag already exists in Git
+    if git rev-parse -q --verify "refs/tags/$tag_name" >/dev/null 2>&1; then
+        echo "Error: Tag '$tag_name' already exists." >&2
+        return 1
+    fi
+
+    # Set default message if not provided
+    if [ -z "$message" ]; then
+        message="Release $tag_name"
+    fi
+
+    # Create annotated tag
+    git tag -a "$tag_name" -m "$message"
+
+    # Update VERSION and CHANGELOG.md
+    if command -v generate_version_info >/dev/null 2>&1; then
+        generate_version_info >/dev/null 2>&1 || echo "$clean_ver" > "$GIT_ROOT/VERSION"
+    else
+        echo "$clean_ver" > "$GIT_ROOT/VERSION"
+    fi
+
+    if command -v generate_changelog >/dev/null 2>&1; then
+        generate_changelog
+    fi
+
+    echo "Tag '$tag_name' created successfully."
+    echo "Updated VERSION: $clean_ver"
+    echo "Updated CHANGELOG.md"
+    echo ""
+    echo "To push the tag to remote, run:"
+    echo "  git push origin $tag_name"
+}
 
 
 # =============================================================================
@@ -572,76 +720,235 @@ post_commit() {
 # Help Functions
 # =============================================================================
 show_help() {
-    echo "Git Conventional Commits Helper Script"
-    echo "====================================="
-    echo ""
-    echo "This script provides tools for managing git commits following conventional commit"
-    echo "standards, version management, and changelog generation."
-    echo ""
-    echo "Usage:"
-    echo "  $0 [command] [options]"
-    echo ""
-    echo "Commands:"
-    echo "  commit <message>    Create a commit with a conventional commit message"
-    echo "  install            Install git hooks for commit message validation"
-    echo "  version            Generate version information file"
-    echo "  changelog          Generate or update CHANGELOG.md"
-    echo "  update             Update the script to the latest version"
-    echo "  help               Show this help message"
-    echo ""
-    echo "Git Hooks:"
-    echo "  commit-msg         Validates commit messages for conventional commit format"
-    echo "  post-commit        Automatically updates changelog and version after commit"
-    echo ""
-    echo "Commit Message Format:"
-    echo "  <type>(<scope>): <subject>"
-    echo ""
-    echo "Types:"
-    echo "  feat     - New feature"
-    echo "  fix      - Bug fix"
-    echo "  perf     - Performance improvement"
-    echo "  refactor - Code refactoring"
-    echo "  revert   - Revert changes"
-    echo "  chore    - Maintenance tasks"
-    echo "  build    - Build system changes"
-    echo "  ci       - CI configuration changes"
-    echo "  docs     - Documentation changes"
-    echo "  ops      - Operational changes"
-    echo "  style    - Code style changes"
-    echo "  test     - Test related changes"
-    echo "  merge    - Merge commits"
-    echo ""
-    echo "Scopes:"
-    echo "  ui       - User interface changes"
-    echo "  docs     - Documentation changes"
-    echo "  api      - API changes"
-    echo "  docker   - Docker related changes"
-    echo "  db       - Database changes"
-    echo ""
-    echo "Subscopes:"
-    echo "  components - UI components"
-    echo "  pages      - Page components"
-    echo "  services   - Service layer"
-    echo "  utils      - Utility functions"
-    echo "  auth       - Authentication related"
-    echo ""
-    echo "Environment Variables:"
-    echo "  DISABLE_SUBSCOPES         - Set to 1 to disable subscopes"
-    echo "  DISABLE_MULTIPLE_SCOPES   - Set to 1 to disable multiple scopes"
-    echo "  ALLOW_ANY_SUBSCOPE        - Set to 1 to allow any subscope"
-    echo "  ALLOW_ANY_SCOPE           - Set to 1 to allow any scope"
-    echo ""
-    echo "Examples:"
-    echo "  $0 commit 'feat(ui): add new button'"
-    echo "  $0 commit 'fix(api/auth): resolve login issue'"
-    echo "  $0 install"
-    echo "  $0 version"
-    echo "  $0 changelog"
-    echo "  $0 update"
-    echo ""
-    echo "Note: After installation, git hooks will automatically validate commit messages"
-    echo "and update the changelog and version information after each commit."
-} 
+    target="${1:-}"
+
+    case "$target" in
+        "version")
+            echo "cccp.sh version - Predictive Semantic Versioning"
+            echo "==============================================="
+            echo ""
+            echo "Calculates and outputs predictive Semantic Versioning (SemVer) metadata"
+            echo "based on Git commits and release tags, writing the result to 'VERSION'."
+            echo ""
+            echo "Usage:"
+            echo "  $0 version"
+            echo ""
+            echo "How it works:"
+            echo "  1. Baseline Discovery:"
+            echo "     - Scans Git history for the most recent valid SemVer tag (e.g. v1.2.0 or 1.2.0)."
+            echo "     - If no tag exists, uses DEFAULT_BASE_VERSION (default: 0.2.0)."
+            echo ""
+            echo "  2. Commit Inspection (range: <last_tag>..HEAD):"
+            echo "     - Evaluates all commit messages following Conventional Commits format:"
+            echo "       * MAJOR bump (X+1.0.0): Triggered by breaking change indicators:"
+            echo "         - 'BREAKING CHANGE:' or 'BREAKING-CHANGE:' in commit body/footer"
+            echo "         - '!' before colon in header (e.g. 'feat!:', 'fix(api)!:')"
+            echo "       * MINOR bump (X.Y+1.0): Triggered by feature commits ('feat:' or 'feat(...):')"
+            echo "       * PATCH bump (X.Y.Z+1): Triggered by any other conventional commit"
+            echo "         (e.g. 'fix:', 'perf:', 'refactor:', 'docs:', 'chore:', etc.)"
+            echo ""
+            echo "  3. Output Format (in VERSION file):"
+            echo "     - Clean release (commit is on a tag with 0 new commits):"
+            echo "       <major>.<minor>.<patch> (e.g. 1.2.0)"
+            echo "     - Development build (has new commits since last tag):"
+            echo "       <target_version>-dev.<commit_count>+<YYYYMMDD>.<short_commit_hash>"
+            echo "       Example: 1.3.0-dev.4+20260914.7a3c2b1"
+            echo ""
+            echo "Related commands:"
+            echo "  $0 tag          - Create an annotated Git tag using the predicted version"
+            echo "  $0 changelog    - Generate CHANGELOG.md based on conventional commits"
+            ;;
+        "tag")
+            echo "cccp.sh tag - Create Release Tag & Synchronize Version/Changelog"
+            echo "================================================================"
+            echo ""
+            echo "Creates an annotated Git tag, writes the clean version into 'VERSION',"
+            echo "and regenerates 'CHANGELOG.md' to reflect the new release."
+            echo ""
+            echo "Usage:"
+            echo "  $0 tag [version] [options]"
+            echo ""
+            echo "Arguments:"
+            echo "  [version]         Target version. Optional. If omitted, uses the"
+            echo "                    predictive SemVer version calculated from commits."
+            echo "                    Flexible formats accepted:"
+            echo "                      2       -> normalized to v2.0.0"
+            echo "                      2.1     -> normalized to v2.1.0"
+            echo "                      2.1.3   -> normalized to v2.1.3"
+            echo "                      v2.1.3  -> normalized to v2.1.3"
+            echo ""
+            echo "Options:"
+            echo "  --no-v            Create tag without 'v' prefix (e.g. 2.1.0 instead of v2.1.0)"
+            echo "  -m, --message     Custom tag annotation message (default: 'Release <tag>')"
+            echo "  -h, --help        Show this help message"
+            echo ""
+            echo "Actions performed:"
+            echo "  1. Validates git repository status and verifies the tag does not already exist."
+            echo "  2. Creates annotated Git tag (git tag -a <tag> -m <message>)."
+            echo "  3. Writes clean version (e.g. 2.1.0) to VERSION file."
+            echo "  4. Regenerates CHANGELOG.md including the new tag section."
+            echo ""
+            echo "Examples:"
+            echo "  $0 tag                     # Automatically tag with predicted version (e.g. v0.3.0)"
+            echo "  $0 tag 2                   # Creates tag v2.0.0"
+            echo "  $0 tag 2.1                 # Creates tag v2.1.0"
+            echo "  $0 tag 2.1.0               # Creates tag v2.1.0"
+            echo "  $0 tag 2.1.0 --no-v        # Creates tag 2.1.0 (without 'v')"
+            echo "  $0 tag 1.0.0 -m 'First GA' # Creates tag with custom annotation"
+            ;;
+        "commit")
+            echo "cccp.sh commit - Conventional Commit Creation"
+            echo "============================================="
+            echo ""
+            echo "Validates and creates a Git commit following the Conventional Commits specification."
+            echo ""
+            echo "Usage:"
+            echo "  $0 commit <message>"
+            echo ""
+            echo "Format:"
+            echo "  <type>(<scope>): <subject>"
+            echo "  <type>(<scope>/<subscope>): <subject>"
+            echo "  <type>!: <subject>  (Breaking Change)"
+            echo ""
+            echo "Types:"
+            echo "  feat     - New feature"
+            echo "  fix      - Bug fix"
+            echo "  perf     - Performance improvement"
+            echo "  refactor - Code refactoring"
+            echo "  revert   - Revert changes"
+            echo "  chore    - Maintenance tasks"
+            echo "  build    - Build system changes"
+            echo "  ci       - CI configuration changes"
+            echo "  docs     - Documentation changes"
+            echo "  ops      - Operational changes"
+            echo "  style    - Code style changes"
+            echo "  test     - Test related changes"
+            echo "  merge    - Merge commits"
+            echo ""
+            echo "Examples:"
+            echo "  $0 commit 'feat(ui): add dark mode switch'"
+            echo "  $0 commit 'fix(api/auth): handle expired tokens'"
+            echo "  $0 commit 'feat(core)!: drop support for legacy protocols'"
+            ;;
+        "changelog")
+            echo "cccp.sh changelog - Conventional Changelog Generation"
+            echo "===================================================="
+            echo ""
+            echo "Parses conventional commits in the Git history and generates or updates CHANGELOG.md."
+            echo ""
+            echo "Usage:"
+            echo "  $0 changelog"
+            echo ""
+            echo "How it works:"
+            echo "  1. Groups unreleased commits under '## [Unreleased]'."
+            echo "  2. Groups commits between tags under each '### [<tag>]' release header."
+            echo "  3. Categorizes commits into:"
+            echo "     - Features (feat)"
+            echo "     - Bug Fixes (fix)"
+            echo "     - Performance Improvements (perf)"
+            ;;
+        "install")
+            echo "cccp.sh install - Install Git Hooks"
+            echo "==================================="
+            echo ""
+            echo "Installs Git hooks in '.git/hooks' to automate validation and release metadata:"
+            echo ""
+            echo "Usage:"
+            echo "  $0 install"
+            echo ""
+            echo "Hooks installed:"
+            echo "  - commit-msg:  Validates commit message format against Conventional Commits."
+            echo "  - post-commit: Automatically runs 'changelog' and 'version' after each commit."
+            ;;
+        "update")
+            echo "cccp.sh update - Update Script"
+            echo "=============================="
+            echo ""
+            echo "Downloads and replaces the current cccp.sh script with the latest version"
+            echo "from the upstream GitHub repository."
+            echo ""
+            echo "Usage:"
+            echo "  $0 update"
+            ;;
+        *)
+            echo "Git Conventional Commits Helper Script"
+            echo "====================================="
+            echo ""
+            echo "This script provides tools for managing git commits following conventional commit"
+            echo "standards, version management, and changelog generation."
+            echo ""
+            echo "Usage:"
+            echo "  $0 [command] [options]"
+            echo ""
+            echo "Commands:"
+            echo "  commit <message>    Create a commit with a conventional commit message"
+            echo "  install            Install git hooks for commit message validation"
+            echo "  version            Generate version information file"
+            echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
+            echo "  changelog          Generate or update CHANGELOG.md"
+            echo "  update             Update the script to the latest version"
+            echo "  help [command]     Show this help message or deep help on a command"
+            echo ""
+            echo "Git Hooks:"
+            echo "  commit-msg         Validates commit messages for conventional commit format"
+            echo "  post-commit        Automatically updates changelog and version after commit"
+            echo ""
+            echo "Commit Message Format:"
+            echo "  <type>(<scope>): <subject>"
+            echo ""
+            echo "Types:"
+            echo "  feat     - New feature"
+            echo "  fix      - Bug fix"
+            echo "  perf     - Performance improvement"
+            echo "  refactor - Code refactoring"
+            echo "  revert   - Revert changes"
+            echo "  chore    - Maintenance tasks"
+            echo "  build    - Build system changes"
+            echo "  ci       - CI configuration changes"
+            echo "  docs     - Documentation changes"
+            echo "  ops      - Operational changes"
+            echo "  style    - Code style changes"
+            echo "  test     - Test related changes"
+            echo "  merge    - Merge commits"
+            echo ""
+            echo "Scopes:"
+            echo "  ui       - User interface changes"
+            echo "  docs     - Documentation changes"
+            echo "  api      - API changes"
+            echo "  docker   - Docker related changes"
+            echo "  db       - Database changes"
+            echo ""
+            echo "Subscopes:"
+            echo "  components - UI components"
+            echo "  pages      - Page components"
+            echo "  services   - Service layer"
+            echo "  utils      - Utility functions"
+            echo "  auth       - Authentication related"
+            echo ""
+            echo "Environment Variables:"
+            echo "  DISABLE_SUBSCOPES         - Set to 1 to disable subscopes"
+            echo "  DISABLE_MULTIPLE_SCOPES   - Set to 1 to disable multiple scopes"
+            echo "  ALLOW_ANY_SUBSCOPE        - Set to 1 to allow any subscope"
+            echo "  ALLOW_ANY_SCOPE           - Set to 1 to allow any scope"
+            echo ""
+            echo "Examples:"
+            echo "  $0 commit 'feat(ui): add new button'"
+            echo "  $0 commit 'fix(api/auth): resolve login issue'"
+            echo "  $0 install"
+            echo "  $0 version"
+            echo "  $0 tag 2.1.0"
+            echo "  $0 changelog"
+            echo "  $0 update"
+            echo "  $0 help version"
+            echo ""
+            echo "Note: After installation, git hooks will automatically validate commit messages"
+            echo "and update the changelog and version information after each commit."
+            echo ""
+            echo "For in-depth help on any command, run:"
+            echo "  $0 help <command> (e.g. $0 help version, $0 help tag)"
+            ;;
+    esac
+}
 
 
 # =============================================================================
@@ -668,6 +975,36 @@ commit() {
 
 
 # =============================================================================
+# Update Functions
+# =============================================================================
+update_script() {
+    echo "Updating cccp.sh from $UPDATE_URL..."
+    
+    # Download the new script
+    if ! wget -q "$UPDATE_URL" -O "$GIT_ROOT/cccp.sh.new"; then
+        echo "Error: Failed to download the new script"
+        return 1
+    fi
+    
+    # Make the new script executable
+    chmod +x "$GIT_ROOT/cccp.sh.new"
+    
+    # Backup the current script
+    if [ -f "$GIT_ROOT/cccp.sh" ]; then
+        mv "$GIT_ROOT/cccp.sh" "$GIT_ROOT/cccp.sh.bak"
+    fi
+    
+    # Replace the current script with the new one
+    mv "$GIT_ROOT/cccp.sh.new" "$GIT_ROOT/cccp.sh"
+    
+    echo "Successfully updated cccp.sh"
+    echo "A backup of your previous version was saved as cccp.sh.bak"
+    
+    return 0
+}
+
+
+# =============================================================================
 # Main script entry point
 # =============================================================================
 main() {
@@ -691,17 +1028,46 @@ main() {
             exit 0
             ;;
         "commit")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "commit"
+                    exit 0
+                    ;;
+            esac
             commit "$2"
             exit 0
             ;;
         "install")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "install"
+                    exit 0
+                    ;;
+            esac
             install_git_hooks
             ;;
         "version")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "version"
+                    exit 0
+                    ;;
+            esac
             generate_version_info
             exit 0
             ;;
+        "tag")
+            shift || true
+            create_tag "$@"
+            exit 0
+            ;;
         "changelog")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "changelog"
+                    exit 0
+                    ;;
+            esac
             generate_changelog
             exit 0
             ;;
@@ -714,11 +1080,22 @@ main() {
             exit 0
             ;;
         "update")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "update"
+                    exit 0
+                    ;;
+            esac
             update_script
             exit 0
             ;;
+        "help"|"-h"|"--help")
+            show_help "${2:-}"
+            exit 0
+            ;;
         *)
-            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit|update]"
+            echo "Usage: $0 [git|commit|install|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
     esac

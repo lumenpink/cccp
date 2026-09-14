@@ -86,6 +86,12 @@ printf "# Version Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/version.sh" >> "$OUTPUT_FILE"
 
+# Add tag function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Tag Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/tag.sh" >> "$OUTPUT_FILE"
+
 # Add hooks function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Hooks Functions\n" >> "$OUTPUT_FILE"
@@ -116,6 +122,12 @@ printf "# Commit Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/commit.sh" >> "$OUTPUT_FILE"
 
+# Add update function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Update Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/update.sh" >> "$OUTPUT_FILE"
+
 # Add main function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Main script entry point\n" >> "$OUTPUT_FILE"
@@ -142,17 +154,46 @@ main() {
             exit 0
             ;;
         "commit")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "commit"
+                    exit 0
+                    ;;
+            esac
             commit "$2"
             exit 0
             ;;
         "install")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "install"
+                    exit 0
+                    ;;
+            esac
             install_git_hooks
             ;;
         "version")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "version"
+                    exit 0
+                    ;;
+            esac
             generate_version_info
             exit 0
             ;;
+        "tag")
+            shift || true
+            create_tag "$@"
+            exit 0
+            ;;
         "changelog")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "changelog"
+                    exit 0
+                    ;;
+            esac
             generate_changelog
             exit 0
             ;;
@@ -165,11 +206,22 @@ main() {
             exit 0
             ;;
         "update")
+            case "${2:-}" in
+                "-h"|"--help")
+                    show_help "update"
+                    exit 0
+                    ;;
+            esac
             update_script
             exit 0
             ;;
+        "help"|"-h"|"--help")
+            show_help "${2:-}"
+            exit 0
+            ;;
         *)
-            echo "Usage: $0 [git|commit|install|version|changelog|commit-msg|post-commit|update]"
+            echo "Usage: $0 [git|commit|install|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
     esac

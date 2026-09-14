@@ -21,5 +21,22 @@ Describe 'Help Function'
       The output should include "Environment Variables:"
       The output should include "Examples:"
     End
+
+    It 'displays help information for version command'
+      When call show_help "version"
+      The output should include "Predictive Semantic Versioning"
+      The output should include "Baseline Discovery"
+      The output should include "Commit Inspection"
+      The output should include "MAJOR bump"
+      The output should include "MINOR bump"
+      The output should include "PATCH bump"
+    End
+
+    It 'displays help information for tag command'
+      When call show_help "tag"
+      The output should include "Create Release Tag"
+      The output should include "--no-v"
+      The output should include "-m, --message"
+    End
   End
 End 

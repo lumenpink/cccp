@@ -75,9 +75,23 @@ Available commands:
 - `commit <message>`    - Create a commit after validating message formatting
 - `install`             - Install Git hooks for commit message validation and automated versioning
 - `version`             - Generate and write predictive version information to `VERSION`
+- `tag [version]`       - Create release tag, update `VERSION` and regenerate `CHANGELOG.md`
 - `changelog`           - Generate or update `CHANGELOG.md`
 - `update`              - Self-update the script to the latest upstream release
-- `help`                - Display usage help message
+- `help [command]`      - Display general help or deep-dive help on a specific command
+
+### Release Tagging (`tag`)
+
+The `tag` command generates an annotated Git tag, syncs `VERSION`, and rebuilds `CHANGELOG.md`:
+
+```bash
+./cccp.sh tag                     # Auto-tags with the predicted SemVer version (e.g. v1.2.0)
+./cccp.sh tag 2                   # Normalized to v2.0.0
+./cccp.sh tag 2.1                 # Normalized to v2.1.0
+./cccp.sh tag 2.1.0               # Normalized to v2.1.0
+./cccp.sh tag 2.1.0 --no-v        # Tagged as 2.1.0 (without 'v' prefix)
+./cccp.sh tag 1.0.0 -m "Release"  # Custom tag annotation message
+```
 
 ### Git Hooks
 
