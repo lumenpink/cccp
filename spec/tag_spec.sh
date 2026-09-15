@@ -71,5 +71,17 @@ Describe 'tag'
       The output should include "Tag 'v3.1.0' created successfully."
       The contents of file VERSION should eq "3.1.0"
     End
+
+    It 'creates tag with custom message using -m'
+      When call create_tag 4.0.0 -m "Custom major release"
+      The output should include "Tag 'v4.0.0' created successfully."
+      The contents of file VERSION should eq "4.0.0"
+    End
+
+    It 'rejects invalid version format'
+      When call create_tag "invalid_version"
+      The error should include "Error: Invalid version format"
+      The status should be failure
+    End
   End
 End

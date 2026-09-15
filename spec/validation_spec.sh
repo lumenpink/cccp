@@ -25,6 +25,26 @@ Describe 'validation'
       The status should be success
     End
 
+    It 'accepts breaking change marker ! in type'
+      When call validate_commit_message "feat!: drop legacy endpoint"
+      The status should be success
+    End
+
+    It 'accepts breaking change marker ! after scope'
+      When call validate_commit_message "feat(api)!: drop legacy endpoint"
+      The status should be success
+    End
+
+    It 'permits unlisted scope by default (STRICT_SCOPES=0)'
+      When call validate_commit_message "feat(arbitrary-scope): something"
+      The status should be success
+    End
+
+    It 'permits unlisted subscope by default (STRICT_SUBSCOPES=0)'
+      When call validate_commit_message "feat(ui/arbitrary-sub): something"
+      The status should be success
+    End
+
     It 'rejects invalid commit type'
       When call validate_commit_message "invalid: some message"
       The status should be failure
@@ -37,15 +57,28 @@ Describe 'validation'
       The output should include "Error: Commit message must have a subject"
     End
 
-    It 'rejects invalid scope'
+    It 'rejects invalid scope when STRICT_SCOPES=1'
+      BeforeCall 'STRICT_SCOPES=1'
+      When call validate_commit_message "feat(invalid): some message"
+      The status should be failure
+      The output should include "Error: Invalid scope 'invalid'"
+    End
+
+    It 'rejects invalid subscope when STRICT_SUBSCOPES=1'
+      BeforeCall 'STRICT_SUBSCOPES=1'
+      When call validate_commit_message "feat(ui/invalid): some message"
+      The status should be failure
+      The output should include "Error: Invalid subscope 'invalid'"
+    End
+
+    It 'maintains backward compatibility with ALLOW_ANY_SCOPE=0'
       BeforeCall 'ALLOW_ANY_SCOPE=0'
       When call validate_commit_message "feat(invalid): some message"
       The status should be failure
       The output should include "Error: Invalid scope 'invalid'"
     End
 
-    It 'rejects invalid subscope'
-      BeforeCall 'ALLOW_ANY_SCOPE=0'
+    It 'maintains backward compatibility with ALLOW_ANY_SUBSCOPE=0'
       BeforeCall 'ALLOW_ANY_SUBSCOPE=0'
       When call validate_commit_message "feat(ui/invalid): some message"
       The status should be failure
@@ -72,4 +105,4 @@ Describe 'validation'
       The output should include "Error: Multiple scopes are disabled"
     End
   End
-End 
+End
