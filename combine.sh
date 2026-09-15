@@ -156,6 +156,24 @@ main() {
             command="$current_hook"
             ;;
     esac
+
+    # Hook version audit in git repositories
+    if [ -n "${GIT_ROOT:-}" ] && command -v check_hook_version >/dev/null 2>&1; then
+        case "$command" in
+            "commit"|"commit-msg"|"post-commit")
+                check_hook_version || true
+                ;;
+        esac
+    fi
+
+    # Non-blocking periodic update check on interactive user commands
+    if command -v check_auto_update >/dev/null 2>&1; then
+        case "$command" in
+            "commit"|"version"|"tag"|"changelog"|"config")
+                check_auto_update || true
+                ;;
+        esac
+    fi
     
     case "$command" in
         "git")
@@ -211,13 +229,8 @@ main() {
             exit 0
             ;;
         "update")
-            case "${2:-}" in
-                "-h"|"--help")
-                    show_help "update"
-                    exit 0
-                    ;;
-            esac
-            update_script
+            shift || true
+            update_script "$@"
             exit 0
             ;;
         "help"|"-h"|"--help")

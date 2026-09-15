@@ -1,34 +1,238 @@
 #!/bin/sh
 
-# Source the configuration
-. "$(dirname "$(dirname "$0")")/config/config.sh"
+# Enable error handling
+set -eu
 
-# Function to update the script
-update_script() {
-    echo "Updating cccp.sh from $UPDATE_URL..."
-    
-    # Download the new script
-    if ! wget -q "$UPDATE_URL" -O "$GIT_ROOT/cccp.sh.new"; then
-        echo "Error: Failed to download the new script"
-        return 1
+# Source dependencies if available
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ]; then
+    . "$GIT_ROOT/src/config/config.sh"
+fi
+
+get_current_version() {
+    if [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/VERSION" ]; then
+        head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n'
+    elif command -v cccp >/dev/null 2>&1; then
+        cccp version 2>/dev/null | head -n 1 || echo "${SCRIPT_VERSION:-1.1.0}"
+    else
+        echo "${SCRIPT_VERSION:-1.1.0}"
     fi
-    
-    # Make the new script executable
-    chmod +x "$GIT_ROOT/cccp.sh.new"
-    
-    # Backup the current script
-    if [ -f "$GIT_ROOT/cccp.sh" ]; then
-        mv "$GIT_ROOT/cccp.sh" "$GIT_ROOT/cccp.sh.bak"
+}
+
+get_update_cache_file() {
+    if command -v get_global_config_dir >/dev/null 2>&1; then
+        echo "$(get_global_config_dir)/update_cache"
+    else
+        echo "${XDG_CONFIG_HOME:-$HOME/.config}/cccp/update_cache"
     fi
-    
-    # Replace the current script with the new one
-    mv "$GIT_ROOT/cccp.sh.new" "$GIT_ROOT/cccp.sh"
-    
-    echo "Successfully updated cccp.sh"
-    echo "A backup of your previous version was saved as cccp.sh.bak"
-    
+}
+
+# -----------------------------------------------------------------------------
+# Hook version audit: verify that repo hooks match current cccp version
+# -----------------------------------------------------------------------------
+check_hook_version() {
+    [ -z "${GIT_ROOT:-}" ] && return 0
+    hooks_dir="${GIT_HOOKS_DIR:-$GIT_ROOT/.git/hooks}"
+    [ ! -d "$hooks_dir" ] && return 0
+
+    curr_ver=$(get_current_version)
+
+    for hook in commit-msg post-commit; do
+        hook_file="$hooks_dir/$hook"
+        if [ -f "$hook_file" ]; then
+            hook_ver=$(awk '/^# cccp-hook-version:/ { print $3; exit }' "$hook_file")
+            if [ -n "$hook_ver" ] && [ "$hook_ver" != "$curr_ver" ]; then
+                echo "[cccp] Warning: Git hook '$hook' was installed with cccp v$hook_ver (current: v$curr_ver)." >&2
+                echo "[cccp] Run 'cccp install' to synchronize git hooks with your current cccp version." >&2
+                return 0
+            fi
+        fi
+    done
     return 0
 }
 
-# Execute the update
-update_script 
+# -----------------------------------------------------------------------------
+# Auto-check for updates every N days (non-blocking)
+# -----------------------------------------------------------------------------
+check_auto_update() {
+    # Check if update checks are enabled
+    if [ "${CHECK_UPDATES:-1}" = "0" ]; then
+        return 0
+    fi
+
+    # Require curl or wget
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+        return 0
+    fi
+
+    cache_file=$(get_update_cache_file)
+    interval_days="${UPDATE_INTERVAL_DAYS:-30}"
+    interval_sec=$(( interval_days * 86400 ))
+
+    now=$(date +%s 2>/dev/null || true)
+    [ -z "$now" ] && return 0
+
+    last_check=0
+    cached_latest=""
+
+    if [ -f "$cache_file" ]; then
+        last_check=$(awk -F= '/^last_check_timestamp=/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }' "$cache_file" 2>/dev/null || true)
+        cached_latest=$(awk -F= '/^latest_version=/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }' "$cache_file" 2>/dev/null || true)
+    fi
+    last_check="${last_check:-0}"
+
+    curr_ver=$(get_current_version)
+
+    # If interval expired, check remote version
+    if [ $(( now - last_check )) -ge $interval_sec ]; then
+        channel="${UPDATE_CHANNEL:-stable}"
+        remote_ver=""
+
+        if [ "$channel" = "nightly" ]; then
+            remote_ver="nightly"
+        else
+            api_url="https://api.github.com/repos/lumenpink/cccp.sh/releases/latest"
+            response=""
+            if command -v curl >/dev/null 2>&1; then
+                response=$(curl -s --max-time 2 "$api_url" 2>/dev/null || true)
+            elif command -v wget >/dev/null 2>&1; then
+                response=$(wget -q -T 2 -O- "$api_url" 2>/dev/null || true)
+            fi
+
+            if [ -n "$response" ]; then
+                remote_ver=$(echo "$response" | awk -F'"' '/"tag_name":/ { print $4; exit }' | sed 's/^v//')
+            fi
+        fi
+
+        if [ -n "$remote_ver" ]; then
+            cached_latest="$remote_ver"
+            mkdir -p "$(dirname "$cache_file")"
+            cat > "$cache_file" <<EOF
+last_check_timestamp=$now
+latest_version=$cached_latest
+EOF
+        fi
+    fi
+
+    # If cached latest version differs from current version, notify user
+    if [ -n "$cached_latest" ] && [ "$cached_latest" != "$curr_ver" ] && [ "$cached_latest" != "v$curr_ver" ]; then
+        echo "[cccp] Notice: A newer version of cccp is available ($cached_latest vs current $curr_ver)." >&2
+        echo "[cccp] Run 'cccp update' to update to the latest ${UPDATE_CHANNEL:-stable} release." >&2
+    fi
+
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+# Function to update the script binary
+# -----------------------------------------------------------------------------
+update_script() {
+    channel="${UPDATE_CHANNEL:-stable}"
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --channel|-c)
+                if [ $# -lt 2 ]; then
+                    echo "Error: --channel requires an argument (stable or nightly)" >&2
+                    return 1
+                fi
+                channel="$2"
+                shift 2
+                ;;
+            -h|--help)
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "update"
+                else
+                    echo "Usage: cccp update [--channel stable|nightly]"
+                fi
+                return 0
+                ;;
+            *)
+                echo "Error: Unexpected argument '$1'" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    case "$channel" in
+        stable)
+            download_url="https://github.com/lumenpink/cccp.sh/releases/latest/download/cccp.sh"
+            ;;
+        nightly)
+            download_url="https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh"
+            ;;
+        *)
+            echo "Error: Invalid update channel '$channel'. Choose 'stable' or 'nightly'." >&2
+            return 1
+            ;;
+    esac
+
+    # Determine target file to update
+    target=""
+    if command -v cccp >/dev/null 2>&1; then
+        target=$(command -v cccp)
+    elif [ -f "${0:-}" ] && [ -w "${0:-}" ]; then
+        target="${0:-}"
+    elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/cccp.sh" ]; then
+        target="$GIT_ROOT/cccp.sh"
+    elif [ -f "./cccp.sh" ]; then
+        target="./cccp.sh"
+    else
+        target="${XDG_BIN_HOME:-$HOME/.local/bin}/cccp"
+    fi
+
+    echo "Updating cccp from channel '$channel'..."
+    echo "Downloading from: $download_url"
+
+    tmp_file="$(mktemp)"
+    if command -v curl >/dev/null 2>&1; then
+        if ! curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Error: Failed to download update from $download_url" >&2
+            rm -f "$tmp_file"
+            return 1
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        if ! wget -q "$download_url" -O "$tmp_file" 2>/dev/null; then
+            echo "Error: Failed to download update from $download_url" >&2
+            rm -f "$tmp_file"
+            return 1
+        fi
+    else
+        echo "Error: Neither curl nor wget is available." >&2
+        rm -f "$tmp_file"
+        return 1
+    fi
+
+    if [ ! -s "$tmp_file" ]; then
+        echo "Error: Downloaded update is empty." >&2
+        rm -f "$tmp_file"
+        return 1
+    fi
+
+    chmod +x "$tmp_file"
+
+    # Backup if target exists
+    if [ -f "$target" ]; then
+        cp "$target" "$target.bak"
+        echo "Backup saved to: $target.bak"
+    else
+        mkdir -p "$(dirname "$target")"
+    fi
+
+    mv "$tmp_file" "$target"
+    chmod +x "$target"
+
+    # Refresh update cache timestamp
+    cache_file=$(get_update_cache_file)
+    now=$(date +%s 2>/dev/null || true)
+    if [ -n "$now" ]; then
+        mkdir -p "$(dirname "$cache_file")"
+        cat > "$cache_file" <<EOF
+last_check_timestamp=$now
+latest_version=updated
+EOF
+    fi
+
+    echo "Successfully updated cccp at: $target"
+    return 0
+}

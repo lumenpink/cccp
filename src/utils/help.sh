@@ -159,14 +159,23 @@ show_help() {
             echo "  - post-commit: Automatically runs 'changelog' and 'version' after each commit."
             ;;
         "update")
-            echo "cccp.sh update - Update Script"
-            echo "=============================="
+            echo "cccp.sh update - Update cccp to Latest Version"
+            echo "============================================="
             echo ""
-            echo "Downloads and replaces the current cccp.sh script with the latest version"
-            echo "from the upstream GitHub repository."
+            echo "Downloads and installs the latest cccp release from GitHub."
             echo ""
             echo "Usage:"
-            echo "  $0 update"
+            echo "  $0 update [--channel stable|nightly]"
+            echo ""
+            echo "Options:"
+            echo "  --channel, -c    Release channel to update from ('stable' or 'nightly', default: stable)"
+            echo "  -h, --help       Show this help message"
+            echo ""
+            echo "Configuration:"
+            echo "  Default channel and interval can be configured via:"
+            echo "    $0 config update_channel <stable|nightly>"
+            echo "    $0 config update_interval_days <days>"
+            echo "    $0 config check_updates <0|1>"
             ;;
         "config")
             echo "cccp.sh config - Manage Hierarchical Configuration"
