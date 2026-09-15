@@ -18,7 +18,7 @@ GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 # -----------------------------------------------------------------------------
 calculate_target_version() {
     last_tag=""
-    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+    default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
     # Check if the most recent tag is a valid SemVer
     raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -91,7 +91,7 @@ generate_version_info() {
     fi
 
     last_tag=""
-    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+    default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
     # Check if the most recent tag is a valid SemVer
     raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")

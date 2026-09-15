@@ -134,11 +134,16 @@ Breaking changes can be signaled in two standard ways:
 
 ### Configuration & Environment Variables
 
-- `ALLOW_ANY_SCOPE=1` (Default: `1`): Allows any non-empty scope. Set to `0` to enforce strict matching against `COMMIT_SCOPES`.
-- `ALLOW_ANY_SUBSCOPE=1` (Default: `1`): Allows any non-empty subscope. Set to `0` to enforce strict matching against `COMMIT_SUBSCOPES`.
-- `DISABLE_SUBSCOPES=1`: Prohibits slash-delimited subscopes.
-- `DISABLE_MULTIPLE_SCOPES=1`: Prohibits comma-separated multiple scopes.
-- `DEFAULT_BASE_VERSION="0.2.0"`: Fallback base version used when no SemVer tags exist in the Git history.
+All behavior flags adhere to canonical UNIX design and default to `0` (disabled/inert):
+
+- `STRICT_SCOPES=1`: Enforce strict matching against allowed `COMMIT_SCOPES` (by default, any non-empty scope is permitted).
+- `STRICT_SUBSCOPES=1`: Enforce strict matching against allowed `COMMIT_SUBSCOPES` (by default, any non-empty subscope is permitted).
+- `DISABLE_SUBSCOPES=1`: Prohibits slash-delimited subscopes (e.g. `api/auth`).
+- `DISABLE_MULTIPLE_SCOPES=1`: Prohibits comma-separated multiple scopes (e.g. `api, ui`).
+- `DEFAULT_BASE_VERSION="0.0.1"` (Default: `0.0.1`): Fallback base version used when no SemVer tags exist in the Git history.
+
+> [!NOTE]
+> **Backward Compatibility**: Legacy flags `ALLOW_ANY_SCOPE=0` and `ALLOW_ANY_SUBSCOPE=0` remain supported and automatically map to `STRICT_SCOPES=1` and `STRICT_SUBSCOPES=1`.
 
 ### Examples
 

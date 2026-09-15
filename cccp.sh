@@ -37,15 +37,23 @@ if [ -z "$GIT_ROOT" ]; then
 fi
 GIT_HOOK_FILE="cccp.sh"
 UPDATE_URL="https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh"
-DEFAULT_BASE_VERSION="0.2.0"
+DEFAULT_BASE_VERSION="${DEFAULT_BASE_VERSION:-0.0.1}"
 COMMIT_TYPES="feat fix perf refactor revert chore build ci docs ops style test merge"
 COMMIT_SCOPES="ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build"
 COMMIT_SUBSCOPES="components pages services utils auth models views controllers handlers"
 CHANGELOG_TYPES="feat fix perf refactor merge"
+STRICT_SCOPES=${STRICT_SCOPES:-0}
+STRICT_SUBSCOPES=${STRICT_SUBSCOPES:-0}
 DISABLE_SUBSCOPES=${DISABLE_SUBSCOPES:-0}
 DISABLE_MULTIPLE_SCOPES=${DISABLE_MULTIPLE_SCOPES:-0}
-ALLOW_ANY_SUBSCOPE=${ALLOW_ANY_SUBSCOPE:-1}
-ALLOW_ANY_SCOPE=${ALLOW_ANY_SCOPE:-1}
+if [ "${ALLOW_ANY_SCOPE:-1}" = "0" ]; then
+    STRICT_SCOPES=1
+fi
+if [ "${ALLOW_ANY_SUBSCOPE:-1}" = "0" ]; then
+    STRICT_SUBSCOPES=1
+fi
+ALLOW_ANY_SCOPE=$([ "$STRICT_SCOPES" = "1" ] && echo "0" || echo "1")
+ALLOW_ANY_SUBSCOPE=$([ "$STRICT_SUBSCOPES" = "1" ] && echo "0" || echo "1")
 GIT_HOOKS_LIST="commit-msg post-commit"
 
 # =============================================================================
@@ -165,7 +173,7 @@ validate_commit_message() {
             
             # Validate scope
             valid_scope=0
-            if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
+            if [ "${STRICT_SCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SCOPE:-1}" = "1" ]; then
                 valid_scope=1
             else
                 IFS=" "
@@ -186,7 +194,7 @@ validate_commit_message() {
             
             # Validate subscope
             valid_subscope=0
-            if [ "$ALLOW_ANY_SUBSCOPE" = "1" ]; then
+            if [ "${STRICT_SUBSCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SUBSCOPE:-1}" = "1" ]; then
                 valid_subscope=1
             else
                 IFS=" "
@@ -208,7 +216,7 @@ validate_commit_message() {
             scope=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             valid_scope=0
-            if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
+            if [ "${STRICT_SCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SCOPE:-1}" = "1" ]; then
                 valid_scope=1
             else
                 IFS=" "
@@ -402,7 +410,7 @@ generate_changelog() {
 # =============================================================================
 calculate_target_version() {
     last_tag=""
-    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+    default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
     # Check if the most recent tag is a valid SemVer
     raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -472,7 +480,7 @@ generate_version_info() {
     fi
 
     last_tag=""
-    default_base="${DEFAULT_BASE_VERSION:-0.2.0}"
+    default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
     # Check if the most recent tag is a valid SemVer
     raw_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -768,7 +776,7 @@ show_help() {
             echo "How it works:"
             echo "  1. Baseline Discovery:"
             echo "     - Scans Git history for the most recent valid SemVer tag (e.g. v1.2.0 or 1.2.0)."
-            echo "     - If no tag exists, uses DEFAULT_BASE_VERSION (default: 0.2.0)."
+            echo "     - If no tag exists, uses DEFAULT_BASE_VERSION (default: 0.0.1)."
             echo ""
             echo "  2. Commit Inspection (range: <last_tag>..HEAD):"
             echo "     - Evaluates all commit messages following Conventional Commits format:"
@@ -958,12 +966,13 @@ show_help() {
             echo "  services   - Service layer"
             echo "  utils      - Utility functions"
             echo "  auth       - Authentication related"
-            echo ""
             echo "Environment Variables:"
+            echo "  (All behavior flags default to 0 for inert/standard behavior)"
+            echo "  STRICT_SCOPES             - Set to 1 to enforce only listed scopes (legacy: ALLOW_ANY_SCOPE=0)"
+            echo "  STRICT_SUBSCOPES          - Set to 1 to enforce only listed subscopes (legacy: ALLOW_ANY_SUBSCOPE=0)"
             echo "  DISABLE_SUBSCOPES         - Set to 1 to disable subscopes"
             echo "  DISABLE_MULTIPLE_SCOPES   - Set to 1 to disable multiple scopes"
-            echo "  ALLOW_ANY_SUBSCOPE        - Set to 1 to allow any subscope"
-            echo "  ALLOW_ANY_SCOPE           - Set to 1 to allow any scope"
+            echo "  DEFAULT_BASE_VERSION      - Fallback base version when no tags exist (default: 0.0.1)"
             echo ""
             echo "Examples:"
             echo "  $0 commit 'feat(ui): add new button'"

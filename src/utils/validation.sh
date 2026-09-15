@@ -136,7 +136,7 @@ validate_commit_message() {
             
             # Validate scope
             valid_scope=0
-            if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
+            if [ "${STRICT_SCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SCOPE:-1}" = "1" ]; then
                 valid_scope=1
             else
                 IFS=" "
@@ -157,7 +157,7 @@ validate_commit_message() {
             
             # Validate subscope
             valid_subscope=0
-            if [ "$ALLOW_ANY_SUBSCOPE" = "1" ]; then
+            if [ "${STRICT_SUBSCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SUBSCOPE:-1}" = "1" ]; then
                 valid_subscope=1
             else
                 IFS=" "
@@ -179,7 +179,7 @@ validate_commit_message() {
             scope=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
             
             valid_scope=0
-            if [ "$ALLOW_ANY_SCOPE" = "1" ]; then
+            if [ "${STRICT_SCOPES:-0}" = "0" ] && [ "${ALLOW_ANY_SCOPE:-1}" = "1" ]; then
                 valid_scope=1
             else
                 IFS=" "
