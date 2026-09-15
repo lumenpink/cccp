@@ -1,4 +1,4 @@
-name: CI & Release
+name: "CI & Release"
 
 on:
   push:
@@ -94,16 +94,20 @@ jobs:
             gh release delete nightly --yes --cleanup-tag || true
           fi
           
+          cat > /tmp/nightly_notes.md <<EOF
+          Automated rolling nightly build from branch \`main\` at commit \`$COMMIT_HASH\` ($COMMIT_DATE).
+
+          **Predicted Next Version:** \`$PRED_VER\`
+
+          ### Standalone Download
+          Download directly:
+          \`\`\`bash
+          curl -fsSL https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh -o cccp.sh && chmod +x cccp.sh
+          \`\`\`
+          EOF
+          
           gh release create nightly cccp.sh \
             --target main \
             --title "Nightly Build ($COMMIT_HASH)" \
-            --notes "Automated rolling nightly build from branch \`main\` at commit \`$COMMIT_HASH\` ($COMMIT_DATE).
-
-**Predicted Next Version:** \`$PRED_VER\`
-
-### Standalone Download
-Download directly:
-\`\`\`bash
-curl -fsSL https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh -o cccp.sh && chmod +x cccp.sh
-\`\`\`" \
+            --notes-file /tmp/nightly_notes.md \
             --prerelease
