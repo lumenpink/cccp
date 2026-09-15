@@ -45,13 +45,17 @@ create_tag() {
     fi
 
     target_ver=""
-    no_prefix=0
+    no_prefix=${NO_V:-0}
     message=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --no-v|--no-prefix)
                 no_prefix=1
+                shift
+                ;;
+            --with-v|--v)
+                no_prefix=0
                 shift
                 ;;
             -m|--message)

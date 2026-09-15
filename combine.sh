@@ -53,20 +53,18 @@ done
 
 # Find the git root directory
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository. This script must be executed within a valid Git repository." >&2
-    exit 1
+if [ -n "$GIT_ROOT" ]; then
+    GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+else
+    GIT_HOOKS_DIR=""
 fi
-
-# Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 EOF
 
 # Add configuration
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Configuration\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
-cat "$SCRIPT_DIR/src/config/config.sh" | grep -v "^[[:space:]]*#" | grep -v "^[[:space:]]*$" | grep -v "^[[:space:]]*set" | grep -v "^[[:space:]]*GIT_ROOT=" | grep -v "^[[:space:]]*GIT_HOOKS_DIR=" | grep -v "^[[:space:]]*\." >> "$OUTPUT_FILE"
+cat "$SCRIPT_DIR/src/config/config.sh" | grep -v "^[[:space:]]*#" | grep -v "^[[:space:]]*$" | grep -v "^[[:space:]]*set" | grep -v "^[[:space:]]*GIT_ROOT=" | grep -v "^[[:space:]]*GIT_HOOKS_DIR=" | grep -v "config_manager.sh" | grep -v "load_hierarchical_config" >> "$OUTPUT_FILE"
 
 # Add validation function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
@@ -122,6 +120,12 @@ printf "# Commit Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/commit.sh" >> "$OUTPUT_FILE"
 
+# Add config manager functions
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Config Manager Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/config_manager.sh" >> "$OUTPUT_FILE"
+
 # Add update function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Update Functions\n" >> "$OUTPUT_FILE"
@@ -134,6 +138,11 @@ printf "# Main script entry point\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 cat >> "$OUTPUT_FILE" << 'EOF'
 main() {
+    # Load configuration hierarchy (Defaults < Global < Local < Environment)
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
     if [ -n "${1:-}" ]; then
        command="$1"
     else
@@ -153,14 +162,14 @@ main() {
             echo "Git command handler"
             exit 0
             ;;
+        "config")
+            shift || true
+            cmd_config "$@"
+            exit 0
+            ;;
         "commit")
-            case "${2:-}" in
-                "-h"|"--help")
-                    show_help "commit"
-                    exit 0
-                    ;;
-            esac
-            commit "$2"
+            shift || true
+            commit "$@"
             exit 0
             ;;
         "install")
@@ -220,7 +229,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|install|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|install|config|version|tag|changelog|commit-msg|post-commit|update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

@@ -38,5 +38,13 @@ Describe 'Help Function'
       The output should include "--no-v"
       The output should include "-m, --message"
     End
+
+    It 'displays help information for config command'
+      When call show_help "config"
+      The output should include "Manage Hierarchical Configuration"
+      The output should include "--global"
+      The output should include "--local"
+      The output should include "--unset"
+    End
   End
 End 
