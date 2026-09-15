@@ -28,6 +28,12 @@ jobs:
           curl -fsSL https://git.io/shellspec | sh -s -- --yes
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      - name: Configure Git for tests
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name "Test User"
+          git config --global user.email "test@example.com"
+
       - name: Run ShellSpec
         run: |
           shellspec --format documentation
