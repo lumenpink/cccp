@@ -173,13 +173,9 @@ main() {
             exit 0
             ;;
         "install")
-            case "${2:-}" in
-                "-h"|"--help")
-                    show_help "install"
-                    exit 0
-                    ;;
-            esac
-            install_git_hooks
+            shift || true
+            install_cccp "$@"
+            exit 0
             ;;
         "version")
             case "${2:-}" in

@@ -70,4 +70,66 @@ Describe 'hooks'
       The contents of file "$GIT_HOOKS_DIR/commit-msg.old.1" should include "active hook"
     End
   End
+
+  Describe 'install_global_binary'
+    setup_global() {
+      MOCK_BIN_DIR="$(mktemp -d)"
+      MOCK_HOME="$(mktemp -d)"
+      export XDG_BIN_HOME="$MOCK_BIN_DIR"
+      export HOME="$MOCK_HOME"
+      export PATH="/usr/bin:/bin"
+      echo "#!/bin/sh" > "$GIT_ROOT/cccp.sh"
+      echo "echo 'mock cccp'" >> "$GIT_ROOT/cccp.sh"
+      chmod +x "$GIT_ROOT/cccp.sh"
+    }
+
+    cleanup_global() {
+      rm -rf "$MOCK_BIN_DIR" "$MOCK_HOME"
+    }
+
+    BeforeEach 'setup_global'
+    AfterEach 'cleanup_global'
+
+    It 'installs binary to target directory and makes it executable'
+      When call install_global_binary "$GIT_ROOT/cccp.sh"
+      The status should be success
+      The output should include "Successfully installed cccp to: $MOCK_BIN_DIR/cccp"
+      The path "$MOCK_BIN_DIR/cccp" should be executable
+    End
+
+    It 'adds target directory to shell profile when not in PATH'
+      When call install_global_binary "$GIT_ROOT/cccp.sh"
+      The output should include "is not currently in your \$PATH"
+      The path "$MOCK_HOME/.bashrc" should be file
+      The contents of file "$MOCK_HOME/.bashrc" should include "$MOCK_BIN_DIR"
+    End
+
+    It 'skips profile update when target directory is already in PATH'
+      export PATH="$MOCK_BIN_DIR:$PATH"
+      When call install_global_binary "$GIT_ROOT/cccp.sh"
+      The output should include "You can now run 'cccp' from anywhere!"
+      The path "$MOCK_HOME/.bashrc" should not be exist
+    End
+  End
+
+  Describe 'install_cccp CLI dispatcher'
+    It 'dispatches to global installation with -g flag'
+      MOCK_BIN_DIR="$(mktemp -d)"
+      MOCK_HOME="$(mktemp -d)"
+      export XDG_BIN_HOME="$MOCK_BIN_DIR"
+      export HOME="$MOCK_HOME"
+      echo "#!/bin/sh" > "$GIT_ROOT/cccp.sh"
+
+      When call install_cccp -g
+      The status should be success
+      The output should include "Successfully installed cccp to:"
+      rm -rf "$MOCK_BIN_DIR" "$MOCK_HOME"
+    End
+
+    It 'dispatches to local hook installation with no flags'
+      When call install_cccp
+      The status should be success
+      The output should include "Successfully installed git hooks!"
+    End
+  End
 End
