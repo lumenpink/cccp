@@ -51,6 +51,40 @@ check_hook_version() {
     return 0
 }
 
+semver_is_newer() {
+    remote="$1"
+    current="$2"
+
+    r="${remote#v}"
+    c="${current#v}"
+
+    r_base=$(echo "$r" | cut -d- -f1 | cut -d+ -f1)
+    c_base=$(echo "$c" | cut -d- -f1 | cut -d+ -f1)
+
+    r_maj=$(echo "$r_base" | cut -d. -f1 | tr -cd '0-9'); r_maj=${r_maj:-0}
+    r_min=$(echo "$r_base" | cut -d. -f2 | tr -cd '0-9'); r_min=${r_min:-0}
+    r_pat=$(echo "$r_base" | cut -d. -f3 | tr -cd '0-9'); r_pat=${r_pat:-0}
+
+    c_maj=$(echo "$c_base" | cut -d. -f1 | tr -cd '0-9'); c_maj=${c_maj:-0}
+    c_min=$(echo "$c_base" | cut -d. -f2 | tr -cd '0-9'); c_min=${c_min:-0}
+    c_pat=$(echo "$c_base" | cut -d. -f3 | tr -cd '0-9'); c_pat=${c_pat:-0}
+
+    if [ "$r_maj" -gt "$c_maj" ]; then return 0; fi
+    if [ "$r_maj" -lt "$c_maj" ]; then return 1; fi
+
+    if [ "$r_min" -gt "$c_min" ]; then return 0; fi
+    if [ "$r_min" -lt "$c_min" ]; then return 1; fi
+
+    if [ "$r_pat" -gt "$c_pat" ]; then return 0; fi
+    if [ "$r_pat" -lt "$c_pat" ]; then return 1; fi
+
+    if echo "$c" | grep -q -- "-" && ! echo "$r" | grep -q -- "-"; then
+        return 0
+    fi
+
+    return 1
+}
+
 # -----------------------------------------------------------------------------
 # Auto-check for updates every N days (non-blocking)
 # -----------------------------------------------------------------------------
@@ -114,10 +148,16 @@ EOF
         fi
     fi
 
-    # If cached latest version differs from current version, notify user
-    if [ -n "$cached_latest" ] && [ "$cached_latest" != "$curr_ver" ] && [ "$cached_latest" != "v$curr_ver" ]; then
-        echo "[cccp] Notice: A newer version of cccp is available ($cached_latest vs current $curr_ver)." >&2
-        echo "[cccp] Run 'cccp update' to update to the latest ${UPDATE_CHANNEL:-stable} release." >&2
+    # If cached latest version is newer than current version, notify user
+    if [ -n "$cached_latest" ]; then
+        if [ "$cached_latest" = "nightly" ]; then
+            if [ "${UPDATE_CHANNEL:-stable}" = "nightly" ]; then
+                echo "[cccp] Notice: Running on nightly channel. Run 'cccp update' to pull latest changes." >&2
+            fi
+        elif semver_is_newer "$cached_latest" "$curr_ver"; then
+            echo "[cccp] Notice: A newer version of cccp is available ($cached_latest vs current $curr_ver)." >&2
+            echo "[cccp] Run 'cccp update' to update to the latest ${UPDATE_CHANNEL:-stable} release." >&2
+        fi
     fi
 
     return 0

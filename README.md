@@ -1,58 +1,118 @@
 # cccp.sh 
 ## Conventional Commits Compliance Program
 
-A comprehensive tool for enforcing and managing conventional commits in your Git workflow. This program helps maintain consistent commit messages and automate version management through semantic versioning.
+A comprehensive, dependency-free tool for enforcing and managing Conventional Commits in your Git workflow. This program maintains consistent commit messages, provides portable Git hook wrappers, supports hierarchical configuration, and automates predictive semantic versioning.
 
 ## What is it?
 
-cccp.sh is a Git hook-based solution that:
-- Enforces conventional commit message formatting
-- Validates commit messages locally before they're pushed
-- Automates semantic version generation based on commit history
-- Helps maintain clean and meaningful commit history
-- Simplifies version management in your projects
+`cccp.sh` is a POSIX-compliant solution that:
+- Installs directly into your system `PATH` (`cccp`) or manages local Git hooks (`.git/hooks/`)
+- Enforces Conventional Commits formatting locally before commits are pushed
+- Employs portable wrapper hook scripts with version stamps and synchronization warnings
+- Features a full hierarchical configuration system (`Defaults < Global ~/.config < Local .cccprc < ENV < CLI flags`)
+- Automates predictive semantic versioning and changelog synchronization
+- Supports intelligent self-updating across `stable` and `nightly` release channels
 
 ## Prerequisites
 
 Your system must have the following tools installed and available in your `PATH`:
 - `git` (https://git-scm.com/)
-- Standard POSIX utilities: `sed`, `grep`, `date`, `cut`, `tr`
-
-`cccp.sh` automatically verifies the availability of these prerequisites upon execution. If any requirement is missing or if the command is executed outside of a Git repository, it immediately terminates with a clear and explanatory error message.
+- Standard POSIX utilities: `sed`, `grep`, `date`, `cut`, `tr`, `awk`
+- `curl` or `wget` (for self-updates)
 
 > [!IMPORTANT]
 > If you are using Windows as your operating system, you must run all commands through the "Git Bash" terminal application.
 
+---
+
 ## Installation
 
-To install the Git hooks in your repository, run:
+### 1. Global Installation (System PATH)
+You can install `cccp` into your system `PATH` so that it is globally accessible from any terminal and any repository:
+
 ```bash
-wget https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh
+# Download and install globally into ~/.local/bin/cccp (or /usr/local/bin/cccp if root)
+curl -fsSL https://github.com/lumenpink/cccp.sh/releases/latest/download/cccp.sh -o cccp.sh
 chmod +x cccp.sh
-./cccp.sh install
+./cccp.sh install --global
 ```
 
-This registers the `commit-msg` and `post-commit` hooks in `.git/hooks/`.
+If `~/.local/bin` is not yet in your `$PATH`, the installer automatically adds it to your `~/.bashrc` (and `~/.zshrc` if present) with instructions.
+
+### 2. Local Repository Hooks Installation
+Inside any Git repository, register portable Git hook wrappers:
+
+```bash
+cccp install
+```
+
+This installs standalone POSIX shell wrappers in `.git/hooks/commit-msg` and `.git/hooks/post-commit` tagged with the active cccp version (`# cccp-hook-version: <ver>`). Any existing non-cccp hooks are safely backed up with incrementing suffixes (`.old`, `.old.1`, etc.).
+
+---
+
+## Hierarchical Configuration System
+
+`cccp` provides a unified configuration hierarchy where settings cascade cleanly:
+```text
+Built-in Defaults  <  Global (~/.config/cccp/config)  <  Local Repo (.cccprc)  <  Environment Variables  <  CLI Flags
+```
+
+### The `cccp config` CLI
+Configure settings easily without manually editing configuration files:
+
+```bash
+# View configuration
+cccp config strict_scopes                   # Reads effective value (local > global > default)
+cccp config --global update_channel         # Reads specific global value
+cccp config --list                          # Lists all active global and local settings
+
+# Set configuration
+cccp config strict_scopes 1                 # Sets strict_scopes in local repository (.cccprc)
+cccp config --global update_channel nightly # Sets global update channel to nightly
+cccp config --global update_interval_days 7 # Check for updates every 7 days
+
+# Unset configuration
+cccp config --unset strict_scopes           # Removes override, reverting to global or default
+```
+
+### Supported Configuration Keys
+
+| Key | Description | Default | Allowed Values |
+| :--- | :--- | :--- | :--- |
+| `strict_scopes` | Require scope to match allowed `COMMIT_SCOPES` | `0` | `0` (any scope), `1` (strict) |
+| `strict_subscopes` | Require subscope to match allowed `COMMIT_SUBSCOPES` | `0` | `0` (any subscope), `1` (strict) |
+| `disable_subscopes` | Disallow slash-delimited subscopes (e.g. `api/auth`) | `0` | `0` (allowed), `1` (prohibited) |
+| `disable_multiple_scopes` | Disallow comma-separated scopes (e.g. `ui, api`) | `0` | `0` (allowed), `1` (prohibited) |
+| `default_base_version` | Fallback SemVer when no Git tags exist | `0.0.1` | Valid SemVer (e.g. `0.0.1`, `0.1.0`) |
+| `no_v` | Create release tags without `v` prefix | `0` | `0` (`v1.0.0`), `1` (`1.0.0`) |
+| `update_channel` | Release channel for updates | `stable` | `stable`, `nightly` |
+| `update_interval_days` | Number of days between automated update checks | `30` | Integer |
+| `check_updates` | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
+
+> [!NOTE]
+> **Backward Compatibility**: Legacy flags `ALLOW_ANY_SCOPE=0` and `ALLOW_ANY_SUBSCOPE=0` remain supported in environment variables and config files, mapping automatically to `STRICT_SCOPES=1` and `STRICT_SUBSCOPES=1`.
+
+---
 
 ## Predictive Semantic Versioning
 
-Rather than simply reflecting historical release tags, `cccp.sh` implements **Predictive Semantic Versioning**. It scans commit messages following the Conventional Commits specification since the last valid SemVer tag (or fallback base) to anticipate and compute the **next target release version**.
+Rather than simply reflecting historical release tags, `cccp` implements **Predictive Semantic Versioning**. It scans commit messages following the Conventional Commits specification since the last valid SemVer tag (or fallback base) to anticipate and compute the **next target release version**.
 
 ### Format
 
 - **Development Mode** (commits ahead of base tag):
-  ```
+  ```text
   <target_major>.<target_minor>.<target_patch>-dev.<commit_count>+<date>.<commit_hash>
   ```
   *Example:* `0.3.0-dev.6+20260914.790f5b4`
 
 - **Tagged Release** (exact checkout on a clean tag):
-  ```
+  ```text
   <major>.<minor>.<patch>
   ```
   *Example:* `0.3.0`
 
-### Next Version Bump Rules
+### Version Bump Triggers
 
 | Conventional Commit Trigger | Inferred Bump | Target Version Calculation |
 | :--- | :--- | :--- |
@@ -61,56 +121,74 @@ Rather than simply reflecting historical release tags, `cccp.sh` implements **Pr
 | `fix:`, `perf:`, `refactor:`, `chore:`, etc. | **PATCH** | `major.minor.(patch + 1)` |
 | Clean tag checkout (0 commits ahead) | **NONE** | Exact tag version |
 
-The highest priority bump detected in the commit range determines the predicted version.
+---
 
-## Usage
+## Intelligent Updates & Hook Synchronization
 
-### Commands
+### Self-Updating (`update`)
+Update `cccp` to the latest release in your active channel (`stable` or `nightly`):
 
 ```bash
-./cccp.sh [command] [options]
+cccp update                      # Updates from default configured channel (stable)
+cccp update --channel nightly    # Updates directly to the latest rolling nightly build
 ```
 
-Available commands:
-- `commit <message>`    - Create a commit after validating message formatting
-- `install`             - Install Git hooks for commit message validation and automated versioning
-- `version`             - Generate and write predictive version information to `VERSION`
-- `tag [version]`       - Create release tag, update `VERSION` and regenerate `CHANGELOG.md`
-- `changelog`           - Generate or update `CHANGELOG.md`
-- `update`              - Self-update the script to the latest upstream release
-- `help [command]`      - Display general help or deep-dive help on a specific command
+### Automated Update Notifications
+Every `update_interval_days` (default: 30 days), interactive commands check if a newer release is available and print a non-blocking diagnostic notice to `stderr`. Automated Git hooks remain completely offline and non-blocking for speed.
+
+### Hook Version Synchronization
+When you commit, `cccp` verifies that the Git hook wrapper in `.git/hooks/` was stamped with the same version as your active `cccp` binary. If your system `cccp` was updated, it prints a friendly reminder:
+```text
+[cccp] Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v1.2.0).
+[cccp] Run 'cccp install' to synchronize git hooks with your current cccp version.
+```
+
+---
+
+## Usage & Commands
+
+```bash
+cccp [command] [options]
+```
+
+| Command | Description |
+| :--- | :--- |
+| `commit [options] <msg>` | Validate formatting and create a commit |
+| `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
+| `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
+| `version` | Generate predictive SemVer metadata to `VERSION` |
+| `tag [version] [options]` | Create annotated tag, commit `VERSION` and `CHANGELOG.md` |
+| `changelog` | Generate or update `CHANGELOG.md` |
+| `update [options]` | Update `cccp` executable from GitHub releases |
+| `help [command]` | Display deep-dive documentation for any command |
 
 ### Release Tagging (`tag`)
 
-The `tag` command enforces a clean working tree, updates `VERSION` and `CHANGELOG.md`, creates a release commit (`chore(release): <tag>`), and tags that commit with an annotated Git tag:
+The `tag` command verifies a clean working tree, updates `VERSION` and `CHANGELOG.md`, creates a release commit (`chore(release): <tag>`), and creates an annotated Git tag pointing directly to the release commit:
 
 ```bash
-./cccp.sh tag                     # Auto-tags with the predicted SemVer version (e.g. v1.2.0)
-./cccp.sh tag 2                   # Normalized to v2.0.0
-./cccp.sh tag 2.1                 # Normalized to v2.1.0
-./cccp.sh tag 2.1.0               # Normalized to v2.1.0
-./cccp.sh tag 2.1.0 --no-v        # Tagged as 2.1.0 (without 'v' prefix)
-./cccp.sh tag 1.0.0 -m "Release"  # Custom tag annotation message
+cccp tag                     # Auto-tags with predicted version (e.g. v1.2.0)
+cccp tag 2                   # Normalized to v2.0.0
+cccp tag 2.1                 # Normalized to v2.1.0
+cccp tag 2.1.0               # Normalized to v2.1.0
+cccp tag 2.1.0 --no-v        # Tagged as 2.1.0 (without 'v')
+cccp tag 1.0.0 -m "GA"       # Custom tag annotation
 ```
-
-### Git Hooks
-
-- `commit-msg`: Validates commit messages for Conventional Commits compliance before saving the commit.
-- `post-commit`: Automatically updates `CHANGELOG.md` and generates the predicted `VERSION` file.
 
 ### Commit Message Format
 
 ```text
 <type>(<scope>): <subject>
+<type>(<scope>/<subscope>): <subject>
 <type>(<scope>)!: <subject>
 <type>!: <subject>
 ```
 
 #### Supported Types
-- `feat`     - New feature (triggers Minor bump)
-- `fix`      - Bug fix (triggers Patch bump)
-- `perf`     - Performance improvement (triggers Patch bump)
-- `refactor` - Code refactoring (triggers Patch bump)
+- `feat`     - New feature (Minor bump)
+- `fix`      - Bug fix (Patch bump)
+- `perf`     - Performance improvement (Patch bump)
+- `refactor` - Code refactoring (Patch bump)
 - `revert`   - Revert changes
 - `chore`    - Maintenance tasks
 - `build`    - Build system changes
@@ -121,57 +199,15 @@ The `tag` command enforces a clean working tree, updates `VERSION` and `CHANGELO
 - `test`     - Test related changes
 - `merge`    - Merge commits
 
-#### Breaking Changes
-Breaking changes can be signaled in two standard ways:
-1. Appending an exclamation mark `!` right before the colon:
-   `feat(api)!: drop deprecated endpoints` or `refactor!: restructure configuration format`
-2. Adding a `BREAKING CHANGE:` or `BREAKING-CHANGE:` block in the commit body/footer.
-
-#### Scopes and Subscopes
-- **Scopes**: Categorize the module or subsystem (e.g., `ui`, `api`, `auth`, `updater`, `db`).
-- **Multiple Scopes**: Comma-separated scopes are supported (e.g., `feat(api, ui): update endpoint`).
-- **Subscopes**: Monorepo or hierarchical paths using `/` (e.g., `fix(api/auth): token expiration`).
-
-### Configuration & Environment Variables
-
-All behavior flags adhere to canonical UNIX design and default to `0` (disabled/inert):
-
-- `STRICT_SCOPES=1`: Enforce strict matching against allowed `COMMIT_SCOPES` (by default, any non-empty scope is permitted).
-- `STRICT_SUBSCOPES=1`: Enforce strict matching against allowed `COMMIT_SUBSCOPES` (by default, any non-empty subscope is permitted).
-- `DISABLE_SUBSCOPES=1`: Prohibits slash-delimited subscopes (e.g. `api/auth`).
-- `DISABLE_MULTIPLE_SCOPES=1`: Prohibits comma-separated multiple scopes (e.g. `api, ui`).
-- `DEFAULT_BASE_VERSION="0.0.1"` (Default: `0.0.1`): Fallback base version used when no SemVer tags exist in the Git history.
-
-> [!NOTE]
-> **Backward Compatibility**: Legacy flags `ALLOW_ANY_SCOPE=0` and `ALLOW_ANY_SUBSCOPE=0` remain supported and automatically map to `STRICT_SCOPES=1` and `STRICT_SUBSCOPES=1`.
-
-### Examples
-
-```bash
-# Feature commit
-./cccp.sh commit 'feat(updater): support rollback command'
-
-# Breaking change commit
-./cccp.sh commit 'refactor(api)!: migrate to typed response objects'
-
-# Subscope commit
-./cccp.sh commit 'fix(auth/token): validate PKCE verifier length'
-
-# Multiple scopes
-./cccp.sh commit 'docs(api, cli): update usage instructions'
-
-# Generate predicted version
-./cccp.sh version
-```
+---
 
 ## Benefits
 
-- Consistent, audit-ready commit history
-- Anticipatory, automated SemVer 2.0 version calculation
-- Instant local Git hook validation with clear diagnostics
-- Zero external runtime dependencies in production
+- **Zero Runtime Dependencies**: Works anywhere POSIX shell and Git are available.
+- **Strict or Flexible**: Defaults to permissive `0` flags while allowing fine-grained enforcement via `.cccprc` or CLI flags.
+- **Predictive Versioning**: Know what version will be published before making the release tag.
+- **Safe & Auditable**: Git hooks are standalone scripts, not fragile symlinks, stamped with version provenance.
 
 ## Support
 
 If you encounter any issues or have questions, please open an issue in the project repository.
-
