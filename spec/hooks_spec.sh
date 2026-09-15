@@ -5,24 +5,19 @@ Describe 'hooks'
   Include "$SHELLSPEC_PROJECT_ROOT/src/hooks/hooks.sh"
 
   setup() {
-    # Create a temporary directory for the test repository
     TEST_DIR="$(mktemp -d)"
     cd "$TEST_DIR"
     
-    # Initialize git repository
     git init
     git config user.email "test@example.com"
     git config user.name "Test User"
     
-    # Set GIT_ROOT for testing
     GIT_ROOT="$TEST_DIR"
     GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-    echo "echo 'test'" > $GIT_HOOK_FILE
-    chmod +x $GIT_HOOK_FILE
+    echo "1.2.0" > "$GIT_ROOT/VERSION"
   }
 
   cleanup() {
-    # Clean up the temporary directory
     rm -rf "$TEST_DIR"
   }
 
@@ -30,7 +25,7 @@ Describe 'hooks'
   AfterAll 'cleanup'
 
   Describe 'install_git_hooks'
-    BeforeEach 'mkdir -p $GIT_HOOKS_DIR && rm -f $GIT_HOOKS_DIR/commit-msg $GIT_HOOKS_DIR/commit-msg.old'
+    BeforeEach 'mkdir -p "$GIT_HOOKS_DIR" && rm -f "$GIT_HOOKS_DIR/commit-msg"* "$GIT_HOOKS_DIR/post-commit"*'
 
     It 'creates hooks directory'
       When call install_git_hooks
@@ -38,70 +33,41 @@ Describe 'hooks'
       The path "$GIT_HOOKS_DIR" should be exist
     End
 
-    It 'creates symlinks for all hooks'
+    It 'creates portable wrapper scripts for all hooks'
       When call install_git_hooks
       The output should include "Successfully installed git hooks!"
+      The output should include "Hooks configured with cccp version: 1.2.0"
       for hook in $GIT_HOOKS_LIST; do
-        The path "$GIT_HOOKS_DIR/$hook" should be symlink
+        The path "$GIT_HOOKS_DIR/$hook" should be file
+        The contents of file "$GIT_HOOKS_DIR/$hook" should include "# cccp-hook-version: 1.2.0"
+        The contents of file "$GIT_HOOKS_DIR/$hook" should include "exec cccp $hook"
       done
     End
 
     It 'backs up existing hooks'
-      # Create a test hook
-      echo "test" > "$GIT_HOOKS_DIR/commit-msg"
+      echo "custom hook" > "$GIT_HOOKS_DIR/commit-msg"
       When call install_git_hooks
       The output should include "Backed up existing hook"
       The path "$GIT_HOOKS_DIR/commit-msg.old" should be exist
-      The contents of file "$GIT_HOOKS_DIR/commit-msg.old" should include "test"
+      The contents of file "$GIT_HOOKS_DIR/commit-msg.old" should include "custom hook"
     End
 
-    It 'skips already installed hooks'
-      # Create a symlink
-      ln -s "$GIT_ROOT/sh-cc-commits.sh" "$GIT_HOOKS_DIR/commit-msg"
+    It 'skips already installed up-to-date hooks'
+      install_git_hooks >/dev/null 2>&1
       When call install_git_hooks
       The output should include "Hook already installed"
     End
 
-    It 'replaces symlinks pointing to other files'
-      # Create a different file
-      echo "echo 'other script'" > other-script.sh
-      chmod +x other-script.sh
+    It 'backs up files with incrementing suffixes'
+      echo "first backup" > "$GIT_HOOKS_DIR/commit-msg.old"
+      echo "active hook" > "$GIT_HOOKS_DIR/commit-msg"
       
-      # Create a symlink to the other file
-      ln -s "$GIT_ROOT/other-script.sh" "$GIT_HOOKS_DIR/commit-msg"
-      
-      # Run install hooks
       When call install_git_hooks
       The output should include "Backed up existing hook"
-      # Verify the symlink now points to our script
-      The path "$GIT_HOOKS_DIR/commit-msg" should be symlink
-      The value "$(readlink "$GIT_HOOKS_DIR/commit-msg")" should equal "$GIT_ROOT/$GIT_HOOK_FILE"
-      
-      # Verify the old symlink was backed up
-      The path "$GIT_HOOKS_DIR/commit-msg.old" should be symlink
-      The value "$(readlink "$GIT_HOOKS_DIR/commit-msg.old")" should equal "$GIT_ROOT/other-script.sh"
-    End
-    
-    It 'backs up regular files with incrementing suffixes'
-      # First create a hook file
-      echo "bogus content" > "$GIT_HOOKS_DIR/commit-msg"
-      
-      # Run install hooks
-      When call install_git_hooks
-      The output should include "Backed up existing hook"
-      
-      # Verify the new hook is a symlink to our script
-      The path "$GIT_HOOKS_DIR/commit-msg" should be symlink
-      The value "$(readlink "$GIT_HOOKS_DIR/commit-msg")" should equal "$GIT_ROOT/$GIT_HOOK_FILE"
-      
-      # Verify the old file was backed up
       The path "$GIT_HOOKS_DIR/commit-msg.old" should be exist
-      The contents of file "$GIT_HOOKS_DIR/commit-msg.old" should equal "bogus content"
+      The contents of file "$GIT_HOOKS_DIR/commit-msg.old" should include "first backup"
+      The path "$GIT_HOOKS_DIR/commit-msg.old.1" should be exist
+      The contents of file "$GIT_HOOKS_DIR/commit-msg.old.1" should include "active hook"
     End
-
-    # It 'configures git to use local hooks'
-    #   When call install_git_hooks
-    #   The output of "git config core.hooksPath" should equal "$GIT_HOOKS_DIR"
-    # End
   End
-End 
+End
