@@ -461,6 +461,12 @@ calculate_target_version() {
 }
 
 generate_version_info() {
+    GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     if command -v check_prerequisites >/dev/null 2>&1; then
         check_prerequisites
     fi
@@ -512,6 +518,12 @@ generate_version_info() {
 # Tag Functions
 # =============================================================================
 create_tag() {
+    GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     if command -v check_prerequisites >/dev/null 2>&1; then
         check_prerequisites
     fi
@@ -636,7 +648,7 @@ create_tag() {
     current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
     echo "Release commit created: chore(release): $tag_name"
-    echo "Tag '$tag_name' created successfully on release commit."
+    echo "Tag '$tag_name' created successfully."
     echo "Updated VERSION: $clean_ver"
     echo "Updated CHANGELOG.md"
     echo ""

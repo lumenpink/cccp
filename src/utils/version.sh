@@ -80,6 +80,12 @@ calculate_target_version() {
 # Generate predictive version information
 # -----------------------------------------------------------------------------
 generate_version_info() {
+    GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     if command -v check_prerequisites >/dev/null 2>&1; then
         check_prerequisites
     fi

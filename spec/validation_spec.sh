@@ -38,12 +38,15 @@ Describe 'validation'
     End
 
     It 'rejects invalid scope'
+      BeforeCall 'ALLOW_ANY_SCOPE=0'
       When call validate_commit_message "feat(invalid): some message"
       The status should be failure
       The output should include "Error: Invalid scope 'invalid'"
     End
 
     It 'rejects invalid subscope'
+      BeforeCall 'ALLOW_ANY_SCOPE=0'
+      BeforeCall 'ALLOW_ANY_SUBSCOPE=0'
       When call validate_commit_message "feat(ui/invalid): some message"
       The status should be failure
       The output should include "Error: Invalid subscope 'invalid'"

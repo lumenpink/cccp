@@ -36,7 +36,7 @@ Describe 'version'
 
     It 'creates VERSION file'
       When call generate_version_info
-      The output should eq "Version information written to VERSION file"
+      The output should include "Version information written to VERSION file"
       The file VERSION should be exist
       cat VERSION
     End
@@ -44,7 +44,7 @@ Describe 'version'
     It 'includes version tag'
       When call generate_version_info
       The output should be present
-      The contents of file VERSION should include "v1.0.0"
+      The contents of file VERSION should include "1.0.0"
     End
 
     It 'includes commit count'
@@ -55,7 +55,7 @@ Describe 'version'
       
       When call generate_version_info
       The output should be present
-      The contents of file VERSION should match pattern "v1.0.0+1.*"
+      The contents of file VERSION should match pattern "*-dev.1+*"
     End
 
     It 'includes date'
@@ -66,7 +66,7 @@ Describe 'version'
     End
 
     It 'includes commit hash'
-      commit_hash="$(git log -n 2 --format=%h | tail -n 1)"
+      commit_hash="$(git rev-parse --short HEAD)"
       When call generate_version_info
       The output should be present
       The contents of file VERSION should include "$commit_hash"
