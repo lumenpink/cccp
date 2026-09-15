@@ -10,7 +10,7 @@
 
 ## Previous Releases
 
-### [1.0.2]
+### [v1.1.0]
 
 ### Features
   - (tag) automate release commit creation and working tree validation
@@ -21,7 +21,7 @@
 
 ### Performance Improvements
 
-### [1.0.1]
+### [1.0.2]
 
 ### Features
 
@@ -29,7 +29,7 @@
 
 ### Performance Improvements
 
-### [1.0.0]
+### [1.0.1]
 
 ### Features
   - testttqwe
@@ -41,6 +41,14 @@
   - testttqwe
   - testttqwe
   - add updatescript function
+
+### Bug Fixes
+
+### Performance Improvements
+
+### [1.0.0]
+
+### Features
 
 ### Bug Fixes
 
@@ -103,14 +111,6 @@
 ### Performance Improvements
 
 ### [0.0.2]
-
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
-
-### [0.0.1]
 
 ### Features
 

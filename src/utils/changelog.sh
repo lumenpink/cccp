@@ -96,7 +96,7 @@ generate_changelog() {
                 
                 # Add tag section
                 {
-                    echo "### [$tag]"
+                    echo "### [$prev_tag]"
                     echo
                     echo "### Features"
                     
