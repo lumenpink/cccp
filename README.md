@@ -169,6 +169,7 @@ cccp [command] [options]
 
 | Command | Description |
 | :--- | :--- |
+| `status` | Inspect repository health, working tree, and Gosplan diagnostics |
 | `commit [options] <msg>` | Validate formatting and create a commit |
 | `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
 | `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
@@ -177,6 +178,34 @@ cccp [command] [options]
 | `changelog` | Generate or update `CHANGELOG.md` |
 | `update [options]` | Update `cccp` executable from GitHub releases |
 | `help [command]` | Display deep-dive documentation for any command |
+
+### Repository State Inspection (`status`)
+
+Inspect your repository health, working tree cleanliness, Git hooks synchronization, and predictive SemVer targeting at a glance:
+
+```bash
+cccp status
+```
+
+Example output:
+```text
+========================================================
+ ★ CCCP State Inspection (Gosplan Quality Control) ★
+========================================================
+ Repository:       /home/comrade/project
+ Active Branch:    main (up to date with origin/main)
+ Working Tree:     clean (all state directives satisfied)
+ Current Version:  1.3.0
+ Target Version:   1.4.0 (3 commits ahead of tag)
+ Git Hooks:        installed (v1.3.0)
+ System Binary:    /home/comrade/.local/bin/cccp
+ Local Config:     /home/comrade/project/.cccprc
+ Global Config:    /home/comrade/.config/cccp/config
+ Types Policy:     strict (curated)
+ Scopes Policy:    permissive (any scope)
+ Update Channel:   stable (every 30 days)
+========================================================
+```
 
 ### Release Tagging (`tag`)
 
