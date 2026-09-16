@@ -172,6 +172,7 @@ cccp [command] [options]
 | `status` | Inspect repository health, working tree, and Gosplan diagnostics |
 | `cz, commit -i` | Assemble a commit using the interactive terminal wizard |
 | `lint [range]` | Lint commit messages across a git revision range |
+| `completion [shell]` | Generate shell tab autocompletion (bash, zsh, fish) |
 | `commit [options] <msg>` | Validate formatting and create a commit |
 | `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
 | `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
@@ -180,6 +181,37 @@ cccp [command] [options]
 | `changelog` | Generate or update `CHANGELOG.md` |
 | `update [options]` | Update `cccp` executable from GitHub releases |
 | `help [command]` | Display deep-dive documentation for any command |
+
+### Shell Autocompletion (`completion`)
+
+Generate autocompletion scripts with commands, flags, and configuration keys:
+
+#### Bash
+```bash
+# In your ~/.bashrc:
+eval "$(cccp completion bash)"
+
+# Or persist statically:
+mkdir -p ~/.bash_completion.d
+cccp completion bash > ~/.bash_completion.d/cccp
+```
+
+#### Zsh
+```zsh
+# In your ~/.zshrc (before compinit):
+fpath=(~/.zsh/completion $fpath)
+autoload -Uz compinit && compinit
+
+# Generate completion script:
+mkdir -p ~/.zsh/completion
+cccp completion zsh > ~/.zsh/completion/_cccp
+```
+
+#### Fish
+```fish
+mkdir -p ~/.config/fish/completions
+cccp completion fish > ~/.config/fish/completions/cccp.fish
+```
 
 ### Interactive Commit Wizard (`cz` / `commit -i`)
 
