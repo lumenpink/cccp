@@ -2361,21 +2361,32 @@ lint_commits() {
     fi
 
     # Verify that the range is valid in git
-    commit_hashes=$(git rev-list --reverse "$range" 2>/dev/null || true)
-    if [ -z "$commit_hashes" ]; then
-        if git rev-parse "$range" >/dev/null 2>&1 || echo "$range" | grep -q '\.\.'; then
-            echo "========================================================"
-            echo " ★ CCCP Party Line Compliance (Commit Linting) ★"
-            echo "========================================================"
-            echo " Inspected Range:  $range"
-            echo " Result:           0 commits found in range to inspect."
-            echo " Status:           All clear for the State Plan."
-            echo "========================================================"
-            return 0
-        else
+    if echo "$range" | grep -q '\.\.'; then
+        ref1="${range%%..*}"
+        ref2="${range##*..}"
+        if [ -n "$ref1" ] && ! git rev-parse --verify "$ref1^{commit}" >/dev/null 2>&1; then
             echo "Error: Invalid commit range or revision '$range'" >&2
             return 1
         fi
+        if [ -n "$ref2" ] && ! git rev-parse --verify "$ref2^{commit}" >/dev/null 2>&1; then
+            echo "Error: Invalid commit range or revision '$range'" >&2
+            return 1
+        fi
+    elif ! git rev-parse --verify "$range^{commit}" >/dev/null 2>&1; then
+        echo "Error: Invalid commit range or revision '$range'" >&2
+        return 1
+    fi
+
+    commit_hashes=$(git rev-list --reverse "$range" 2>/dev/null || true)
+    if [ -z "$commit_hashes" ]; then
+        echo "========================================================"
+        echo " ★ CCCP Party Line Compliance (Commit Linting) ★"
+        echo "========================================================"
+        echo " Inspected Range:  $range"
+        echo " Result:           0 commits found in range to inspect."
+        echo " Status:           All clear for the State Plan."
+        echo "========================================================"
+        return 0
     fi
 
     echo "========================================================"
