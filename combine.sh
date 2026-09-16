@@ -13,15 +13,20 @@ extract_functions() {
     local file="$1"
     # Extract only function definitions and their contents
     awk '
-    BEGIN { in_function = 0 }
-    /^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\)/ {
+    BEGIN { in_function = 0; in_heredoc = 0 }
+    /^[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*\(\)/ && !in_function {
         in_function = 1
         print
         next
     }
     in_function == 1 {
+        if (!in_heredoc && /<<[[:space:]]*[\x27"]?EOF[\x27"]?/) {
+            in_heredoc = 1
+        } else if (in_heredoc && /^EOF$/) {
+            in_heredoc = 0
+        }
         print
-        if ($0 ~ /^}/) {
+        if (!in_heredoc && /^}/) {
             in_function = 0
             print ""
         }
@@ -150,6 +155,12 @@ printf "# Interactive Commit Wizard\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/interactive.sh" >> "$OUTPUT_FILE"
 
+# Add completion function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Completion Generator\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/completion.sh" >> "$OUTPUT_FILE"
+
 # Add soviet easter egg function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Soviet Easter Egg\n" >> "$OUTPUT_FILE"
@@ -193,7 +204,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint")
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"completion")
                 check_auto_update || true
                 ;;
         esac
@@ -232,6 +243,11 @@ main() {
         "install")
             shift || true
             install_cccp "$@"
+            exit 0
+            ;;
+        "completion")
+            shift || true
+            cmd_completion "$@"
             exit 0
             ;;
         "version")
@@ -281,7 +297,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
