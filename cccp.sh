@@ -75,15 +75,18 @@ validate_commit_message() {
         return 1
     fi
 
+    # Extract header line (first line of commit message)
+    header_line=$(echo "$commit_msg" | head -n 1)
+
     # Check if header contains a colon
-    if ! echo "$commit_msg" | grep -q ":"; then
+    if ! echo "$header_line" | grep -q ":"; then
         echo "Error: Commit message must follow format '<type>(<scope>): <subject>' or '<type>: <subject>'"
         return 1
     fi
 
     # Extract header line before colon
-    header_prefix=$(echo "$commit_msg" | sed -E 's/:.*$//')
-    subject=$(echo "$commit_msg" | sed -E 's/^[^:]*:[[:space:]]*//')
+    header_prefix=$(echo "$header_line" | sed -E 's/:.*$//')
+    subject=$(echo "$header_line" | sed -E 's/^[^:]*:[[:space:]]*//')
 
     # Detect breaking change marker '!'
     is_breaking=0
