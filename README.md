@@ -17,8 +17,11 @@ A comprehensive, dependency-free tool for enforcing and managing Conventional Co
 
 Your system must have the following tools installed and available in your `PATH`:
 - `git` (https://git-scm.com/)
-- Standard POSIX utilities: `sed`, `grep`, `date`, `cut`, `tr`, `awk`
-- `curl` or `wget` (for self-updates)
+- Standard POSIX utilities: `sed`, `grep`, `date`, `cut`, `tr` (no `awk` required; fully compatible with minimal BusyBox and diverse POSIX shells)
+- `curl` or `wget` (optional, needed only for self-updating via `cccp update`)
+
+> [!NOTE]
+> **Pure POSIX & BusyBox Compatibility**: `cccp` contains zero dependency on `awk`, eliminating dialect incompatibilities across GNU `gawk`, `mawk`, BSD `awk`, and BusyBox. All configuration and stream parsing run natively in pure POSIX shell.
 
 > [!IMPORTANT]
 > If you are using Windows as your operating system, you must run all commands through the "Git Bash" terminal application.
@@ -389,6 +392,7 @@ Both test matrices run automatically in CI via GitHub Actions on every pull requ
 ## Benefits
 
 - **Zero Runtime Dependencies**: Works anywhere POSIX shell and Git are available.
+- **Pure POSIX (Zero AWK)**: 100% independent of `awk`, running identically on minimal BusyBox (`ash`), Debian (`dash`), macOS, Linux, and Windows Git Bash.
 - **Dual-Matrix Verified**: 100% verified across both modular source code and compiled standalone bundle.
 - **Strict or Flexible**: Defaults to permissive flags while allowing fine-grained enforcement via `.cccprc` or CLI flags.
 - **Predictive Versioning**: Know what version will be published before making the release tag.
