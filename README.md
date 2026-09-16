@@ -170,6 +170,7 @@ cccp [command] [options]
 | Command | Description |
 | :--- | :--- |
 | `status` | Inspect repository health, working tree, and Gosplan diagnostics |
+| `lint [range]` | Lint commit messages across a git revision range |
 | `commit [options] <msg>` | Validate formatting and create a commit |
 | `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
 | `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
@@ -205,6 +206,40 @@ Example output:
  Scopes Policy:    permissive (any scope)
  Update Channel:   stable (every 30 days)
 ========================================================
+```
+
+### Commit History & Pull Request Linting (`lint`)
+
+Verify that all commits in a branch, pull request, or history adhere to the Conventional Commits specification:
+
+```bash
+cccp lint                          # Auto-detects range (upstream or last commit)
+cccp lint origin/main..HEAD        # Lint all commits in current feature branch
+cccp lint HEAD~5..HEAD             # Lint the last 5 commits
+```
+
+#### GitHub Actions Pull Request Workflow
+
+Ensure zero non-compliant commits reach your main branch:
+
+```yaml
+name: Lint Commits
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run CCCP Commit Lint
+        run: |
+          curl -sSL https://raw.githubusercontent.com/lumenpink/cccp.sh/main/cccp.sh -o /usr/local/bin/cccp
+          chmod +x /usr/local/bin/cccp
+          cccp lint origin/${{ github.base_ref }}..HEAD
 ```
 
 ### Release Tagging (`tag`)
