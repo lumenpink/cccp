@@ -19,6 +19,7 @@ fi
 cd "$SHELLSPEC_PROJECT_ROOT"
 
 export GIT_HOOK_FILE="cccp-base.sh"
+export CHECK_UPDATES=0
 
 # Helper function to create a test git repository
 setup_test_repository() {

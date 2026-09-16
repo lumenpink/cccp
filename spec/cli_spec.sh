@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 run_cli() {
-  CCCP_SOURCED=0 /bin/sh "$CCCP_BIN" "$@"
+  CHECK_UPDATES=0 CCCP_SOURCED=0 /bin/sh "$CCCP_BIN" "$@"
 }
 
 Describe 'CLI Entry Point (End-to-End)'
