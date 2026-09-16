@@ -10,6 +10,15 @@
 
 ## Previous Releases
 
+### [v1.5.0] - Party Line Compliance (Commit Linting)
+
+### Features
+  - (lint) add history and pull request commit linting
+
+### Bug Fixes
+
+### Performance Improvements
+
 ### [v1.4.0] - State Inspection (Repository Status)
 
 ### Features
