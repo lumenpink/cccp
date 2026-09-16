@@ -79,6 +79,10 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 
 | Key | Description | Default | Allowed Values |
 | :--- | :--- | :--- | :--- |
+| `types` | Space-separated list of allowed commit types | Standard 13 types | String of types |
+| `scopes` | Space-separated list of allowed commit scopes | Standard 16 scopes | String of scopes |
+| `subscopes` | Space-separated list of allowed subscopes | Standard 9 subscopes | String of subscopes |
+| `strict_types` | Require commit type to match allowed `types` | `1` | `1` (strict known types), `0` (allow any alphanumeric type) |
 | `strict_scopes` | Require scope to match allowed `COMMIT_SCOPES` | `0` | `0` (any scope), `1` (strict) |
 | `strict_subscopes` | Require subscope to match allowed `COMMIT_SUBSCOPES` | `0` | `0` (any subscope), `1` (strict) |
 | `disable_subscopes` | Disallow slash-delimited subscopes (e.g. `api/auth`) | `0` | `0` (allowed), `1` (prohibited) |
@@ -88,6 +92,18 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 | `update_channel` | Release channel for updates | `stable` | `stable`, `nightly` |
 | `update_interval_days` | Number of days between automated update checks | `30` | Integer |
 | `check_updates` | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
+| `type_desc_<type>` | Custom descriptor/help message for a commit type | Built-in dictionary | String |
+| `scope_desc_<scope>` | Custom descriptor/help message for a commit scope | Built-in dictionary | String |
+
+> [!TIP]
+> **Corporate & Gosplan Customization**: Enterprise teams with custom conventions can define restricted vocabularies and custom descriptors directly in their repository `.cccprc`:
+> ```ini
+> types = feat fix chore docs security
+> strict_types = 1
+> scopes = core api auth billing infrastructure
+> strict_scopes = 1
+> type_desc_security = Security patches and vulnerability remediations
+> ```
 
 > [!NOTE]
 > **Backward Compatibility**: Legacy flags `ALLOW_ANY_SCOPE=0` and `ALLOW_ANY_SUBSCOPE=0` remain supported in environment variables and config files, mapping automatically to `STRICT_SCOPES=1` and `STRICT_SUBSCOPES=1`.
