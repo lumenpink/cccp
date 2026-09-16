@@ -10,6 +10,15 @@
 
 ## Previous Releases
 
+### [v1.3.0] - Gosplan Directive (Custom Types and Scopes)
+
+### Features
+  - (config) support custom types, scopes, and descriptor lookup
+
+### Bug Fixes
+
+### Performance Improvements
+
 ### [v1.2.0] - Sputnik Protocol
 
 ### Features
