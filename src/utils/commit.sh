@@ -62,6 +62,10 @@ commit() {
                 DISABLE_MULTIPLE_SCOPES=0
                 shift
                 ;;
+            -i|--interactive)
+                interactive_mode=1
+                shift
+                ;;
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
                     show_help "commit"
@@ -81,6 +85,17 @@ commit() {
                 ;;
         esac
     done
+
+    # If interactive mode requested, launch wizard
+    if [ "${interactive_mode:-0}" = "1" ]; then
+        if command -v interactive_commit >/dev/null 2>&1; then
+            interactive_commit
+            return $?
+        else
+            echo "Error: Interactive wizard is not available" >&2
+            return 1
+        fi
+    fi
 
     # If no message provided, show usage
     if [ -z "$message" ]; then

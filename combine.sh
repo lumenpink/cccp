@@ -144,6 +144,12 @@ printf "# Lint Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/lint.sh" >> "$OUTPUT_FILE"
 
+# Add interactive commit function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Interactive Commit Wizard\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/interactive.sh" >> "$OUTPUT_FILE"
+
 # Add soviet easter egg function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Soviet Easter Egg\n" >> "$OUTPUT_FILE"
@@ -187,7 +193,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"version"|"tag"|"changelog"|"config"|"status"|"lint")
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint")
                 check_auto_update || true
                 ;;
         esac
@@ -211,6 +217,11 @@ main() {
         "lint")
             shift || true
             lint_commits "$@"
+            exit 0
+            ;;
+        "cz")
+            shift || true
+            interactive_commit "$@"
             exit 0
             ;;
         "commit")
@@ -270,7 +281,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|install|config|status|lint|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|version|tag|changelog|commit-msg|post-commit|update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
