@@ -330,15 +330,71 @@ Release titles are automatically formatted into `CHANGELOG.md` (`### [v1.2.0] - 
 - `test`     - Test related changes
 - `merge`    - Merge commits
 
+### State Directive & Cultural Archives (`soviet`)
+
+For true comrades and enthusiasts of Soviet heritage, `cccp` includes cultural commands and historic state directives:
+
+```bash
+cccp soviet      # Displays the state emblem, Order No. 227 ("Not a step back!"), and directives
+cccp sputnik     # Alias for state inspection and cultural archives
+cccp anthem      # Alias for the cultural archives
+cccp gosplan     # Alias for state inspection
+```
+
+---
+
+## Development & Dual-Test Architecture
+
+`cccp` follows a rigorous dual-matrix testing standard inspired by Gosplan quality assurance. The codebase is maintained modularly during development and compiled into a standalone, single-file POSIX distribution script.
+
+```text
+       ┌────────────────────────┐
+       │   src/ (Modular Code)  │
+       └───────────┬────────────┘
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+  Development         Distribution
+   (bin/cccp)         (combine.sh)
+         │                   │
+         │                   ▼
+         │             ┌───────────┐
+         │             │  cccp.sh  │
+         │             └─────┬─────┘
+         ▼                   ▼
+    Matrix Run 1        Matrix Run 2
+  [Modular Tests]     [Bundled Tests]
+   (shellspec)      (CCCP_TEST_TARGET=bundled)
+```
+
+### Running Tests
+
+Run the complete test suite across both matrices:
+
+```bash
+# 1. Run tests against modular development source code
+shellspec
+
+# 2. Compile standalone distribution bundle
+./combine.sh
+
+# 3. Run tests against compiled standalone bundle
+CCCP_TEST_TARGET=bundled shellspec
+```
+
+Both test matrices run automatically in CI via GitHub Actions on every pull request and push to `main`.
+
 ---
 
 ## Benefits
 
 - **Zero Runtime Dependencies**: Works anywhere POSIX shell and Git are available.
-- **Strict or Flexible**: Defaults to permissive `0` flags while allowing fine-grained enforcement via `.cccprc` or CLI flags.
+- **Dual-Matrix Verified**: 100% verified across both modular source code and compiled standalone bundle.
+- **Strict or Flexible**: Defaults to permissive flags while allowing fine-grained enforcement via `.cccprc` or CLI flags.
 - **Predictive Versioning**: Know what version will be published before making the release tag.
 - **Safe & Auditable**: Git hooks are standalone scripts, not fragile symlinks, stamped with version provenance.
 
 ## Support
 
 If you encounter any issues or have questions, please open an issue in the project repository.
+
