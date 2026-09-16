@@ -217,4 +217,52 @@ Describe 'Configuration Manager'
       The output should equal "1"
     End
   End
+
+  Describe 'Type and Scope Descriptors'
+    BeforeEach 'reset_env'
+
+    It 'returns canonical Soviet-flavored description for standard types'
+      When call get_type_description "feat"
+      The status should be success
+      The output should include "collective"
+    End
+
+    It 'returns bug fix description for fix type'
+      When call get_type_description "fix"
+      The status should be success
+      The output should include "imperialist sabotage"
+    End
+
+    It 'returns fallback description for unknown type'
+      When call get_type_description "unrecognized"
+      The status should be success
+      The output should equal "Custom action"
+    End
+
+    It 'returns user-configured type description when set in config'
+      cmd_config "type_desc_worker" "Task for heroic shock worker"
+      When call get_type_description "worker"
+      The status should be success
+      The output should equal "Task for heroic shock worker"
+    End
+
+    It 'returns canonical description for standard scopes'
+      When call get_scope_description "core"
+      The status should be success
+      The output should include "Core engine"
+    End
+
+    It 'returns fallback description for unknown scope'
+      When call get_scope_description "unrecognized"
+      The status should be success
+      The output should equal "Custom scope"
+    End
+
+    It 'returns user-configured scope description when set in config'
+      cmd_config "scope_desc_tractor" "Agricultural machinery division"
+      When call get_scope_description "tractor"
+      The status should be success
+      The output should equal "Agricultural machinery division"
+    End
+  End
 End

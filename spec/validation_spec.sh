@@ -104,5 +104,31 @@ Describe 'validation'
       The status should be failure
       The output should include "Error: Multiple scopes are disabled"
     End
+
+    It 'accepts custom types when configured in COMMIT_TYPES'
+      BeforeCall 'COMMIT_TYPES="feat fix decree"'
+      When call validate_commit_message "decree: state proclamation"
+      The status should be success
+    End
+
+    It 'rejects unconfigured types when COMMIT_TYPES is customized'
+      BeforeCall 'COMMIT_TYPES="feat fix decree"'
+      When call validate_commit_message "docs: write documentation"
+      The status should be failure
+      The output should include "Error: Invalid type 'docs'"
+    End
+
+    It 'permits arbitrary alphanumeric types when STRICT_TYPES=0'
+      BeforeCall 'STRICT_TYPES=0'
+      When call validate_commit_message "tractor: harvest wheat"
+      The status should be success
+    End
+
+    It 'rejects invalid characters in type when STRICT_TYPES=0'
+      BeforeCall 'STRICT_TYPES=0'
+      When call validate_commit_message "bad@type: invalid characters"
+      The status should be failure
+      The output should include "Type must consist of alphanumeric characters"
+    End
   End
 End
