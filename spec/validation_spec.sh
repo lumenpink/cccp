@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'validation'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh}"
 
   Describe 'validate_commit_message'
     It 'accepts valid commit message with type only'

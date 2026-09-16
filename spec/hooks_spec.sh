@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'hooks'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/hooks/hooks.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/hooks/hooks.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"

@@ -4,7 +4,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'changelog'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/changelog.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/changelog.sh}"
 
   setup() {
     # Create a temporary directory for the test repository

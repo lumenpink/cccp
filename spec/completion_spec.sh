@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'completion'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/completion.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/completion.sh}"
 
   Describe 'cmd_completion'
     It 'generates valid bash completion script'

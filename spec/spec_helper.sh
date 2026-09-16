@@ -1,8 +1,20 @@
 # Set the shell options for testing
 set -e
 
-# Include the configuration
-. "$SHELLSPEC_PROJECT_ROOT/src/config/config.sh"
+# Dual-target testing configuration: modular (default) or bundled
+CCCP_TEST_TARGET="${CCCP_TEST_TARGET:-modular}"
+export CCCP_TEST_TARGET
+
+if [ "$CCCP_TEST_TARGET" = "bundled" ]; then
+  export CCCP_SOURCED=1
+  export CCCP_BUNDLE="$SHELLSPEC_PROJECT_ROOT/cccp.sh"
+  export CCCP_BIN="$SHELLSPEC_PROJECT_ROOT/cccp.sh"
+else
+  export CCCP_BUNDLE=""
+  export CCCP_BIN="$SHELLSPEC_PROJECT_ROOT/bin/cccp"
+  # Include the configuration for modular mode
+  . "$SHELLSPEC_PROJECT_ROOT/src/config/config.sh"
+fi
 
 cd "$SHELLSPEC_PROJECT_ROOT"
 

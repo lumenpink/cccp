@@ -2,9 +2,9 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'tag'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/changelog.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/tag.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/changelog.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/tag.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"

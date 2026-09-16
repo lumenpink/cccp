@@ -1,7 +1,7 @@
 #!/bin/sh
 
 Describe 'Help Function'
-  Include src/utils/help.sh
+  Include "${CCCP_BUNDLE:-src/utils/help.sh}"
 
   Describe 'show_help'
     It 'displays help information'

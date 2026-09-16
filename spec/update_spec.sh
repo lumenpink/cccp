@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'Update and Hook Version Synchronization'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/update.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/update.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"

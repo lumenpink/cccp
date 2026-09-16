@@ -2,9 +2,9 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'lint'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/lint.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/lint.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"

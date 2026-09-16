@@ -1,9 +1,9 @@
 # Include the test helper
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
-Describe 'commit-msg hook'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/hooks/commit_msg.sh"
+Describe 'commit-msg'
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/hooks/commit_msg.sh}"
 
   setup() {
     # Create a temporary directory for the test repository
