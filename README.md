@@ -170,6 +170,7 @@ cccp [command] [options]
 | Command | Description |
 | :--- | :--- |
 | `status` | Inspect repository health, working tree, and Gosplan diagnostics |
+| `cz, commit -i` | Assemble a commit using the interactive terminal wizard |
 | `lint [range]` | Lint commit messages across a git revision range |
 | `commit [options] <msg>` | Validate formatting and create a commit |
 | `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
@@ -179,6 +180,24 @@ cccp [command] [options]
 | `changelog` | Generate or update `CHANGELOG.md` |
 | `update [options]` | Update `cccp` executable from GitHub releases |
 | `help [command]` | Display deep-dive documentation for any command |
+
+### Interactive Commit Wizard (`cz` / `commit -i`)
+
+Construct Conventional Commits effortlessly with a pure POSIX shell interactive terminal wizard (inspired by Commitizen, built for comrades):
+
+```bash
+cccp cz
+# or
+cccp commit -i
+```
+
+The wizard guides you through:
+1. **Type selection**: Dynamically displays configured types with descriptors.
+2. **Scope selection**: Quick hints for common scopes or enter custom scope.
+3. **Subject line**: Imperative summary with non-empty validation.
+4. **Breaking change flag**: Prompts if change introduces breaking updates (`!`).
+5. **Extended body**: Optional multi-line body description.
+6. **Confirmation**: Formatted preview before committing into Git history.
 
 ### Repository State Inspection (`status`)
 
