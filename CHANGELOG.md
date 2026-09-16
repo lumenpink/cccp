@@ -10,6 +10,15 @@
 
 ## Previous Releases
 
+### [v1.7.0] - Teleprinter Telegraph (Shell Autocompletion)
+
+### Features
+  - (completion) add shell autocompletion for bash, zsh, and fish
+
+### Bug Fixes
+
+### Performance Improvements
+
 ### [v1.6.0] - Soviet Assembly (Interactive Commit Wizard)
 
 ### Features
