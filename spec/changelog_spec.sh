@@ -84,5 +84,23 @@ Describe 'changelog'
       The contents of file CHANGELOG.md should include "  - (security) patch vulnerability"
       The contents of file CHANGELOG.md should include "  - (database) optimize queries"
     End
+
+  End
+
+  Describe 'format_changelog_entries'
+    It 'omits section headings when category has no commits'
+      When call format_changelog_entries "  - new feature" "" ""
+      The output should include "### Features"
+      The output should not include "### Bug Fixes"
+      The output should not include "### Performance Improvements"
+    End
+
+    It 'provides default fallback message when no categorized commits exist'
+      When call format_changelog_entries "" "" ""
+      The output should include "Routine maintenance, documentation updates, and operational improvements."
+      The output should not include "### Features"
+      The output should not include "### Bug Fixes"
+      The output should not include "### Performance Improvements"
+    End
   End
 End 

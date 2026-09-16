@@ -2,11 +2,7 @@
 
 ## [Unreleased]
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ## Previous Releases
 
@@ -15,45 +11,25 @@
 ### Features
   - (completion) add shell autocompletion for bash, zsh, and fish
 
-### Bug Fixes
-
-### Performance Improvements
-
 ### [v1.6.0] - Soviet Assembly (Interactive Commit Wizard)
 
 ### Features
   - (interactive) add pure shell terminal commit wizard
-
-### Bug Fixes
-
-### Performance Improvements
 
 ### [v1.5.0] - Party Line Compliance (Commit Linting)
 
 ### Features
   - (lint) add history and pull request commit linting
 
-### Bug Fixes
-
-### Performance Improvements
-
 ### [v1.4.0] - State Inspection (Repository Status)
 
 ### Features
   - (status) add repository status and health diagnostic command
 
-### Bug Fixes
-
-### Performance Improvements
-
 ### [v1.3.0] - Gosplan Directive (Custom Types and Scopes)
 
 ### Features
   - (config) support custom types, scopes, and descriptor lookup
-
-### Bug Fixes
-
-### Performance Improvements
 
 ### [v1.2.0] - Sputnik Protocol
 
@@ -71,8 +47,6 @@
   - (ci) install shellspec to user space and export PATH
   - (ci) correct YAML escaping for multiline release notes and quote workflow name
 
-### Performance Improvements
-
 ### [v1.1.0]
 
 ### Features
@@ -80,17 +54,9 @@
   - (cli) add command-specific help and release tagging command
   - (version) implement predictive semantic versioning, prerequisite checks and scope validation fixes
 
-### Bug Fixes
-
-### Performance Improvements
-
 ### [v1.0.2] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v1.0.1] - test
 
@@ -105,81 +71,41 @@
   - testttqwe
   - add updatescript function
 
-### Bug Fixes
-
-### Performance Improvements
-
 ### [v1.0.0] - first version
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.9] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.8] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.7] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.6] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.5] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.4] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.3] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.2] - test
 
-### Features
-
-### Bug Fixes
-
-### Performance Improvements
+- Routine maintenance, documentation updates, and operational improvements.
 
 ### [v0.0.1] - test
 
@@ -195,6 +121,3 @@
   - add updatescript function
   - first version
 
-### Bug Fixes
-
-### Performance Improvements

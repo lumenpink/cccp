@@ -43,6 +43,40 @@ format_tag_header() {
     fi
 }
 
+# Function to format changelog section entries
+format_changelog_entries() {
+    local feat="$1"
+    local fix="$2"
+    local perf="$3"
+    local has_content=0
+
+    if [ -n "$feat" ]; then
+        echo "### Features"
+        echo "$feat"
+        echo
+        has_content=1
+    fi
+
+    if [ -n "$fix" ]; then
+        echo "### Bug Fixes"
+        echo "$fix"
+        echo
+        has_content=1
+    fi
+
+    if [ -n "$perf" ]; then
+        echo "### Performance Improvements"
+        echo "$perf"
+        echo
+        has_content=1
+    fi
+
+    if [ $has_content -eq 0 ]; then
+        echo "- Routine maintenance, documentation updates, and operational improvements."
+        echo
+    fi
+}
+
 # Function to generate a changelog based on conventional commits
 generate_changelog() {
     local changelog_file="CHANGELOG.md"
@@ -67,30 +101,7 @@ generate_changelog() {
         echo
         echo "## [Unreleased]"
         echo
-        echo "### Features"
-        
-        # Add feature commits
-        if [ -n "$feat_commits" ]; then
-            echo "$feat_commits"
-        fi
-        
-        echo
-        echo "### Bug Fixes"
-        
-        # Add bug fix commits
-        if [ -n "$fix_commits" ]; then
-            echo "$fix_commits"
-        fi
-        
-        echo
-        echo "### Performance Improvements"
-        
-        # Add performance improvement commits
-        if [ -n "$perf_commits" ]; then
-            echo "$perf_commits"
-        fi
-        
-        echo
+        format_changelog_entries "$feat_commits" "$fix_commits" "$perf_commits"
         echo "## Previous Releases"
         echo
     } > "$changelog_file"
@@ -113,30 +124,7 @@ generate_changelog() {
                 {
                     format_tag_header "$prev_tag"
                     echo
-                    echo "### Features"
-                    
-                    # Add feature commits
-                    if [ -n "$tag_feat_commits" ]; then
-                        echo "$tag_feat_commits"
-                    fi
-                    
-                    echo
-                    echo "### Bug Fixes"
-                    
-                    # Add bug fix commits
-                    if [ -n "$tag_fix_commits" ]; then
-                        echo "$tag_fix_commits"
-                    fi
-                    
-                    echo
-                    echo "### Performance Improvements"
-                    
-                    # Add performance improvement commits
-                    if [ -n "$tag_perf_commits" ]; then
-                        echo "$tag_perf_commits"
-                    fi
-                    
-                    echo
+                    format_changelog_entries "$tag_feat_commits" "$tag_fix_commits" "$tag_perf_commits"
                 } >> "$changelog_file"
             fi
             prev_tag="$tag"
@@ -156,28 +144,7 @@ generate_changelog() {
             {
                 format_tag_header "$prev_tag"
                 echo
-                echo "### Features"
-                
-                # Add feature commits
-                if [ -n "$first_feat_commits" ]; then
-                    echo "$first_feat_commits"
-                fi
-                
-                echo
-                echo "### Bug Fixes"
-                
-                # Add bug fix commits
-                if [ -n "$first_fix_commits" ]; then
-                    echo "$first_fix_commits"
-                fi
-                
-                echo
-                echo "### Performance Improvements"
-                
-                # Add performance improvement commits
-                if [ -n "$first_perf_commits" ]; then
-                    echo "$first_perf_commits"
-                fi
+                format_changelog_entries "$first_feat_commits" "$first_fix_commits" "$first_perf_commits"
             } >> "$changelog_file"
         fi
     fi

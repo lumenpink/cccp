@@ -84,14 +84,13 @@ jobs:
           # Check if notes contain actual bullet points
           if echo "$NOTES" | grep -q '^[[:space:]]*- '; then
             echo "$NOTES" > /tmp/release_notes.md
-            gh release create "$TAG" cccp.sh \
-              --title "$RELEASE_TITLE" \
-              --notes-file /tmp/release_notes.md
           else
-            gh release create "$TAG" cccp.sh \
-              --title "$RELEASE_TITLE" \
-              --generate-notes
+            echo "- Routine maintenance, documentation updates, and operational improvements." > /tmp/release_notes.md
           fi
+
+          gh release create "$TAG" cccp.sh \
+            --title "$RELEASE_TITLE" \
+            --notes-file /tmp/release_notes.md
 
       - name: Publish Nightly Build
         if: github.ref == 'refs/heads/main'
