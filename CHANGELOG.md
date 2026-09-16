@@ -10,6 +10,15 @@
 
 ## Previous Releases
 
+### [v1.6.0] - Soviet Assembly (Interactive Commit Wizard)
+
+### Features
+  - (interactive) add pure shell terminal commit wizard
+
+### Bug Fixes
+
+### Performance Improvements
+
 ### [v1.5.0] - Party Line Compliance (Commit Linting)
 
 ### Features
