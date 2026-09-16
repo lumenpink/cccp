@@ -10,6 +10,24 @@
 
 ## Previous Releases
 
+### [v1.2.0] - Sputnik Protocol
+
+### Features
+  - (tag) support release titles with -t and --title flags
+  - (update) add update checking, release channels and hook version synchronization
+  - (install) support global CLI installation to PATH with shell profile integration
+  - (config) add hierarchical configuration system and cccp config CLI command
+  - (hooks) use standalone portable wrapper scripts with version tracking
+  - (config) standardize default flags to 0 and set base version to 0.0.1
+
+### Bug Fixes
+  - (tag) exclude VERSION and CHANGELOG.md from pre-tag dirty check
+  - (ci) configure git default branch to silence hints during spec tests
+  - (ci) install shellspec to user space and export PATH
+  - (ci) correct YAML escaping for multiline release notes and quote workflow name
+
+### Performance Improvements
+
 ### [v1.1.0]
 
 ### Features
@@ -21,7 +39,7 @@
 
 ### Performance Improvements
 
-### [1.0.2]
+### [v1.0.2] - test
 
 ### Features
 
@@ -29,7 +47,7 @@
 
 ### Performance Improvements
 
-### [1.0.1]
+### [v1.0.1] - test
 
 ### Features
   - testttqwe
@@ -46,7 +64,7 @@
 
 ### Performance Improvements
 
-### [1.0.0]
+### [v1.0.0] - first version
 
 ### Features
 
@@ -54,7 +72,7 @@
 
 ### Performance Improvements
 
-### [0.0.9]
+### [v0.0.9] - test
 
 ### Features
 
@@ -62,7 +80,7 @@
 
 ### Performance Improvements
 
-### [0.0.8]
+### [v0.0.8] - test
 
 ### Features
 
@@ -70,7 +88,7 @@
 
 ### Performance Improvements
 
-### [0.0.7]
+### [v0.0.7] - test
 
 ### Features
 
@@ -78,7 +96,7 @@
 
 ### Performance Improvements
 
-### [0.0.6]
+### [v0.0.6] - test
 
 ### Features
 
@@ -86,7 +104,7 @@
 
 ### Performance Improvements
 
-### [0.0.5]
+### [v0.0.5] - test
 
 ### Features
 
@@ -94,7 +112,7 @@
 
 ### Performance Improvements
 
-### [0.0.4]
+### [v0.0.4] - test
 
 ### Features
 
@@ -102,7 +120,7 @@
 
 ### Performance Improvements
 
-### [0.0.3]
+### [v0.0.3] - test
 
 ### Features
 
@@ -110,7 +128,7 @@
 
 ### Performance Improvements
 
-### [0.0.2]
+### [v0.0.2] - test
 
 ### Features
 
@@ -118,7 +136,7 @@
 
 ### Performance Improvements
 
-### [0.0.1]
+### [v0.0.1] - test
 
 ### Features
   - testttqwe
