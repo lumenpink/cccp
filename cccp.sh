@@ -2057,7 +2057,7 @@ check_hook_version() {
     for hook in commit-msg post-commit; do
         hook_file="$hooks_dir/$hook"
         if [ -f "$hook_file" ]; then
-            hook_ver=$(awk '/^# cccp-hook-version:/ { print $3; exit }' "$hook_file")
+            hook_ver=$(sed -n 's/^# cccp-hook-version:[[:space:]]*//p' "$hook_file" 2>/dev/null | head -n 1)
             if [ -n "$hook_ver" ] && [ "$hook_ver" != "$curr_ver" ]; then
                 echo "[cccp] Warning: Git hook '$hook' was installed with cccp v$hook_ver (current: v$curr_ver)." >&2
                 echo "[cccp] Run 'cccp install' to synchronize git hooks with your current cccp version." >&2
@@ -2124,8 +2124,8 @@ check_auto_update() {
     cached_latest=""
 
     if [ -f "$cache_file" ]; then
-        last_check=$(awk -F= '/^last_check_timestamp=/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }' "$cache_file" 2>/dev/null || true)
-        cached_latest=$(awk -F= '/^latest_version=/ { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2 }' "$cache_file" 2>/dev/null || true)
+        last_check=$(grep '^last_check_timestamp=' "$cache_file" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
+        cached_latest=$(grep '^latest_version=' "$cache_file" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || true)
     fi
     last_check="${last_check:-0}"
 
@@ -2148,7 +2148,7 @@ check_auto_update() {
             fi
 
             if [ -n "$response" ]; then
-                remote_ver=$(echo "$response" | awk -F'"' '/"tag_name":/ { print $4; exit }' | sed 's/^v//')
+                remote_ver=$(echo "$response" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 | sed 's/^v//')
             fi
         fi
 
