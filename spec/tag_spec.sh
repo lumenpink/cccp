@@ -83,5 +83,24 @@ Describe 'tag'
       The error should include "Error: Invalid version format"
       The status should be failure
     End
+
+    It 'creates tag with custom title using -t'
+      When call create_tag 5.0.0 -t "Sputnik Protocol"
+      The output should include "Release commit created: chore(release): v5.0.0 - Sputnik Protocol"
+      The output should include 'Tag '\''v5.0.0'\'' ("Sputnik Protocol") created successfully.'
+      The contents of file VERSION should eq "5.0.0"
+      The contents of file CHANGELOG.md should include "[v5.0.0] - Sputnik Protocol"
+    End
+
+    It 'creates predictive tag with title using --title'
+      echo "fix: patch issue" >> README.md
+      git add README.md
+      git commit -m "fix: patch issue"
+
+      When call create_tag --title "Cosmonaut Orbit"
+      The output should include "Release commit created: chore(release): v5.0.1 - Cosmonaut Orbit"
+      The contents of file VERSION should eq "5.0.1"
+      The contents of file CHANGELOG.md should include "[v5.0.1] - Cosmonaut Orbit"
+    End
   End
 End
