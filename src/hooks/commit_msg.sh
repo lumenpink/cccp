@@ -13,8 +13,8 @@ fi
 # Set up paths relative to git root
 GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
+# Source the configuration if available
+[ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
 
 # Function to validate the commit message
 commit_msg() {

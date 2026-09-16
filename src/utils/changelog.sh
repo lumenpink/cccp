@@ -10,8 +10,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Source the configuration file
-. "$GIT_ROOT/src/config/config.sh"
+# Source the configuration file if available
+[ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
 
 # Function to format commit message with scope
 format_commit_message() {

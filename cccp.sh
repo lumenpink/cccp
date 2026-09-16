@@ -36,6 +36,13 @@ COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth
 COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
 CHANGELOG_TYPES="feat fix perf refactor merge"
 GIT_HOOKS_LIST="commit-msg post-commit"
+DISABLE_SUBSCOPES="${DISABLE_SUBSCOPES:-0}"
+DISABLE_MULTIPLE_SCOPES="${DISABLE_MULTIPLE_SCOPES:-0}"
+STRICT_SCOPES="${STRICT_SCOPES:-0}"
+STRICT_SUBSCOPES="${STRICT_SUBSCOPES:-0}"
+STRICT_TYPES="${STRICT_TYPES:-1}"
+ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
+ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 
 # =============================================================================
 # Validation Functions
@@ -156,7 +163,7 @@ validate_commit_message() {
         scope_item=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
         
         if echo "$scope_item" | grep -q "/"; then
-            if [ "$DISABLE_SUBSCOPES" = "1" ]; then
+            if [ "${DISABLE_SUBSCOPES:-0}" = "1" ]; then
                 echo "Error: Subscopes are disabled"
                 IFS="$OLD_IFS"
                 return 1
@@ -231,7 +238,7 @@ validate_commit_message() {
         fi
     done
     
-    if [ $scope_count -gt 1 ] && [ "$DISABLE_MULTIPLE_SCOPES" = "1" ]; then
+    if [ $scope_count -gt 1 ] && [ "${DISABLE_MULTIPLE_SCOPES:-0}" = "1" ]; then
         echo "Error: Multiple scopes are disabled"
         IFS="$OLD_IFS"
         return 1
@@ -383,6 +390,11 @@ generate_changelog() {
 # Version Functions
 # =============================================================================
 calculate_target_version() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     last_tag=""
     default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
@@ -892,10 +904,15 @@ commit_msg() {
 # Post Commit Hook Function
 # =============================================================================
 post_commit() {
+    GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     # Check if the hook is active to prevent infinite loops
-    # If the hook is active, exit the script
     if [ -n "${HOOK_ACTIVE:-}" ] && [ "$HOOK_ACTIVE" = "1" ]; then
-        exit 0
+        return 0
     fi
     generate_changelog
     generate_version_info
@@ -904,6 +921,7 @@ post_commit() {
     git add VERSION CHANGELOG.md
     git commit --amend --no-edit    
     unset HOOK_ACTIVE
+    return 0
 }
 
 
@@ -1428,9 +1446,9 @@ normalize_config_key() {
 
 get_default_config_value() {
     case "$1" in
-        types) echo "feat fix perf refactor revert chore build ci docs ops style test merge" ;;
-        scopes) echo "ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build" ;;
-        subscopes) echo "components pages services utils auth models views controllers handlers" ;;
+        types|commit_types) echo "feat fix perf refactor revert chore build ci docs ops style test merge" ;;
+        scopes|commit_scopes) echo "ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build" ;;
+        subscopes|commit_subscopes) echo "components pages services utils auth models views controllers handlers" ;;
         strict_types) echo "1" ;;
         strict_scopes) echo "0" ;;
         strict_subscopes) echo "0" ;;
@@ -1687,13 +1705,16 @@ load_hierarchical_config() {
     # 1. Global config file overrides
     if [ -f "$global_file" ]; then
         g_types=$(read_file_key "$global_file" "types" 2>/dev/null || true)
-        [ -n "$g_types" ] && COMMIT_TYPES="$g_types"
+        [ -z "$g_types" ] && g_types=$(read_file_key "$global_file" "commit_types" 2>/dev/null || true)
+        [ -n "$g_types" ] && COMMIT_TYPES=$(echo "$g_types" | tr ',' ' ')
 
         g_scopes=$(read_file_key "$global_file" "scopes" 2>/dev/null || true)
-        [ -n "$g_scopes" ] && COMMIT_SCOPES="$g_scopes"
+        [ -z "$g_scopes" ] && g_scopes=$(read_file_key "$global_file" "commit_scopes" 2>/dev/null || true)
+        [ -n "$g_scopes" ] && COMMIT_SCOPES=$(echo "$g_scopes" | tr ',' ' ')
 
         g_subscopes=$(read_file_key "$global_file" "subscopes" 2>/dev/null || true)
-        [ -n "$g_subscopes" ] && COMMIT_SUBSCOPES="$g_subscopes"
+        [ -z "$g_subscopes" ] && g_subscopes=$(read_file_key "$global_file" "commit_subscopes" 2>/dev/null || true)
+        [ -n "$g_subscopes" ] && COMMIT_SUBSCOPES=$(echo "$g_subscopes" | tr ',' ' ')
 
         g_strict_types=$(read_file_key "$global_file" "strict_types" 2>/dev/null || true)
         [ -n "$g_strict_types" ] && STRICT_TYPES="$g_strict_types"
@@ -1735,13 +1756,16 @@ load_hierarchical_config() {
     # 2. Local repository config (.cccprc) overrides global
     if [ -n "$local_file" ] && [ -f "$local_file" ]; then
         l_types=$(read_file_key "$local_file" "types" 2>/dev/null || true)
-        [ -n "$l_types" ] && COMMIT_TYPES="$l_types"
+        [ -z "$l_types" ] && l_types=$(read_file_key "$local_file" "commit_types" 2>/dev/null || true)
+        [ -n "$l_types" ] && COMMIT_TYPES=$(echo "$l_types" | tr ',' ' ')
 
         l_scopes=$(read_file_key "$local_file" "scopes" 2>/dev/null || true)
-        [ -n "$l_scopes" ] && COMMIT_SCOPES="$l_scopes"
+        [ -z "$l_scopes" ] && l_scopes=$(read_file_key "$local_file" "commit_scopes" 2>/dev/null || true)
+        [ -n "$l_scopes" ] && COMMIT_SCOPES=$(echo "$l_scopes" | tr ',' ' ')
 
         l_subscopes=$(read_file_key "$local_file" "subscopes" 2>/dev/null || true)
-        [ -n "$l_subscopes" ] && COMMIT_SUBSCOPES="$l_subscopes"
+        [ -z "$l_subscopes" ] && l_subscopes=$(read_file_key "$local_file" "commit_subscopes" 2>/dev/null || true)
+        [ -n "$l_subscopes" ] && COMMIT_SUBSCOPES=$(echo "$l_subscopes" | tr ',' ' ')
 
         l_strict_types=$(read_file_key "$local_file" "strict_types" 2>/dev/null || true)
         [ -n "$l_strict_types" ] && STRICT_TYPES="$l_strict_types"
@@ -1796,16 +1820,20 @@ load_hierarchical_config() {
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
 
     # Legacy environment overrides
-    if [ "$env_allow_any_scope" = "0" ]; then
-        STRICT_SCOPES=1
-    elif [ "$env_allow_any_scope" = "1" ]; then
-        STRICT_SCOPES=0
+    if [ -z "$env_strict_scopes" ]; then
+        if [ "$env_allow_any_scope" = "0" ]; then
+            STRICT_SCOPES=1
+        elif [ "$env_allow_any_scope" = "1" ]; then
+            STRICT_SCOPES=0
+        fi
     fi
 
-    if [ "$env_allow_any_subscope" = "0" ]; then
-        STRICT_SUBSCOPES=1
-    elif [ "$env_allow_any_subscope" = "1" ]; then
-        STRICT_SUBSCOPES=0
+    if [ -z "$env_strict_subscopes" ]; then
+        if [ "$env_allow_any_subscope" = "0" ]; then
+            STRICT_SUBSCOPES=1
+        elif [ "$env_allow_any_subscope" = "1" ]; then
+            STRICT_SUBSCOPES=0
+        fi
     fi
 
     ALLOW_ANY_SCOPE=$([ "$STRICT_SCOPES" = "1" ] && echo "0" || echo "1")
@@ -2952,7 +2980,7 @@ main() {
     current_hook=$(basename "$0")
     
     # Check if running as a hook
-    case " $GIT_HOOKS_LIST " in
+    case " ${GIT_HOOKS_LIST:-commit-msg post-commit} " in
         *" $current_hook "*)
             command="$current_hook"
             ;;
@@ -3070,5 +3098,6 @@ main() {
     esac
 }
 
-# Execute main function
-main "$@"
+if [ "${CCCP_SOURCED:-0}" != "1" ]; then
+    main "$@"
+fi

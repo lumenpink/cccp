@@ -13,8 +13,8 @@ fi
 # Set up paths relative to git root
 GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
+# Source the configuration if available
+[ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
 
 # -----------------------------------------------------------------------------
 # Verify system prerequisites
@@ -138,7 +138,7 @@ validate_commit_message() {
         scope_item=$(echo "$scope_item" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
         
         if echo "$scope_item" | grep -q "/"; then
-            if [ "$DISABLE_SUBSCOPES" = "1" ]; then
+            if [ "${DISABLE_SUBSCOPES:-0}" = "1" ]; then
                 echo "Error: Subscopes are disabled"
                 IFS="$OLD_IFS"
                 return 1
@@ -213,7 +213,7 @@ validate_commit_message() {
         fi
     done
     
-    if [ $scope_count -gt 1 ] && [ "$DISABLE_MULTIPLE_SCOPES" = "1" ]; then
+    if [ $scope_count -gt 1 ] && [ "${DISABLE_MULTIPLE_SCOPES:-0}" = "1" ]; then
         echo "Error: Multiple scopes are disabled"
         IFS="$OLD_IFS"
         return 1

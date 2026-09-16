@@ -25,8 +25,17 @@ CHANGELOG_TYPES="feat fix perf refactor merge"
 # Git hooks configuration
 GIT_HOOKS_LIST="commit-msg post-commit"
 
+# Scope and subscope policy flags
+DISABLE_SUBSCOPES="${DISABLE_SUBSCOPES:-0}"
+DISABLE_MULTIPLE_SCOPES="${DISABLE_MULTIPLE_SCOPES:-0}"
+STRICT_SCOPES="${STRICT_SCOPES:-0}"
+STRICT_SUBSCOPES="${STRICT_SUBSCOPES:-0}"
+STRICT_TYPES="${STRICT_TYPES:-1}"
+ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
+ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
+
 # Source hierarchical config manager if available
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/config_manager.sh" ] && . "$GIT_ROOT/src/utils/config_manager.sh"
 
 # Load hierarchical configuration if manager is loaded
-command -v load_hierarchical_config >/dev/null 2>&1 && load_hierarchical_config
+command -v load_hierarchical_config >/dev/null 2>&1 && load_hierarchical_config || true

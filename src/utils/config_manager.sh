@@ -32,9 +32,9 @@ normalize_config_key() {
 
 get_default_config_value() {
     case "$1" in
-        types) echo "feat fix perf refactor revert chore build ci docs ops style test merge" ;;
-        scopes) echo "ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build" ;;
-        subscopes) echo "components pages services utils auth models views controllers handlers" ;;
+        types|commit_types) echo "feat fix perf refactor revert chore build ci docs ops style test merge" ;;
+        scopes|commit_scopes) echo "ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build" ;;
+        subscopes|commit_subscopes) echo "components pages services utils auth models views controllers handlers" ;;
         strict_types) echo "1" ;;
         strict_scopes) echo "0" ;;
         strict_subscopes) echo "0" ;;
@@ -297,13 +297,16 @@ load_hierarchical_config() {
     # 1. Global config file overrides
     if [ -f "$global_file" ]; then
         g_types=$(read_file_key "$global_file" "types" 2>/dev/null || true)
-        [ -n "$g_types" ] && COMMIT_TYPES="$g_types"
+        [ -z "$g_types" ] && g_types=$(read_file_key "$global_file" "commit_types" 2>/dev/null || true)
+        [ -n "$g_types" ] && COMMIT_TYPES=$(echo "$g_types" | tr ',' ' ')
 
         g_scopes=$(read_file_key "$global_file" "scopes" 2>/dev/null || true)
-        [ -n "$g_scopes" ] && COMMIT_SCOPES="$g_scopes"
+        [ -z "$g_scopes" ] && g_scopes=$(read_file_key "$global_file" "commit_scopes" 2>/dev/null || true)
+        [ -n "$g_scopes" ] && COMMIT_SCOPES=$(echo "$g_scopes" | tr ',' ' ')
 
         g_subscopes=$(read_file_key "$global_file" "subscopes" 2>/dev/null || true)
-        [ -n "$g_subscopes" ] && COMMIT_SUBSCOPES="$g_subscopes"
+        [ -z "$g_subscopes" ] && g_subscopes=$(read_file_key "$global_file" "commit_subscopes" 2>/dev/null || true)
+        [ -n "$g_subscopes" ] && COMMIT_SUBSCOPES=$(echo "$g_subscopes" | tr ',' ' ')
 
         g_strict_types=$(read_file_key "$global_file" "strict_types" 2>/dev/null || true)
         [ -n "$g_strict_types" ] && STRICT_TYPES="$g_strict_types"
@@ -345,13 +348,16 @@ load_hierarchical_config() {
     # 2. Local repository config (.cccprc) overrides global
     if [ -n "$local_file" ] && [ -f "$local_file" ]; then
         l_types=$(read_file_key "$local_file" "types" 2>/dev/null || true)
-        [ -n "$l_types" ] && COMMIT_TYPES="$l_types"
+        [ -z "$l_types" ] && l_types=$(read_file_key "$local_file" "commit_types" 2>/dev/null || true)
+        [ -n "$l_types" ] && COMMIT_TYPES=$(echo "$l_types" | tr ',' ' ')
 
         l_scopes=$(read_file_key "$local_file" "scopes" 2>/dev/null || true)
-        [ -n "$l_scopes" ] && COMMIT_SCOPES="$l_scopes"
+        [ -z "$l_scopes" ] && l_scopes=$(read_file_key "$local_file" "commit_scopes" 2>/dev/null || true)
+        [ -n "$l_scopes" ] && COMMIT_SCOPES=$(echo "$l_scopes" | tr ',' ' ')
 
         l_subscopes=$(read_file_key "$local_file" "subscopes" 2>/dev/null || true)
-        [ -n "$l_subscopes" ] && COMMIT_SUBSCOPES="$l_subscopes"
+        [ -z "$l_subscopes" ] && l_subscopes=$(read_file_key "$local_file" "commit_subscopes" 2>/dev/null || true)
+        [ -n "$l_subscopes" ] && COMMIT_SUBSCOPES=$(echo "$l_subscopes" | tr ',' ' ')
 
         l_strict_types=$(read_file_key "$local_file" "strict_types" 2>/dev/null || true)
         [ -n "$l_strict_types" ] && STRICT_TYPES="$l_strict_types"
@@ -406,16 +412,20 @@ load_hierarchical_config() {
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
 
     # Legacy environment overrides
-    if [ "$env_allow_any_scope" = "0" ]; then
-        STRICT_SCOPES=1
-    elif [ "$env_allow_any_scope" = "1" ]; then
-        STRICT_SCOPES=0
+    if [ -z "$env_strict_scopes" ]; then
+        if [ "$env_allow_any_scope" = "0" ]; then
+            STRICT_SCOPES=1
+        elif [ "$env_allow_any_scope" = "1" ]; then
+            STRICT_SCOPES=0
+        fi
     fi
 
-    if [ "$env_allow_any_subscope" = "0" ]; then
-        STRICT_SUBSCOPES=1
-    elif [ "$env_allow_any_subscope" = "1" ]; then
-        STRICT_SUBSCOPES=0
+    if [ -z "$env_strict_subscopes" ]; then
+        if [ "$env_allow_any_subscope" = "0" ]; then
+            STRICT_SUBSCOPES=1
+        elif [ "$env_allow_any_subscope" = "1" ]; then
+            STRICT_SUBSCOPES=0
+        fi
     fi
 
     ALLOW_ANY_SCOPE=$([ "$STRICT_SCOPES" = "1" ] && echo "0" || echo "1")

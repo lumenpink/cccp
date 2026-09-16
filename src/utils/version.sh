@@ -1,22 +1,23 @@
 #!/bin/sh
 
 # Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository"
-    exit 1
-fi
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
 # Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+GIT_HOOKS_DIR=$([ -n "$GIT_ROOT" ] && echo "$GIT_ROOT/.git/hooks" || echo "")
 
-# Source the configuration
-. "$GIT_ROOT/src/config/config.sh"
+# Source the configuration if available
+[ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
 
 # -----------------------------------------------------------------------------
 # Calculate predicted target version
 # -----------------------------------------------------------------------------
 calculate_target_version() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
     last_tag=""
     default_base="${DEFAULT_BASE_VERSION:-0.0.1}"
 
