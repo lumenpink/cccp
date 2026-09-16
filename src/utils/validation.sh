@@ -94,15 +94,25 @@ validate_commit_message() {
     
     # Validate type
     valid_type=0
-    for t in $COMMIT_TYPES; do
-        if [ "$type" = "$t" ]; then
+    if [ "${STRICT_TYPES:-1}" = "0" ]; then
+        if echo "$type" | grep -qE '^[a-zA-Z0-9_-]+$'; then
             valid_type=1
-            break
         fi
-    done
+    else
+        for t in $COMMIT_TYPES; do
+            if [ "$type" = "$t" ]; then
+                valid_type=1
+                break
+            fi
+        done
+    fi
     
     if [ $valid_type -eq 0 ]; then
-        echo "Error: Invalid type '$type'. Must be one of: $COMMIT_TYPES"
+        if [ "${STRICT_TYPES:-1}" = "0" ]; then
+            echo "Error: Invalid type '$type'. Type must consist of alphanumeric characters, hyphens, or underscores"
+        else
+            echo "Error: Invalid type '$type'. Must be one of: $COMMIT_TYPES"
+        fi
         return 1
     fi
     

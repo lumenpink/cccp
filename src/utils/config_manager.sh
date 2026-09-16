@@ -32,6 +32,10 @@ normalize_config_key() {
 
 get_default_config_value() {
     case "$1" in
+        types) echo "feat fix perf refactor revert chore build ci docs ops style test merge" ;;
+        scopes) echo "ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build" ;;
+        subscopes) echo "components pages services utils auth models views controllers handlers" ;;
+        strict_types) echo "1" ;;
         strict_scopes) echo "0" ;;
         strict_subscopes) echo "0" ;;
         disable_subscopes) echo "0" ;;
@@ -45,6 +49,80 @@ get_default_config_value() {
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
     esac
+}
+
+get_type_description() {
+    target_type="$1"
+    local_file=$(get_local_config_file 2>/dev/null || true)
+    global_file=$(get_global_config_file 2>/dev/null || true)
+    custom_desc=""
+    if [ -n "$local_file" ] && [ -f "$local_file" ]; then
+        custom_desc=$(read_file_key "$local_file" "type_desc_${target_type}" 2>/dev/null || true)
+    fi
+    if [ -z "$custom_desc" ] && [ -n "$global_file" ] && [ -f "$global_file" ]; then
+        custom_desc=$(read_file_key "$global_file" "type_desc_${target_type}" 2>/dev/null || true)
+    fi
+    if [ -n "$custom_desc" ]; then
+        echo "$custom_desc"
+        return 0
+    fi
+
+    case "$target_type" in
+        feat) echo "A new feature for the collective" ;;
+        fix) echo "A bug fix (correcting imperialist sabotage)" ;;
+        docs) echo "Documentation updates or State archives" ;;
+        style) echo "Code style/formatting changes (no logic changes)" ;;
+        refactor) echo "Code refactoring without changing functionality" ;;
+        perf) echo "Performance optimization (Stakhanovite efficiency)" ;;
+        test) echo "Adding or correcting tests" ;;
+        build) echo "Changes affecting build system or external dependencies" ;;
+        ci) echo "Continuous integration / automated factory pipelines" ;;
+        chore) echo "Routine maintenance tasks and housekeeping" ;;
+        revert) echo "Reverting a previous state decree" ;;
+        ops) echo "Operational or infrastructure directives" ;;
+        merge) echo "Merging branches into the unified motherland" ;;
+        *) echo "Custom action" ;;
+    esac
+}
+
+get_scope_description() {
+    target_scope="$1"
+    local_file=$(get_local_config_file 2>/dev/null || true)
+    global_file=$(get_global_config_file 2>/dev/null || true)
+    custom_desc=""
+    if [ -n "$local_file" ] && [ -f "$local_file" ]; then
+        custom_desc=$(read_file_key "$local_file" "scope_desc_${target_scope}" 2>/dev/null || true)
+    fi
+    if [ -z "$custom_desc" ] && [ -n "$global_file" ] && [ -f "$global_file" ]; then
+        custom_desc=$(read_file_key "$global_file" "scope_desc_${target_scope}" 2>/dev/null || true)
+    fi
+    if [ -n "$custom_desc" ]; then
+        echo "$custom_desc"
+        return 0
+    fi
+
+    case "$target_scope" in
+        core) echo "Core engine and foundational machinery" ;;
+        cli) echo "Command-line interface and terminal protocols" ;;
+        config) echo "Configuration, Gosplan directives and rc files" ;;
+        ui) echo "User interface components and display" ;;
+        api) echo "API interfaces and inter-service communications" ;;
+        auth) echo "Authentication, security and clearance checks" ;;
+        db) echo "Database and data archives" ;;
+        docs) echo "Documentation and user manuals" ;;
+        test) echo "Test harnesses, specs and quality verification" ;;
+        build) echo "Build manifests, packaging and compilation" ;;
+        docker) echo "Containerization and isolation silos" ;;
+        updater) echo "Self-updating pipeline and distribution" ;;
+        *) echo "Custom scope" ;;
+    esac
+}
+
+# -----------------------------------------------------------------------------
+# Low-level key/value file operations
+# -----------------------------------------------------------------------------
+normalize_config_key() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | tr '-' '_'
 }
 
 read_file_key() {
@@ -182,6 +260,10 @@ list_file_keys() {
 # -----------------------------------------------------------------------------
 load_hierarchical_config() {
     # Capture any pre-existing environment variables
+    env_strict_types="${STRICT_TYPES:-}"
+    env_types="${CCCP_TYPES:-}"
+    env_scopes="${CCCP_SCOPES:-}"
+    env_subscopes="${CCCP_SUBSCOPES:-}"
     env_strict_scopes="${STRICT_SCOPES:-}"
     env_strict_subscopes="${STRICT_SUBSCOPES:-}"
     env_disable_subscopes="${DISABLE_SUBSCOPES:-}"
@@ -195,6 +277,7 @@ load_hierarchical_config() {
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
     # Default internal values
+    STRICT_TYPES="1"
     STRICT_SCOPES="0"
     STRICT_SUBSCOPES="0"
     DISABLE_SUBSCOPES="0"
@@ -204,12 +287,27 @@ load_hierarchical_config() {
     UPDATE_CHANNEL="stable"
     UPDATE_INTERVAL_DAYS="30"
     CHECK_UPDATES="1"
+    COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
+    COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
+    COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
 
     global_file=$(get_global_config_file)
     local_file=$(get_local_config_file)
 
     # 1. Global config file overrides
     if [ -f "$global_file" ]; then
+        g_types=$(read_file_key "$global_file" "types" 2>/dev/null || true)
+        [ -n "$g_types" ] && COMMIT_TYPES="$g_types"
+
+        g_scopes=$(read_file_key "$global_file" "scopes" 2>/dev/null || true)
+        [ -n "$g_scopes" ] && COMMIT_SCOPES="$g_scopes"
+
+        g_subscopes=$(read_file_key "$global_file" "subscopes" 2>/dev/null || true)
+        [ -n "$g_subscopes" ] && COMMIT_SUBSCOPES="$g_subscopes"
+
+        g_strict_types=$(read_file_key "$global_file" "strict_types" 2>/dev/null || true)
+        [ -n "$g_strict_types" ] && STRICT_TYPES="$g_strict_types"
+
         g_strict_scopes=$(read_file_key "$global_file" "strict_scopes" 2>/dev/null || true)
         [ -n "$g_strict_scopes" ] && STRICT_SCOPES="$g_strict_scopes"
 
@@ -246,6 +344,18 @@ load_hierarchical_config() {
 
     # 2. Local repository config (.cccprc) overrides global
     if [ -n "$local_file" ] && [ -f "$local_file" ]; then
+        l_types=$(read_file_key "$local_file" "types" 2>/dev/null || true)
+        [ -n "$l_types" ] && COMMIT_TYPES="$l_types"
+
+        l_scopes=$(read_file_key "$local_file" "scopes" 2>/dev/null || true)
+        [ -n "$l_scopes" ] && COMMIT_SCOPES="$l_scopes"
+
+        l_subscopes=$(read_file_key "$local_file" "subscopes" 2>/dev/null || true)
+        [ -n "$l_subscopes" ] && COMMIT_SUBSCOPES="$l_subscopes"
+
+        l_strict_types=$(read_file_key "$local_file" "strict_types" 2>/dev/null || true)
+        [ -n "$l_strict_types" ] && STRICT_TYPES="$l_strict_types"
+
         l_strict_scopes=$(read_file_key "$local_file" "strict_scopes" 2>/dev/null || true)
         [ -n "$l_strict_scopes" ] && STRICT_SCOPES="$l_strict_scopes"
 
@@ -281,6 +391,10 @@ load_hierarchical_config() {
     fi
 
     # 3. Environment variables take highest precedence
+    [ -n "$env_strict_types" ] && STRICT_TYPES="$env_strict_types"
+    [ -n "$env_types" ] && COMMIT_TYPES="$env_types"
+    [ -n "$env_scopes" ] && COMMIT_SCOPES="$env_scopes"
+    [ -n "$env_subscopes" ] && COMMIT_SUBSCOPES="$env_subscopes"
     [ -n "$env_strict_scopes" ] && STRICT_SCOPES="$env_strict_scopes"
     [ -n "$env_strict_subscopes" ] && STRICT_SUBSCOPES="$env_strict_subscopes"
     [ -n "$env_disable_subscopes" ] && DISABLE_SUBSCOPES="$env_disable_subscopes"
