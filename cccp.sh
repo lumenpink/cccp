@@ -1532,10 +1532,6 @@ get_scope_description() {
     esac
 }
 
-normalize_config_key() {
-    echo "$1" | tr '[:upper:]' '[:lower:]' | tr '-' '_'
-}
-
 read_file_key() {
     file="$1"
     raw_key="$2"
@@ -1545,31 +1541,34 @@ read_file_key() {
         return 1
     fi
 
-    # Read line ignoring comments and empty lines
-    awk -v target="$key" '
-    BEGIN { found = 0 }
-    /^[[:space:]]*[#;]/ { next }
-    /^[[:space:]]*$/ { next }
-    {
-        split($0, parts, "=")
-        k = parts[1]
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
-        k = tolower(k)
-        gsub(/-/, "_", k)
-        if (k == target) {
-            # Recombine value in case value contains "="
-            val = substr($0, index($0, "=") + 1)
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-            # Remove surrounding quotes
-            sub(/^"/, "", val); sub(/"$/, "", val)
-            sub(/^\x27/, "", val); sub(/\x27$/, "", val)
-            print val
-            found = 1
-            exit
-        }
-    }
-    END { if (!found) exit 1 }
-    ' "$file"
+    found=0
+    result_val=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Ignore comments and empty lines
+        case "$line" in
+            [#\;]*|"") continue ;;
+        esac
+
+        case "$line" in
+            *"="*)
+                k="${line%%=*}"
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                if [ "$k" = "$key" ]; then
+                    val="${line#*=}"
+                    val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+                    result_val="$val"
+                    found=1
+                    break
+                fi
+                ;;
+        esac
+    done < "$file"
+
+    if [ "$found" -eq 1 ]; then
+        echo "$result_val"
+        return 0
+    fi
+    return 1
 }
 
 write_file_key() {
@@ -1586,32 +1585,37 @@ write_file_key() {
         return 0
     fi
 
-    # Check if key already exists
-    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null; then
-        # Replace existing key
-        tmp_file="${file}.tmp.$$"
-        awk -v target="$key" -v val="$value" '
-        BEGIN { replaced = 0 }
-        /^[[:space:]]*[#;]/ { print; next }
-        {
-            split($0, parts, "=")
-            k = parts[1]
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
-            k = tolower(k)
-            gsub(/-/, "_", k)
-            if (k == target && !replaced) {
-                print target " = " val
-                replaced = 1
-                next
-            }
-            print
-        }
-        ' "$file" > "$tmp_file"
-        mv "$tmp_file" "$file"
-    else
-        # Append new key
-        echo "$key = $value" >> "$file"
+    tmp_file="${file}.tmp.$$"
+    touch "$tmp_file"
+    replaced=0
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            [#\;]*|"")
+                echo "$line" >> "$tmp_file"
+                continue
+                ;;
+        esac
+
+        case "$line" in
+            *"="*)
+                k="${line%%=*}"
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                if [ "$k" = "$key" ] && [ "$replaced" -eq 0 ]; then
+                    echo "$key = $value" >> "$tmp_file"
+                    replaced=1
+                    continue
+                fi
+                ;;
+        esac
+        echo "$line" >> "$tmp_file"
+    done < "$file"
+
+    if [ "$replaced" -eq 0 ]; then
+        echo "$key = $value" >> "$tmp_file"
     fi
+
+    mv "$tmp_file" "$file"
 }
 
 unset_file_key() {
@@ -1624,19 +1628,27 @@ unset_file_key() {
     fi
 
     tmp_file="${file}.tmp.$$"
-    awk -v target="$key" '
-    {
-        split($0, parts, "=")
-        k = parts[1]
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
-        k = tolower(k)
-        gsub(/-/, "_", k)
-        if (k == target) {
-            next
-        }
-        print
-    }
-    ' "$file" > "$tmp_file"
+    touch "$tmp_file"
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            [#\;]*|"")
+                echo "$line" >> "$tmp_file"
+                continue
+                ;;
+        esac
+
+        case "$line" in
+            *"="*)
+                k="${line%%=*}"
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                if [ "$k" = "$key" ]; then
+                    continue
+                fi
+                ;;
+        esac
+        echo "$line" >> "$tmp_file"
+    done < "$file"
+
     mv "$tmp_file" "$file"
 }
 
@@ -1648,22 +1660,21 @@ list_file_keys() {
         return 0
     fi
 
-    awk -v pfx="$prefix" '
-    /^[[:space:]]*[#;]/ { next }
-    /^[[:space:]]*$/ { next }
-    /=/ {
-        split($0, parts, "=")
-        k = parts[1]
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
-        k = tolower(k)
-        gsub(/-/, "_", k)
-        val = substr($0, index($0, "=") + 1)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-        sub(/^"/, "", val); sub(/"$/, "", val)
-        sub(/^\x27/, "", val); sub(/\x27$/, "", val)
-        print "[" pfx "] " k " = " val
-    }
-    ' "$file"
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            [#\;]*|"") continue ;;
+        esac
+
+        case "$line" in
+            *"="*)
+                k="${line%%=*}"
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                val="${line#*=}"
+                val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+                echo "[$prefix] $k = $val"
+                ;;
+        esac
+    done < "$file"
 }
 
 load_hierarchical_config() {
