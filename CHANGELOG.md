@@ -10,6 +10,15 @@
 
 ## Previous Releases
 
+### [v1.4.0] - State Inspection (Repository Status)
+
+### Features
+  - (status) add repository status and health diagnostic command
+
+### Bug Fixes
+
+### Performance Improvements
+
 ### [v1.3.0] - Gosplan Directive (Custom Types and Scopes)
 
 ### Features
