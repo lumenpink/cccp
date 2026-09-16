@@ -131,4 +131,29 @@ Describe 'validation'
       The output should include "Type must consist of alphanumeric characters"
     End
   End
+
+  Describe 'check_system_tools'
+    It 'succeeds when all standard POSIX tools are present'
+      When call check_system_tools
+      The status should be success
+    End
+
+    It 'fails and reports missing tools when a tool is absent'
+      PATH="/dev/null"
+      When call check_system_tools
+      The status should be failure
+      The error should include "Required system tools are missing from PATH"
+    End
+  End
+
+  Describe 'check_git_repo'
+    It 'fails when executed outside a git repository'
+      NON_GIT_DIR="$(mktemp -d)"
+      cd "$NON_GIT_DIR"
+      When call check_git_repo
+      The status should be failure
+      The error should include "Not a git repository"
+      rm -rf "$NON_GIT_DIR"
+    End
+  End
 End

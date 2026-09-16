@@ -17,9 +17,9 @@ GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
 
 # -----------------------------------------------------------------------------
-# Verify system prerequisites
+# Verify system prerequisites (Pure POSIX without awk)
 # -----------------------------------------------------------------------------
-check_prerequisites() {
+check_system_tools() {
     missing_tools=""
     for tool in git sed grep date cut tr; do
         if ! command -v "$tool" >/dev/null 2>&1; then
@@ -29,16 +29,24 @@ check_prerequisites() {
 
     if [ -n "$missing_tools" ]; then
         echo "Error: Required system tools are missing from PATH:$missing_tools" >&2
-        echo "Please install the missing tools and ensure they are accessible in your PATH." >&2
+        echo "Gosplan Quality Control: Please install the missing tools and ensure they are accessible in your PATH." >&2
         return 1
     fi
 
-    # Verify that we are inside a Git repository
+    return 0
+}
+
+check_git_repo() {
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "Error: Not a git repository. This command must be executed within a valid Git repository." >&2
         return 1
     fi
+    return 0
+}
 
+check_prerequisites() {
+    check_system_tools || return 1
+    check_git_repo || return 1
     return 0
 }
 

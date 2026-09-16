@@ -47,7 +47,7 @@ ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 # =============================================================================
 # Validation Functions
 # =============================================================================
-check_prerequisites() {
+check_system_tools() {
     missing_tools=""
     for tool in git sed grep date cut tr; do
         if ! command -v "$tool" >/dev/null 2>&1; then
@@ -57,16 +57,24 @@ check_prerequisites() {
 
     if [ -n "$missing_tools" ]; then
         echo "Error: Required system tools are missing from PATH:$missing_tools" >&2
-        echo "Please install the missing tools and ensure they are accessible in your PATH." >&2
+        echo "Gosplan Quality Control: Please install the missing tools and ensure they are accessible in your PATH." >&2
         return 1
     fi
 
-    # Verify that we are inside a Git repository
+    return 0
+}
+
+check_git_repo() {
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         echo "Error: Not a git repository. This command must be executed within a valid Git repository." >&2
         return 1
     fi
+    return 0
+}
 
+check_prerequisites() {
+    check_system_tools || return 1
+    check_git_repo || return 1
     return 0
 }
 
@@ -3002,6 +3010,15 @@ main() {
         case "$command" in
             "commit"|"commit-msg"|"post-commit")
                 check_hook_version || true
+                ;;
+        esac
+    fi
+
+    # Verify required system tools for operational commands
+    if command -v check_system_tools >/dev/null 2>&1; then
+        case "$command" in
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit")
+                check_system_tools || exit 1
                 ;;
         esac
     fi

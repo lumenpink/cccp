@@ -33,6 +33,15 @@ main() {
         esac
     fi
 
+    # Verify required system tools for operational commands
+    if command -v check_system_tools >/dev/null 2>&1; then
+        case "$command" in
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit")
+                check_system_tools || exit 1
+                ;;
+        esac
+    fi
+
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
