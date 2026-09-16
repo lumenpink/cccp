@@ -164,16 +164,16 @@ cccp [command] [options]
 
 ### Release Tagging (`tag`)
 
-The `tag` command verifies a clean working tree, updates `VERSION` and `CHANGELOG.md`, creates a release commit (`chore(release): <tag>`), and creates an annotated Git tag pointing directly to the release commit:
+The `tag` command verifies a clean working tree, updates `VERSION` and `CHANGELOG.md`, creates a release commit (`chore(release): <tag> - <title>`), and creates an annotated Git tag:
 
 ```bash
-cccp tag                     # Auto-tags with predicted version (e.g. v1.2.0)
-cccp tag 2                   # Normalized to v2.0.0
-cccp tag 2.1                 # Normalized to v2.1.0
-cccp tag 2.1.0               # Normalized to v2.1.0
-cccp tag 2.1.0 --no-v        # Tagged as 2.1.0 (without 'v')
-cccp tag 1.0.0 -m "GA"       # Custom tag annotation
+cccp tag -t "Sputnik Protocol"               # Auto-tags with predicted version and title
+cccp tag 2.0.0 -t "Major Overhaul"           # Explicit version with release title
+cccp tag 2.1.0 --no-v                        # Tagged as 2.1.0 (without 'v')
+cccp tag 1.0.0 -m "Custom tag annotation"    # Custom raw annotation
 ```
+
+Release titles are automatically formatted into `CHANGELOG.md` (`### [v1.2.0] - Sputnik Protocol`) and published to GitHub Release titles.
 
 ### Commit Message Format
 
