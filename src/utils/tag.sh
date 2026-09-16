@@ -47,6 +47,7 @@ create_tag() {
     target_ver=""
     no_prefix=${NO_V:-0}
     message=""
+    title=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -57,6 +58,14 @@ create_tag() {
             --with-v|--v)
                 no_prefix=0
                 shift
+                ;;
+            -t|--title)
+                if [ $# -lt 2 ]; then
+                    echo "Error: -t option requires a title argument" >&2
+                    return 1
+                fi
+                title="$2"
+                shift 2
                 ;;
             -m|--message)
                 if [ $# -lt 2 ]; then
@@ -132,7 +141,11 @@ create_tag() {
 
     # Set default message if not provided
     if [ -z "$message" ]; then
-        message="Release $tag_name"
+        if [ -n "$title" ]; then
+            message="Release $tag_name: $title"
+        else
+            message="Release $tag_name"
+        fi
     fi
 
     # Update VERSION file with clean SemVer version
@@ -146,9 +159,15 @@ create_tag() {
     fi
 
     # Commit the release files (VERSION and CHANGELOG.md)
+    if [ -n "$title" ]; then
+        commit_msg="chore(release): $tag_name - $title"
+    else
+        commit_msg="chore(release): $tag_name"
+    fi
+
     export HOOK_ACTIVE=1
     git add "$GIT_ROOT/VERSION" "$GIT_ROOT/CHANGELOG.md"
-    if ! git commit -m "chore(release): $tag_name"; then
+    if ! git commit -m "$commit_msg"; then
         unset HOOK_ACTIVE
         echo "Error: Failed to create release commit." >&2
         git tag -d "$tag_name" >/dev/null 2>&1 || true
@@ -161,8 +180,12 @@ create_tag() {
 
     current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
-    echo "Release commit created: chore(release): $tag_name"
-    echo "Tag '$tag_name' created successfully."
+    echo "Release commit created: $commit_msg"
+    if [ -n "$title" ]; then
+        echo "Tag '$tag_name' (\"$title\") created successfully."
+    else
+        echo "Tag '$tag_name' created successfully."
+    fi
     echo "Updated VERSION: $clean_ver"
     echo "Updated CHANGELOG.md"
     echo ""

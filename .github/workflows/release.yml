@@ -67,6 +67,12 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           CLEAN_VER="${TAG#v}"
+          TAG_SUBJECT=$(git tag -l --format="%(contents:subject)" "$TAG" 2>/dev/null || true)
+          RELEASE_TITLE="$TAG"
+          if echo "$TAG_SUBJECT" | grep -q ': '; then
+            TITLE_PART=$(echo "$TAG_SUBJECT" | sed -E 's/^[^:]+: //')
+            RELEASE_TITLE="$TAG - $TITLE_PART"
+          fi
           
           # Extract notes from CHANGELOG.md
           NOTES=$(awk -v t1="$TAG" -v t2="$CLEAN_VER" '
@@ -79,11 +85,11 @@ jobs:
           if echo "$NOTES" | grep -q '^[[:space:]]*- '; then
             echo "$NOTES" > /tmp/release_notes.md
             gh release create "$TAG" cccp.sh \
-              --title "$TAG" \
+              --title "$RELEASE_TITLE" \
               --notes-file /tmp/release_notes.md
           else
             gh release create "$TAG" cccp.sh \
-              --title "$TAG" \
+              --title "$RELEASE_TITLE" \
               --generate-notes
           fi
 

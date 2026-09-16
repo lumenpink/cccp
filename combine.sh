@@ -132,6 +132,12 @@ printf "# Update Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/update.sh" >> "$OUTPUT_FILE"
 
+# Add soviet easter egg function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Soviet Easter Egg\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/soviet.sh" >> "$OUTPUT_FILE"
+
 # Add main function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Main script entry point\n" >> "$OUTPUT_FILE"
@@ -231,6 +237,10 @@ main() {
         "update")
             shift || true
             update_script "$@"
+            exit 0
+            ;;
+        "soviet"|"sputnik"|"anthem"|"gosplan")
+            show_soviet
             exit 0
             ;;
         "help"|"-h"|"--help")

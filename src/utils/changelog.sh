@@ -28,6 +28,21 @@ format_commit_message() {
     fi
 }
 
+# Function to format tag header with title if available
+format_tag_header() {
+    local t="$1"
+    local subj=$(git tag -l --format="%(contents:subject)" "$t" 2>/dev/null || true)
+    if echo "$subj" | grep -qE '^Release [^:]+: .+'; then
+        local title=$(echo "$subj" | sed -E 's/^Release [^:]+: //')
+        echo "### [$t] - $title"
+    elif echo "$subj" | grep -qE '^[^:]+: .+'; then
+        local title=$(echo "$subj" | sed -E 's/^[^:]+: //')
+        echo "### [$t] - $title"
+    else
+        echo "### [$t]"
+    fi
+}
+
 # Function to generate a changelog based on conventional commits
 generate_changelog() {
     local changelog_file="CHANGELOG.md"
@@ -96,7 +111,7 @@ generate_changelog() {
                 
                 # Add tag section
                 {
-                    echo "### [$prev_tag]"
+                    format_tag_header "$prev_tag"
                     echo
                     echo "### Features"
                     
@@ -139,7 +154,7 @@ generate_changelog() {
             
             # Add the first tag section
             {
-                echo "### [$prev_tag]"
+                format_tag_header "$prev_tag"
                 echo
                 echo "### Features"
                 
