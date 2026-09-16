@@ -132,6 +132,12 @@ printf "# Update Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/update.sh" >> "$OUTPUT_FILE"
 
+# Add status function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Status Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/status.sh" >> "$OUTPUT_FILE"
+
 # Add soviet easter egg function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Soviet Easter Egg\n" >> "$OUTPUT_FILE"
@@ -175,7 +181,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"version"|"tag"|"changelog"|"config")
+            "commit"|"version"|"tag"|"changelog"|"config"|"status")
                 check_auto_update || true
                 ;;
         esac
@@ -189,6 +195,11 @@ main() {
         "config")
             shift || true
             cmd_config "$@"
+            exit 0
+            ;;
+        "status")
+            shift || true
+            show_status "$@"
             exit 0
             ;;
         "commit")
@@ -248,7 +259,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|install|config|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|install|config|status|version|tag|changelog|commit-msg|post-commit|update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
