@@ -34,16 +34,20 @@ jobs:
           git config --global user.name "Test User"
           git config --global user.email "test@example.com"
 
-      - name: Run ShellSpec
+      - name: Run ShellSpec (Modular Mode)
         run: |
           shellspec --format documentation
 
-      - name: Verify build script
+      - name: Build Standalone Executable
         run: |
           ./combine.sh
           if [ -n "$(git status --porcelain cccp.sh)" ]; then
             echo "::warning ::cccp.sh was not up-to-date with combine.sh. Regeneration succeeded."
           fi
+
+      - name: Run ShellSpec (Bundled Mode)
+        run: |
+          CCCP_TEST_TARGET=bundled shellspec --format documentation
 
   release:
     name: Publish Release or Nightly
