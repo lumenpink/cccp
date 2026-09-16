@@ -138,6 +138,12 @@ printf "# Status Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/status.sh" >> "$OUTPUT_FILE"
 
+# Add lint function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Lint Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/lint.sh" >> "$OUTPUT_FILE"
+
 # Add soviet easter egg function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Soviet Easter Egg\n" >> "$OUTPUT_FILE"
@@ -181,7 +187,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"version"|"tag"|"changelog"|"config"|"status")
+            "commit"|"version"|"tag"|"changelog"|"config"|"status"|"lint")
                 check_auto_update || true
                 ;;
         esac
@@ -200,6 +206,11 @@ main() {
         "status")
             shift || true
             show_status "$@"
+            exit 0
+            ;;
+        "lint")
+            shift || true
+            lint_commits "$@"
             exit 0
             ;;
         "commit")
@@ -259,7 +270,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|install|config|status|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|install|config|status|lint|version|tag|changelog|commit-msg|post-commit|update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
