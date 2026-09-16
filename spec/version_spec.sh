@@ -2,7 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'version'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"
@@ -45,6 +45,32 @@ Describe 'version'
     It 'calculates next version from DEFAULT_BASE_VERSION 0.0.1 on initial commits'
       When call calculate_target_version
       The output should eq "0.0.2"
+    End
+
+    It 'bumps MINOR on untagged repository with feat commit'
+      echo "untagged feat" >> file.txt
+      git add file.txt
+      git commit -m "feat: initial feature without tags"
+      When call calculate_target_version
+      The output should eq "0.1.0"
+    End
+
+    It 'bumps MAJOR on untagged repository with breaking change commit'
+      echo "untagged breaking" >> file.txt
+      git add file.txt
+      git commit -m "feat!: initial breaking change without tags"
+      When call calculate_target_version
+      The output should eq "1.0.0"
+    End
+
+    It 'fails when calculate_target_version is run outside a git repository'
+      NON_GIT_DIR="$(mktemp -d)"
+      cd "$NON_GIT_DIR"
+      When call calculate_target_version
+      The status should be failure
+      The error should include "Error: Not a git repository"
+      cd "$CALC_DIR"
+      rm -rf "$NON_GIT_DIR"
     End
 
     It 'bumps PATCH on fix commit'
@@ -119,6 +145,16 @@ Describe 'version'
       When call generate_version_info
       The output should be present
       The contents of file VERSION should include "$commit_hash"
+    End
+
+    It 'fails when generate_version_info is run outside a git repository'
+      NON_GIT_DIR="$(mktemp -d)"
+      cd "$NON_GIT_DIR"
+      When call generate_version_info
+      The status should be failure
+      The error should include "Error: Not a git repository"
+      cd "$TEST_DIR"
+      rm -rf "$NON_GIT_DIR"
     End
   End
 End

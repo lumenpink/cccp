@@ -2,10 +2,10 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'interactive'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/interactive.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/commit.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/interactive.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/commit.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"
@@ -101,6 +101,53 @@ Describe 'interactive'
       When call run_commit_flag
       The status should be success
       The output should include "MSG:feat(ui): support wizard"
+    End
+
+    It 'creates commit without scope when user skips scope prompt with Enter'
+      echo "no scope change" >> README.md
+      git add README.md
+
+      run_wizard_no_scope() {
+        printf "1\n\nadd without scope\nn\n\ny\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_no_scope
+      The status should be success
+      The output should include "MSG:feat: add without scope"
+    End
+
+    It 'selects type by entering type name directly'
+      echo "type by name change" >> README.md
+      git add README.md
+
+      run_wizard_type_name() {
+        printf "fix\ncli\npatch parser\nn\n\ny\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_type_name
+      The status should be success
+      The output should include "MSG:fix(cli): patch parser"
+    End
+
+    It 'supports custom types and scopes loaded from .cccprc'
+      cat > "$TEST_DIR/.cccprc" << 'EOF'
+commit_types = "feat,fix,party"
+commit_scopes = "kremlin,sputnik"
+EOF
+      echo "custom soviet change" >> README.md
+      git add README.md
+
+      run_wizard_custom_config() {
+        printf "3\nkremlin\nstate directive\nn\n\ny\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_custom_config
+      The status should be success
+      The output should include "MSG:party(kremlin): state directive"
+      rm -f "$TEST_DIR/.cccprc"
     End
   End
 End

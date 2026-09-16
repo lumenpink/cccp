@@ -2,9 +2,9 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'status'
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/status.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh"
-  Include "$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/status.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/version.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
 
   setup() {
     TEST_DIR="$(mktemp -d)"
@@ -72,6 +72,48 @@ Describe 'status'
       When call show_status
       The status should be success
       The output should include "Git Hooks:        installed (v1.3.0)"
+    End
+
+    It 'displays permissive types policy and strict scopes policy when configured'
+      export STRICT_TYPES="0"
+      export STRICT_SCOPES="1"
+      When call show_status
+      The status should be success
+      The output should include "Types Policy:     permissive (any alphanumeric)"
+      The output should include "Scopes Policy:    strict (curated)"
+      unset STRICT_TYPES STRICT_SCOPES || true
+    End
+
+    It 'reports up to date when branch matches upstream'
+      REMOTE_DIR="$(mktemp -d)"
+      git clone --bare "$TEST_DIR" "$REMOTE_DIR/remote.git" >/dev/null 2>&1
+      git remote add origin "$REMOTE_DIR/remote.git"
+      git fetch origin >/dev/null 2>&1
+      git branch --set-upstream-to=origin/main main >/dev/null 2>&1 || git branch --set-upstream-to=origin/master master >/dev/null 2>&1
+
+      show_status_tracking() { show_status | grep "Active Branch:"; }
+      When call show_status_tracking
+      The status should be success
+      The output should include "up to date with origin/"
+      rm -rf "$REMOTE_DIR"
+    End
+
+    It 'reports ahead of upstream when local commits are unpushed'
+      REMOTE_DIR="$(mktemp -d)"
+      git clone --bare "$TEST_DIR" "$REMOTE_DIR/remote.git" >/dev/null 2>&1
+      git remote add origin "$REMOTE_DIR/remote.git"
+      git fetch origin >/dev/null 2>&1
+      git branch --set-upstream-to=origin/main main >/dev/null 2>&1 || git branch --set-upstream-to=origin/master master >/dev/null 2>&1
+
+      echo "ahead work" >> README.md
+      git commit -am "feat: ahead commit" >/dev/null 2>&1
+
+      show_status_tracking() { show_status | grep "Active Branch:"; }
+      When call show_status_tracking
+      The status should be success
+      The output should include "ahead of origin/"
+      The output should include "by 1 commit(s)"
+      rm -rf "$REMOTE_DIR"
     End
 
     It 'fails when executed outside of a git repository'
