@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# =============================================================================
+# Conventional Commits Compliance Program (CCCP)
+# Development runner for modular / unbundled execution
+# =============================================================================
+
+set -eu
+
+# Verify required tools
+for tool in git sed grep date cut tr; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: Required tool '$tool' is not installed or not in PATH." >&2
+        echo "Please install $tool to use cccp." >&2
+        exit 1
+    fi
+done
+
+# Resolve project root directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$GIT_ROOT" ]; then
+    GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+else
+    GIT_HOOKS_DIR=""
+fi
+
+# Source configuration manager and configuration
+. "$PROJECT_ROOT/src/utils/config_manager.sh"
+. "$PROJECT_ROOT/src/config/config.sh"
+
+# Source utilities and hooks in dependency order
+. "$PROJECT_ROOT/src/utils/validation.sh"
+. "$PROJECT_ROOT/src/utils/changelog.sh"
+. "$PROJECT_ROOT/src/utils/version.sh"
+. "$PROJECT_ROOT/src/utils/tag.sh"
+. "$PROJECT_ROOT/src/hooks/hooks.sh"
+. "$PROJECT_ROOT/src/utils/commit.sh"
+. "$PROJECT_ROOT/src/utils/soviet.sh"
+. "$PROJECT_ROOT/src/utils/status.sh"
+. "$PROJECT_ROOT/src/utils/lint.sh"
+. "$PROJECT_ROOT/src/utils/interactive.sh"
+. "$PROJECT_ROOT/src/utils/completion.sh"
+. "$PROJECT_ROOT/src/utils/update.sh"
+. "$PROJECT_ROOT/src/utils/help.sh"
+. "$PROJECT_ROOT/src/hooks/commit_msg.sh"
+. "$PROJECT_ROOT/src/hooks/post_commit.sh"
+
+# Source entry point dispatcher
+. "$PROJECT_ROOT/src/main.sh"
+
+main "$@"
