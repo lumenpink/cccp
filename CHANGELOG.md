@@ -6,6 +6,16 @@
 
 ## Previous Releases
 
+### [v2.0.0] - Pure POSIX Architecture & Gosplan Dual Matrix
+
+### Features
+  - (validation) enhance prerequisite checks without awk dependency
+  - (core) introduce modular dispatcher and development runner
+
+### Bug Fixes
+  - (core) ensure safe sourcing and robust configuration hierarchy across modules
+  - (changelog) omit empty section headings and add default release fallback
+
 ### [v1.7.0] - Teleprinter Telegraph (Shell Autocompletion)
 
 ### Features
