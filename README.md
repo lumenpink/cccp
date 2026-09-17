@@ -139,6 +139,7 @@ Rather than simply reflecting historical release tags, `cccp` implements **Predi
 | `BREAKING CHANGE:` in body/footer, or `!` before `:` (e.g. `feat!:`, `refactor(auth)!:`) | **MAJOR** | `(major + 1).0.0` |
 | `feat:` or `feat(<scope>):` | **MINOR** | `major.(minor + 1).0` |
 | `fix:`, `perf:`, `refactor:`, `chore:`, etc. | **PATCH** | `major.minor.(patch + 1)` |
+| Active pre-release tag base (e.g. `v2.0.0-dev`, `v2.0.0-alpha`) | **TARGET BASE** | Exact target version (`major.minor.patch`) |
 | Clean tag checkout (0 commits ahead) | **NONE** | Exact tag version |
 
 ---
