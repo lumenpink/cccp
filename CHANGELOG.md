@@ -2,10 +2,14 @@
 
 ## [Unreleased]
 
-### Features
-  - (hooks) implement pre-push and reference-transaction tag guards and CI check
+- Routine maintenance, documentation updates, and operational improvements.
 
 ## Previous Releases
+
+### [v2.2.0] - Gosplan Tag Defense & Gatekeeper Bureau
+
+### Features
+  - (hooks) implement pre-push and reference-transaction tag guards and CI check
 
 ### [v2.1.0] - Gosplan State Inspection & SemVer Protocol
 
