@@ -100,6 +100,12 @@ Describe 'Configuration Manager'
       The output should equal "0.0.1"
     End
 
+    It 'returns default update_channel when not configured in files'
+      When call cmd_config "update_channel"
+      The status should be success
+      The output should equal "stable"
+    End
+
     It 'sets local repository configuration'
       When call cmd_config "strict_scopes" "1"
       The status should be success
@@ -119,6 +125,20 @@ Describe 'Configuration Manager'
       The status should be success
       The output should include "Set global update_channel = nightly"
       The file "$TEST_HOME/.config/cccp/config" should be exist
+    End
+
+    It 'automatically routes update keys to global configuration without flags'
+      When call cmd_config "update_channel" "nightly"
+      The status should be success
+      The output should include "Set global update_channel = nightly"
+      The file "$TEST_HOME/.config/cccp/config" should be exist
+      The file "$TEST_DIR/.cccprc" should not be exist
+    End
+
+    It 'rejects setting update keys with --local flag'
+      When call cmd_config --local "update_channel" "nightly"
+      The status should be failure
+      The stderr should include "Configuration key 'update_channel' governs system tool updates and cannot be set locally. Use --global."
     End
 
     It 'gets global configuration'
@@ -215,6 +235,19 @@ Describe 'Configuration Manager'
       }
       When call test_env
       The output should equal "1"
+    End
+
+    It 'ignores update directives defined in local repository config'
+      write_file_key "$TEST_DIR/.cccprc" "update_channel" "nightly"
+      write_file_key "$TEST_DIR/.cccprc" "pinned_version" "1.0.0"
+      test_ignore_local_updates() {
+        load_hierarchical_config
+        echo "channel:${UPDATE_CHANNEL:-empty}"
+        echo "pinned:${PINNED_VERSION:-empty}"
+      }
+      When call test_ignore_local_updates
+      The output should include "channel:stable"
+      The output should include "pinned:empty"
     End
   End
 
