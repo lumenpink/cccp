@@ -52,6 +52,17 @@ get_default_config_value() {
     esac
 }
 
+is_global_only_config_key() {
+    case "$1" in
+        update_channel|update_interval_days|check_updates|pinned_version|pin_version)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 get_type_description() {
     target_type="$1"
     local_file=$(get_local_config_file 2>/dev/null || true)
@@ -403,19 +414,6 @@ load_hierarchical_config() {
 
         l_no_v=$(read_file_key "$local_file" "no_v" 2>/dev/null || true)
         [ -n "$l_no_v" ] && NO_V="$l_no_v"
-
-        l_channel=$(read_file_key "$local_file" "update_channel" 2>/dev/null || true)
-        [ -n "$l_channel" ] && UPDATE_CHANNEL="$l_channel"
-
-        l_interval=$(read_file_key "$local_file" "update_interval_days" 2>/dev/null || true)
-        [ -n "$l_interval" ] && UPDATE_INTERVAL_DAYS="$l_interval"
-
-        l_check=$(read_file_key "$local_file" "check_updates" 2>/dev/null || true)
-        [ -n "$l_check" ] && CHECK_UPDATES="$l_check"
-
-        l_pinned=$(read_file_key "$local_file" "pinned_version" 2>/dev/null || true)
-        [ -z "$l_pinned" ] && l_pinned=$(read_file_key "$local_file" "pin_version" 2>/dev/null || true)
-        [ -n "$l_pinned" ] && PINNED_VERSION="$l_pinned"
     fi
 
     # 3. Environment variables take highest precedence
@@ -539,6 +537,17 @@ cmd_config() {
 
     norm_key=$(normalize_config_key "$key")
 
+    # Update directives are strictly machine/user global
+    if is_global_only_config_key "$norm_key"; then
+        if [ $is_local -eq 1 ]; then
+            echo "Error: Configuration key '$key' governs system tool updates and cannot be set locally. Use --global." >&2
+            return 1
+        fi
+        if [ -n "$value" ] || [ $is_unset -eq 1 ]; then
+            is_global=1
+        fi
+    fi
+
     # 3. Unsetting a key
     if [ $is_unset -eq 1 ]; then
         if [ $is_global -eq 1 ]; then
@@ -612,9 +621,9 @@ cmd_config() {
             return 1
         fi
     else
-        # Cascaded get: local first, then global, then default
+        # Cascaded get: local first (if not global-only key), then global, then default
         val=""
-        if [ -n "$local_file" ] && [ -f "$local_file" ]; then
+        if ! is_global_only_config_key "$norm_key" && [ -n "$local_file" ] && [ -f "$local_file" ]; then
             val=$(read_file_key "$local_file" "$norm_key" 2>/dev/null || true)
         fi
         if [ -z "$val" ] && [ -f "$global_file" ]; then

@@ -1395,22 +1395,25 @@ show_help() {
             echo "  -h, --help       Show this help message"
             echo ""
             echo "Supported Keys:"
-            echo "  types                    Allowed commit types (space-separated list)"
-            echo "  scopes                   Allowed commit scopes (space-separated list)"
-            echo "  subscopes                Allowed commit subscopes (space-separated list)"
-            echo "  strict_types             Enforce type matching known types list (0 or 1, default: 1)"
-            echo "  strict_scopes            Require scope to match known list (0 or 1, default: 0)"
-            echo "  strict_subscopes         Require subscope to match known list (0 or 1, default: 0)"
-            echo "  disable_subscopes        Disallow slash-delimited subscopes (0 or 1, default: 0)"
-            echo "  disable_multiple_scopes  Disallow comma-separated scopes (0 or 1, default: 0)"
-            echo "  default_base_version     Fallback SemVer when no tags exist (default: 0.0.1)"
-            echo "  no_v                     Tag without 'v' prefix (0 or 1, default: 0)"
-            echo "  update_channel           Update channel ('stable' or 'nightly', default: stable)"
-            echo "  update_interval_days     Days between update checks (default: 30)"
-            echo "  check_updates            Enable update checks (0 or 1, default: 1)"
-            echo "  pinned_version           Lock cccp to specific version (suppresses updates)"
-            echo "  type_desc_<type>         Custom description for commit type"
-            echo "  scope_desc_<scope>       Custom description for commit scope"
+            echo "  Repository & Global:"
+            echo "    types                    Allowed commit types (space-separated list)"
+            echo "    scopes                   Allowed commit scopes (space-separated list)"
+            echo "    subscopes                Allowed commit subscopes (space-separated list)"
+            echo "    strict_types             Enforce type matching known types list (0 or 1, default: 1)"
+            echo "    strict_scopes            Require scope to match known list (0 or 1, default: 0)"
+            echo "    strict_subscopes         Require subscope to match known list (0 or 1, default: 0)"
+            echo "    disable_subscopes        Disallow slash-delimited subscopes (0 or 1, default: 0)"
+            echo "    disable_multiple_scopes  Disallow comma-separated scopes (0 or 1, default: 0)"
+            echo "    default_base_version     Fallback SemVer when no tags exist (default: 0.0.1)"
+            echo "    no_v                     Tag without 'v' prefix (0 or 1, default: 0)"
+            echo "    type_desc_<type>         Custom description for commit type"
+            echo "    scope_desc_<scope>       Custom description for commit scope"
+            echo ""
+            echo "  Global Only (system update management, saved in ~/.config/cccp/config):"
+            echo "    update_channel           Update channel ('stable' or 'nightly', default: stable)"
+            echo "    update_interval_days     Days between update checks (default: 30)"
+            echo "    check_updates            Enable update checks (0 or 1, default: 1)"
+            echo "    pinned_version           Lock cccp to specific version (suppresses updates)"
             echo ""
             echo "Examples:"
             echo "  $0 config types 'feat fix chore docs'"
@@ -1752,6 +1755,17 @@ get_default_config_value() {
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
+    esac
+}
+
+is_global_only_config_key() {
+    case "$1" in
+        update_channel|update_interval_days|check_updates|pinned_version|pin_version)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
     esac
 }
 
@@ -2100,19 +2114,6 @@ load_hierarchical_config() {
 
         l_no_v=$(read_file_key "$local_file" "no_v" 2>/dev/null || true)
         [ -n "$l_no_v" ] && NO_V="$l_no_v"
-
-        l_channel=$(read_file_key "$local_file" "update_channel" 2>/dev/null || true)
-        [ -n "$l_channel" ] && UPDATE_CHANNEL="$l_channel"
-
-        l_interval=$(read_file_key "$local_file" "update_interval_days" 2>/dev/null || true)
-        [ -n "$l_interval" ] && UPDATE_INTERVAL_DAYS="$l_interval"
-
-        l_check=$(read_file_key "$local_file" "check_updates" 2>/dev/null || true)
-        [ -n "$l_check" ] && CHECK_UPDATES="$l_check"
-
-        l_pinned=$(read_file_key "$local_file" "pinned_version" 2>/dev/null || true)
-        [ -z "$l_pinned" ] && l_pinned=$(read_file_key "$local_file" "pin_version" 2>/dev/null || true)
-        [ -n "$l_pinned" ] && PINNED_VERSION="$l_pinned"
     fi
 
     # 3. Environment variables take highest precedence
@@ -2233,6 +2234,17 @@ cmd_config() {
 
     norm_key=$(normalize_config_key "$key")
 
+    # Update directives are strictly machine/user global
+    if is_global_only_config_key "$norm_key"; then
+        if [ $is_local -eq 1 ]; then
+            echo "Error: Configuration key '$key' governs system tool updates and cannot be set locally. Use --global." >&2
+            return 1
+        fi
+        if [ -n "$value" ] || [ $is_unset -eq 1 ]; then
+            is_global=1
+        fi
+    fi
+
     # 3. Unsetting a key
     if [ $is_unset -eq 1 ]; then
         if [ $is_global -eq 1 ]; then
@@ -2306,9 +2318,9 @@ cmd_config() {
             return 1
         fi
     else
-        # Cascaded get: local first, then global, then default
+        # Cascaded get: local first (if not global-only key), then global, then default
         val=""
-        if [ -n "$local_file" ] && [ -f "$local_file" ]; then
+        if ! is_global_only_config_key "$norm_key" && [ -n "$local_file" ] && [ -f "$local_file" ]; then
             val=$(read_file_key "$local_file" "$norm_key" 2>/dev/null || true)
         fi
         if [ -z "$val" ] && [ -f "$global_file" ]; then
@@ -2595,11 +2607,6 @@ update_script() {
 
     # Handle unpinning
     if [ "$do_unpin" -eq 1 ]; then
-        local_cfg=$(get_local_config_file 2>/dev/null || true)
-        if [ -n "$local_cfg" ] && [ -f "$local_cfg" ]; then
-            unset_file_key "$local_cfg" "pinned_version" 2>/dev/null || true
-            unset_file_key "$local_cfg" "pin_version" 2>/dev/null || true
-        fi
         global_cfg=$(get_global_config_file 2>/dev/null || true)
         if [ -n "$global_cfg" ] && [ -f "$global_cfg" ]; then
             unset_file_key "$global_cfg" "pinned_version" 2>/dev/null || true
@@ -2613,13 +2620,8 @@ update_script() {
     # Handle pinning
     if [ "$do_pin" -eq 1 ]; then
         clean_pin="${pin_target#v}"
-        local_cfg=$(get_local_config_file 2>/dev/null || true)
-        if [ -n "$local_cfg" ] && [ -n "${GIT_ROOT:-}" ] && [ -d "$GIT_ROOT/.git" ]; then
-            write_file_key "$local_cfg" "pinned_version" "$clean_pin"
-        else
-            global_cfg=$(get_global_config_file 2>/dev/null || true)
-            write_file_key "$global_cfg" "pinned_version" "$clean_pin"
-        fi
+        global_cfg=$(get_global_config_file 2>/dev/null || true)
+        write_file_key "$global_cfg" "pinned_version" "$clean_pin"
         PINNED_VERSION="$clean_pin"
         export PINNED_VERSION
         echo "Gosplan directive enacted: Version pinned to $clean_pin."

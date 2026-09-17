@@ -284,11 +284,6 @@ update_script() {
 
     # Handle unpinning
     if [ "$do_unpin" -eq 1 ]; then
-        local_cfg=$(get_local_config_file 2>/dev/null || true)
-        if [ -n "$local_cfg" ] && [ -f "$local_cfg" ]; then
-            unset_file_key "$local_cfg" "pinned_version" 2>/dev/null || true
-            unset_file_key "$local_cfg" "pin_version" 2>/dev/null || true
-        fi
         global_cfg=$(get_global_config_file 2>/dev/null || true)
         if [ -n "$global_cfg" ] && [ -f "$global_cfg" ]; then
             unset_file_key "$global_cfg" "pinned_version" 2>/dev/null || true
@@ -302,13 +297,8 @@ update_script() {
     # Handle pinning
     if [ "$do_pin" -eq 1 ]; then
         clean_pin="${pin_target#v}"
-        local_cfg=$(get_local_config_file 2>/dev/null || true)
-        if [ -n "$local_cfg" ] && [ -n "${GIT_ROOT:-}" ] && [ -d "$GIT_ROOT/.git" ]; then
-            write_file_key "$local_cfg" "pinned_version" "$clean_pin"
-        else
-            global_cfg=$(get_global_config_file 2>/dev/null || true)
-            write_file_key "$global_cfg" "pinned_version" "$clean_pin"
-        fi
+        global_cfg=$(get_global_config_file 2>/dev/null || true)
+        write_file_key "$global_cfg" "pinned_version" "$clean_pin"
         PINNED_VERSION="$clean_pin"
         export PINNED_VERSION
         echo "Gosplan directive enacted: Version pinned to $clean_pin."
