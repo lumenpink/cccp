@@ -224,4 +224,174 @@ Describe 'hooks'
       The output should include "cccp.sh hooks - Git Hooks Inspectorate and Diffing"
     End
   End
+
+  reset_git() {
+    cd "$TEST_DIR"
+    export HOOK_ACTIVE=1
+    echo "1.2.0" > "$TEST_DIR/VERSION"
+    git add "$TEST_DIR/VERSION"
+    git commit -m "chore: reset environment" >/dev/null 2>&1 || true
+    unset HOOK_ACTIVE
+    unset CCCP_TAG_ACTIVE || true
+  }
+
+  Describe 'cmd_pre_push'
+    BeforeEach 'reset_git'
+
+    It 'allows pushing normal branches without tags'
+      test_push_branch() {
+        echo "refs/heads/main 1111111111111111111111111111111111111111 refs/heads/main 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_branch
+      The status should be success
+    End
+
+    It 'allows pushing valid release tag with synchronized VERSION'
+      echo "2.1.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore(release): v2.1.0"
+      sha=$(git rev-parse HEAD)
+      test_push_valid_tag() {
+        echo "refs/tags/v2.1.0 $sha refs/tags/v2.1.0 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_valid_tag
+      The status should be success
+    End
+
+    It 'rejects pushing tag when commit has development VERSION'
+      echo "2.1.0-dev.1+20260917.abc" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "feat: new feature"
+      sha=$(git rev-parse HEAD)
+      test_push_dev_tag() {
+        echo "refs/tags/v2.1.0 $sha refs/tags/v2.1.0 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_dev_tag
+      The status should be failure
+      The stderr should include "Error: Tag 'v2.1.0' points to a development version"
+    End
+
+    It 'rejects pushing tag when commit has missing VERSION file'
+      rm -f "$TEST_DIR/VERSION"
+      git rm -f VERSION 2>/dev/null || true
+      touch "$TEST_DIR/dummy.txt"
+      git add dummy.txt
+      HOOK_ACTIVE=1 git commit -m "feat: commit without VERSION"
+      sha=$(git rev-parse HEAD)
+      test_push_missing_ver() {
+        echo "refs/tags/v2.1.0 $sha refs/tags/v2.1.0 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_missing_ver
+      The status should be failure
+      The stderr should include "Error: Tag 'v2.1.0' points to a commit without a VERSION file"
+    End
+
+    It 'rejects pushing tag when commit has mismatched VERSION'
+      echo "2.0.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore(release): v2.0.0"
+      sha=$(git rev-parse HEAD)
+      test_push_mismatched_ver() {
+        echo "refs/tags/v2.1.0 $sha refs/tags/v2.1.0 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_mismatched_ver
+      The status should be failure
+      The stderr should include "Error: Tag 'v2.1.0' does not match VERSION file in target commit"
+    End
+
+    It 'allows deleting remote tags'
+      test_push_delete_tag() {
+        echo "(delete) 0000000000000000000000000000000000000000 refs/tags/v2.1.0 1111111111111111111111111111111111111111" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_delete_tag
+      The status should be success
+    End
+  End
+
+  Describe 'cmd_reference_transaction'
+    BeforeEach 'reset_git'
+
+    It 'allows tag creation when CCCP_TAG_ACTIVE is 1'
+      export CCCP_TAG_ACTIVE=1
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_active() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_active
+      The status should be success
+      unset CCCP_TAG_ACTIVE || true
+    End
+
+    It 'allows tag creation when target commit has clean matching VERSION'
+      echo "2.1.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore(release): v2.1.0"
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_valid() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_valid
+      The status should be success
+    End
+
+    It 'blocks tag creation when target commit has development VERSION'
+      echo "2.1.0-dev.1+20260917.abc" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "feat: dev commit"
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_dev() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_dev
+      The status should be failure
+      The stderr should include "Error: Cannot create tag 'v2.1.0'."
+      The stderr should include "The target commit has a development VERSION"
+    End
+
+    It 'blocks tag creation when target commit has missing VERSION file'
+      rm -f "$TEST_DIR/VERSION"
+      git rm -f VERSION 2>/dev/null || true
+      touch "$TEST_DIR/dummy2.txt"
+      git add dummy2.txt
+      HOOK_ACTIVE=1 git commit -m "feat: commit without VERSION"
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_missing() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_missing
+      The status should be failure
+      The stderr should include "Error: Cannot create tag 'v2.1.0'."
+      The stderr should include "The target commit ($sha) does not have a VERSION file."
+    End
+
+    It 'blocks tag creation when target commit has mismatched VERSION'
+      echo "2.0.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore(release): v2.0.0"
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_mismatch() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_mismatch
+      The status should be failure
+      The stderr should include "Error: Cannot create tag 'v2.1.0'."
+      The stderr should include "Tag version does not match target commit VERSION"
+    End
+
+    It 'allows tag deletion'
+      test_ref_tx_delete() {
+        echo "1111111111111111111111111111111111111111 0000000000000000000000000000000000000000 refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_delete
+      The status should be success
+    End
+
+    It 'ignores non-prepared states'
+      test_ref_tx_committed() {
+        echo "0000000000000000000000000000000000000000 1111111111111111111111111111111111111111 refs/tags/v2.1.0" | cmd_reference_transaction "committed"
+      }
+      When call test_ref_tx_committed
+      The status should be success
+    End
+  End
 End

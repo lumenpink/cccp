@@ -26,7 +26,7 @@ main() {
     current_hook=$(basename "$0")
     
     # Check if running as a hook
-    case " ${GIT_HOOKS_LIST:-commit-msg post-commit} " in
+    case " ${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction} " in
         *" $current_hook "*)
             command="$current_hook"
             ;;
@@ -35,7 +35,7 @@ main() {
     # Hook version audit in git repositories
     if [ -n "${GIT_ROOT:-}" ] && command -v check_hook_version >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"commit-msg"|"post-commit")
+            "commit"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction")
                 check_hook_version || true
                 ;;
         esac
@@ -44,7 +44,7 @@ main() {
     # Verify required system tools for operational commands
     if command -v check_system_tools >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"hooks")
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction"|"hooks")
                 check_system_tools || exit 1
                 ;;
         esac
@@ -125,11 +125,28 @@ main() {
             exit 0
             ;;
         "commit-msg")
+            if [ "${1:-}" = "commit-msg" ]; then
+                shift || true
+            fi
             commit_msg "$@"
             exit 0
             ;;
         "post-commit")
             post_commit
+            exit 0
+            ;;
+        "pre-push")
+            if [ "${1:-}" = "pre-push" ]; then
+                shift || true
+            fi
+            cmd_pre_push "$@"
+            exit 0
+            ;;
+        "reference-transaction")
+            if [ "${1:-}" = "reference-transaction" ]; then
+                shift || true
+            fi
+            cmd_reference_transaction "$@"
             exit 0
             ;;
         "update")

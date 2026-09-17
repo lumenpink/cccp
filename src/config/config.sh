@@ -31,7 +31,7 @@ COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth model
 CHANGELOG_TYPES="feat fix perf refactor merge"
 
 # Git hooks configuration
-GIT_HOOKS_LIST="commit-msg post-commit"
+GIT_HOOKS_LIST="commit-msg post-commit pre-push reference-transaction"
 
 # Scope and subscope policy flags
 DISABLE_SUBSCOPES="${DISABLE_SUBSCOPES:-0}"

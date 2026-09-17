@@ -132,6 +132,10 @@ EOF
   Describe 'cmd_check_update'
     BeforeEach 'reset_env'
 
+    curl() {
+      echo '{"tag_name": "v2.0.0"}'
+    }
+
     It 'displays installed version, release channel, and Gosplan status'
       export CCCP_VERSION="2.0.0"
       export UPDATE_CHANNEL="stable"

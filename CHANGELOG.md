@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-- Routine maintenance, documentation updates, and operational improvements.
+### Features
+  - (hooks) implement pre-push and reference-transaction tag guards and CI check
 
 ## Previous Releases
 

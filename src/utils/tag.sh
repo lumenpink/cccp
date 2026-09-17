@@ -151,6 +151,7 @@ create_tag() {
     # Update VERSION file with clean SemVer version
     echo "$clean_ver" > "$GIT_ROOT/VERSION"
 
+    export CCCP_TAG_ACTIVE=1
     # Create temporary tag to allow generate_changelog to group commits under this release
     git tag -a "$tag_name" -m "$message"
 
@@ -169,14 +170,16 @@ create_tag() {
     git add "$GIT_ROOT/VERSION" "$GIT_ROOT/CHANGELOG.md"
     if ! git commit -m "$commit_msg"; then
         unset HOOK_ACTIVE
-        echo "Error: Failed to create release commit." >&2
         git tag -d "$tag_name" >/dev/null 2>&1 || true
+        unset CCCP_TAG_ACTIVE
+        echo "Error: Failed to create release commit." >&2
         return 1
     fi
     unset HOOK_ACTIVE
 
     # Move tag to the release commit
     git tag -f -a "$tag_name" -m "$message"
+    unset CCCP_TAG_ACTIVE
 
     current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 

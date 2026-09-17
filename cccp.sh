@@ -45,7 +45,7 @@ COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs 
 COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
 COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
 CHANGELOG_TYPES="feat fix perf refactor merge"
-GIT_HOOKS_LIST="commit-msg post-commit"
+GIT_HOOKS_LIST="commit-msg post-commit pre-push reference-transaction"
 DISABLE_SUBSCOPES="${DISABLE_SUBSCOPES:-0}"
 DISABLE_MULTIPLE_SCOPES="${DISABLE_MULTIPLE_SCOPES:-0}"
 STRICT_SCOPES="${STRICT_SCOPES:-0}"
@@ -676,6 +676,7 @@ create_tag() {
     # Update VERSION file with clean SemVer version
     echo "$clean_ver" > "$GIT_ROOT/VERSION"
 
+    export CCCP_TAG_ACTIVE=1
     # Create temporary tag to allow generate_changelog to group commits under this release
     git tag -a "$tag_name" -m "$message"
 
@@ -694,14 +695,16 @@ create_tag() {
     git add "$GIT_ROOT/VERSION" "$GIT_ROOT/CHANGELOG.md"
     if ! git commit -m "$commit_msg"; then
         unset HOOK_ACTIVE
-        echo "Error: Failed to create release commit." >&2
         git tag -d "$tag_name" >/dev/null 2>&1 || true
+        unset CCCP_TAG_ACTIVE
+        echo "Error: Failed to create release commit." >&2
         return 1
     fi
     unset HOOK_ACTIVE
 
     # Move tag to the release commit
     git tag -f -a "$tag_name" -m "$message"
+    unset CCCP_TAG_ACTIVE
 
     current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
 
@@ -882,7 +885,7 @@ install_git_hooks() {
     fi
 
     GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
-    GIT_HOOKS_LIST="${GIT_HOOKS_LIST:-commit-msg post-commit}"
+    GIT_HOOKS_LIST="${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction}"
 
     # Determine current cccp version to stamp in hook
     current_version="${CCCP_VERSION:-2.0.0}"
@@ -930,7 +933,7 @@ audit_git_hooks() {
 
     hooks_dir="${GIT_HOOKS_DIR:-$GIT_ROOT/.git/hooks}"
     curr_ver="${CCCP_VERSION:-2.0.0}"
-    hooks_list="${GIT_HOOKS_LIST:-commit-msg post-commit}"
+    hooks_list="${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction}"
 
     echo "========================================================"
     echo " ★ CCCP Git Hooks Inspectorate (Komissariat Audit) ★"
@@ -1009,7 +1012,7 @@ diff_git_hooks() {
     if [ -n "$target_hook" ]; then
         hooks_to_diff="$target_hook"
     else
-        hooks_to_diff="${GIT_HOOKS_LIST:-commit-msg post-commit}"
+        hooks_to_diff="${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction}"
     fi
 
     diff_cmd="diff -u"
@@ -1072,16 +1075,156 @@ cmd_hooks() {
                 return 0
                 ;;
             *)
-                if [ "$1" = "commit-msg" ] || [ "$1" = "post-commit" ]; then
-                    diff_git_hooks "$@"
-                    return $?
-                fi
+                for h in ${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction}; do
+                    if [ "$1" = "$h" ]; then
+                        diff_git_hooks "$@"
+                        return $?
+                    fi
+                done
                 echo "Error: Unknown hooks action '$1'. Choose 'audit' or 'diff'." >&2
                 return 1
                 ;;
         esac
     fi
     audit_git_hooks
+}
+
+cmd_pre_push() {
+    # If stdin is a tty, nothing to validate
+    [ -t 0 ] && return 0
+
+    has_error=0
+    while read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref" ]; do
+        # Ignore ref deletions
+        if [ "$local_sha" = "0000000000000000000000000000000000000000" ] || [ "$local_ref" = "(delete)" ]; then
+            continue
+        fi
+
+        case "$remote_ref" in
+            refs/tags/*)
+                tag_name="${remote_ref#refs/tags/}"
+                clean_tag="${tag_name#v}"
+
+                # Check if VERSION exists in the commit pointed to by local_sha
+                ver_in_commit=$(git show "${local_sha}:VERSION" 2>/dev/null || true)
+                ver_in_commit=$(echo "$ver_in_commit" | tr -d ' \r\n')
+
+                if [ -z "$ver_in_commit" ]; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Push Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Tag '$tag_name' points to a commit without a VERSION file." >&2
+                    echo " Target commit: $local_sha" >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Releases must contain an official VERSION file." >&2
+                    echo " Run 'cccp tag' to generate the release commit and changelog." >&2
+                    echo "========================================================" >&2
+                    has_error=1
+                elif echo "$ver_in_commit" | grep -qE -- "-dev|\+"; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Push Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Tag '$tag_name' points to a development version: '$ver_in_commit'." >&2
+                    echo " Target commit: $local_sha" >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Pre-release/development versions cannot be pushed as release tags." >&2
+                    echo " Run 'cccp tag' to generate clean release commits and synchronize CHANGELOG." >&2
+                    echo "========================================================" >&2
+                    has_error=1
+                elif [ "$ver_in_commit" != "$clean_tag" ] && [ "$ver_in_commit" != "$tag_name" ]; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Push Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Tag '$tag_name' does not match VERSION file in target commit." >&2
+                    echo " Expected: '$clean_tag', found in commit: '$ver_in_commit'" >&2
+                    echo " Target commit: $local_sha" >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Tag name and VERSION file must be strictly synchronized." >&2
+                    echo " Run 'cccp tag' to generate clean release commits and synchronize CHANGELOG." >&2
+                    echo "========================================================" >&2
+                    has_error=1
+                fi
+                ;;
+        esac
+    done
+
+    if [ "$has_error" -eq 1 ]; then
+        return 1
+    fi
+    return 0
+}
+
+cmd_reference_transaction() {
+    state="${1:-}"
+
+    # Only enforce validation during 'prepared' state
+    if [ "$state" != "prepared" ]; then
+        return 0
+    fi
+
+    # If cccp tag is orchestrating the release, bypass check
+    if [ "${CCCP_TAG_ACTIVE:-0}" -eq 1 ]; then
+        return 0
+    fi
+
+    # If stdin is a tty, nothing to validate
+    [ -t 0 ] && return 0
+
+    while read -r old_sha new_sha ref_name || [ -n "$old_sha" ]; do
+        # Ignore tag deletion
+        if [ "$new_sha" = "0000000000000000000000000000000000000000" ]; then
+            continue
+        fi
+
+        case "$ref_name" in
+            refs/tags/*)
+                tag_name="${ref_name#refs/tags/}"
+                clean_tag="${tag_name#v}"
+
+                # Inspect VERSION file in the commit being tagged
+                ver_in_commit=$(git show "${new_sha}:VERSION" 2>/dev/null || true)
+                ver_in_commit=$(echo "$ver_in_commit" | tr -d ' \r\n')
+
+                if [ -z "$ver_in_commit" ]; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Tag Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Cannot create tag '$tag_name'." >&2
+                    echo " The target commit ($new_sha) does not have a VERSION file." >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Direct git tag blocked." >&2
+                    echo " Use 'cccp tag' to generate the release commit and synchronize VERSION and CHANGELOG." >&2
+                    echo "========================================================" >&2
+                    return 1
+                elif echo "$ver_in_commit" | grep -qE -- "-dev|\+"; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Tag Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Cannot create tag '$tag_name'." >&2
+                    echo " The target commit has a development VERSION: '$ver_in_commit'." >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Direct git tag blocked." >&2
+                    echo " Use 'cccp tag' to create official release commits with clean SemVer." >&2
+                    echo "========================================================" >&2
+                    return 1
+                elif [ "$ver_in_commit" != "$clean_tag" ] && [ "$ver_in_commit" != "$tag_name" ]; then
+                    echo "========================================================" >&2
+                    echo " ★ CCCP Gosplan Tag Quality Control (Intervention) ★" >&2
+                    echo "========================================================" >&2
+                    echo " Error: Cannot create tag '$tag_name'." >&2
+                    echo " Tag version does not match target commit VERSION: '$ver_in_commit'." >&2
+                    echo " Expected: '$clean_tag'" >&2
+                    echo "" >&2
+                    echo " Gosplan Directive: Direct git tag blocked." >&2
+                    echo " Use 'cccp tag' to synchronize VERSION, tag, and CHANGELOG." >&2
+                    echo "========================================================" >&2
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    return 0
 }
 
 install_cccp() {
@@ -1548,8 +1691,10 @@ show_help() {
             echo "  help [command]     Show this help message or deep help on a command"
             echo ""
             echo "Git Hooks:"
-            echo "  commit-msg         Validates commit messages for conventional commit format"
-            echo "  post-commit        Automatically updates changelog and version after commit"
+            echo "  commit-msg            Validates commit messages for conventional commit format"
+            echo "  post-commit           Automatically updates version after commit"
+            echo "  pre-push              Verifies release tags point to commits with matching VERSION"
+            echo "  reference-transaction Intercepts git tag to prevent tagging with unsynchronized VERSION"
             echo ""
             echo "Commit Message Format:"
             echo "  <type>(<scope>): <subject>"
@@ -3432,7 +3577,7 @@ main() {
     current_hook=$(basename "$0")
     
     # Check if running as a hook
-    case " ${GIT_HOOKS_LIST:-commit-msg post-commit} " in
+    case " ${GIT_HOOKS_LIST:-commit-msg post-commit pre-push reference-transaction} " in
         *" $current_hook "*)
             command="$current_hook"
             ;;
@@ -3441,7 +3586,7 @@ main() {
     # Hook version audit in git repositories
     if [ -n "${GIT_ROOT:-}" ] && command -v check_hook_version >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"commit-msg"|"post-commit")
+            "commit"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction")
                 check_hook_version || true
                 ;;
         esac
@@ -3450,7 +3595,7 @@ main() {
     # Verify required system tools for operational commands
     if command -v check_system_tools >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"hooks")
+            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction"|"hooks")
                 check_system_tools || exit 1
                 ;;
         esac
@@ -3531,11 +3676,28 @@ main() {
             exit 0
             ;;
         "commit-msg")
+            if [ "${1:-}" = "commit-msg" ]; then
+                shift || true
+            fi
             commit_msg "$@"
             exit 0
             ;;
         "post-commit")
             post_commit
+            exit 0
+            ;;
+        "pre-push")
+            if [ "${1:-}" = "pre-push" ]; then
+                shift || true
+            fi
+            cmd_pre_push "$@"
+            exit 0
+            ;;
+        "reference-transaction")
+            if [ "${1:-}" = "reference-transaction" ]; then
+                shift || true
+            fi
+            cmd_reference_transaction "$@"
             exit 0
             ;;
         "update")

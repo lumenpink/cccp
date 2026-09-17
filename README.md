@@ -49,7 +49,12 @@ Inside any Git repository, register portable Git hook wrappers:
 cccp install
 ```
 
-This installs standalone POSIX shell wrappers in `.git/hooks/commit-msg` and `.git/hooks/post-commit` tagged with the active cccp version (`# cccp-hook-version: <ver>`). Any existing non-cccp hooks are safely backed up with incrementing suffixes (`.old`, `.old.1`, etc.).
+This installs standalone POSIX shell wrappers in `.git/hooks/` (`commit-msg`, `post-commit`, `pre-push`, `reference-transaction`) tagged with the active cccp version (`# cccp-hook-version: <ver>`). Any existing non-cccp hooks are safely backed up with incrementing suffixes (`.old`, `.old.1`, etc.).
+
+- **`commit-msg`**: Validates commit syntax against Conventional Commits specification and local policy.
+- **`post-commit`**: Synchronizes the SemVer predictive development version into the `VERSION` file.
+- **`pre-push`**: Verifies that any release tags being pushed contain a clean, matching `VERSION` file inside the tagged commit.
+- **`reference-transaction`**: Intercepts `git tag` commands to prevent creating tags pointing to commits with missing, mismatched, or development versions.
 
 ---
 

@@ -64,6 +64,22 @@ jobs:
         run: |
           ./combine.sh
 
+      - name: Gosplan SemVer Quality Check
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${{ github.ref_name }}"
+          CLEAN_VER="${TAG#v}"
+          if [ ! -f VERSION ]; then
+            echo "::error::VERSION file does not exist in release commit!"
+            exit 1
+          fi
+          FILE_VER=$(head -n 1 VERSION | tr -d ' \r\n')
+          if [ "$CLEAN_VER" != "$FILE_VER" ]; then
+            echo "::error::Tag '$TAG' does not match VERSION file content ('$FILE_VER')!"
+            exit 1
+          fi
+          echo "Gosplan SemVer verification passed: tag '$TAG' matches VERSION '$FILE_VER'."
+
       - name: Publish Official Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
