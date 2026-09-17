@@ -33,6 +33,7 @@ Describe 'Update and Hook Version Synchronization'
     cd "$TEST_DIR"
     export HOME="$TEST_HOME"
     export XDG_CONFIG_HOME="$TEST_HOME/.config"
+    export CCCP_VERSION="1.5.0"
     rm -rf "$TEST_HOME/.config"
     rm -f "$GIT_HOOKS_DIR/commit-msg" "$GIT_HOOKS_DIR/post-commit"
   }
@@ -118,6 +119,16 @@ EOF
       When call update_script --channel invalid_channel
       The status should be failure
       The stderr should include "Invalid update channel 'invalid_channel'"
+    End
+  End
+
+  Describe 'get_current_version'
+    BeforeEach 'reset_env'
+
+    It 'returns canonical CCCP_VERSION without recursion or external command'
+      export CCCP_VERSION="2.0.0"
+      When call get_current_version
+      The output should eq "2.0.0"
     End
   End
 End

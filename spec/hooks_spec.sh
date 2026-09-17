@@ -36,10 +36,10 @@ Describe 'hooks'
     It 'creates portable wrapper scripts for all hooks'
       When call install_git_hooks
       The output should include "Successfully installed git hooks!"
-      The output should include "Hooks configured with cccp version: 1.2.0"
+      The output should include "Hooks configured with cccp version: ${CCCP_VERSION:-2.0.0}"
       for hook in $GIT_HOOKS_LIST; do
         The path "$GIT_HOOKS_DIR/$hook" should be file
-        The contents of file "$GIT_HOOKS_DIR/$hook" should include "# cccp-hook-version: 1.2.0"
+        The contents of file "$GIT_HOOKS_DIR/$hook" should include "# cccp-hook-version: ${CCCP_VERSION:-2.0.0}"
         The contents of file "$GIT_HOOKS_DIR/$hook" should include "exec cccp $hook"
       done
     End
