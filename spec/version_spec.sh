@@ -114,6 +114,32 @@ Describe 'version'
       When call calculate_target_version
       The output should eq "2.0.0"
     End
+
+    It 'maintains major version on breaking change in X.0.0 pre-release'
+      echo "breaking in 2.0.0-dev" >> file.txt
+      git add file.txt
+      git commit -m "feat!: breaking architectural rewrite"
+      When call calculate_target_version
+      The output should eq "2.0.0"
+    End
+
+    It 'promotes to new major when breaking change occurs in non-X.0.0 pre-release'
+      git tag -a "v2.1.0-dev" -m "v2.1.0-dev"
+      echo "breaking in 2.1.0-dev" >> file.txt
+      git add file.txt
+      git commit -m "feat!: breaking change during minor dev"
+      When call calculate_target_version
+      The output should eq "3.0.0"
+    End
+
+    It 'promotes patch pre-release to minor when feature commit is added'
+      git tag -a "v2.0.1-dev" -m "v2.0.1-dev"
+      echo "feat in patch dev" >> file.txt
+      git add file.txt
+      git commit -m "feat: unplanned feature in patch dev"
+      When call calculate_target_version
+      The output should eq "2.1.0"
+    End
   End
 
   Describe 'generate_version_info'
