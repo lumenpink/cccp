@@ -2,6 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'Update and Hook Version Synchronization'
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/update.sh}"
 
   setup() {
@@ -110,15 +111,73 @@ EOF
       The status should be success
       The stderr should not include "Notice: A newer version"
     End
+
+    It 'suppresses update notice when PINNED_VERSION is set'
+      cache_file="$TEST_HOME/.config/cccp/update_cache"
+      mkdir -p "$(dirname "$cache_file")"
+      now=$(date +%s)
+      cat > "$cache_file" <<EOF
+last_check_timestamp=$now
+latest_version=2.0.0
+EOF
+
+      export CHECK_UPDATES=1
+      export PINNED_VERSION="1.5.0"
+      When call check_auto_update
+      The status should be success
+      The stderr should not include "Notice: A newer version"
+    End
   End
 
-  Describe 'update_script argument parsing'
+  Describe 'cmd_check_update'
+    BeforeEach 'reset_env'
+
+    It 'displays installed version, release channel, and Gosplan status'
+      export CCCP_VERSION="2.0.0"
+      export UPDATE_CHANNEL="stable"
+      export PINNED_VERSION=""
+      When call cmd_check_update
+      The status should be success
+      The output should include "★ CCCP Update Verification Bureau ★"
+      The output should include "Installed Version : 2.0.0"
+      The output should include "Release Channel   : stable"
+      The output should include "Pinned Version    : none"
+    End
+
+    It 'displays pinned status when PINNED_VERSION matches installed version'
+      export CCCP_VERSION="2.0.0"
+      export PINNED_VERSION="2.0.0"
+      When call cmd_check_update
+      The status should be success
+      The output should include "Pinned Version    : 2.0.0 (Gosplan Directive Active)"
+      The output should include "Status            : Pinned to 2.0.0. Updates are frozen by Gosplan decree."
+    End
+  End
+
+  Describe 'update_script pinning and argument parsing'
     BeforeEach 'reset_env'
 
     It 'rejects invalid release channels'
       When call update_script --channel invalid_channel
       The status should be failure
       The stderr should include "Invalid update channel 'invalid_channel'"
+    End
+
+    It 'pins version to current version when --pin is passed without argument'
+      export CCCP_VERSION="2.0.0"
+      export PINNED_VERSION=""
+      When call update_script --pin
+      The status should be success
+      The output should include "Gosplan directive enacted: Version pinned to 2.0.0."
+      The variable PINNED_VERSION should eq "2.0.0"
+    End
+
+    It 'blocks standard update when PINNED_VERSION is set'
+      export PINNED_VERSION="2.0.0"
+      When call update_script
+      The status should be failure
+      The stderr should include "Error: Version is pinned to 2.0.0 by Gosplan directive."
+      The stderr should include "To upgrade anyway or release the pin, run 'cccp update --unpin'"
     End
   End
 

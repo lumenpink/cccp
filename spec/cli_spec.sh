@@ -78,5 +78,13 @@ Describe 'CLI Entry Point (End-to-End)'
       The output should include "# CCCP Bash Completion"
       The output should include "_cccp_completions()"
     End
+
+    It 'executes check-update command end-to-end'
+      When run run_cli check-update
+      The status should be success
+      The output should include "★ CCCP Update Verification Bureau ★"
+      The output should include "Installed Version :"
+      The output should include "Release Channel   :"
+    End
   End
 End
