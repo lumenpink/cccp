@@ -105,6 +105,15 @@ Describe 'version'
       When call calculate_target_version
       The output should eq "2.0.0"
     End
+
+    It 'targets base version when latest tag is a pre-release'
+      git tag -a "v2.0.0-dev" -m "v2.0.0-dev"
+      echo "feat in dev" >> file.txt
+      git add file.txt
+      git commit -m "feat: new feature for v2"
+      When call calculate_target_version
+      The output should eq "2.0.0"
+    End
   End
 
   Describe 'generate_version_info'
