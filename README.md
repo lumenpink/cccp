@@ -80,24 +80,27 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 
 ### Supported Configuration Keys
 
-| Key | Description | Default | Allowed Values |
-| :--- | :--- | :--- | :--- |
-| `types` | Space-separated list of allowed commit types | Standard 13 types | String of types |
-| `scopes` | Space-separated list of allowed commit scopes | Standard 16 scopes | String of scopes |
-| `subscopes` | Space-separated list of allowed subscopes | Standard 9 subscopes | String of subscopes |
-| `strict_types` | Require commit type to match allowed `types` | `1` | `1` (strict known types), `0` (allow any alphanumeric type) |
-| `strict_scopes` | Require scope to match allowed `COMMIT_SCOPES` | `0` | `0` (any scope), `1` (strict) |
-| `strict_subscopes` | Require subscope to match allowed `COMMIT_SUBSCOPES` | `0` | `0` (any subscope), `1` (strict) |
-| `disable_subscopes` | Disallow slash-delimited subscopes (e.g. `api/auth`) | `0` | `0` (allowed), `1` (prohibited) |
-| `disable_multiple_scopes` | Disallow comma-separated scopes (e.g. `ui, api`) | `0` | `0` (allowed), `1` (prohibited) |
-| `default_base_version` | Fallback SemVer when no Git tags exist | `0.0.1` | Valid SemVer (e.g. `0.0.1`, `0.1.0`) |
-| `no_v` | Create release tags without `v` prefix | `0` | `0` (`v1.0.0`), `1` (`1.0.0`) |
-| `update_channel` | Release channel for updates | `stable` | `stable`, `nightly` |
-| `update_interval_days` | Number of days between automated update checks | `30` | Integer |
-| `check_updates` | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
-| `pinned_version` | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
-| `type_desc_<type>` | Custom descriptor/help message for a commit type | Built-in dictionary | String |
-| `scope_desc_<scope>` | Custom descriptor/help message for a commit scope | Built-in dictionary | String |
+| Key | Scope | Description | Default | Allowed Values |
+| :--- | :--- | :--- | :--- | :--- |
+| `types` | Repo / Global | Space-separated list of allowed commit types | Standard 13 types | String of types |
+| `scopes` | Repo / Global | Space-separated list of allowed commit scopes | Standard 16 scopes | String of scopes |
+| `subscopes` | Repo / Global | Space-separated list of allowed subscopes | Standard 9 subscopes | String of subscopes |
+| `strict_types` | Repo / Global | Require commit type to match allowed `types` | `1` | `1` (strict known types), `0` (allow any alphanumeric type) |
+| `strict_scopes` | Repo / Global | Require scope to match allowed `COMMIT_SCOPES` | `0` | `0` (any scope), `1` (strict) |
+| `strict_subscopes` | Repo / Global | Require subscope to match allowed `COMMIT_SUBSCOPES` | `0` | `0` (any subscope), `1` (strict) |
+| `disable_subscopes` | Repo / Global | Disallow slash-delimited subscopes (e.g. `api/auth`) | `0` | `0` (allowed), `1` (prohibited) |
+| `disable_multiple_scopes` | Repo / Global | Disallow comma-separated scopes (e.g. `ui, api`) | `0` | `0` (allowed), `1` (prohibited) |
+| `default_base_version` | Repo / Global | Fallback SemVer when no Git tags exist | `0.0.1` | Valid SemVer (e.g. `0.0.1`, `0.1.0`) |
+| `no_v` | Repo / Global | Create release tags without `v` prefix | `0` | `0` (`v1.0.0`), `1` (`1.0.0`) |
+| `type_desc_<type>` | Repo / Global | Custom descriptor/help message for a commit type | Built-in dictionary | String |
+| `scope_desc_<scope>` | Repo / Global | Custom descriptor/help message for a commit scope | Built-in dictionary | String |
+| `update_channel` | **Global only** | Release channel for system updates | `stable` | `stable`, `nightly` |
+| `update_interval_days` | **Global only** | Number of days between automated update checks | `30` | Integer |
+| `check_updates` | **Global only** | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
+| `pinned_version` | **Global only** | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
+
+> [!NOTE]
+> **Global-Only Update Directives**: Configuration directives governing binary tool updates (`update_channel`, `update_interval_days`, `check_updates`, `pinned_version`) apply machine-wide to the installed binary. They are strictly stored in the user configuration (`~/.config/cccp/config`) and are rejected in repository-level `.cccprc` files to prevent repositories from altering system tool updates. Running `cccp config <update_key> <val>` automatically routes to the global configuration.
 
 > [!TIP]
 > **Corporate & Gosplan Customization**: Enterprise teams with custom conventions can define restricted vocabularies and custom descriptors directly in their repository `.cccprc`:
