@@ -86,5 +86,13 @@ Describe 'CLI Entry Point (End-to-End)'
       The output should include "Installed Version :"
       The output should include "Release Channel   :"
     End
+
+    It 'executes hooks audit command end-to-end'
+      When run run_cli hooks
+      The status should be success
+      The output should include "CCCP Git Hooks Inspectorate (Komissariat Audit)"
+      The output should include "Hook: commit-msg"
+      The output should include "Hook: post-commit"
+    End
   End
 End

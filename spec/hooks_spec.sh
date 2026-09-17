@@ -2,6 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'hooks'
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/help.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/hooks/hooks.sh}"
 
   setup() {
@@ -130,6 +131,97 @@ Describe 'hooks'
       When call install_cccp
       The status should be success
       The output should include "Successfully installed git hooks!"
+    End
+  End
+
+  Describe 'audit_git_hooks'
+    It 'reports missing hooks when none exist'
+      rm -f "$GIT_HOOKS_DIR/commit-msg" "$GIT_HOOKS_DIR/post-commit"
+      When call audit_git_hooks
+      The status should be success
+      The output should include "Hook: commit-msg"
+      The output should include "Status      : Missing / Not installed"
+      The output should include "Intervention: Run 'cccp install'"
+    End
+
+    It 'reports synchronized when hook matches active CCCP version'
+      install_git_hooks
+      When call audit_git_hooks
+      The status should be success
+      The output should include "Hook: commit-msg"
+      The output should include "Status      : Synchronized"
+      The output should include "Hook: post-commit"
+      The output should include "Status      : Synchronized"
+    End
+
+    It 'reports outdated CCCP wrapper and recommends cccp install'
+      echo "#!/bin/sh" > "$GIT_HOOKS_DIR/commit-msg"
+      echo "# cccp-hook-version: 1.0.0" >> "$GIT_HOOKS_DIR/commit-msg"
+      When call audit_git_hooks
+      The status should be success
+      The output should include "Status      : Outdated CCCP Wrapper (v1.0.0 vs current v2.0.0)"
+      The output should include "Intervention: Run 'cccp install' to upgrade wrapper"
+    End
+
+    It 'detects custom hook, identifies Husky framework, and shows backups'
+      echo "#!/bin/sh" > "$GIT_HOOKS_DIR/commit-msg"
+      echo ". \"\$(dirname -- \"\$0\")/_/husky.sh\"" >> "$GIT_HOOKS_DIR/commit-msg"
+      echo "npx --no-install commitlint" >> "$GIT_HOOKS_DIR/commit-msg"
+      echo "old backup 1" > "$GIT_HOOKS_DIR/commit-msg.old"
+      echo "old backup 2" > "$GIT_HOOKS_DIR/commit-msg.old.1"
+
+      When call audit_git_hooks
+      The status should be success
+      The output should include "Status      : Custom / Non-CCCP"
+      The output should include "Framework   : Husky"
+      The output should include "Chains CCCP : No"
+      The output should include "Backups     : commit-msg.old commit-msg.old.1"
+      The output should include "To replace with CCCP: Run 'cccp install'"
+      The output should include "To chain CCCP inside this hook: Add 'cccp commit-msg"
+    End
+  End
+
+  Describe 'diff_git_hooks'
+    It 'reports no differences when installed hook is identical to canonical wrapper'
+      install_git_hooks
+      When call diff_git_hooks "commit-msg"
+      The status should be success
+      The output should include "No differences found. Installed hook is identical to canonical CCCP wrapper."
+    End
+
+    It 'generates unified diff and intervention advice for custom hooks'
+      echo "#!/bin/sh" > "$GIT_HOOKS_DIR/commit-msg"
+      echo "echo 'custom non-cccp logic'" >> "$GIT_HOOKS_DIR/commit-msg"
+
+      When call diff_git_hooks "commit-msg"
+      The status should be success
+      The output should include "=== Diff: commit-msg"
+      The output should include "custom non-cccp logic"
+      The output should include "cccp-hook-version:"
+      The output should include "Intervention Guidance:"
+      The output should include "Installed hook is custom/non-CCCP."
+    End
+  End
+
+  Describe 'cmd_hooks dispatcher'
+    It 'dispatches to audit by default'
+      When call cmd_hooks
+      The status should be success
+      The output should include "CCCP Git Hooks Inspectorate (Komissariat Audit)"
+    End
+
+    It 'dispatches to diff on diff argument'
+      install_git_hooks
+      When call cmd_hooks diff commit-msg
+      The status should be success
+      The output should include "=== Diff: commit-msg"
+      The output should include "No differences found."
+    End
+
+    It 'shows usage on --help flag'
+      When call cmd_hooks --help
+      The status should be success
+      The output should include "cccp.sh hooks - Git Hooks Inspectorate and Diffing"
     End
   End
 End
