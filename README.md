@@ -333,6 +333,16 @@ Release titles are automatically formatted into `CHANGELOG.md` (`### [v1.2.0] - 
 - `test`     - Test related changes
 - `merge`    - Merge commits
 
+### Help Documentation (`help`)
+
+Display comprehensive documentation, command guides, and conventional commit specifications stamped with the active tool version:
+
+```bash
+cccp help            # General documentation with active CCCP version banner
+cccp help <command>  # Command-specific detailed manual (e.g. cccp help tag, cccp help config)
+cccp -h, --help      # Short help flags
+```
+
 ### State Directive & Cultural Archives (`soviet`)
 
 For true comrades and enthusiasts of Soviet heritage, `cccp` includes cultural commands and historic state directives:
