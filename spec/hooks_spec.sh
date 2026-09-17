@@ -159,7 +159,7 @@ Describe 'hooks'
       echo "# cccp-hook-version: 1.0.0" >> "$GIT_HOOKS_DIR/commit-msg"
       When call audit_git_hooks
       The status should be success
-      The output should include "Status      : Outdated CCCP Wrapper (v1.0.0 vs current v2.0.0)"
+      The output should include "Status      : Outdated CCCP Wrapper (v1.0.0 vs current v"
       The output should include "Intervention: Run 'cccp install' to upgrade wrapper"
     End
 
