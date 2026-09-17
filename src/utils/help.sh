@@ -338,6 +338,23 @@ show_help() {
             echo "  Fish:"
             echo "    cccp completion fish > ~/.config/fish/completions/cccp.fish"
             ;;
+        "hooks")
+            echo "cccp.sh hooks - Git Hooks Inspectorate and Diffing"
+            echo "=================================================="
+            echo ""
+            echo "Deeply inspects repository Git hooks, diagnoses custom/non-CCCP implementations"
+            echo "(Husky, Lefthook, pre-commit, custom scripts), detects backups, and displays"
+            echo "unified diffs against the canonical CCCP wrapper."
+            echo ""
+            echo "Usage:"
+            echo "  $0 hooks                  # Run comprehensive audit on all hooks"
+            echo "  $0 hooks audit            # Explicit audit of hooks health and frameworks"
+            echo "  $0 hooks diff [hook]      # Show unified diff against canonical CCCP wrapper"
+            echo ""
+            echo "Actions:"
+            echo "  audit   Inspect synchronization, detect frameworks (Husky/Lefthook), verify backups"
+            echo "  diff    Generate diff against standard wrapper with intervention guidance"
+            ;;
         *)
             echo "Git Conventional Commits Helper Script"
             echo "====================================="
@@ -355,6 +372,7 @@ show_help() {
             echo "  completion [shell] Generate shell autocompletion (bash, zsh, fish)"
             echo "  commit <message>    Create a commit with a conventional commit message"
             echo "  install            Install git hooks for commit message validation"
+            echo "  hooks [audit|diff] Inspect git hooks provenance, detect frameworks, and diff wrappers"
             echo "  config             Manage global or repository configuration"
             echo "  version            Generate version information file"
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"

@@ -82,18 +82,17 @@ show_status() {
     hooks_dir="$git_root/.git/hooks"
     hook_status="missing"
     if [ -f "$hooks_dir/commit-msg" ] && [ -f "$hooks_dir/post-commit" ]; then
-        if grep -q "CCCP_HOOK_VERSION" "$hooks_dir/commit-msg" 2>/dev/null; then
+        if grep -q "cccp-hook-version:" "$hooks_dir/commit-msg" 2>/dev/null; then
+            hook_ver=$(sed -n 's/^# cccp-hook-version:[[:space:]]*//p' "$hooks_dir/commit-msg" 2>/dev/null | head -n 1)
+            [ -n "$hook_ver" ] && hook_status="installed (v${hook_ver})" || hook_status="installed"
+        elif grep -q "CCCP_HOOK_VERSION" "$hooks_dir/commit-msg" 2>/dev/null; then
             hook_ver=$(grep "CCCP_HOOK_VERSION=" "$hooks_dir/commit-msg" 2>/dev/null | cut -d'"' -f2 || echo "")
-            if [ -n "$hook_ver" ]; then
-                hook_status="installed (v${hook_ver})"
-            else
-                hook_status="installed"
-            fi
+            [ -n "$hook_ver" ] && hook_status="installed (v${hook_ver})" || hook_status="installed"
         else
-            hook_status="custom/non-cccp"
+            hook_status="custom/non-cccp (run 'cccp hooks' for audit)"
         fi
     elif [ -f "$hooks_dir/commit-msg" ] || [ -f "$hooks_dir/post-commit" ]; then
-        hook_status="partially installed"
+        hook_status="partially installed (run 'cccp hooks' for audit)"
     fi
 
     # Configuration files
