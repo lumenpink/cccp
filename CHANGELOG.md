@@ -6,6 +6,19 @@
 
 ## Previous Releases
 
+### [v2.1.0] - Gosplan State Inspection & SemVer Protocol
+
+### Features
+  - (config) enforce global-only scope for tool update directives
+  - (version) absorb breaking changes in X.0.0 pre-releases and promote on non-zero pre-releases
+  - (hooks) provide detailed hooks audit, diffing, and intervention guide
+  - (update) add check-update command and version pinning support
+  - (help) display active version in all help headers
+
+### Bug Fixes
+  - (version) target base version when latest tag is a pre-release
+  - (core) establish single-source version injection and eliminate recursive invocations
+
 ### [v2.0.0] - Pure POSIX Architecture & Gosplan Dual Matrix
 
 ### Features
