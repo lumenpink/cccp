@@ -9,6 +9,10 @@
 # Enable error handling
 set -eu
 
+# Script Version (Single Source of Truth, synchronized from VERSION)
+CCCP_VERSION="2.0.0"
+export CCCP_VERSION
+
 # Verify required tools
 for tool in git sed grep date cut tr; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -29,6 +33,12 @@ fi
 # =============================================================================
 # Configuration
 # =============================================================================
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/VERSION" ]; then
+    CCCP_VERSION="${CCCP_VERSION:-$(head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n')}"
+else
+    CCCP_VERSION="${CCCP_VERSION:-2.0.0}"
+fi
+export CCCP_VERSION
 GIT_HOOK_FILE="cccp.sh"
 UPDATE_URL="https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh"
 COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
@@ -791,12 +801,7 @@ install_git_hooks() {
     GIT_HOOKS_LIST="${GIT_HOOKS_LIST:-commit-msg post-commit}"
 
     # Determine current cccp version to stamp in hook
-    current_version="0.0.1"
-    if [ -f "$GIT_ROOT/VERSION" ]; then
-        current_version=$(head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n')
-    elif command -v cccp >/dev/null 2>&1; then
-        current_version=$(cccp version 2>/dev/null | head -n 1 || echo "0.0.1")
-    fi
+    current_version="${CCCP_VERSION:-2.0.0}"
 
     # Create hooks directory if it doesn't exist
     mkdir -p "$GIT_HOOKS_DIR"
@@ -815,7 +820,7 @@ install_git_hooks() {
         if [ -e "$hook_path" ] || [ -L "$hook_path" ]; then
             backup_name="$hook_path.old"
             counter=1
-            while [ -e "$backup_name" ] || [ -L "$backup_name" ]; do
+            while { [ -e "$backup_name" ] || [ -L "$backup_name" ]; } && [ "$counter" -le 100 ]; do
                 backup_name="$hook_path.old.$counter"
                 counter=$((counter + 1))
             done
@@ -2038,13 +2043,7 @@ cmd_config() {
 # Update Functions
 # =============================================================================
 get_current_version() {
-    if [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/VERSION" ]; then
-        head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n'
-    elif command -v cccp >/dev/null 2>&1; then
-        cccp version 2>/dev/null | head -n 1 || echo "${SCRIPT_VERSION:-1.1.0}"
-    else
-        echo "${SCRIPT_VERSION:-1.1.0}"
-    fi
+    echo "${CCCP_VERSION:-2.0.0}"
 }
 
 get_update_cache_file() {
@@ -2986,6 +2985,14 @@ EOF
 # Main script entry point
 # =============================================================================
 main() {
+    # Recursion depth guard to prevent fork bombs
+    depth="${CCCP_RECURSION_DEPTH:-0}"
+    if [ "$depth" -ge 3 ]; then
+        echo "Error: Maximum recursion depth exceeded in cccp." >&2
+        return 1
+    fi
+    export CCCP_RECURSION_DEPTH=$((depth + 1))
+
     # Load configuration hierarchy (Defaults < Global < Local < Environment)
     if command -v load_hierarchical_config >/dev/null 2>&1; then
         load_hierarchical_config

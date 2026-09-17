@@ -118,12 +118,7 @@ install_git_hooks() {
     GIT_HOOKS_LIST="${GIT_HOOKS_LIST:-commit-msg post-commit}"
 
     # Determine current cccp version to stamp in hook
-    current_version="0.0.1"
-    if [ -f "$GIT_ROOT/VERSION" ]; then
-        current_version=$(head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n')
-    elif command -v cccp >/dev/null 2>&1; then
-        current_version=$(cccp version 2>/dev/null | head -n 1 || echo "0.0.1")
-    fi
+    current_version="${CCCP_VERSION:-2.0.0}"
 
     # Create hooks directory if it doesn't exist
     mkdir -p "$GIT_HOOKS_DIR"
@@ -142,7 +137,7 @@ install_git_hooks() {
         if [ -e "$hook_path" ] || [ -L "$hook_path" ]; then
             backup_name="$hook_path.old"
             counter=1
-            while [ -e "$backup_name" ] || [ -L "$backup_name" ]; do
+            while { [ -e "$backup_name" ] || [ -L "$backup_name" ]; } && [ "$counter" -le 100 ]; do
                 backup_name="$hook_path.old.$counter"
                 counter=$((counter + 1))
             done

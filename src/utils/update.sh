@@ -10,13 +10,7 @@ if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ]; then
 fi
 
 get_current_version() {
-    if [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/VERSION" ]; then
-        head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n'
-    elif command -v cccp >/dev/null 2>&1; then
-        cccp version 2>/dev/null | head -n 1 || echo "${SCRIPT_VERSION:-1.1.0}"
-    else
-        echo "${SCRIPT_VERSION:-1.1.0}"
-    fi
+    echo "${CCCP_VERSION:-2.0.0}"
 }
 
 get_update_cache_file() {

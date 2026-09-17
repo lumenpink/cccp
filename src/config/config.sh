@@ -4,6 +4,14 @@
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 GIT_HOOKS_DIR=$([ -n "$GIT_ROOT" ] && echo "$GIT_ROOT/.git/hooks" || echo "")
 
+# CCCP Tool Version (Synchronized from VERSION file)
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/VERSION" ]; then
+    CCCP_VERSION="${CCCP_VERSION:-$(head -n 1 "$GIT_ROOT/VERSION" | tr -d ' \r\n')}"
+else
+    CCCP_VERSION="${CCCP_VERSION:-2.0.0}"
+fi
+export CCCP_VERSION
+
 # The file name of the script to be used as a git hook
 GIT_HOOK_FILE="cccp.sh"
 

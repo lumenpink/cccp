@@ -5,6 +5,14 @@
 # =============================================================================
 
 main() {
+    # Recursion depth guard to prevent fork bombs
+    depth="${CCCP_RECURSION_DEPTH:-0}"
+    if [ "$depth" -ge 3 ]; then
+        echo "Error: Maximum recursion depth exceeded in cccp." >&2
+        return 1
+    fi
+    export CCCP_RECURSION_DEPTH=$((depth + 1))
+
     # Load configuration hierarchy (Defaults < Global < Local < Environment)
     if command -v load_hierarchical_config >/dev/null 2>&1; then
         load_hierarchical_config

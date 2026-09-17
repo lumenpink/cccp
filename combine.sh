@@ -34,8 +34,25 @@ extract_functions() {
     ' "$file"
 }
 
+# Synchronize and read VERSION file before compilation
+if [ ! -f "$SCRIPT_DIR/VERSION" ] || [ ! -s "$SCRIPT_DIR/VERSION" ]; then
+    if [ -f "$SCRIPT_DIR/src/utils/version.sh" ] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        (
+            cd "$SCRIPT_DIR"
+            . "$SCRIPT_DIR/src/config/config.sh"
+            . "$SCRIPT_DIR/src/utils/version.sh"
+            generate_version_info >/dev/null 2>&1 || true
+        )
+    fi
+fi
+
+CCCP_VERSION="2.0.0"
+if [ -f "$SCRIPT_DIR/VERSION" ]; then
+    CCCP_VERSION=$(head -n 1 "$SCRIPT_DIR/VERSION" | tr -d ' \r\n')
+fi
+
 # Start with the main script header
-cat > "$OUTPUT_FILE" << 'EOF'
+cat > "$OUTPUT_FILE" << EOF
 #!/bin/sh
 
 # =============================================================================
@@ -47,19 +64,23 @@ cat > "$OUTPUT_FILE" << 'EOF'
 # Enable error handling
 set -eu
 
+# Script Version (Single Source of Truth, synchronized from VERSION)
+CCCP_VERSION="$CCCP_VERSION"
+export CCCP_VERSION
+
 # Verify required tools
 for tool in git sed grep date cut tr; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "Error: Required tool '$tool' is not installed or not in PATH." >&2
-        echo "Please install $tool to use cccp.sh." >&2
+    if ! command -v "\$tool" >/dev/null 2>&1; then
+        echo "Error: Required tool '\$tool' is not installed or not in PATH." >&2
+        echo "Please install \$tool to use cccp.sh." >&2
         exit 1
     fi
 done
 
 # Find the git root directory
-GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$GIT_ROOT" ]; then
-    GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+GIT_ROOT="\$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "\$GIT_ROOT" ]; then
+    GIT_HOOKS_DIR="\$GIT_ROOT/.git/hooks"
 else
     GIT_HOOKS_DIR=""
 fi
