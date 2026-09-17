@@ -63,7 +63,11 @@ calculate_target_version() {
         has_feat=1
     fi
 
-    if [ "$has_breaking" -eq 1 ]; then
+    # If the base tag is already a pre-release (e.g. 2.0.0-dev, 2.0.0-alpha),
+    # the target release version is the base release itself (e.g. 2.0.0), not an increment past it
+    if echo "$base_version" | grep -q -- "-"; then
+        target_version="${major}.${minor}.${patch}"
+    elif [ "$has_breaking" -eq 1 ]; then
         next_major=$((major + 1))
         target_version="${next_major}.0.0"
     elif [ "$has_feat" -eq 1 ]; then
