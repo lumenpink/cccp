@@ -458,10 +458,29 @@ calculate_target_version() {
         has_feat=1
     fi
 
-    # If the base tag is already a pre-release (e.g. 2.0.0-dev, 2.0.0-alpha),
-    # the target release version is the base release itself (e.g. 2.0.0), not an increment past it
+    # If the base tag is already a pre-release (e.g. 2.0.0-dev, 2.1.0-dev, 2.0.1-dev)
     if echo "$base_version" | grep -q -- "-"; then
-        target_version="${major}.${minor}.${patch}"
+        if [ "$has_breaking" -eq 1 ]; then
+            if [ "$minor" -eq 0 ] && [ "$patch" -eq 0 ]; then
+                # In an X.0.0 major dev cycle, breaking changes are expected and absorbed
+                target_version="${major}.0.0"
+            else
+                # In a minor/patch pre-release, breaking changes force a new major release
+                next_major=$((major + 1))
+                target_version="${next_major}.0.0"
+            fi
+        elif [ "$has_feat" -eq 1 ]; then
+            if [ "$patch" -eq 0 ]; then
+                # In an X.0.0 or X.Y.0 development cycle, features are absorbed
+                target_version="${major}.${minor}.0"
+            else
+                # In an X.Y.Z patch pre-release, features force a minor bump
+                next_minor=$((minor + 1))
+                target_version="${major}.${next_minor}.0"
+            fi
+        else
+            target_version="${major}.${minor}.${patch}"
+        fi
     elif [ "$has_breaking" -eq 1 ]; then
         next_major=$((major + 1))
         target_version="${next_major}.0.0"
