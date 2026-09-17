@@ -185,6 +185,42 @@ When you commit, `cccp` verifies that the Git hook wrapper in `.git/hooks/` was 
 [cccp] Run 'cccp install' to synchronize git hooks with your current cccp version.
 ```
 
+### Git Hooks Inspectorate & Diffing (`hooks`)
+
+Perform precise audits of repository Git hooks, detect third-party managers (Husky, Lefthook, pre-commit), discover historical backups, and generate unified diffs against canonical CCCP wrappers:
+
+```bash
+cccp hooks                # Full inspection and actionable intervention advice
+cccp hooks audit          # Explicit hook audit
+cccp hooks diff           # Unified diff of all differing hooks
+cccp hooks diff commit-msg # Detailed unified diff for commit-msg hook
+```
+
+Example audit report:
+```text
+========================================================
+ ★ CCCP Git Hooks Inspectorate (Komissariat Audit) ★
+========================================================
+ Repository    : /home/comrade/project
+ Hooks Dir     : /home/comrade/project/.git/hooks
+ CCCP Version  : 2.0.0
+
+ Hook: commit-msg
+   Status      : Custom / Non-CCCP
+   Framework   : Husky
+   Chains CCCP : No
+   Backups     : commit-msg.old
+   Intervention:
+     - To replace with CCCP: Run 'cccp install' (current hook will be backed up).
+     - To chain CCCP inside this hook: Add 'cccp commit-msg "$@"' to .git/hooks/commit-msg.
+     - To inspect differences: Run 'cccp hooks diff commit-msg'.
+
+ Hook: post-commit
+   Status      : Synchronized (v2.0.0)
+   Details     : Up to date with active CCCP version.
+========================================================
+```
+
 ---
 
 ## Usage & Commands
@@ -201,6 +237,7 @@ cccp [command] [options]
 | `completion [shell]` | Generate shell tab autocompletion (bash, zsh, fish) |
 | `commit [options] <msg>` | Validate formatting and create a commit |
 | `install [--global]` | Install to PATH (`--global`) or configure Git hooks |
+| `hooks [audit\|diff]` | Deep audit and unified diffing of Git hooks provenance |
 | `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
 | `version` | Generate predictive SemVer metadata to `VERSION` |
 | `tag [version] [options]` | Create annotated tag, commit `VERSION` and `CHANGELOG.md` |
