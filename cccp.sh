@@ -1107,13 +1107,15 @@ show_help() {
             echo "cccp.sh update - Update cccp to Latest Version"
             echo "============================================="
             echo ""
-            echo "Downloads and installs the latest cccp release from GitHub."
+            echo "Downloads and installs the latest cccp release from GitHub or manages version pinning."
             echo ""
             echo "Usage:"
-            echo "  $0 update [--channel stable|nightly]"
+            echo "  $0 update [--channel stable|nightly] [--pin [version]] [--unpin]"
             echo ""
             echo "Options:"
             echo "  --channel, -c    Release channel to update from ('stable' or 'nightly', default: stable)"
+            echo "  --pin, -p [ver]  Pin cccp to current version or specified release tag"
+            echo "  --unpin, -u      Remove version pin and resume standard release tracking"
             echo "  -h, --help       Show this help message"
             echo ""
             echo "Configuration:"
@@ -1121,6 +1123,24 @@ show_help() {
             echo "    $0 config update_channel <stable|nightly>"
             echo "    $0 config update_interval_days <days>"
             echo "    $0 config check_updates <0|1>"
+            echo "    $0 config pinned_version <version>"
+            ;;
+        "check-update"|"check-updates")
+            echo "cccp.sh check-update - Inspect Version Status and Upstream Releases"
+            echo "=================================================================="
+            echo ""
+            echo "Queries upstream release telemetry to check for available updates,"
+            echo "inspects the active release channel, and verifies Gosplan version pin status."
+            echo ""
+            echo "Usage:"
+            echo "  $0 check-update"
+            echo ""
+            echo "Information displayed:"
+            echo "  - Installed cccp version"
+            echo "  - Active release channel (stable or nightly)"
+            echo "  - Pinned version status (if locked by Gosplan decree)"
+            echo "  - Remote upstream version from GitHub releases"
+            echo "  - Alignment status and recommended upgrade actions"
             ;;
         "config")
             echo "cccp.sh config - Manage Hierarchical Configuration"
@@ -1157,6 +1177,7 @@ show_help() {
             echo "  update_channel           Update channel ('stable' or 'nightly', default: stable)"
             echo "  update_interval_days     Days between update checks (default: 30)"
             echo "  check_updates            Enable update checks (0 or 1, default: 1)"
+            echo "  pinned_version           Lock cccp to specific version (suppresses updates)"
             echo "  type_desc_<type>         Custom description for commit type"
             echo "  scope_desc_<scope>       Custom description for commit scope"
             echo ""
@@ -1166,6 +1187,7 @@ show_help() {
             echo "  $0 config type_desc_feat 'State-approved feature addition'"
             echo "  $0 config strict_scopes 1"
             echo "  $0 config --global update_channel nightly"
+            echo "  $0 config pinned_version 2.0.0"
             echo "  $0 config default_base_version"
             echo "  $0 config --list"
             echo "  $0 config --unset strict_scopes"
@@ -1270,6 +1292,7 @@ show_help() {
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
+            echo "  check-update       Inspect remote version, release channel, and pin status"
             echo "  help [command]     Show this help message or deep help on a command"
             echo ""
             echo "Git Hooks:"
@@ -1476,6 +1499,7 @@ get_default_config_value() {
         update_channel) echo "stable" ;;
         update_interval_days) echo "30" ;;
         check_updates) echo "1" ;;
+        pinned_version|pin_version) echo "" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -1709,6 +1733,7 @@ load_hierarchical_config() {
     env_channel="${UPDATE_CHANNEL:-}"
     env_interval="${UPDATE_INTERVAL_DAYS:-}"
     env_check="${CHECK_UPDATES:-}"
+    env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -1723,6 +1748,7 @@ load_hierarchical_config() {
     UPDATE_CHANNEL="stable"
     UPDATE_INTERVAL_DAYS="30"
     CHECK_UPDATES="1"
+    PINNED_VERSION=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -1779,6 +1805,10 @@ load_hierarchical_config() {
 
         g_check=$(read_file_key "$global_file" "check_updates" 2>/dev/null || true)
         [ -n "$g_check" ] && CHECK_UPDATES="$g_check"
+
+        g_pinned=$(read_file_key "$global_file" "pinned_version" 2>/dev/null || true)
+        [ -z "$g_pinned" ] && g_pinned=$(read_file_key "$global_file" "pin_version" 2>/dev/null || true)
+        [ -n "$g_pinned" ] && PINNED_VERSION="$g_pinned"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -1830,6 +1860,10 @@ load_hierarchical_config() {
 
         l_check=$(read_file_key "$local_file" "check_updates" 2>/dev/null || true)
         [ -n "$l_check" ] && CHECK_UPDATES="$l_check"
+
+        l_pinned=$(read_file_key "$local_file" "pinned_version" 2>/dev/null || true)
+        [ -z "$l_pinned" ] && l_pinned=$(read_file_key "$local_file" "pin_version" 2>/dev/null || true)
+        [ -n "$l_pinned" ] && PINNED_VERSION="$l_pinned"
     fi
 
     # 3. Environment variables take highest precedence
@@ -1846,6 +1880,9 @@ load_hierarchical_config() {
     [ -n "$env_channel" ] && UPDATE_CHANNEL="$env_channel"
     [ -n "$env_interval" ] && UPDATE_INTERVAL_DAYS="$env_interval"
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
+    [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
+
+    export PINNED_VERSION
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then
@@ -2114,8 +2151,8 @@ semver_is_newer() {
 }
 
 check_auto_update() {
-    # Check if update checks are enabled
-    if [ "${CHECK_UPDATES:-1}" = "0" ]; then
+    # Check if update checks are enabled or version is pinned
+    if [ "${CHECK_UPDATES:-1}" = "0" ] || [ -n "${PINNED_VERSION:-}" ]; then
         return 0
     fi
 
@@ -2188,8 +2225,85 @@ EOF
     return 0
 }
 
-update_script() {
+cmd_check_update() {
+    case "${1:-}" in
+        -h|--help)
+            if command -v show_help >/dev/null 2>&1; then
+                show_help "check-update"
+            else
+                echo "Usage: cccp check-update"
+            fi
+            return 0
+            ;;
+    esac
+
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
+    curr_ver=$(get_current_version)
     channel="${UPDATE_CHANNEL:-stable}"
+    pinned="${PINNED_VERSION:-}"
+
+    echo "★ CCCP Update Verification Bureau ★"
+    echo "Installed Version : $curr_ver"
+    echo "Release Channel   : $channel"
+    if [ -n "$pinned" ]; then
+        echo "Pinned Version    : $pinned (Gosplan Directive Active)"
+    else
+        echo "Pinned Version    : none (tracking latest $channel releases)"
+    fi
+
+    remote_ver=""
+    if [ "$channel" = "nightly" ]; then
+        remote_ver="nightly"
+    else
+        api_url="https://api.github.com/repos/lumenpink/cccp.sh/releases/latest"
+        response=""
+        if command -v curl >/dev/null 2>&1; then
+            response=$(curl -s --max-time 3 "$api_url" 2>/dev/null || true)
+        elif command -v wget >/dev/null 2>&1; then
+            response=$(wget -q -T 3 -O- "$api_url" 2>/dev/null || true)
+        fi
+
+        if [ -n "$response" ]; then
+            remote_ver=$(echo "$response" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 | sed 's/^v//')
+        fi
+    fi
+
+    if [ -z "$remote_ver" ]; then
+        echo "Remote Version    : unavailable (unable to reach GitHub API)"
+        echo "Status            : Offline or telemetry unreachable. Verify network connection."
+        return 0
+    fi
+
+    echo "Remote Version    : $remote_ver"
+
+    if [ -n "$pinned" ]; then
+        if [ "$pinned" = "$curr_ver" ]; then
+            echo "Status            : Pinned to $pinned. Updates are frozen by Gosplan decree."
+        else
+            echo "Status            : Pinned to $pinned (currently running $curr_ver). Use 'cccp update --pin $pinned' to align or 'cccp update --unpin' to release."
+        fi
+    elif [ "$channel" = "nightly" ]; then
+        echo "Status            : Following nightly stream. Run 'cccp update' to pull latest changes."
+    elif semver_is_newer "$remote_ver" "$curr_ver"; then
+        echo "Status            : Update available ($curr_ver -> $remote_ver). Execute 'cccp update' to upgrade."
+    else
+        echo "Status            : Up to date. The collective is operating on the latest standard."
+    fi
+    return 0
+}
+
+update_script() {
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
+    channel="${UPDATE_CHANNEL:-stable}"
+    do_pin=0
+    pin_target=""
+    do_unpin=0
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -2201,11 +2315,25 @@ update_script() {
                 channel="$2"
                 shift 2
                 ;;
+            --pin|-p)
+                do_pin=1
+                if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
+                    pin_target="$2"
+                    shift 2
+                else
+                    pin_target="$(get_current_version)"
+                    shift 1
+                fi
+                ;;
+            --unpin|-u)
+                do_unpin=1
+                shift 1
+                ;;
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
                     show_help "update"
                 else
-                    echo "Usage: cccp update [--channel stable|nightly]"
+                    echo "Usage: cccp update [--channel stable|nightly] [--pin [version]] [--unpin]"
                 fi
                 return 0
                 ;;
@@ -2216,18 +2344,61 @@ update_script() {
         esac
     done
 
-    case "$channel" in
-        stable)
-            download_url="https://github.com/lumenpink/cccp.sh/releases/latest/download/cccp.sh"
-            ;;
-        nightly)
-            download_url="https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh"
-            ;;
-        *)
-            echo "Error: Invalid update channel '$channel'. Choose 'stable' or 'nightly'." >&2
-            return 1
-            ;;
-    esac
+    # Handle unpinning
+    if [ "$do_unpin" -eq 1 ]; then
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$local_cfg" ] && [ -f "$local_cfg" ]; then
+            unset_file_key "$local_cfg" "pinned_version" 2>/dev/null || true
+            unset_file_key "$local_cfg" "pin_version" 2>/dev/null || true
+        fi
+        global_cfg=$(get_global_config_file 2>/dev/null || true)
+        if [ -n "$global_cfg" ] && [ -f "$global_cfg" ]; then
+            unset_file_key "$global_cfg" "pinned_version" 2>/dev/null || true
+            unset_file_key "$global_cfg" "pin_version" 2>/dev/null || true
+        fi
+        PINNED_VERSION=""
+        export PINNED_VERSION
+        echo "Gosplan directive lifted: Version pin removed. Tracking $channel releases."
+    fi
+
+    # Handle pinning
+    if [ "$do_pin" -eq 1 ]; then
+        clean_pin="${pin_target#v}"
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$local_cfg" ] && [ -n "${GIT_ROOT:-}" ] && [ -d "$GIT_ROOT/.git" ]; then
+            write_file_key "$local_cfg" "pinned_version" "$clean_pin"
+        else
+            global_cfg=$(get_global_config_file 2>/dev/null || true)
+            write_file_key "$global_cfg" "pinned_version" "$clean_pin"
+        fi
+        PINNED_VERSION="$clean_pin"
+        export PINNED_VERSION
+        echo "Gosplan directive enacted: Version pinned to $clean_pin."
+
+        # If pinning to current version, no download required
+        if [ "$clean_pin" = "$(get_current_version)" ]; then
+            return 0
+        fi
+    fi
+
+    # Prevent update if version is pinned and neither pin nor unpin was specified
+    if [ "$do_pin" -eq 0 ] && [ "$do_unpin" -eq 0 ] && [ -n "${PINNED_VERSION:-}" ]; then
+        echo "Error: Version is pinned to $PINNED_VERSION by Gosplan directive." >&2
+        echo "To upgrade anyway or release the pin, run 'cccp update --unpin' or 'cccp update --pin <version>'." >&2
+        return 1
+    fi
+
+    # Determine download URL
+    if [ "$do_pin" -eq 1 ] && [ -n "$pin_target" ]; then
+        download_url="https://github.com/lumenpink/cccp.sh/releases/download/v${pin_target#v}/cccp.sh"
+    elif [ "$channel" = "nightly" ]; then
+        download_url="https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh"
+    elif [ "$channel" = "stable" ]; then
+        download_url="https://github.com/lumenpink/cccp.sh/releases/latest/download/cccp.sh"
+    else
+        echo "Error: Invalid update channel '$channel'. Choose 'stable' or 'nightly'." >&2
+        return 1
+    fi
 
     # Determine target file to update
     target=""
@@ -2426,6 +2597,7 @@ show_status() {
     echo " Types Policy:     $types_policy"
     echo " Scopes Policy:    $scopes_policy"
     echo " Update Channel:   ${UPDATE_CHANNEL:-stable} (every ${UPDATE_INTERVAL_DAYS:-30} days)"
+    [ -n "${PINNED_VERSION:-}" ] && echo " Pinned Version:   $PINNED_VERSION (Gosplan Directive Active)"
     echo "========================================================"
     return 0
 }
@@ -3121,6 +3293,11 @@ main() {
             update_script "$@"
             exit 0
             ;;
+        "check-update"|"check-updates")
+            shift || true
+            cmd_check_update "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -3130,7 +3307,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|check-update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

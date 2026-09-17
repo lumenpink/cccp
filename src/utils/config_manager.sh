@@ -45,6 +45,7 @@ get_default_config_value() {
         update_channel) echo "stable" ;;
         update_interval_days) echo "30" ;;
         check_updates) echo "1" ;;
+        pinned_version|pin_version) echo "" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -284,6 +285,7 @@ load_hierarchical_config() {
     env_channel="${UPDATE_CHANNEL:-}"
     env_interval="${UPDATE_INTERVAL_DAYS:-}"
     env_check="${CHECK_UPDATES:-}"
+    env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -298,6 +300,7 @@ load_hierarchical_config() {
     UPDATE_CHANNEL="stable"
     UPDATE_INTERVAL_DAYS="30"
     CHECK_UPDATES="1"
+    PINNED_VERSION=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -354,6 +357,10 @@ load_hierarchical_config() {
 
         g_check=$(read_file_key "$global_file" "check_updates" 2>/dev/null || true)
         [ -n "$g_check" ] && CHECK_UPDATES="$g_check"
+
+        g_pinned=$(read_file_key "$global_file" "pinned_version" 2>/dev/null || true)
+        [ -z "$g_pinned" ] && g_pinned=$(read_file_key "$global_file" "pin_version" 2>/dev/null || true)
+        [ -n "$g_pinned" ] && PINNED_VERSION="$g_pinned"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -405,6 +412,10 @@ load_hierarchical_config() {
 
         l_check=$(read_file_key "$local_file" "check_updates" 2>/dev/null || true)
         [ -n "$l_check" ] && CHECK_UPDATES="$l_check"
+
+        l_pinned=$(read_file_key "$local_file" "pinned_version" 2>/dev/null || true)
+        [ -z "$l_pinned" ] && l_pinned=$(read_file_key "$local_file" "pin_version" 2>/dev/null || true)
+        [ -n "$l_pinned" ] && PINNED_VERSION="$l_pinned"
     fi
 
     # 3. Environment variables take highest precedence
@@ -421,6 +432,9 @@ load_hierarchical_config() {
     [ -n "$env_channel" ] && UPDATE_CHANNEL="$env_channel"
     [ -n "$env_interval" ] && UPDATE_INTERVAL_DAYS="$env_interval"
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
+    [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
+
+    export PINNED_VERSION
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then

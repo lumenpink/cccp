@@ -137,6 +137,11 @@ main() {
             update_script "$@"
             exit 0
             ;;
+        "check-update"|"check-updates")
+            shift || true
+            cmd_check_update "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -146,7 +151,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|check-update|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

@@ -129,6 +129,7 @@ show_status() {
     echo " Types Policy:     $types_policy"
     echo " Scopes Policy:    $scopes_policy"
     echo " Update Channel:   ${UPDATE_CHANNEL:-stable} (every ${UPDATE_INTERVAL_DAYS:-30} days)"
+    [ -n "${PINNED_VERSION:-}" ] && echo " Pinned Version:   $PINNED_VERSION (Gosplan Directive Active)"
     echo "========================================================"
     return 0
 }
