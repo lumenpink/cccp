@@ -943,6 +943,10 @@ post_commit() {
 # =============================================================================
 show_help() {
     target="${1:-}"
+    ver="${CCCP_VERSION:-2.0.0}"
+
+    echo "★ CCCP v$ver - Conventional Commits Compliance Program ★"
+    echo ""
 
     case "$target" in
         "version")

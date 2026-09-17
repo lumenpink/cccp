@@ -4,8 +4,9 @@ Describe 'Help Function'
   Include "${CCCP_BUNDLE:-src/utils/help.sh}"
 
   Describe 'show_help'
-    It 'displays help information'
+    It 'displays help information with current version banner'
       When call show_help
+      The output should include "★ CCCP v"
       The output should include "Git Conventional Commits Helper Script"
       The output should include "Usage:"
       The output should include "Commands:"
@@ -22,8 +23,9 @@ Describe 'Help Function'
       The output should include "Examples:"
     End
 
-    It 'displays help information for version command'
+    It 'displays help information for version command with version banner'
       When call show_help "version"
+      The output should include "★ CCCP v"
       The output should include "Predictive Semantic Versioning"
       The output should include "Baseline Discovery"
       The output should include "Commit Inspection"
