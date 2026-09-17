@@ -95,6 +95,7 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 | `update_channel` | Release channel for updates | `stable` | `stable`, `nightly` |
 | `update_interval_days` | Number of days between automated update checks | `30` | Integer |
 | `check_updates` | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
+| `pinned_version` | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
 | `type_desc_<type>` | Custom descriptor/help message for a commit type | Built-in dictionary | String |
 | `scope_desc_<scope>` | Custom descriptor/help message for a commit scope | Built-in dictionary | String |
 
@@ -142,23 +143,45 @@ Rather than simply reflecting historical release tags, `cccp` implements **Predi
 
 ---
 
-## Intelligent Updates & Hook Synchronization
+## Intelligent Updates, Telemetry & Version Pinning
 
-### Self-Updating (`update`)
-Update `cccp` to the latest release in your active channel (`stable` or `nightly`):
+### Upstream Verification & Telemetry (`check-update`)
+Query release telemetry to inspect installed version, active channel, remote version, and Gosplan pin status:
+
+```bash
+cccp check-update
+```
+
+Example output:
+```text
+★ CCCP Update Verification Bureau ★
+Installed Version : 2.0.0
+Release Channel   : stable
+Pinned Version    : 2.0.0 (Gosplan Directive Active)
+Remote Version    : 2.0.0
+Status            : Pinned to 2.0.0. Updates are frozen by Gosplan decree.
+```
+
+### Self-Updating & Version Pinning (`update`)
+Update `cccp` to the latest release in your active channel (`stable` or `nightly`), or pin to a specific release tag:
 
 ```bash
 cccp update                      # Updates from default configured channel (stable)
 cccp update --channel nightly    # Updates directly to the latest rolling nightly build
+cccp update --pin                # Enacts Gosplan directive: pins to currently installed version
+cccp update --pin 2.0.0          # Pins and updates to explicit release tag 2.0.0
+cccp update --unpin              # Lifts Gosplan pin directive and tracks latest channel releases
 ```
 
+When pinned, background update notices are automatically suppressed, and unpinning or targeting a new pin is required to perform upgrades.
+
 ### Automated Update Notifications
-Every `update_interval_days` (default: 30 days), interactive commands check if a newer release is available and print a non-blocking diagnostic notice to `stderr`. Automated Git hooks remain completely offline and non-blocking for speed.
+Every `update_interval_days` (default: 30 days), interactive commands check if a newer release is available and print a non-blocking diagnostic notice to `stderr`. When version pinning is active, automated update checks are suppressed. Automated Git hooks remain completely offline and non-blocking for speed.
 
 ### Hook Version Synchronization
 When you commit, `cccp` verifies that the Git hook wrapper in `.git/hooks/` was stamped with the same version as your active `cccp` binary. If your system `cccp` was updated, it prints a friendly reminder:
 ```text
-[cccp] Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v1.2.0).
+[cccp] Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v2.0.0).
 [cccp] Run 'cccp install' to synchronize git hooks with your current cccp version.
 ```
 
@@ -182,7 +205,8 @@ cccp [command] [options]
 | `version` | Generate predictive SemVer metadata to `VERSION` |
 | `tag [version] [options]` | Create annotated tag, commit `VERSION` and `CHANGELOG.md` |
 | `changelog` | Generate or update `CHANGELOG.md` |
-| `update [options]` | Update `cccp` executable from GitHub releases |
+| `update [options]` | Update `cccp` executable (`--channel`, `--pin`, `--unpin`) |
+| `check-update` | Inspect remote version, release channel, and Gosplan pin status |
 | `help [command]` | Display deep-dive documentation for any command |
 
 ### Shell Autocompletion (`completion`)
