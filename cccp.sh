@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.2.1-dev.1+20260920.421a02c"
+CCCP_VERSION="2.3.0-dev.2+20260920.a702a8f"
 export CCCP_VERSION
 
 # Verify required tools
@@ -53,6 +53,7 @@ STRICT_SUBSCOPES="${STRICT_SUBSCOPES:-0}"
 STRICT_TYPES="${STRICT_TYPES:-1}"
 ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
+POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
 
 # =============================================================================
 # Validation Functions
@@ -725,6 +726,58 @@ create_tag() {
 
 
 # =============================================================================
+# Push Functions
+# =============================================================================
+cmd_push() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
+
+    # Ensure config hierarchy is loaded
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "push"
+                else
+                    echo "Usage: cccp push [git push arguments...]"
+                fi
+                return 0
+                ;;
+        esac
+    done
+
+    # Reset run flag
+    export CCCP_POST_PUSH_RAN=0
+
+    # Determine branch and tracking remote before push for fallback hook execution
+    curr_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+    curr_remote=$(git config "branch.${curr_branch}.remote" 2>/dev/null || echo "origin")
+    old_remote_sha=$(git rev-parse "refs/remotes/${curr_remote}/${curr_branch}" 2>/dev/null || echo "0000000000000000000000000000000000000000")
+
+    # Execute standard git push
+    git push "$@"
+
+    # If reference-transaction hook already ran the post-push hook, finish
+    if [ "${CCCP_POST_PUSH_RAN:-0}" = "1" ]; then
+        return 0
+    fi
+
+    # Fallback execution (e.g. if git hooks are not installed in this repository)
+    new_remote_sha=$(git rev-parse "refs/remotes/${curr_remote}/${curr_branch}" 2>/dev/null || git rev-parse HEAD 2>/dev/null || echo "")
+    if command -v run_post_push_hook >/dev/null 2>&1; then
+        run_post_push_hook "$curr_remote" "$curr_branch" "$old_remote_sha" "$new_remote_sha" || true
+    fi
+    return 0
+}
+
+
+# =============================================================================
 # Hooks Functions
 # =============================================================================
 install_global_binary() {
@@ -995,6 +1048,22 @@ audit_git_hooks() {
         fi
         echo ""
     done
+
+    echo " Optional Extensions:"
+    pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
+    pp_status=$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)
+    if [ "$pp_status" = "active" ]; then
+        pp_source=$(echo "$pp_info" | grep "^source=" | cut -d= -f2-)
+        pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
+        pp_exec=$(echo "$pp_info" | grep "^executable=" | cut -d= -f2-)
+        echo "   Post-Push   : Active"
+        echo "   Source      : $pp_source"
+        echo "   Script Path : $pp_path"
+        echo "   Executable  : $pp_exec"
+    else
+        echo "   Post-Push   : None (Optional - set 'post_push_hook' in .cccprc or create .cccp/hooks/post-push)"
+    fi
+    echo ""
     echo "========================================================"
     return 0
 }
@@ -1161,8 +1230,140 @@ cmd_pre_push() {
     return 0
 }
 
+resolve_post_push_hook() {
+    # 1. Configured via POST_PUSH_HOOK
+    if [ -n "${POST_PUSH_HOOK:-}" ]; then
+        echo "$POST_PUSH_HOOK"
+        return 0
+    fi
+
+    # 2. Shared convention in repository (.cccp/hooks/post-push)
+    if [ -n "${GIT_ROOT:-}" ] && [ -x "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+        echo "$GIT_ROOT/.cccp/hooks/post-push"
+        return 0
+    fi
+
+    # 3. Local convention in repository (.git/hooks/post-push.local or .git/hooks/post-push)
+    if [ -n "${GIT_HOOKS_DIR:-}" ]; then
+        if [ -x "$GIT_HOOKS_DIR/post-push.local" ]; then
+            echo "$GIT_HOOKS_DIR/post-push.local"
+            return 0
+        elif [ -x "$GIT_HOOKS_DIR/post-push" ]; then
+            echo "$GIT_HOOKS_DIR/post-push"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+get_post_push_hook_info() {
+    if [ -n "${POST_PUSH_HOOK:-}" ]; then
+        echo "status=active"
+        echo "source=config (POST_PUSH_HOOK)"
+        echo "path=$POST_PUSH_HOOK"
+        if [ -f "$POST_PUSH_HOOK" ]; then
+            if [ -x "$POST_PUSH_HOOK" ]; then
+                echo "executable=yes"
+            else
+                echo "executable=no (warning: file is not executable)"
+            fi
+        else
+            echo "executable=command"
+        fi
+        return 0
+    elif [ -n "${GIT_ROOT:-}" ] && [ -e "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+        echo "status=active"
+        echo "source=shared convention (.cccp/hooks/post-push)"
+        echo "path=$GIT_ROOT/.cccp/hooks/post-push"
+        if [ -x "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push.local" ]; then
+        echo "status=active"
+        echo "source=local convention (.git/hooks/post-push.local)"
+        echo "path=$GIT_HOOKS_DIR/post-push.local"
+        if [ -x "$GIT_HOOKS_DIR/post-push.local" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push" ]; then
+        echo "status=active"
+        echo "source=local convention (.git/hooks/post-push)"
+        echo "path=$GIT_HOOKS_DIR/post-push"
+        if [ -x "$GIT_HOOKS_DIR/post-push" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    fi
+
+    echo "status=none"
+    return 1
+}
+
+run_post_push_hook() {
+    remote="${1:-}"
+    branch="${2:-}"
+    old_sha="${3:-}"
+    new_sha="${4:-}"
+
+    hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
+    [ -z "$hook_cmd" ] && return 0
+
+    export CCCP_PUSH_REMOTE="$remote"
+    export CCCP_PUSH_BRANCH="$branch"
+    export CCCP_PUSH_OLD_SHA="$old_sha"
+    export CCCP_PUSH_NEW_SHA="$new_sha"
+
+    # Mark as executed for this session to avoid duplicate execution in cccp push
+    export CCCP_POST_PUSH_RAN=1
+
+    if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
+        "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
+    else
+        sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+    fi
+}
+
 cmd_reference_transaction() {
     state="${1:-}"
+
+    # Handle post-push execution during 'committed' state
+    if [ "$state" = "committed" ]; then
+        parent_cmd=""
+        if [ -r "/proc/$PPID/cmdline" ]; then
+            parent_cmd=$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null || true)
+        fi
+        if [ -z "$parent_cmd" ] && command -v ps >/dev/null 2>&1; then
+            parent_cmd=$(ps -p "$PPID" -o args= 2>/dev/null || ps -p "$PPID" -o command= 2>/dev/null || true)
+        fi
+        case "$parent_cmd" in
+            *push*)
+                # Process ref updates from successful push
+                if [ ! -t 0 ]; then
+                    while read -r old_sha new_sha ref_name || [ -n "$old_sha" ]; do
+                        case "$ref_name" in
+                            refs/remotes/*)
+                                remote_branch="${ref_name#refs/remotes/}"
+                                remote="${remote_branch%%/*}"
+                                branch="${remote_branch#*/}"
+                                run_post_push_hook "$remote" "$branch" "$old_sha" "$new_sha" || true
+                                ;;
+                        esac
+                    done
+                fi
+                return 0
+                ;;
+        esac
+        return 0
+    fi
 
     # Only enforce validation during 'prepared' state
     if [ "$state" != "prepared" ]; then
@@ -1424,6 +1625,38 @@ show_help() {
             echo "  $0 tag 2.0.0 -t \"Great October Revolution\" # Explicit version with title"
             echo "  $0 tag 2.1.0 --no-v                        # Creates tag 2.1.0 (without 'v')"
             echo "  $0 tag 1.0.0 -m 'First GA'                 # Custom annotation message"
+            ;;
+        "push")
+            echo "cccp.sh push - Execute Git Push and Trigger Optional Post-Push Hook"
+            echo "==================================================================="
+            echo ""
+            echo "Forwards arguments directly to 'git push' and triggers the optional post-push"
+            echo "hook upon successful push completion."
+            echo ""
+            echo "Usage:"
+            echo "  $0 push [git push arguments...]"
+            echo ""
+            echo "Post-Push Hook Discovery Order:"
+            echo "  1. Configured via 'post_push_hook' in .cccprc, ~/.config/cccp/config, or POST_PUSH_HOOK env"
+            echo "  2. Shared convention: .cccp/hooks/post-push (if executable)"
+            echo "  3. Local convention:  .git/hooks/post-push.local or .git/hooks/post-push (if executable)"
+            echo "  4. None: If no hook is defined, execution concludes cleanly with zero overhead."
+            echo ""
+            echo "Parameters passed to the post-push hook:"
+            echo "  Positional arguments:"
+            echo "    \$1: Remote name (e.g. 'origin')"
+            echo "    \$2: Branch name (e.g. 'main')"
+            echo "    \$3: Old commit SHA before push"
+            echo "    \$4: New commit SHA after push"
+            echo "  Exported Environment Variables:"
+            echo "    CCCP_PUSH_REMOTE   Remote name"
+            echo "    CCCP_PUSH_BRANCH   Branch name"
+            echo "    CCCP_PUSH_OLD_SHA  Commit SHA prior to push"
+            echo "    CCCP_PUSH_NEW_SHA  Commit SHA following push"
+            echo ""
+            echo "Note on Native 'git push':"
+            echo "  The post-push hook also executes transparently on native 'git push' commands"
+            echo "  via the 'reference-transaction committed' hook."
             ;;
         "commit")
             echo "cccp.sh commit - Conventional Commit Creation"
@@ -1712,6 +1945,7 @@ show_help() {
             echo "  config             Manage global or repository configuration"
             echo "  version            Generate version information file"
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
+            echo "  push [args...]     Execute git push and trigger optional post-push hook"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
             echo "  check-update       Inspect remote version, release channel, and pin status"
@@ -1924,6 +2158,7 @@ get_default_config_value() {
         update_interval_days) echo "30" ;;
         check_updates) echo "1" ;;
         pinned_version|pin_version) echo "" ;;
+        post_push_hook) echo "" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -2169,6 +2404,7 @@ load_hierarchical_config() {
     env_interval="${UPDATE_INTERVAL_DAYS:-}"
     env_check="${CHECK_UPDATES:-}"
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
+    env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -2184,6 +2420,7 @@ load_hierarchical_config() {
     UPDATE_INTERVAL_DAYS="30"
     CHECK_UPDATES="1"
     PINNED_VERSION=""
+    POST_PUSH_HOOK=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -2244,6 +2481,9 @@ load_hierarchical_config() {
         g_pinned=$(read_file_key "$global_file" "pinned_version" 2>/dev/null || true)
         [ -z "$g_pinned" ] && g_pinned=$(read_file_key "$global_file" "pin_version" 2>/dev/null || true)
         [ -n "$g_pinned" ] && PINNED_VERSION="$g_pinned"
+
+        g_post_push=$(read_file_key "$global_file" "post_push_hook" 2>/dev/null || true)
+        [ -n "$g_post_push" ] && POST_PUSH_HOOK="$g_post_push"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -2286,6 +2526,9 @@ load_hierarchical_config() {
 
         l_no_v=$(read_file_key "$local_file" "no_v" 2>/dev/null || true)
         [ -n "$l_no_v" ] && NO_V="$l_no_v"
+
+        l_post_push=$(read_file_key "$local_file" "post_push_hook" 2>/dev/null || true)
+        [ -n "$l_post_push" ] && POST_PUSH_HOOK="$l_post_push"
     fi
 
     # 3. Environment variables take highest precedence
@@ -2303,8 +2546,10 @@ load_hierarchical_config() {
     [ -n "$env_interval" ] && UPDATE_INTERVAL_DAYS="$env_interval"
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
+    [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
 
     export PINNED_VERSION
+    export POST_PUSH_HOOK
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then
@@ -2986,6 +3231,24 @@ show_status() {
         hook_status="partially installed (run 'cccp hooks' for audit)"
     fi
 
+    # Post-Push Hook status
+    post_push_status="none (optional)"
+    if command -v get_post_push_hook_info >/dev/null 2>&1; then
+        pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
+        if [ "$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)" = "active" ]; then
+            pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
+            post_push_status="$pp_path (active)"
+        fi
+    elif [ -n "${POST_PUSH_HOOK:-}" ]; then
+        post_push_status="$POST_PUSH_HOOK (active)"
+    elif [ -n "${git_root:-}" ] && [ -x "$git_root/.cccp/hooks/post-push" ]; then
+        post_push_status="$git_root/.cccp/hooks/post-push (active)"
+    elif [ -n "${hooks_dir:-}" ] && [ -x "$hooks_dir/post-push.local" ]; then
+        post_push_status="$hooks_dir/post-push.local (active)"
+    elif [ -n "${hooks_dir:-}" ] && [ -x "$hooks_dir/post-push" ]; then
+        post_push_status="$hooks_dir/post-push (active)"
+    fi
+
     # Configuration files
     local_cfg=$(get_local_config_file 2>/dev/null || echo "")
     global_cfg=$(get_global_config_file 2>/dev/null || echo "")
@@ -3013,6 +3276,7 @@ show_status() {
     echo " Current Version:  $current_ver"
     echo " Target Version:   $next_ver ($ahead_tag_count commits ahead of tag)"
     echo " Git Hooks:        $hook_status"
+    echo " Post-Push Hook:   $post_push_status"
     echo " System Binary:    $binary_loc"
     echo " Local Config:     $local_status"
     echo " Global Config:    $global_status"
@@ -3307,8 +3571,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag changelog update install completion soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates"
+    local commands="status cz commit lint config version tag push changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -3390,10 +3654,12 @@ _cccp() {
         'config:Manage hierarchical configuration'
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
+        'push:Execute git push and trigger optional post-push hook'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
         'completion:Generate shell autocompletion script'
+        'hooks:Inspect git hooks provenance and diff wrappers'
         'soviet:Display Soviet State anthem and art'
         'help:Display documentation for any command'
     )
@@ -3413,6 +3679,7 @@ _cccp() {
         'update_channel:Update channel (stable or nightly)'
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
+        'post_push_hook:Custom script or command executed following git push'
     )
 
     _arguments -C \
@@ -3498,6 +3765,7 @@ complete -c cccp -n "__fish_use_subcommand" -a lint -d "Lint commit messages acr
 complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical configuration"
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
+complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -3622,7 +3890,7 @@ main() {
     # Verify required system tools for operational commands
     if command -v check_system_tools >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction"|"hooks")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"commit-msg"|"post-commit"|"pre-push"|"reference-transaction"|"hooks")
                 check_system_tools || exit 1
                 ;;
         esac
@@ -3631,7 +3899,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks")
                 check_auto_update || true
                 ;;
         esac
@@ -3690,6 +3958,11 @@ main() {
         "tag")
             shift || true
             create_tag "$@"
+            exit 0
+            ;;
+        "push")
+            shift || true
+            cmd_push "$@"
             exit 0
             ;;
         "changelog")
@@ -3751,7 +4024,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

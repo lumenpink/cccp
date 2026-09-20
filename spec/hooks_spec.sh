@@ -410,12 +410,71 @@ Describe 'hooks'
       The status should be success
     End
 
-    It 'ignores non-prepared states'
+    It 'ignores non-prepared states for tags'
       test_ref_tx_committed() {
         echo "0000000000000000000000000000000000000000 1111111111111111111111111111111111111111 refs/tags/v2.1.0" | cmd_reference_transaction "committed"
       }
       When call test_ref_tx_committed
       The status should be success
+    End
+  End
+
+  Describe 'post-push hook resolution and execution'
+    BeforeEach 'reset_git'
+
+    It 'resolves hook configured via POST_PUSH_HOOK environment or config'
+      export POST_PUSH_HOOK="/tmp/custom_post_push.sh"
+      When call resolve_post_push_hook
+      The status should be success
+      The output should eq "/tmp/custom_post_push.sh"
+      unset POST_PUSH_HOOK || true
+    End
+
+    It 'resolves shared repository hook in .cccp/hooks/post-push'
+      unset POST_PUSH_HOOK || true
+      mkdir -p "$TEST_DIR/.cccp/hooks"
+      echo "#!/bin/sh" > "$TEST_DIR/.cccp/hooks/post-push"
+      chmod +x "$TEST_DIR/.cccp/hooks/post-push"
+      When call resolve_post_push_hook
+      The status should be success
+      The output should eq "$TEST_DIR/.cccp/hooks/post-push"
+      rm -rf "$TEST_DIR/.cccp"
+    End
+
+    It 'resolves local hook in .git/hooks/post-push.local'
+      unset POST_PUSH_HOOK || true
+      mkdir -p "$GIT_HOOKS_DIR"
+      echo "#!/bin/sh" > "$GIT_HOOKS_DIR/post-push.local"
+      chmod +x "$GIT_HOOKS_DIR/post-push.local"
+      When call resolve_post_push_hook
+      The status should be success
+      The output should eq "$GIT_HOOKS_DIR/post-push.local"
+      rm -f "$GIT_HOOKS_DIR/post-push.local"
+    End
+
+    It 'returns failure when no post-push hook exists'
+      unset POST_PUSH_HOOK || true
+      rm -rf "$TEST_DIR/.cccp" "$GIT_HOOKS_DIR/post-push"*
+      When call resolve_post_push_hook
+      The status should be failure
+    End
+
+    It 'executes post-push hook passing parameters and setting environment variables'
+      log_file="$(mktemp)"
+      script_file="$(mktemp)"
+      echo '#!/bin/sh' > "$script_file"
+      echo 'echo "ARGS: $1 $2 $3 $4" >> "'"$log_file"'"' >> "$script_file"
+      echo 'echo "ENV: $CCCP_PUSH_REMOTE $CCCP_PUSH_BRANCH $CCCP_PUSH_OLD_SHA $CCCP_PUSH_NEW_SHA" >> "'"$log_file"'"' >> "$script_file"
+      chmod +x "$script_file"
+      export POST_PUSH_HOOK="$script_file"
+
+      When call run_post_push_hook "origin" "main" "sha111" "sha222"
+      The status should be success
+      The contents of file "$log_file" should include "ARGS: origin main sha111 sha222"
+      The contents of file "$log_file" should include "ENV: origin main sha111 sha222"
+
+      rm -f "$log_file" "$script_file"
+      unset POST_PUSH_HOOK || true
     End
   End
 End

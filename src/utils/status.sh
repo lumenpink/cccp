@@ -95,6 +95,24 @@ show_status() {
         hook_status="partially installed (run 'cccp hooks' for audit)"
     fi
 
+    # Post-Push Hook status
+    post_push_status="none (optional)"
+    if command -v get_post_push_hook_info >/dev/null 2>&1; then
+        pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
+        if [ "$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)" = "active" ]; then
+            pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
+            post_push_status="$pp_path (active)"
+        fi
+    elif [ -n "${POST_PUSH_HOOK:-}" ]; then
+        post_push_status="$POST_PUSH_HOOK (active)"
+    elif [ -n "${git_root:-}" ] && [ -x "$git_root/.cccp/hooks/post-push" ]; then
+        post_push_status="$git_root/.cccp/hooks/post-push (active)"
+    elif [ -n "${hooks_dir:-}" ] && [ -x "$hooks_dir/post-push.local" ]; then
+        post_push_status="$hooks_dir/post-push.local (active)"
+    elif [ -n "${hooks_dir:-}" ] && [ -x "$hooks_dir/post-push" ]; then
+        post_push_status="$hooks_dir/post-push (active)"
+    fi
+
     # Configuration files
     local_cfg=$(get_local_config_file 2>/dev/null || echo "")
     global_cfg=$(get_global_config_file 2>/dev/null || echo "")
@@ -122,6 +140,7 @@ show_status() {
     echo " Current Version:  $current_ver"
     echo " Target Version:   $next_ver ($ahead_tag_count commits ahead of tag)"
     echo " Git Hooks:        $hook_status"
+    echo " Post-Push Hook:   $post_push_status"
     echo " System Binary:    $binary_loc"
     echo " Local Config:     $local_status"
     echo " Global Config:    $global_status"

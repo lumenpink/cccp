@@ -46,6 +46,7 @@ get_default_config_value() {
         update_interval_days) echo "30" ;;
         check_updates) echo "1" ;;
         pinned_version|pin_version) echo "" ;;
+        post_push_hook) echo "" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -297,6 +298,7 @@ load_hierarchical_config() {
     env_interval="${UPDATE_INTERVAL_DAYS:-}"
     env_check="${CHECK_UPDATES:-}"
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
+    env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -312,6 +314,7 @@ load_hierarchical_config() {
     UPDATE_INTERVAL_DAYS="30"
     CHECK_UPDATES="1"
     PINNED_VERSION=""
+    POST_PUSH_HOOK=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -372,6 +375,9 @@ load_hierarchical_config() {
         g_pinned=$(read_file_key "$global_file" "pinned_version" 2>/dev/null || true)
         [ -z "$g_pinned" ] && g_pinned=$(read_file_key "$global_file" "pin_version" 2>/dev/null || true)
         [ -n "$g_pinned" ] && PINNED_VERSION="$g_pinned"
+
+        g_post_push=$(read_file_key "$global_file" "post_push_hook" 2>/dev/null || true)
+        [ -n "$g_post_push" ] && POST_PUSH_HOOK="$g_post_push"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -414,6 +420,9 @@ load_hierarchical_config() {
 
         l_no_v=$(read_file_key "$local_file" "no_v" 2>/dev/null || true)
         [ -n "$l_no_v" ] && NO_V="$l_no_v"
+
+        l_post_push=$(read_file_key "$local_file" "post_push_hook" 2>/dev/null || true)
+        [ -n "$l_post_push" ] && POST_PUSH_HOOK="$l_post_push"
     fi
 
     # 3. Environment variables take highest precedence
@@ -431,8 +440,10 @@ load_hierarchical_config() {
     [ -n "$env_interval" ] && UPDATE_INTERVAL_DAYS="$env_interval"
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
+    [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
 
     export PINNED_VERSION
+    export POST_PUSH_HOOK
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then

@@ -297,6 +297,22 @@ audit_git_hooks() {
         fi
         echo ""
     done
+
+    echo " Optional Extensions:"
+    pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
+    pp_status=$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)
+    if [ "$pp_status" = "active" ]; then
+        pp_source=$(echo "$pp_info" | grep "^source=" | cut -d= -f2-)
+        pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
+        pp_exec=$(echo "$pp_info" | grep "^executable=" | cut -d= -f2-)
+        echo "   Post-Push   : Active"
+        echo "   Source      : $pp_source"
+        echo "   Script Path : $pp_path"
+        echo "   Executable  : $pp_exec"
+    else
+        echo "   Post-Push   : None (Optional - set 'post_push_hook' in .cccprc or create .cccp/hooks/post-push)"
+    fi
+    echo ""
     echo "========================================================"
     return 0
 }
@@ -475,12 +491,158 @@ cmd_pre_push() {
 }
 
 # -----------------------------------------------------------------------------
+# Resolve post-push hook script or command
+# Resolves in strict priority order:
+# 1. Configured via POST_PUSH_HOOK (in .cccprc, global config, or env)
+# 2. Shared convention: .cccp/hooks/post-push (if executable)
+# 3. Local convention:  .git/hooks/post-push.local or .git/hooks/post-push (if executable)
+# -----------------------------------------------------------------------------
+resolve_post_push_hook() {
+    # 1. Configured via POST_PUSH_HOOK
+    if [ -n "${POST_PUSH_HOOK:-}" ]; then
+        echo "$POST_PUSH_HOOK"
+        return 0
+    fi
+
+    # 2. Shared convention in repository (.cccp/hooks/post-push)
+    if [ -n "${GIT_ROOT:-}" ] && [ -x "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+        echo "$GIT_ROOT/.cccp/hooks/post-push"
+        return 0
+    fi
+
+    # 3. Local convention in repository (.git/hooks/post-push.local or .git/hooks/post-push)
+    if [ -n "${GIT_HOOKS_DIR:-}" ]; then
+        if [ -x "$GIT_HOOKS_DIR/post-push.local" ]; then
+            echo "$GIT_HOOKS_DIR/post-push.local"
+            return 0
+        elif [ -x "$GIT_HOOKS_DIR/post-push" ]; then
+            echo "$GIT_HOOKS_DIR/post-push"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Detailed metadata about the active post-push hook for inspection and audit
+# -----------------------------------------------------------------------------
+get_post_push_hook_info() {
+    if [ -n "${POST_PUSH_HOOK:-}" ]; then
+        echo "status=active"
+        echo "source=config (POST_PUSH_HOOK)"
+        echo "path=$POST_PUSH_HOOK"
+        if [ -f "$POST_PUSH_HOOK" ]; then
+            if [ -x "$POST_PUSH_HOOK" ]; then
+                echo "executable=yes"
+            else
+                echo "executable=no (warning: file is not executable)"
+            fi
+        else
+            echo "executable=command"
+        fi
+        return 0
+    elif [ -n "${GIT_ROOT:-}" ] && [ -e "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+        echo "status=active"
+        echo "source=shared convention (.cccp/hooks/post-push)"
+        echo "path=$GIT_ROOT/.cccp/hooks/post-push"
+        if [ -x "$GIT_ROOT/.cccp/hooks/post-push" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push.local" ]; then
+        echo "status=active"
+        echo "source=local convention (.git/hooks/post-push.local)"
+        echo "path=$GIT_HOOKS_DIR/post-push.local"
+        if [ -x "$GIT_HOOKS_DIR/post-push.local" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push" ]; then
+        echo "status=active"
+        echo "source=local convention (.git/hooks/post-push)"
+        echo "path=$GIT_HOOKS_DIR/post-push"
+        if [ -x "$GIT_HOOKS_DIR/post-push" ]; then
+            echo "executable=yes"
+        else
+            echo "executable=no (warning: file is not executable)"
+        fi
+        return 0
+    fi
+
+    echo "status=none"
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Execute post-push hook with standard arguments and environment variables
+# Arguments: $1 = remote, $2 = branch, $3 = old_sha, $4 = new_sha
+# -----------------------------------------------------------------------------
+run_post_push_hook() {
+    remote="${1:-}"
+    branch="${2:-}"
+    old_sha="${3:-}"
+    new_sha="${4:-}"
+
+    hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
+    [ -z "$hook_cmd" ] && return 0
+
+    export CCCP_PUSH_REMOTE="$remote"
+    export CCCP_PUSH_BRANCH="$branch"
+    export CCCP_PUSH_OLD_SHA="$old_sha"
+    export CCCP_PUSH_NEW_SHA="$new_sha"
+
+    # Mark as executed for this session to avoid duplicate execution in cccp push
+    export CCCP_POST_PUSH_RAN=1
+
+    if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
+        "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
+    else
+        sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Hook handler: reference-transaction
 # Intercepts 'git tag' at creation time to prevent tagging commits with unsynchronized
-# or development VERSION files.
+# or development VERSION files. Also triggers post-push hook on committed push refs.
 # -----------------------------------------------------------------------------
 cmd_reference_transaction() {
     state="${1:-}"
+
+    # Handle post-push execution during 'committed' state
+    if [ "$state" = "committed" ]; then
+        parent_cmd=""
+        if [ -r "/proc/$PPID/cmdline" ]; then
+            parent_cmd=$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null || true)
+        fi
+        if [ -z "$parent_cmd" ] && command -v ps >/dev/null 2>&1; then
+            parent_cmd=$(ps -p "$PPID" -o args= 2>/dev/null || ps -p "$PPID" -o command= 2>/dev/null || true)
+        fi
+        case "$parent_cmd" in
+            *push*)
+                # Process ref updates from successful push
+                if [ ! -t 0 ]; then
+                    while read -r old_sha new_sha ref_name || [ -n "$old_sha" ]; do
+                        case "$ref_name" in
+                            refs/remotes/*)
+                                remote_branch="${ref_name#refs/remotes/}"
+                                remote="${remote_branch%%/*}"
+                                branch="${remote_branch#*/}"
+                                run_post_push_hook "$remote" "$branch" "$old_sha" "$new_sha" || true
+                                ;;
+                        esac
+                    done
+                fi
+                return 0
+                ;;
+        esac
+        return 0
+    fi
 
     # Only enforce validation during 'prepared' state
     if [ "$state" != "prepared" ]; then

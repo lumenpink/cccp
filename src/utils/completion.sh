@@ -14,8 +14,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag changelog update install completion soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates"
+    local commands="status cz commit lint config version tag push changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -97,10 +97,12 @@ _cccp() {
         'config:Manage hierarchical configuration'
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
+        'push:Execute git push and trigger optional post-push hook'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
         'completion:Generate shell autocompletion script'
+        'hooks:Inspect git hooks provenance and diff wrappers'
         'soviet:Display Soviet State anthem and art'
         'help:Display documentation for any command'
     )
@@ -120,6 +122,7 @@ _cccp() {
         'update_channel:Update channel (stable or nightly)'
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
+        'post_push_hook:Custom script or command executed following git push'
     )
 
     _arguments -C \
@@ -205,6 +208,7 @@ complete -c cccp -n "__fish_use_subcommand" -a lint -d "Lint commit messages acr
 complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical configuration"
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
+complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"

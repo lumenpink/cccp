@@ -42,6 +42,9 @@ STRICT_TYPES="${STRICT_TYPES:-1}"
 ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 
+# Optional Post-Push Hook command or script
+POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
+
 # Source hierarchical config manager if available
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/config_manager.sh" ] && . "$GIT_ROOT/src/utils/config_manager.sh"
 

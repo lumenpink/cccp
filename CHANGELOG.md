@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Features
+  - (hooks) implement optional post-push hook automation and cccp push command
+
 ### Bug Fixes
   - (hooks) allow non-semver utility tags and bypass remote sync in reference-transaction
 

@@ -103,6 +103,7 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 | `update_interval_days` | **Global only** | Number of days between automated update checks | `30` | Integer |
 | `check_updates` | **Global only** | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
 | `pinned_version` | **Global only** | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
+| `post_push_hook` | Repo / Global | Command or script executed following a successful `git push` | None | Executable script path or shell command |
 
 > [!NOTE]
 > **Global-Only Update Directives**: Configuration directives governing binary tool updates (`update_channel`, `update_interval_days`, `check_updates`, `pinned_version`) apply machine-wide to the installed binary. They are strictly stored in the user configuration (`~/.config/cccp/config`) and are rejected in repository-level `.cccprc` files to prevent repositories from altering system tool updates. Running `cccp config <update_key> <val>` automatically routes to the global configuration.
@@ -250,6 +251,7 @@ cccp [command] [options]
 | `config [options] [k] [v]` | Manage hierarchical configuration (`--global`, `--local`, `--list`, `--unset`) |
 | `version` | Generate predictive SemVer metadata to `VERSION` |
 | `tag [version] [options]` | Create annotated tag, commit `VERSION` and `CHANGELOG.md` |
+| `push [args...]` | Forward to `git push` and trigger optional post-push hook |
 | `changelog` | Generate or update `CHANGELOG.md` |
 | `update [options]` | Update `cccp` executable (`--channel`, `--pin`, `--unpin`) |
 | `check-update` | Inspect remote version, release channel, and Gosplan pin status |
@@ -378,6 +380,100 @@ cccp tag 1.0.0 -m "Custom tag annotation"    # Custom raw annotation
 ```
 
 Release titles are automatically formatted into `CHANGELOG.md` (`### [v1.2.0] - Sputnik Protocol`) and published to GitHub Release titles.
+
+### Push & Post-Push Automation (`push`)
+
+Git natively lacks a client-side `post-push` hook. `cccp` bridges this gap with a unified, **completely optional** post-push hook execution system.
+
+#### How It Works
+
+You can trigger post-push automation in two ways:
+1. **Seamlessly via standard `git push`**: When CCCP hooks are installed, the `reference-transaction committed` hook intercepts successful pushes to remote tracking branches (`refs/remotes/*`) and triggers the post-push hook automatically. If the push is rejected by the remote server, the hook does **not** run.
+2. **Explicitly via `cccp push`**:
+   ```bash
+   cccp push origin main
+   cccp push -u origin feature-branch
+   ```
+   Forwards all arguments to `git push`. A session guard (`CCCP_POST_PUSH_RAN=1`) guarantees the hook never runs twice for the same push.
+
+#### Hook Discovery Order
+
+When a push succeeds, `cccp` searches for the post-push script in strict priority order:
+
+1. **Explicit Configuration**: `post_push_hook` key in local `.cccprc`, global `~/.config/cccp/config`, or the `POST_PUSH_HOOK` environment variable.
+   ```ini
+   # In .cccprc:
+   post_push_hook = ./scripts/update-tickets.sh
+   # Or a shell command:
+   post_push_hook = python3 scripts/sync_tickets.py
+   ```
+2. **Shared Team Hook (Versioned)**: An executable script at `.cccp/hooks/post-push`.
+3. **Local Machine Hook (Unversioned)**: An executable script at `.git/hooks/post-push.local` or `.git/hooks/post-push`.
+4. **None**: If no hook is defined, execution concludes cleanly with zero overhead.
+
+#### Parameters Passed to the Post-Push Script
+
+Your post-push script receives both positional arguments and exported environment variables:
+
+| Argument | Environment Variable | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `$1` | `CCCP_PUSH_REMOTE` | Remote repository name | `origin` |
+| `$2` | `CCCP_PUSH_BRANCH` | Remote branch name | `main` |
+| `$3` | `CCCP_PUSH_OLD_SHA` | Target commit SHA before the push | `408396f0...` |
+| `$4` | `CCCP_PUSH_NEW_SHA` | Target commit SHA after the push | `53747bc7...` |
+
+#### Real-World Example: Local Ticket / Issue Tracker Sync
+
+Here is an example script (`scripts/update-tickets.sh`) that reads all commit messages delivered by the push and automatically marks referenced tickets as closed:
+
+```bash
+#!/bin/sh
+set -eu
+
+remote="${1:-$CCCP_PUSH_REMOTE}"
+branch="${2:-$CCCP_PUSH_BRANCH}"
+old_sha="${3:-$CCCP_PUSH_OLD_SHA}"
+new_sha="${4:-$CCCP_PUSH_NEW_SHA}"
+
+echo "=== Post-Push: Synchronizing tickets for $remote/$branch ==="
+
+# Scan all commits pushed in this batch
+if [ -n "$old_sha" ] && [ "$old_sha" != "0000000000000000000000000000000000000000" ]; then
+    commit_range="$old_sha..$new_sha"
+else
+    commit_range="$new_sha"
+fi
+
+git log "$commit_range" --format="%s" | grep -oE '(close|closes|fix|fixes) #[0-9]+' | while read -r match; do
+    ticket_id=$(echo "$match" | grep -oE '[0-9]+')
+    echo "✓ Closing local ticket #$ticket_id"
+    # Example: update local sqlite, markdown file, or issue tracker CLI:
+    # ./scripts/tickets.sh close "$ticket_id"
+done
+```
+
+Make it executable and configure it:
+```bash
+chmod +x scripts/update-tickets.sh
+cccp config post_push_hook ./scripts/update-tickets.sh
+```
+
+#### Inspecting Post-Push Status
+
+Check whether your post-push hook is active and properly detected:
+
+- **Via `cccp status`**:
+  ```text
+  Post-Push Hook:   ./scripts/update-tickets.sh (active)
+  ```
+- **Via `cccp hooks audit`**:
+  ```text
+  Optional Extensions:
+    Post-Push   : Active
+    Source      : config (POST_PUSH_HOOK)
+    Script Path : ./scripts/update-tickets.sh
+    Executable  : yes
+  ```
 
 ### Commit Message Format
 

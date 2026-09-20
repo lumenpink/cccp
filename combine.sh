@@ -116,6 +116,12 @@ printf "# Tag Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/tag.sh" >> "$OUTPUT_FILE"
 
+# Add push function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Push Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/push.sh" >> "$OUTPUT_FILE"
+
 # Add hooks function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Hooks Functions\n" >> "$OUTPUT_FILE"
