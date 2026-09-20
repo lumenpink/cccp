@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (cli) wire agents command and autocompletion into cccp (#2)
   - (agents) implement dynamic AGENTS.md generator and variable manager (#2)
   - (cli) add dynamic codeberg tickets synchronization command
   - (hooks) implement optional post-push hook automation and cccp push command

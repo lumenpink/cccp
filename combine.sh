@@ -128,6 +128,12 @@ printf "# Tickets Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/tickets.sh" >> "$OUTPUT_FILE"
 
+# Add agents function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Agents Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/agents.sh" >> "$OUTPUT_FILE"
+
 # Add hooks function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Hooks Functions\n" >> "$OUTPUT_FILE"

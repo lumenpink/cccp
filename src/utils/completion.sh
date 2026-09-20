@@ -14,8 +14,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents set-av changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file agents_md_url agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -24,6 +24,21 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        agents|update-agents)
+            case "$prev" in
+                -u|--url|-f|--file)
+                    return 0
+                    ;;
+            esac
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-u --url -f --file -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "update check set get unset" -- "$cur"))
+            fi
+            ;;
+        set-av)
+            return 0
+            ;;
         tickets|sync-tickets)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -m --max-bytes -t --token -h --help" -- "$cur"))
@@ -105,6 +120,9 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'agents:Generate and synchronize AGENTS.md directives'
+        'update-agents:Generate and synchronize AGENTS.md directives'
+        'set-av:Fast shortcut to configure local agent variable'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -131,6 +149,8 @@ _cccp() {
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
         'tickets_file:Destination file for Codeberg issues sync'
+        'agents_md_url:URL or path to AGENTS.md skeleton template'
+        'agents_md_file:Destination file for AGENTS.md directives'
     )
 
     _arguments -C \
@@ -183,6 +203,14 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
+                agents|update-agents)
+                    _arguments \
+                        '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
+                        '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
+                        '1:subcommand:(update check set get unset)'
+                    ;;
+                set-av)
+                    ;;
                 update)
                     _arguments \
                         '--channel[Release channel]:channel:(stable nightly)'
@@ -227,6 +255,9 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a set-av -d "Fast shortcut to configure local agent variable"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -247,6 +278,11 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l o
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Codeberg repository name"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
+
+# Options for agents
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s u -l url -d "Template URL or local file path"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -a "update check set get unset"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
