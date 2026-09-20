@@ -1,0 +1,6 @@
+# CCCP - Ignored Files & Artifacts
+.antigravity/
+tickets.md
+tickets.tmp
+*.tmp
+spec/reports/

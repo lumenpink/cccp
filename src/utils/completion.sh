@@ -14,8 +14,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook"
+    local commands="status cz commit lint config version tag push tickets sync-tickets changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -24,6 +24,11 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        tickets|sync-tickets)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -m --max-bytes -t --token -h --help" -- "$cur"))
+            fi
+            ;;
         config)
             case "$prev" in
                 --unset)
@@ -98,6 +103,8 @@ _cccp() {
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
         'push:Execute git push and trigger optional post-push hook'
+        'tickets:Sync Codeberg issues into markdown'
+        'sync-tickets:Sync Codeberg issues into markdown'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -123,6 +130,7 @@ _cccp() {
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
+        'tickets_file:Destination file for Codeberg issues sync'
     )
 
     _arguments -C \
@@ -167,6 +175,14 @@ _cccp() {
                         '--no-v[Tag without v prefix]' \
                         '1:version:'
                     ;;
+                tickets|sync-tickets)
+                    _arguments \
+                        '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
+                        '(-o --owner)'{-o,--owner}'[Codeberg repository owner]:owner:' \
+                        '(-r --repo)'{-r,--repo}'[Codeberg repository name]:repo:' \
+                        '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
+                        '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
+                    ;;
                 update)
                     _arguments \
                         '--channel[Release channel]:channel:(stable nightly)'
@@ -209,6 +225,8 @@ complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical co
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
+complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -222,6 +240,13 @@ complete -c cccp -n "__fish_seen_subcommand_from commit" -s i -l interactive -d 
 # Options for tag
 complete -c cccp -n "__fish_seen_subcommand_from tag" -s t -l title -d "Release title"
 complete -c cccp -n "__fish_seen_subcommand_from tag" -l no-v -d "Tag without v prefix"
+
+# Options for tickets
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Codeberg repository owner"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Codeberg repository name"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"

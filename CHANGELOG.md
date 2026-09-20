@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (cli) add dynamic codeberg tickets synchronization command
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes

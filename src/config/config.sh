@@ -45,6 +45,10 @@ ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 # Optional Post-Push Hook command or script
 POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
 
+# Tickets synchronization output file
+TICKETS_FILE="${TICKETS_FILE:-}"
+
+
 # Source hierarchical config manager if available
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/config_manager.sh" ] && . "$GIT_ROOT/src/utils/config_manager.sh"
 

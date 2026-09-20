@@ -54,6 +54,7 @@ STRICT_TYPES="${STRICT_TYPES:-1}"
 ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
+TICKETS_FILE="${TICKETS_FILE:-}"
 
 # =============================================================================
 # Validation Functions
@@ -773,6 +774,296 @@ cmd_push() {
     if command -v run_post_push_hook >/dev/null 2>&1; then
         run_post_push_hook "$curr_remote" "$curr_branch" "$old_remote_sha" "$new_remote_sha" || true
     fi
+    return 0
+}
+
+
+# =============================================================================
+# Tickets Functions
+# =============================================================================
+parse_codeberg_url() {
+    url="$1"
+    clean=$(echo "$url" | sed -e 's/\.git$//' -e 's|/*$||')
+    case "$clean" in
+        *codeberg.org[:/]*)
+            repo_path=$(echo "$clean" | sed -e 's|^.*codeberg\.org[:/]||' -e 's|^/*||')
+            owner=$(echo "$repo_path" | cut -d'/' -f1)
+            repo=$(echo "$repo_path" | cut -d'/' -f2)
+            if [ -n "$owner" ] && [ -n "$repo" ]; then
+                echo "$owner $repo"
+                return 0
+            fi
+            ;;
+    esac
+    return 1
+}
+
+resolve_codeberg_info() {
+    resolved_owner="${CODEBERG_OWNER:-${CODEBERG_USER:-}}"
+    resolved_repo="${CODEBERG_REPO:-}"
+
+    if [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
+        echo "$resolved_owner $resolved_repo"
+        return 0
+    fi
+
+    # Inspect git remotes if inside a git repository
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        # Check 'origin' first
+        origin_url=$(git config remote.origin.url 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+        if [ -n "$origin_url" ]; then
+            if parsed=$(parse_codeberg_url "$origin_url"); then
+                p_owner=$(echo "$parsed" | cut -d' ' -f1)
+                p_repo=$(echo "$parsed" | cut -d' ' -f2)
+                resolved_owner="${resolved_owner:-$p_owner}"
+                resolved_repo="${resolved_repo:-$p_repo}"
+                echo "$resolved_owner $resolved_repo"
+                return 0
+            fi
+        fi
+
+        # Check any other configured git remotes
+        all_remotes=$(git remote 2>/dev/null || true)
+        for rmt in $all_remotes; do
+            [ "$rmt" = "origin" ] && continue
+            rmt_url=$(git config "remote.${rmt}.url" 2>/dev/null || git remote get-url "$rmt" 2>/dev/null || true)
+            if [ -n "$rmt_url" ]; then
+                if parsed=$(parse_codeberg_url "$rmt_url"); then
+                    p_owner=$(echo "$parsed" | cut -d' ' -f1)
+                    p_repo=$(echo "$parsed" | cut -d' ' -f2)
+                    resolved_owner="${resolved_owner:-$p_owner}"
+                    resolved_repo="${resolved_repo:-$p_repo}"
+                    echo "$resolved_owner $resolved_repo"
+                    return 0
+                fi
+            fi
+        done
+    fi
+
+    if [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
+        echo "$resolved_owner $resolved_repo"
+        return 0
+    fi
+
+    return 1
+}
+
+ensure_tickets_gitignored() {
+    target_file="$1"
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    [ -z "$git_root" ] && return 0
+    [ ! -d "$git_root/.git" ] && return 0
+
+    gitignore_file="$git_root/.gitignore"
+
+    # If git already ignores this path, nothing to do
+    if git check-ignore -q "$target_file" 2>/dev/null; then
+        return 0
+    fi
+
+    # Determine relative path from git root
+    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
+
+    case "$rel_path" in
+        .antigravity/*)
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
+                echo ".antigravity/" >> "$gitignore_file"
+            fi
+            ;;
+        *)
+            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
+                echo "$rel_path" >> "$gitignore_file"
+            fi
+            ;;
+    esac
+    return 0
+}
+
+cmd_tickets() {
+    # Ensure config hierarchy is loaded
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
+    cli_owner=""
+    cli_repo=""
+    cli_file=""
+    cli_max_bytes=""
+    cli_token="${CODEBERG_TOKEN:-}"
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "tickets"
+                else
+                    echo "Usage: cccp tickets [--file <path>] [--owner <owner>] [--repo <repo>] [--max-bytes <num>]"
+                fi
+                return 0
+                ;;
+            -f|--file)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --file" >&2; return 1; }
+                cli_file="$1"
+                shift
+                ;;
+            -o|--owner)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --owner" >&2; return 1; }
+                cli_owner="$1"
+                shift
+                ;;
+            -r|--repo)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --repo" >&2; return 1; }
+                cli_repo="$1"
+                shift
+                ;;
+            -m|--max-bytes)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --max-bytes" >&2; return 1; }
+                cli_max_bytes="$1"
+                shift
+                ;;
+            -t|--token)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --token" >&2; return 1; }
+                cli_token="$1"
+                shift
+                ;;
+            *)
+                echo "Error: Unknown option '$1'" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Check required tools
+    for tool in curl jq; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Warning: Required tool '$tool' is not installed or not in PATH. Skipping tickets sync." >&2
+            return 0
+        fi
+    done
+
+    # Resolve Owner and Repo
+    if [ -n "$cli_owner" ] && [ -n "$cli_repo" ]; then
+        owner="$cli_owner"
+        repo="$cli_repo"
+    else
+        info=$(resolve_codeberg_info || true)
+        if [ -z "$info" ]; then
+            echo "Warning: Unable to determine Codeberg repository and owner from git remote or environment." >&2
+            return 0
+        fi
+        owner=$(echo "$info" | cut -d' ' -f1)
+        repo=$(echo "$info" | cut -d' ' -f2)
+        [ -n "$cli_owner" ] && owner="$cli_owner"
+        [ -n "$cli_repo" ] && repo="$cli_repo"
+    fi
+
+    if [ -z "$owner" ] || [ -z "$repo" ]; then
+        echo "Warning: Unable to determine Codeberg repository and owner from git remote or environment." >&2
+        return 0
+    fi
+
+    # Resolve Output File
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "$cli_file" ]; then
+        output_file="$cli_file"
+    elif [ -n "${TICKETS_FILE:-}" ]; then
+        output_file="$TICKETS_FILE"
+    elif [ -n "${CODEBERG_TICKETS_FILE:-}" ]; then
+        output_file="$CODEBERG_TICKETS_FILE"
+    elif [ -n "$git_root" ]; then
+        output_file="$git_root/.antigravity/tickets.md"
+    else
+        output_file=".antigravity/tickets.md"
+    fi
+
+    max_bytes="${cli_max_bytes:-${MAX_BYTES:-10240}}"
+
+    # Create destination directory if necessary
+    output_dir="$(dirname "$output_file")"
+    [ -n "$output_dir" ] && mkdir -p "$output_dir"
+
+    # Ensure target file is gitignored
+    ensure_tickets_gitignored "$output_file"
+
+    api_url="https://codeberg.org/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
+
+    echo "Fetching open issues from Codeberg (${owner}/${repo})..."
+    if [ -n "$cli_token" ]; then
+        response=$(curl -s -f -H "Authorization: token ${cli_token}" "$api_url" 2>/dev/null || true)
+    else
+        response=$(curl -s -f "$api_url" 2>/dev/null || true)
+    fi
+
+    if [ -z "$response" ] || ! echo "$response" | jq -e . >/dev/null 2>&1; then
+        echo "Warning: Failed to retrieve or parse issues from Codeberg API (${owner}/${repo})." >&2
+        return 0
+    fi
+
+    if ! echo "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
+        echo "Warning: Unexpected response format from Codeberg API." >&2
+        return 0
+    fi
+
+    temp_file="${output_file}.tmp.$$"
+    issues_tmp="${temp_file}.issues"
+
+    # Initialize temporary markdown file
+    cat <<EOF > "$temp_file"
+# Active Tickets - ${repo}
+> Synced at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+> Ceiling: ${max_bytes} bytes (strictly uncut tickets)
+
+EOF
+
+    current_size=$(wc -c < "$temp_file" | tr -d ' ')
+    count=0
+    stopped_early=0
+
+    echo "$response" | jq -c '.[]' > "$issues_tmp"
+
+    jq_ticket_filter='
+        "## [#" + (.number|tostring) + "] " + .title + "\n" +
+        "- **Status**: `" + .state + "`\n" +
+        "- **Labels**: " + (if (.labels | length) > 0 then ([.labels[].name] | join(", ")) else "none" end) + "\n" +
+        "- **Link**: " + .html_url + "\n\n" +
+        "### Description\n" +
+        (.body // "_No description provided._") + "\n\n" +
+        "---\n"
+    '
+
+    while IFS= read -r issue_json || [ -n "$issue_json" ]; do
+        [ -z "$issue_json" ] && continue
+
+        ticket_md=$(printf '%s\n' "$issue_json" | jq -r "$jq_ticket_filter")
+        entry_size=$(printf '%s\n' "$ticket_md" | wc -c | tr -d ' ')
+
+        if [ $((current_size + entry_size)) -gt "$max_bytes" ]; then
+            stopped_early=1
+            break
+        fi
+
+        printf '%s\n' "$ticket_md" >> "$temp_file"
+        current_size=$((current_size + entry_size))
+        count=$((count + 1))
+    done < "$issues_tmp"
+
+    rm -f "$issues_tmp"
+    mv "$temp_file" "$output_file"
+
+    final_size=$(wc -c < "$output_file" | tr -d ' ')
+    echo "Done! Synced ${count} complete ticket(s) into ${output_file} (${final_size} / ${max_bytes} bytes)."
+
+    if [ "$stopped_early" -eq 1 ]; then
+        echo "Notice: Sync stopped early at ${final_size} bytes to avoid severing the next issue mid-text."
+    fi
+
     return 0
 }
 
@@ -1658,6 +1949,35 @@ show_help() {
             echo "  The post-push hook also executes transparently on native 'git push' commands"
             echo "  via the 'reference-transaction committed' hook."
             ;;
+        "tickets"|"sync-tickets")
+            echo "cccp.sh tickets - Synchronize Codeberg Issues into Markdown"
+            echo "==========================================================="
+            echo ""
+            echo "Fetches open issues from Codeberg API dynamically and formats them into a clean"
+            echo "markdown document with a strict byte ceiling (10KB default), strictly avoiding"
+            echo "truncating tickets mid-text."
+            echo ""
+            echo "Usage:"
+            echo "  $0 tickets [options]"
+            echo "  $0 sync-tickets [options]"
+            echo ""
+            echo "Options:"
+            echo "  -f, --file <path>        Output markdown file (default: .antigravity/tickets.md)"
+            echo "  -o, --owner <owner>      Codeberg repository owner/organization"
+            echo "  -r, --repo <repo>        Codeberg repository name"
+            echo "  -m, --max-bytes <num>    Maximum budget in bytes (default: 10240)"
+            echo "  -t, --token <token>      Codeberg personal access token (or via CODEBERG_TOKEN)"
+            echo ""
+            echo "Dynamic Repository Discovery:"
+            echo "  1. CLI options (--owner, --repo) and environment variables (CODEBERG_OWNER, CODEBERG_REPO)"
+            echo "  2. Git remote URL inspection (origin or other remotes) supporting SSH and HTTPS"
+            echo "  3. Graceful fallback: If remote is not Codeberg or network fails, logs to stderr and exits 0"
+            echo ""
+            echo "Configuration:"
+            echo "  The target file can be permanently set via 'cccp config set tickets_file <path>'"
+            echo "  and can be chained with 'post_push_hook' to run automatically on every push:"
+            echo "    $ cccp config set post_push_hook \"cccp tickets\""
+            ;;
         "commit")
             echo "cccp.sh commit - Conventional Commit Creation"
             echo "============================================="
@@ -1946,6 +2266,7 @@ show_help() {
             echo "  version            Generate version information file"
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
             echo "  push [args...]     Execute git push and trigger optional post-push hook"
+            echo "  tickets [options]  Sync Codeberg issues into markdown within strict context limit"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
             echo "  check-update       Inspect remote version, release channel, and pin status"
@@ -2159,6 +2480,7 @@ get_default_config_value() {
         check_updates) echo "1" ;;
         pinned_version|pin_version) echo "" ;;
         post_push_hook) echo "" ;;
+        tickets_file) echo ".antigravity/tickets.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -2405,6 +2727,7 @@ load_hierarchical_config() {
     env_check="${CHECK_UPDATES:-}"
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_post_push_hook="${POST_PUSH_HOOK:-}"
+    env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -2421,6 +2744,7 @@ load_hierarchical_config() {
     CHECK_UPDATES="1"
     PINNED_VERSION=""
     POST_PUSH_HOOK=""
+    TICKETS_FILE=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -2484,6 +2808,9 @@ load_hierarchical_config() {
 
         g_post_push=$(read_file_key "$global_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$g_post_push" ] && POST_PUSH_HOOK="$g_post_push"
+
+        g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
+        [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -2529,6 +2856,9 @@ load_hierarchical_config() {
 
         l_post_push=$(read_file_key "$local_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$l_post_push" ] && POST_PUSH_HOOK="$l_post_push"
+
+        l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
+        [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
     fi
 
     # 3. Environment variables take highest precedence
@@ -2547,9 +2877,11 @@ load_hierarchical_config() {
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
+    [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
+    export TICKETS_FILE
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then
@@ -3571,8 +3903,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook"
+    local commands="status cz commit lint config version tag push tickets sync-tickets changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -3581,6 +3913,11 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        tickets|sync-tickets)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -m --max-bytes -t --token -h --help" -- "$cur"))
+            fi
+            ;;
         config)
             case "$prev" in
                 --unset)
@@ -3655,6 +3992,8 @@ _cccp() {
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
         'push:Execute git push and trigger optional post-push hook'
+        'tickets:Sync Codeberg issues into markdown'
+        'sync-tickets:Sync Codeberg issues into markdown'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -3680,6 +4019,7 @@ _cccp() {
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
+        'tickets_file:Destination file for Codeberg issues sync'
     )
 
     _arguments -C \
@@ -3724,6 +4064,14 @@ _cccp() {
                         '--no-v[Tag without v prefix]' \
                         '1:version:'
                     ;;
+                tickets|sync-tickets)
+                    _arguments \
+                        '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
+                        '(-o --owner)'{-o,--owner}'[Codeberg repository owner]:owner:' \
+                        '(-r --repo)'{-r,--repo}'[Codeberg repository name]:repo:' \
+                        '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
+                        '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
+                    ;;
                 update)
                     _arguments \
                         '--channel[Release channel]:channel:(stable nightly)'
@@ -3766,6 +4114,8 @@ complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical co
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
+complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -3779,6 +4129,13 @@ complete -c cccp -n "__fish_seen_subcommand_from commit" -s i -l interactive -d 
 # Options for tag
 complete -c cccp -n "__fish_seen_subcommand_from tag" -s t -l title -d "Release title"
 complete -c cccp -n "__fish_seen_subcommand_from tag" -l no-v -d "Tag without v prefix"
+
+# Options for tickets
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Codeberg repository owner"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Codeberg repository name"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
@@ -3899,7 +4256,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets")
                 check_auto_update || true
                 ;;
         esac
@@ -4015,6 +4372,11 @@ main() {
             cmd_hooks "$@"
             exit 0
             ;;
+        "tickets"|"sync-tickets")
+            shift || true
+            cmd_tickets "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -4024,7 +4386,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
