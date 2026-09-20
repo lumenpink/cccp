@@ -205,7 +205,8 @@ cmd_agents() {
             echo "Error: Not inside a git repository. Cannot save to local .cccprc." >&2
             return 1
         fi
-        set_file_key "$local_cfg" "agent_var_${norm_key}" "$var_val"
+        set_file_key() { write_file_key "$@"; }
+        write_file_key "$local_cfg" "agent_var_${norm_key}" "$var_val"
         echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
         return 0
     fi
