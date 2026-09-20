@@ -207,7 +207,7 @@ cmd_agents() {
         fi
         clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
         write_file_key "$local_cfg" "agent_var_${norm_key}" "$clean_val"
-        echo "Configured agent variable '${norm_key}' in ${local_cfg}"
+        echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
         return 0
     fi
 

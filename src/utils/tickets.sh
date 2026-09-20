@@ -245,12 +245,12 @@ cmd_tickets() {
         response=$(curl -s -f "$api_url" 2>/dev/null || true)
     fi
 
-    if [ -z "$response" ] || ! echo "$response" | jq -e . >/dev/null 2>&1; then
+    if [ -z "$response" ] || ! printf '%s\n' "$response" | jq -e . >/dev/null 2>&1; then
         echo "Warning: Failed to retrieve or parse issues from Codeberg API (${owner}/${repo})." >&2
         return 0
     fi
 
-    if ! echo "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
+    if ! printf '%s\n' "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
         echo "Warning: Unexpected response format from Codeberg API." >&2
         return 0
     fi
@@ -270,7 +270,7 @@ EOF
     count=0
     stopped_early=0
 
-    echo "$response" | jq -c '.[]' > "$issues_tmp"
+    printf '%s\n' "$response" | jq -c '.[]' > "$issues_tmp"
 
     jq_ticket_filter='
         "## [#" + (.number|tostring) + "] " + .title + "\n" +

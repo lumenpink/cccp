@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.8+20260920.2972e5f"
+CCCP_VERSION="2.3.0-dev.9+20260920.576a634"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1003,12 +1003,12 @@ cmd_tickets() {
         response=$(curl -s -f "$api_url" 2>/dev/null || true)
     fi
 
-    if [ -z "$response" ] || ! echo "$response" | jq -e . >/dev/null 2>&1; then
+    if [ -z "$response" ] || ! printf '%s\n' "$response" | jq -e . >/dev/null 2>&1; then
         echo "Warning: Failed to retrieve or parse issues from Codeberg API (${owner}/${repo})." >&2
         return 0
     fi
 
-    if ! echo "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
+    if ! printf '%s\n' "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
         echo "Warning: Unexpected response format from Codeberg API." >&2
         return 0
     fi
@@ -1028,7 +1028,7 @@ EOF
     count=0
     stopped_early=0
 
-    echo "$response" | jq -c '.[]' > "$issues_tmp"
+    printf '%s\n' "$response" | jq -c '.[]' > "$issues_tmp"
 
     jq_ticket_filter='
         "## [#" + (.number|tostring) + "] " + .title + "\n" +
@@ -1249,7 +1249,7 @@ cmd_agents() {
         fi
         clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
         write_file_key "$local_cfg" "agent_var_${norm_key}" "$clean_val"
-        echo "Configured agent variable '${norm_key}' in ${local_cfg}"
+        echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
         return 0
     fi
 
