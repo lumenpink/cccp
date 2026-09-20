@@ -20,6 +20,10 @@ Describe 'push'
 
     GIT_ROOT="$TEST_DIR"
     GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+    export POST_PUSH_SYNC=""
+    export POST_PUSH_SYNC_TICKETS="0"
+    export POST_PUSH_SYNC_AGENT="0"
+    export POST_PUSH_SYNC_AGENTS="0"
   }
 
   cleanup() {
@@ -107,6 +111,9 @@ Describe 'push'
 
       cmd_tickets() {
         echo "PUSH_SYNC_TICKETS_TRIGGERED"
+      }
+      cmd_agent() {
+        echo "PUSH_SYNC_AGENTS_$1_TRIGGERED"
       }
       cmd_agents() {
         echo "PUSH_SYNC_AGENTS_$1_TRIGGERED"

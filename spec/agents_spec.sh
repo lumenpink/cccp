@@ -48,16 +48,31 @@ Describe 'agents'
     End
   End
 
-  Describe 'cmd_agents set, get and unset'
+  Describe 'cmd_agent set, get and unset'
     It 'sets variable in local .cccprc'
-      When call cmd_agents set project_name "my-app"
+      When call cmd_agent set project_name "my-app"
       The status should be success
       The output should include "Configured agent variable 'project_name' = 'my-app'"
       The path "$TEST_DIR/.cccprc" should be exist
     End
 
+    It 'configures agent_md_url directly when setting url'
+      When call cmd_agent set url "https://example.com/custom.md"
+      The status should be success
+      The output should include "Configured agent template URL 'agent_md_url'"
+      The contents of file "$TEST_DIR/.cccprc" should include "agent_md_url = https://example.com/custom.md"
+      The contents of file "$TEST_DIR/.cccprc" should not include "agent_var_url"
+    End
+
+    It 'configures agent_md_file directly when setting file'
+      When call cmd_agent set file ".antigravity/CUSTOM.md"
+      The status should be success
+      The output should include "Configured agent destination file 'agent_md_file'"
+      The contents of file "$TEST_DIR/.cccprc" should include "agent_md_file = .antigravity/CUSTOM.md"
+    End
+
     It 'strips agent_var_ prefix if user provided it'
-      When call cmd_agents set agent_var_stack "Rust"
+      When call cmd_agent set agent_var_stack "Rust"
       The status should be success
       The output should include "Configured agent variable 'stack' = 'Rust'"
     End
@@ -69,33 +84,49 @@ Describe 'agents'
     End
 
     It 'gets existing variable'
-      cmd_agents set project_name "rocket" >/dev/null 2>&1
-      When call cmd_agents get project_name
+      cmd_agent set project_name "rocket" >/dev/null 2>&1
+      When call cmd_agent get project_name
       The status should be success
       The output should eq "rocket"
     End
 
     It 'fails when getting unset variable'
-      When call cmd_agents get non_existent_var
+      When call cmd_agent get non_existent_var
       The status should be failure
       The error should include "Error: Variable 'non_existent_var' is not set."
     End
 
     It 'unsets variable from .cccprc'
-      cmd_agents set project_name "rocket" >/dev/null 2>&1
-      When call cmd_agents unset project_name
+      cmd_agent set project_name "rocket" >/dev/null 2>&1
+      When call cmd_agent unset project_name
       The status should be success
       The output should include "Unset agent variable 'project_name'"
     End
   End
 
-  Describe 'cmd_agents check'
+  Describe 'flexible variable resolution'
+    It 'resolves AGENTS_LANG when agent_var_lang is configured'
+      cmd_agent set lang "english" >/dev/null 2>&1
+      When call resolve_agent_var "AGENTS_LANG"
+      The status should be success
+      The output should eq "english"
+    End
+
+    It 'resolves LANG when agent_var_agents_lang is configured'
+      echo "agent_var_agents_lang = english" >> "$TEST_DIR/.cccprc"
+      When call resolve_agent_var "LANG"
+      The status should be success
+      The output should eq "english"
+    End
+  End
+
+  Describe 'cmd_agent check'
     It 'detects missing variables and returns 1'
       tmpl_file="$TEST_DIR/template.md"
       printf 'Name: {{PROJECT_NAME}}\nStack: ${TECH_STACK}\n' > "$tmpl_file"
-      cmd_agents set project_name "awesome" >/dev/null 2>&1
+      cmd_agent set project_name "awesome" >/dev/null 2>&1
 
-      When call cmd_agents check --url "$tmpl_file"
+      When call cmd_agent check --url "$tmpl_file"
       The status should be failure
       The output should include "[✓] PROJECT_NAME = awesome"
       The output should include "[✗] TECH_STACK = (missing"
@@ -105,23 +136,36 @@ Describe 'agents'
     It 'reports all satisfied when all variables are configured'
       tmpl_file="$TEST_DIR/template.md"
       printf 'Name: {{PROJECT_NAME}}\n' > "$tmpl_file"
-      cmd_agents set project_name "awesome" >/dev/null 2>&1
+      cmd_agent set project_name "awesome" >/dev/null 2>&1
 
-      When call cmd_agents check --url "$tmpl_file"
+      When call cmd_agent check --url "$tmpl_file"
       The status should be success
       The output should include "[✓] PROJECT_NAME = awesome"
       The output should include "Status: All variables configured!"
     End
+
+    It 'uses configured agent_md_url from .cccprc when no --url is specified'
+      tmpl_file="$TEST_DIR/custom_tmpl.md"
+      printf 'Greeting: {{GREETING}}\n' > "$tmpl_file"
+      echo "agent_md_url = $tmpl_file" >> "$TEST_DIR/.cccprc"
+      cmd_agent set greeting "Hello world" >/dev/null 2>&1
+
+      When call cmd_agent check
+      The status should be success
+      The output should include "Template: $tmpl_file"
+      The output should include "[✓] GREETING = Hello world"
+      The output should include "Status: All variables configured!"
+    End
   End
 
-  Describe 'cmd_agents update / generate'
+  Describe 'cmd_agent update / generate'
     It 'aborts and returns 1 when variables are missing without creating file'
       tmpl_file="$TEST_DIR/template.md"
-      out_file="$TEST_DIR/AGENTS.md"
+      out_file="$TEST_DIR/.antigravity/AGENTS.md"
       printf 'Name: {{PROJECT_NAME}}\nStack: ${TECH_STACK}\n' > "$tmpl_file"
 
       test_abort_missing() {
-        cmd_agents --url "$tmpl_file" --file "$out_file"
+        cmd_agent --url "$tmpl_file" --file "$out_file"
       }
 
       When call test_abort_missing
@@ -134,25 +178,25 @@ Describe 'agents'
       The path "$out_file" should not be exist
     End
 
-    It 'interpolates both {{VAR}} and ${VAR} and generates target file'
+    It 'interpolates variables, generates default .antigravity/AGENTS.md, and adds to .gitignore'
       tmpl_file="$TEST_DIR/template.md"
-      out_file="$TEST_DIR/AGENTS.md"
-      printf 'Project: {{PROJECT_NAME}}\nStack: ${TECH_STACK}\n' > "$tmpl_file"
+      printf 'Project: {{PROJECT_NAME}}\nLang: ${AGENTS_LANG}\n' > "$tmpl_file"
 
-      cmd_agents set project_name "SuperCCCP" >/dev/null 2>&1
-      cmd_agents set tech_stack "POSIX Shell" >/dev/null 2>&1
+      cmd_agent set project_name "SuperCCCP" >/dev/null 2>&1
+      cmd_agent set lang "portuguese" >/dev/null 2>&1
 
-      test_generate_success() {
-        cmd_agents --url "$tmpl_file" --file "$out_file"
+      test_generate_default() {
+        cmd_agent --url "$tmpl_file"
       }
 
-      When call test_generate_success
+      When call test_generate_default
       The status should be success
       The output should include "Done! Generated"
-      The path "$out_file" should be exist
-      The file "$out_file" should be file
-      The contents of file "$out_file" should include "Project: SuperCCCP"
-      The contents of file "$out_file" should include "Stack: POSIX Shell"
+      The path "$TEST_DIR/.antigravity/AGENTS.md" should be exist
+      The file "$TEST_DIR/.antigravity/AGENTS.md" should be file
+      The contents of file "$TEST_DIR/.antigravity/AGENTS.md" should include "Project: SuperCCCP"
+      The contents of file "$TEST_DIR/.antigravity/AGENTS.md" should include "Lang: portuguese"
+      The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
     End
   End
 End

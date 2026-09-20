@@ -16,6 +16,10 @@ Describe 'hooks'
     GIT_ROOT="$TEST_DIR"
     GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
     echo "1.2.0" > "$GIT_ROOT/VERSION"
+    export POST_PUSH_SYNC=""
+    export POST_PUSH_SYNC_TICKETS="0"
+    export POST_PUSH_SYNC_AGENT="0"
+    export POST_PUSH_SYNC_AGENTS="0"
   }
 
   cleanup() {
@@ -478,57 +482,71 @@ Describe 'hooks'
     End
 
     It 'detects sync-tickets enabled from flag'
+      unset POST_PUSH_SYNC || true
       export POST_PUSH_SYNC_TICKETS=1
+      export POST_PUSH_SYNC_AGENT=0
       export POST_PUSH_SYNC_AGENTS=0
       When call is_post_push_sync_tickets_enabled
       The status should be success
-      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENTS || true
+      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENT POST_PUSH_SYNC_AGENTS || true
     End
 
-    It 'detects sync-agents disabled from flag'
+    It 'detects sync-agent disabled from flag'
+      unset POST_PUSH_SYNC || true
       export POST_PUSH_SYNC_TICKETS=1
+      export POST_PUSH_SYNC_AGENT=0
       export POST_PUSH_SYNC_AGENTS=0
-      When call is_post_push_sync_agents_enabled
+      When call is_post_push_sync_agent_enabled
       The status should be failure
-      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENTS || true
+      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENT POST_PUSH_SYNC_AGENTS || true
     End
 
-    It 'detects sync-tickets and sync-agents enabled from combined list'
-      export POST_PUSH_SYNC="tickets, agents"
+    It 'detects sync-tickets and sync-agent enabled from combined list'
+      export POST_PUSH_SYNC="tickets, agent"
       check_both() {
-        is_post_push_sync_tickets_enabled && is_post_push_sync_agents_enabled
+        is_post_push_sync_tickets_enabled && is_post_push_sync_agent_enabled
       }
       When call check_both
       The status should be success
       unset POST_PUSH_SYNC || true
     End
 
-    It 'reports active post-push status and sync actions in get_post_push_hook_info'
+    It 'supports plural sync-agents in combined list as fallback'
       export POST_PUSH_SYNC="tickets, agents"
-      When call get_post_push_hook_info
+      check_both_plural() {
+        is_post_push_sync_tickets_enabled && is_post_push_sync_agent_enabled
+      }
+      When call check_both_plural
       The status should be success
-      The output should include "status=active"
-      The output should include "source=built-in (sync-tickets, sync-agents)"
-      The output should include "sync_actions=sync-tickets, sync-agents"
       unset POST_PUSH_SYNC || true
     End
 
-    It 'triggers cmd_tickets and cmd_agents update during run_post_push_hook'
+    It 'reports active post-push status and sync actions in get_post_push_hook_info'
+      export POST_PUSH_SYNC="tickets, agent"
+      When call get_post_push_hook_info
+      The status should be success
+      The output should include "status=active"
+      The output should include "source=built-in (sync-tickets, sync-agent)"
+      The output should include "sync_actions=sync-tickets, sync-agent"
+      unset POST_PUSH_SYNC || true
+    End
+
+    It 'triggers cmd_tickets and cmd_agent update during run_post_push_hook'
       tickets_called=0
       agents_called=0
 
       cmd_tickets() {
         echo "CALLED_TICKETS"
       }
-      cmd_agents() {
-        echo "CALLED_AGENTS_$1"
+      cmd_agent() {
+        echo "CALLED_AGENT_$1"
       }
 
-      export POST_PUSH_SYNC="tickets, agents"
+      export POST_PUSH_SYNC="tickets, agent"
       When call run_post_push_hook "origin" "main" "sha1" "sha2"
       The status should be success
       The output should include "CALLED_TICKETS"
-      The output should include "CALLED_AGENTS_update"
+      The output should include "CALLED_AGENT_update"
 
       unset POST_PUSH_SYNC || true
     End
