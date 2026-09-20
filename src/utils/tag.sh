@@ -39,6 +39,7 @@ create_tag() {
     fi
 
     # Ensure working tree has no uncommitted changes to tracked files (excluding release artifacts)
+    git update-index -q --refresh 2>/dev/null || true
     if ! git diff-index --quiet HEAD -- ':!VERSION' ':!CHANGELOG.md' 2>/dev/null; then
         echo "Error: Working directory has uncommitted changes. Please commit or stash them before creating a tag." >&2
         return 1

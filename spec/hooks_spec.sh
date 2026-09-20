@@ -306,6 +306,18 @@ Describe 'hooks'
       When call test_push_delete_tag
       The status should be success
     End
+
+    It 'allows pushing non-SemVer utility tags like nightly'
+      echo "2.0.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore: commit"
+      sha=$(git rev-parse HEAD)
+      test_push_nightly_tag() {
+        echo "refs/tags/nightly $sha refs/tags/nightly 0000000000000000000000000000000000000000" | cmd_pre_push "origin" "git@github.com:test/repo.git"
+      }
+      When call test_push_nightly_tag
+      The status should be success
+    End
   End
 
   Describe 'cmd_reference_transaction'
@@ -383,6 +395,18 @@ Describe 'hooks'
         echo "1111111111111111111111111111111111111111 0000000000000000000000000000000000000000 refs/tags/v2.1.0" | cmd_reference_transaction "prepared"
       }
       When call test_ref_tx_delete
+      The status should be success
+    End
+
+    It 'allows non-SemVer utility tags like nightly'
+      echo "2.0.0" > "$TEST_DIR/VERSION"
+      git add VERSION
+      HOOK_ACTIVE=1 git commit -m "chore: commit"
+      sha=$(git rev-parse HEAD)
+      test_ref_tx_nightly() {
+        echo "0000000000000000000000000000000000000000 $sha refs/tags/nightly" | cmd_reference_transaction "prepared"
+      }
+      When call test_ref_tx_nightly
       The status should be success
     End
 

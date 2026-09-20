@@ -2,11 +2,12 @@
 
 ## [Unreleased]
 
-- Routine maintenance, documentation updates, and operational improvements.
+### Bug Fixes
+  - (hooks) allow non-semver utility tags and bypass remote sync in reference-transaction
 
 ## Previous Releases
 
-### [v2.2.0] - Gosplan Tag Defense & Gatekeeper Bureau
+### [v2.2.0]
 
 ### Features
   - (hooks) implement pre-push and reference-transaction tag guards and CI check
@@ -146,6 +147,42 @@
   - testttqwe
   - testttqwe
   - testttqwe
+
+### [nightly] - v2.2.0 - Gosplan Tag Defense & Gatekeeper Bureau
+
+### Features
+  - (hooks) implement pre-push and reference-transaction tag guards and CI check
+  - (config) enforce global-only scope for tool update directives
+  - (version) absorb breaking changes in X.0.0 pre-releases and promote on non-zero pre-releases
+  - (hooks) provide detailed hooks audit, diffing, and intervention guide
+  - (update) add check-update command and version pinning support
+  - (help) display active version in all help headers
+  - (validation) enhance prerequisite checks without awk dependency
+  - (core) introduce modular dispatcher and development runner
+  - (completion) add shell autocompletion for bash, zsh, and fish
+  - (interactive) add pure shell terminal commit wizard
+  - (lint) add history and pull request commit linting
+  - (status) add repository status and health diagnostic command
+  - (config) support custom types, scopes, and descriptor lookup
+  - (tag) support release titles with -t and --title flags
+  - (update) add update checking, release channels and hook version synchronization
+  - (install) support global CLI installation to PATH with shell profile integration
+  - (config) add hierarchical configuration system and cccp config CLI command
+  - (hooks) use standalone portable wrapper scripts with version tracking
+  - (config) standardize default flags to 0 and set base version to 0.0.1
+  - (tag) automate release commit creation and working tree validation
+  - (cli) add command-specific help and release tagging command
+  - (version) implement predictive semantic versioning, prerequisite checks and scope validation fixes
   - add updatescript function
   - first version
+
+### Bug Fixes
+  - (version) target base version when latest tag is a pre-release
+  - (core) establish single-source version injection and eliminate recursive invocations
+  - (core) ensure safe sourcing and robust configuration hierarchy across modules
+  - (changelog) omit empty section headings and add default release fallback
+  - (tag) exclude VERSION and CHANGELOG.md from pre-tag dirty check
+  - (ci) configure git default branch to silence hints during spec tests
+  - (ci) install shellspec to user space and export PATH
+  - (ci) correct YAML escaping for multiline release notes and quote workflow name
 

@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.2.0"
+CCCP_VERSION="2.2.1-dev.1+20260920.421a02c"
 export CCCP_VERSION
 
 # Verify required tools
@@ -564,6 +564,7 @@ create_tag() {
     fi
 
     # Ensure working tree has no uncommitted changes to tracked files (excluding release artifacts)
+    git update-index -q --refresh 2>/dev/null || true
     if ! git diff-index --quiet HEAD -- ':!VERSION' ':!CHANGELOG.md' 2>/dev/null; then
         echo "Error: Working directory has uncommitted changes. Please commit or stash them before creating a tag." >&2
         return 1
@@ -1105,6 +1106,12 @@ cmd_pre_push() {
                 tag_name="${remote_ref#refs/tags/}"
                 clean_tag="${tag_name#v}"
 
+                # Only validate SemVer release tags (e.g. v1.0.0, 1.0.0)
+                # Ignore non-version utility tags (e.g. nightly, latest, canary)
+                if ! echo "$tag_name" | grep -qE '^v?[0-9]'; then
+                    continue
+                fi
+
                 # Check if VERSION exists in the commit pointed to by local_sha
                 ver_in_commit=$(git show "${local_sha}:VERSION" 2>/dev/null || true)
                 ver_in_commit=$(echo "$ver_in_commit" | tr -d ' \r\n')
@@ -1167,6 +1174,20 @@ cmd_reference_transaction() {
         return 0
     fi
 
+    # Inspect parent command to bypass remote synchronization operations (fetch, pull, clone)
+    parent_cmd=""
+    if [ -r "/proc/$PPID/cmdline" ]; then
+        parent_cmd=$(tr '\0' ' ' < "/proc/$PPID/cmdline" 2>/dev/null || true)
+    fi
+    if [ -z "$parent_cmd" ] && command -v ps >/dev/null 2>&1; then
+        parent_cmd=$(ps -p "$PPID" -o args= 2>/dev/null || ps -p "$PPID" -o command= 2>/dev/null || true)
+    fi
+    case "$parent_cmd" in
+        *fetch*|*pull*|*clone*)
+            return 0
+            ;;
+    esac
+
     # If stdin is a tty, nothing to validate
     [ -t 0 ] && return 0
 
@@ -1180,6 +1201,12 @@ cmd_reference_transaction() {
             refs/tags/*)
                 tag_name="${ref_name#refs/tags/}"
                 clean_tag="${tag_name#v}"
+
+                # Only validate SemVer release tags (e.g. v1.0.0, 1.0.0)
+                # Ignore non-version utility tags (e.g. nightly, latest, canary)
+                if ! echo "$tag_name" | grep -qE '^v?[0-9]'; then
+                    continue
+                fi
 
                 # Inspect VERSION file in the commit being tagged
                 ver_in_commit=$(git show "${new_sha}:VERSION" 2>/dev/null || true)
