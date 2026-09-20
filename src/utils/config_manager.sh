@@ -48,6 +48,8 @@ get_default_config_value() {
         pinned_version|pin_version) echo "" ;;
         post_push_hook) echo "" ;;
         tickets_file) echo ".antigravity/tickets.md" ;;
+        agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
+        agents_md_file) echo "AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -301,6 +303,8 @@ load_hierarchical_config() {
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
+    env_agents_url="${AGENTS_MD_URL:-}"
+    env_agents_file="${AGENTS_MD_FILE:-}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -318,6 +322,8 @@ load_hierarchical_config() {
     PINNED_VERSION=""
     POST_PUSH_HOOK=""
     TICKETS_FILE=""
+    AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+    AGENTS_MD_FILE=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -384,6 +390,11 @@ load_hierarchical_config() {
 
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
+
+        g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
+        [ -n "$g_ag_url" ] && AGENTS_MD_URL="$g_ag_url"
+        g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$g_ag_file" ] && AGENTS_MD_FILE="$g_ag_file"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -432,6 +443,11 @@ load_hierarchical_config() {
 
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
+
+        l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
+        [ -n "$l_ag_url" ] && AGENTS_MD_URL="$l_ag_url"
+        l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$l_ag_file" ] && AGENTS_MD_FILE="$l_ag_file"
     fi
 
     # 3. Environment variables take highest precedence
@@ -451,10 +467,14 @@ load_hierarchical_config() {
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
+    [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
+    [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
     export TICKETS_FILE
+    export AGENTS_MD_URL
+    export AGENTS_MD_FILE
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then

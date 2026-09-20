@@ -48,6 +48,10 @@ POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
 # Tickets synchronization output file
 TICKETS_FILE="${TICKETS_FILE:-}"
 
+# AGENTS.md template and output destination
+AGENTS_MD_URL="${AGENTS_MD_URL:-https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md}"
+AGENTS_MD_FILE="${AGENTS_MD_FILE:-}"
+
 
 # Source hierarchical config manager if available
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/config_manager.sh" ] && . "$GIT_ROOT/src/utils/config_manager.sh"
