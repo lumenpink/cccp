@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.11+20260920.6713415"
+CCCP_VERSION="2.3.0-dev.12+20260920.8dfd05d"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1096,10 +1096,22 @@ fetch_agents_template() {
         http://*|https://*)
             if command -v curl >/dev/null 2>&1; then
                 content=$(curl -s -f "$url" 2>/dev/null || true)
-                if [ -n "$content" ]; then
-                    printf '%s\n' "$content"
-                    return 0
+                if [ -z "$content" ]; then
+                    echo "Warning: Received empty response from '$url'." >&2
+                    return 1
                 fi
+                # Reject responses that look like HTML error pages
+                case "$content" in
+                    *'<html'*|*'<!DOCTYPE'*|*'<!doctype'*|*'<head'*|*'<body'*)
+                        echo "Warning: Response from '$url' does not appear to be a valid Markdown template (looks like HTML). Skipping." >&2
+                        return 1
+                        ;;
+                esac
+                printf '%s\n' "$content"
+                return 0
+            else
+                echo "Warning: 'curl' not available; cannot fetch remote template." >&2
+                return 1
             fi
             ;;
     esac
@@ -1114,6 +1126,10 @@ fetch_agents_template() {
     return 1
 }
 
+fetch_agent_template() {
+    fetch_agents_template "$@"
+}
+
 extract_template_vars() {
     template_text="$1"
     printf '%s\n' "$template_text" | grep -oE '(\{\{[A-Za-z0-9_]+\}|\$\{[A-Za-z0-9_]+\})' 2>/dev/null | \
@@ -1121,18 +1137,60 @@ extract_template_vars() {
         sort -u || true
 }
 
+ensure_agent_gitignored() {
+    target_file="$1"
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    [ -z "$git_root" ] && return 0
+    [ ! -d "$git_root/.git" ] && return 0
+
+    gitignore_file="$git_root/.gitignore"
+
+    # If git already ignores this path, nothing to do
+    if git check-ignore -q "$target_file" 2>/dev/null; then
+        return 0
+    fi
+
+    # Determine relative path from git root
+    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
+
+    case "$rel_path" in
+        .antigravity/*)
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
+                echo ".antigravity/" >> "$gitignore_file"
+            fi
+            ;;
+        *)
+            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
+                echo "$rel_path" >> "$gitignore_file"
+            fi
+            ;;
+    esac
+    return 0
+}
+
 resolve_agent_var() {
     var_name="$1"
     norm_name=$(echo "$var_name" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
-    up_name=$(echo "$var_name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+    stripped_name=$(echo "$norm_name" | sed -E 's/^(agents|agent)_//')
 
-    # 1. Environment variables have highest precedence
-    # Check AGENT_VAR_NAME or direct VAR_NAME
-    env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_name}:-\${AGENT_VAR_${norm_name}:-}}\"")
-    if [ -n "$env_val" ]; then
-        printf '%b\n' "$env_val"
-        return 0
+    candidates="$norm_name"
+    if [ "$stripped_name" != "$norm_name" ]; then
+        candidates="$candidates $stripped_name"
+    else
+        candidates="$candidates agent_${norm_name} agents_${norm_name}"
     fi
+
+    # 1. Environment variables have highest precedence (strictly AGENT_VAR_*)
+    for cand in $candidates; do
+        up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+        env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_cand}:-\${AGENT_VAR_${cand}:-}}\"")
+        if [ -n "$env_val" ]; then
+            printf '%b\n' "$env_val"
+            return 0
+        fi
+    done
 
     # 2. Local repository configuration (.cccprc)
     local_file=""
@@ -1141,13 +1199,17 @@ resolve_agent_var() {
     fi
 
     if [ -n "$local_file" ] && [ -f "$local_file" ] && command -v read_file_key >/dev/null 2>&1; then
-        val=$(read_file_key "$local_file" "agent_var_${norm_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$local_file" "${norm_name}" 2>/dev/null || true)
-        if [ -n "$val" ]; then
-            printf '%b\n' "$val"
-            return 0
-        fi
+        for cand in $candidates; do
+            up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+            val=$(read_file_key "$local_file" "agent_var_${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "${up_cand}" 2>/dev/null || true)
+            if [ -n "$val" ]; then
+                printf '%b\n' "$val"
+                return 0
+            fi
+        done
     fi
 
     # 3. Global configuration
@@ -1157,18 +1219,21 @@ resolve_agent_var() {
     fi
 
     if [ -n "$global_file" ] && [ -f "$global_file" ] && command -v read_file_key >/dev/null 2>&1; then
-        val=$(read_file_key "$global_file" "agent_var_${norm_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_name}" 2>/dev/null || true)
-        if [ -n "$val" ]; then
-            printf '%b\n' "$val"
-            return 0
-        fi
+        for cand in $candidates; do
+            up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+            val=$(read_file_key "$global_file" "agent_var_${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_cand}" 2>/dev/null || true)
+            if [ -n "$val" ]; then
+                printf '%b\n' "$val"
+                return 0
+            fi
+        done
     fi
 
     return 1
 }
 
-cmd_agents() {
+cmd_agent() {
     # Ensure config hierarchy is loaded
     if command -v load_hierarchical_config >/dev/null 2>&1; then
         load_hierarchical_config
@@ -1185,9 +1250,9 @@ cmd_agents() {
         case "$1" in
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
-                    show_help "agents"
+                    show_help "agent"
                 else
-                    echo "Usage: cccp agents [update|check|set|get|unset] [options]"
+                    echo "Usage: cccp agent [update|check|set|get|unset] [options]"
                 fi
                 return 0
                 ;;
@@ -1242,7 +1307,7 @@ cmd_agents() {
         esac
     done
 
-    # Handle variable setting (ergonomic set-av / agents set)
+    # Handle variable setting (ergonomic set-av / agent set)
     if [ "$action" = "set" ]; then
         norm_key=$(echo "$var_key" | sed 's/^agent_var_//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
         local_cfg=$(get_local_config_file 2>/dev/null || true)
@@ -1251,6 +1316,21 @@ cmd_agents() {
             return 1
         fi
         clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
+
+        case "$norm_key" in
+            url|template_url|agent_url|agents_url|agent_md_url|agents_md_url)
+                write_file_key "$local_cfg" "agent_md_url" "$clean_val"
+                unset_file_key "$local_cfg" "agent_var_url" 2>/dev/null || true
+                echo "Configured agent template URL 'agent_md_url' = '${var_val}' in ${local_cfg}"
+                return 0
+                ;;
+            file|dest|destination|agent_file|agents_file|agent_md_file|agents_md_file)
+                write_file_key "$local_cfg" "agent_md_file" "$clean_val"
+                echo "Configured agent destination file 'agent_md_file' = '${var_val}' in ${local_cfg}"
+                return 0
+                ;;
+        esac
+
         write_file_key "$local_cfg" "agent_var_${norm_key}" "$clean_val"
         echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
         return 0
@@ -1281,49 +1361,56 @@ cmd_agents() {
         return 0
     fi
 
-    # Resolve template URL
-    if [ -z "$target_url" ]; then
-        target_url="${AGENTS_MD_URL:-}"
-    fi
+    # Resolve template URL: prefer CLI option, then local/global config, then env, then default
     if [ -z "$target_url" ]; then
         local_cfg=$(get_local_config_file 2>/dev/null || true)
         if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_url=$(read_file_key "$local_cfg" "agents_md_url" 2>/dev/null || true)
+            target_url=$(read_file_key "$local_cfg" "agent_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agents_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agent_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agent_var_url" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_url" ]; then
         global_cfg=$(get_global_config_file 2>/dev/null || true)
         if [ -n "$global_cfg" ] && [ -f "$global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_url=$(read_file_key "$global_cfg" "agents_md_url" 2>/dev/null || true)
+            target_url=$(read_file_key "$global_cfg" "agent_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agents_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agent_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agent_var_url" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_url" ]; then
-        target_url="$DEFAULT_AGENTS_MD_URL"
+        target_url="${AGENT_MD_URL:-${AGENTS_MD_URL:-}}"
+    fi
+    if [ -z "$target_url" ]; then
+        target_url="$DEFAULT_AGENT_MD_URL"
     fi
 
-    # Resolve output destination file
+    # Resolve output destination file (default: .antigravity/AGENTS.md)
     git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ -z "$target_file" ]; then
-        target_file="${AGENTS_MD_FILE:-}"
-    fi
     if [ -z "$target_file" ]; then
         local_cfg=$(get_local_config_file 2>/dev/null || true)
         if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_file=$(read_file_key "$local_cfg" "agents_md_file" 2>/dev/null || true)
+            target_file=$(read_file_key "$local_cfg" "agent_md_file" 2>/dev/null || true)
+            [ -z "$target_file" ] && target_file=$(read_file_key "$local_cfg" "agents_md_file" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_file" ]; then
+        target_file="${AGENT_MD_FILE:-${AGENTS_MD_FILE:-}}"
+    fi
+    if [ -z "$target_file" ]; then
         if [ -n "$git_root" ]; then
-            target_file="$git_root/AGENTS.md"
+            target_file="$git_root/.antigravity/AGENTS.md"
         else
-            target_file="AGENTS.md"
+            target_file=".antigravity/AGENTS.md"
         fi
     fi
 
     # Fetch template
     echo "Fetching AGENTS template from: $target_url"
     if ! template_content=$(fetch_agents_template "$target_url"); then
-        echo "Error: Unable to fetch AGENTS template from '$target_url'." >&2
+        echo "Warning: Skipping AGENTS template generation." >&2
         return 1
     fi
 
@@ -1345,10 +1432,11 @@ cmd_agents() {
         missing_count=0
         for v in $vars; do
             norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
+            stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
             if val=$(resolve_agent_var "$v"); then
                 echo "  [✓] $v = $val"
             else
-                echo "  [✗] $v = (missing - configure via: cccp agents set $norm_v \"<val>\")"
+                echo "  [✗] $v = (missing - configure via: cccp agent set $stripped_v \"<val>\")"
                 missing_count=$((missing_count + 1))
             fi
         done
@@ -1357,7 +1445,7 @@ cmd_agents() {
             echo "Status: $missing_count variable(s) missing. Cannot generate $target_file."
             return 1
         else
-            echo "Status: All variables configured! Ready to run 'cccp agents'."
+            echo "Status: All variables configured! Ready to run 'cccp agent'."
             return 0
         fi
     fi
@@ -1367,7 +1455,8 @@ cmd_agents() {
     for v in $vars; do
         if ! resolve_agent_var "$v" >/dev/null 2>&1; then
             norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
-            missing_vars="${missing_vars}\n  - $v (configure with: cccp agents set $norm_v \"<value>\")"
+            stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
+            missing_vars="${missing_vars}\n  - $v (configure with: cccp agent set $stripped_v \"<value>\")"
         fi
     done
 
@@ -1411,12 +1500,19 @@ cmd_agents() {
     printf '%s\n' "$result" > "$tmp_out"
     mv "$tmp_out" "$target_file"
 
+    # Ensure target file is gitignored
+    ensure_agent_gitignored "$target_file"
+
     echo "Done! Generated $target_file with $interpolated_count variable(s) substituted."
     return 0
 }
 
+cmd_agents() {
+    cmd_agent "$@"
+}
+
 cmd_set_av() {
-    cmd_agents set "$@"
+    cmd_agent set "$@"
 }
 
 
@@ -1914,16 +2010,20 @@ is_post_push_sync_tickets_enabled() {
     return 1
 }
 
-is_post_push_sync_agents_enabled() {
-    case "${POST_PUSH_SYNC_AGENTS:-0}" in
+is_post_push_sync_agent_enabled() {
+    case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
         1|true|TRUE|yes|YES|on|ON) return 0 ;;
     esac
     for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
         case "$action" in
-            agents|sync-agents) return 0 ;;
+            agent|agents|sync-agent|sync-agents) return 0 ;;
         esac
     done
     return 1
+}
+
+is_post_push_sync_agents_enabled() {
+    is_post_push_sync_agent_enabled
 }
 
 get_post_push_hook_info() {
@@ -1931,11 +2031,11 @@ get_post_push_hook_info() {
     if is_post_push_sync_tickets_enabled; then
         sync_actions="sync-tickets"
     fi
-    if is_post_push_sync_agents_enabled; then
+    if is_post_push_sync_agent_enabled; then
         if [ -n "$sync_actions" ]; then
-            sync_actions="$sync_actions, sync-agents"
+            sync_actions="$sync_actions, sync-agent"
         else
-            sync_actions="sync-agents"
+            sync_actions="sync-agent"
         fi
     fi
 
@@ -2013,15 +2113,15 @@ run_post_push_hook() {
 
     hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
     sync_tickets_active=0
-    sync_agents_active=0
+    sync_agent_active=0
     if is_post_push_sync_tickets_enabled; then
         sync_tickets_active=1
     fi
-    if is_post_push_sync_agents_enabled; then
-        sync_agents_active=1
+    if is_post_push_sync_agent_enabled; then
+        sync_agent_active=1
     fi
 
-    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agents_active" -eq 0 ]; then
+    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agent_active" -eq 0 ]; then
         return 0
     fi
 
@@ -2054,15 +2154,17 @@ run_post_push_hook() {
         fi
     fi
 
-    # 3. Execute sync-agents if enabled
-    if [ "$sync_agents_active" -eq 1 ]; then
-        if command -v cmd_agents >/dev/null 2>&1; then
+    # 3. Execute sync-agent if enabled
+    if [ "$sync_agent_active" -eq 1 ]; then
+        if command -v cmd_agent >/dev/null 2>&1; then
+            cmd_agent update || true
+        elif command -v cmd_agents >/dev/null 2>&1; then
             cmd_agents update || true
         elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/agents.sh" ]; then
             . "$GIT_ROOT/src/utils/agents.sh"
-            cmd_agents update || true
+            cmd_agent update || true
         elif command -v cccp >/dev/null 2>&1; then
-            cccp agents update || true
+            cccp agent update || true
         fi
     fi
 
@@ -2394,8 +2496,8 @@ show_help() {
             echo "Automatic Synchronization Actions:"
             echo "  Post-push can automatically run synchronization tasks configured via:"
             echo "    post_push_sync_tickets = 1  (or sync_tickets = 1) -> syncs Codeberg issues"
-            echo "    post_push_sync_agents  = 1  (or sync_agents  = 1) -> syncs AGENTS.md directives"
-            echo "    post_push_sync         = tickets, agents          -> combined list"
+            echo "    post_push_sync_agent   = 1  (or sync_agent   = 1) -> syncs AGENTS.md directives"
+            echo "    post_push_sync         = tickets, agent           -> combined list"
             echo ""
             echo "Note on Native 'git push':"
             echo "  The post-push hook and sync actions also execute transparently on native 'git push'"
@@ -2430,24 +2532,28 @@ show_help() {
             echo "  and can be chained with 'post_push_hook' to run automatically on every push:"
             echo "    $ cccp config set post_push_hook \"cccp tickets\""
             ;;
-        "agents"|"update-agents"|"sync-agents"|"set-av")
-            echo "cccp.sh agents - Generate and Synchronize AGENTS.md Directives"
-            echo "============================================================"
+        "agent"|"agents"|"update-agent"|"update-agents"|"sync-agent"|"sync-agents"|"set-av"|"set-agent-var")
+            echo "cccp.sh agent - Generate and Synchronize AGENTS.md Directives"
+            echo "==========================================================="
             echo ""
             echo "Generates or updates AGENTS.md using a shared Markdown skeleton with local variable"
             echo "interpolation from .cccprc, strictly preventing incomplete file generation."
             echo ""
             echo "Usage:"
-            echo "  $0 agents [options]                     # Generate/update AGENTS.md"
-            echo "  $0 agents check [options]               # Validate template variables status"
-            echo "  $0 agents set <var_name> <value>        # Set local agent variable in .cccprc"
-            echo "  $0 agents get <var_name>                # Read agent variable value"
-            echo "  $0 agents unset <var_name>              # Remove agent variable from .cccprc"
+            echo "  $0 agent [options]                      # Generate/update AGENTS.md"
+            echo "  $0 agent check [options]                # Validate template variables status"
+            echo "  $0 agent set <var_name> <value>         # Set local agent variable in .cccprc"
+            echo "  $0 agent get <var_name>                 # Read agent variable value"
+            echo "  $0 agent unset <var_name>               # Remove agent variable from .cccprc"
             echo "  $0 set-av <var_name> <value>            # Fast shortcut to set agent variable"
             echo ""
             echo "Options:"
             echo "  -u, --url <url_or_path>  Template URL or local file path"
-            echo "  -f, --file <path>        Output markdown file (default: ./AGENTS.md)"
+            echo "  -f, --file <path>        Output markdown file (default: .antigravity/AGENTS.md)"
+            echo ""
+            echo "Configuration in .cccprc:"
+            echo "  agent_md_url   = <url>    # Template URL or file path"
+            echo "  agent_md_file  = <path>   # Target destination path"
             echo ""
             echo "Variable Substitution:"
             echo "  Supports both {{VAR_NAME}} and \${VAR_NAME} in the skeleton. Variables are"
@@ -2743,7 +2849,7 @@ show_help() {
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
             echo "  push [args...]     Execute git push and trigger optional post-push hook"
             echo "  tickets [options]  Sync Codeberg issues into markdown within strict context limit"
-            echo "  agents [options]   Generate/update AGENTS.md directives with local variable interpolation"
+            echo "  agent [options]    Generate/update AGENTS.md directives with local variable interpolation"
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
@@ -2959,8 +3065,8 @@ get_default_config_value() {
         pinned_version|pin_version) echo "" ;;
         post_push_hook) echo "" ;;
         tickets_file) echo ".antigravity/tickets.md" ;;
-        agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
-        agents_md_file) echo "AGENTS.md" ;;
+        agent_md_url|agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
+        agent_md_file|agents_md_file) echo ".antigravity/AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -3209,10 +3315,10 @@ load_hierarchical_config() {
     env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_post_push_sync="${POST_PUSH_SYNC:-}"
     env_post_push_sync_tickets="${POST_PUSH_SYNC_TICKETS:-}"
-    env_post_push_sync_agents="${POST_PUSH_SYNC_AGENTS:-}"
+    env_post_push_sync_agent="${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-}}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
-    env_agents_url="${AGENTS_MD_URL:-}"
-    env_agents_file="${AGENTS_MD_FILE:-}"
+    env_agent_url="${AGENT_MD_URL:-${AGENTS_MD_URL:-}}"
+    env_agent_file="${AGENT_MD_FILE:-${AGENTS_MD_FILE:-}}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -3231,9 +3337,12 @@ load_hierarchical_config() {
     POST_PUSH_HOOK=""
     POST_PUSH_SYNC=""
     POST_PUSH_SYNC_TICKETS="0"
+    POST_PUSH_SYNC_AGENT="0"
     POST_PUSH_SYNC_AGENTS="0"
     TICKETS_FILE=""
-    AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+    AGENT_MD_URL=""
+    AGENTS_MD_URL=""
+    AGENT_MD_FILE=""
     AGENTS_MD_FILE=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
@@ -3306,17 +3415,24 @@ load_hierarchical_config() {
         [ -z "$g_pp_tickets" ] && g_pp_tickets=$(read_file_key "$global_file" "sync_tickets" 2>/dev/null || true)
         [ -n "$g_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$g_pp_tickets"
 
-        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agent" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agent" 2>/dev/null || true)
         [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agents" 2>/dev/null || true)
-        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
+        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENT="$g_pp_agents" && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
 
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
 
-        g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
-        [ -n "$g_ag_url" ] && AGENTS_MD_URL="$g_ag_url"
-        g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
-        [ -n "$g_ag_file" ] && AGENTS_MD_FILE="$g_ag_file"
+        g_ag_url=$(read_file_key "$global_file" "agent_md_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agent_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agent_var_url" 2>/dev/null || true)
+        [ -n "$g_ag_url" ] && AGENT_MD_URL="$g_ag_url" && AGENTS_MD_URL="$g_ag_url"
+
+        g_ag_file=$(read_file_key "$global_file" "agent_md_file" 2>/dev/null || true)
+        [ -z "$g_ag_file" ] && g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$g_ag_file" ] && AGENT_MD_FILE="$g_ag_file" && AGENTS_MD_FILE="$g_ag_file"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -3370,17 +3486,24 @@ load_hierarchical_config() {
         [ -z "$l_pp_tickets" ] && l_pp_tickets=$(read_file_key "$local_file" "sync_tickets" 2>/dev/null || true)
         [ -n "$l_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$l_pp_tickets"
 
-        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agent" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agent" 2>/dev/null || true)
         [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agents" 2>/dev/null || true)
-        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
+        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENT="$l_pp_agents" && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
 
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
 
-        l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
-        [ -n "$l_ag_url" ] && AGENTS_MD_URL="$l_ag_url"
-        l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
-        [ -n "$l_ag_file" ] && AGENTS_MD_FILE="$l_ag_file"
+        l_ag_url=$(read_file_key "$local_file" "agent_md_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agent_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agent_var_url" 2>/dev/null || true)
+        [ -n "$l_ag_url" ] && AGENT_MD_URL="$l_ag_url" && AGENTS_MD_URL="$l_ag_url"
+
+        l_ag_file=$(read_file_key "$local_file" "agent_md_file" 2>/dev/null || true)
+        [ -z "$l_ag_file" ] && l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$l_ag_file" ] && AGENT_MD_FILE="$l_ag_file" && AGENTS_MD_FILE="$l_ag_file"
     fi
 
     # 3. Environment variables take highest precedence
@@ -3401,18 +3524,31 @@ load_hierarchical_config() {
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
     [ -n "$env_post_push_sync" ] && POST_PUSH_SYNC="$env_post_push_sync"
     [ -n "$env_post_push_sync_tickets" ] && POST_PUSH_SYNC_TICKETS="$env_post_push_sync_tickets"
-    [ -n "$env_post_push_sync_agents" ] && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agents"
+    [ -n "$env_post_push_sync_agent" ] && POST_PUSH_SYNC_AGENT="$env_post_push_sync_agent" && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agent"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
-    [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
-    [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
+    [ -n "$env_agent_url" ] && AGENT_MD_URL="$env_agent_url" && AGENTS_MD_URL="$env_agent_url"
+    [ -n "$env_agent_file" ] && AGENT_MD_FILE="$env_agent_file" && AGENTS_MD_FILE="$env_agent_file"
+
+    # 4. Final defaults if still unset
+    if [ -z "$AGENT_MD_URL" ]; then
+        AGENT_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+        AGENTS_MD_URL="$AGENT_MD_URL"
+    fi
+    if [ -z "$AGENT_MD_FILE" ]; then
+        AGENT_MD_FILE=".antigravity/AGENTS.md"
+        AGENTS_MD_FILE="$AGENT_MD_FILE"
+    fi
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
     export POST_PUSH_SYNC
     export POST_PUSH_SYNC_TICKETS
+    export POST_PUSH_SYNC_AGENT
     export POST_PUSH_SYNC_AGENTS
     export TICKETS_FILE
+    export AGENT_MD_URL
     export AGENTS_MD_URL
+    export AGENT_MD_FILE
     export AGENTS_MD_FILE
 
     # Legacy environment overrides
@@ -4442,8 +4578,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agents tickets_file agents_md_url agents_md_file"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -4452,7 +4588,7 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
-        agents|update-agents|sync-agents)
+        agent|update-agent|sync-agent|agents|update-agents|sync-agents)
             case "$prev" in
                 -u|--url|-f|--file)
                     return 0
@@ -4548,6 +4684,9 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'agent:Generate and synchronize AGENTS.md directives'
+        'update-agent:Generate and synchronize AGENTS.md directives'
+        'sync-agent:Generate and synchronize AGENTS.md directives'
         'agents:Generate and synchronize AGENTS.md directives'
         'update-agents:Generate and synchronize AGENTS.md directives'
         'sync-agents:Generate and synchronize AGENTS.md directives'
@@ -4577,11 +4716,14 @@ _cccp() {
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
-        'post_push_sync:Combined list of post-push sync actions (tickets, agents)'
+        'post_push_sync:Combined list of post-push sync actions (tickets, agent)'
         'post_push_sync_tickets:Enable automatic tickets sync on post-push'
+        'post_push_sync_agent:Enable automatic AGENTS.md sync on post-push'
         'post_push_sync_agents:Enable automatic AGENTS.md sync on post-push'
         'tickets_file:Destination file for Codeberg issues sync'
+        'agent_md_url:URL or path to AGENTS.md skeleton template'
         'agents_md_url:URL or path to AGENTS.md skeleton template'
+        'agent_md_file:Destination file for AGENTS.md directives'
         'agents_md_file:Destination file for AGENTS.md directives'
     )
 
@@ -4635,7 +4777,7 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
-                agents|update-agents)
+                agent|update-agent|sync-agent|agents|update-agents|sync-agents)
                     _arguments \
                         '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
                         '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
@@ -4687,6 +4829,9 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agents -d "Generate and synchronize AGENTS.md directives"
@@ -4712,10 +4857,10 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l r
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
 
-# Options for agents
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s f -l file -d "Output markdown file"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -a "update check set get unset"
+# Options for agent
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -a "update check set get unset"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
@@ -4957,9 +5102,9 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
-        "agents"|"update-agents"|"sync-agents")
+        "agent"|"agents"|"update-agent"|"update-agents"|"sync-agent"|"sync-agents")
             shift || true
-            cmd_agents "$@"
+            cmd_agent "$@"
             exit 0
             ;;
         "set-av"|"set-agent-var")
@@ -4976,7 +5121,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agents|set-av|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
