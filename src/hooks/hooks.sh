@@ -542,18 +542,23 @@ is_post_push_sync_tickets_enabled() {
 }
 
 # -----------------------------------------------------------------------------
-# Check whether post-push agents synchronization is enabled
 # -----------------------------------------------------------------------------
-is_post_push_sync_agents_enabled() {
-    case "${POST_PUSH_SYNC_AGENTS:-0}" in
+# Check whether post-push agent synchronization is enabled
+# -----------------------------------------------------------------------------
+is_post_push_sync_agent_enabled() {
+    case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
         1|true|TRUE|yes|YES|on|ON) return 0 ;;
     esac
     for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
         case "$action" in
-            agents|sync-agents) return 0 ;;
+            agent|agents|sync-agent|sync-agents) return 0 ;;
         esac
     done
     return 1
+}
+
+is_post_push_sync_agents_enabled() {
+    is_post_push_sync_agent_enabled
 }
 
 # -----------------------------------------------------------------------------
@@ -564,11 +569,11 @@ get_post_push_hook_info() {
     if is_post_push_sync_tickets_enabled; then
         sync_actions="sync-tickets"
     fi
-    if is_post_push_sync_agents_enabled; then
+    if is_post_push_sync_agent_enabled; then
         if [ -n "$sync_actions" ]; then
-            sync_actions="$sync_actions, sync-agents"
+            sync_actions="$sync_actions, sync-agent"
         else
-            sync_actions="sync-agents"
+            sync_actions="sync-agent"
         fi
     fi
 
@@ -650,15 +655,15 @@ run_post_push_hook() {
 
     hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
     sync_tickets_active=0
-    sync_agents_active=0
+    sync_agent_active=0
     if is_post_push_sync_tickets_enabled; then
         sync_tickets_active=1
     fi
-    if is_post_push_sync_agents_enabled; then
-        sync_agents_active=1
+    if is_post_push_sync_agent_enabled; then
+        sync_agent_active=1
     fi
 
-    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agents_active" -eq 0 ]; then
+    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agent_active" -eq 0 ]; then
         return 0
     fi
 
@@ -691,15 +696,17 @@ run_post_push_hook() {
         fi
     fi
 
-    # 3. Execute sync-agents if enabled
-    if [ "$sync_agents_active" -eq 1 ]; then
-        if command -v cmd_agents >/dev/null 2>&1; then
+    # 3. Execute sync-agent if enabled
+    if [ "$sync_agent_active" -eq 1 ]; then
+        if command -v cmd_agent >/dev/null 2>&1; then
+            cmd_agent update || true
+        elif command -v cmd_agents >/dev/null 2>&1; then
             cmd_agents update || true
         elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/agents.sh" ]; then
             . "$GIT_ROOT/src/utils/agents.sh"
-            cmd_agents update || true
+            cmd_agent update || true
         elif command -v cccp >/dev/null 2>&1; then
-            cccp agents update || true
+            cccp agent update || true
         fi
     fi
 

@@ -14,8 +14,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agents tickets_file agents_md_url agents_md_file"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -24,7 +24,7 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
-        agents|update-agents|sync-agents)
+        agent|update-agent|sync-agent|agents|update-agents|sync-agents)
             case "$prev" in
                 -u|--url|-f|--file)
                     return 0
@@ -120,6 +120,9 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'agent:Generate and synchronize AGENTS.md directives'
+        'update-agent:Generate and synchronize AGENTS.md directives'
+        'sync-agent:Generate and synchronize AGENTS.md directives'
         'agents:Generate and synchronize AGENTS.md directives'
         'update-agents:Generate and synchronize AGENTS.md directives'
         'sync-agents:Generate and synchronize AGENTS.md directives'
@@ -149,11 +152,14 @@ _cccp() {
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
-        'post_push_sync:Combined list of post-push sync actions (tickets, agents)'
+        'post_push_sync:Combined list of post-push sync actions (tickets, agent)'
         'post_push_sync_tickets:Enable automatic tickets sync on post-push'
+        'post_push_sync_agent:Enable automatic AGENTS.md sync on post-push'
         'post_push_sync_agents:Enable automatic AGENTS.md sync on post-push'
         'tickets_file:Destination file for Codeberg issues sync'
+        'agent_md_url:URL or path to AGENTS.md skeleton template'
         'agents_md_url:URL or path to AGENTS.md skeleton template'
+        'agent_md_file:Destination file for AGENTS.md directives'
         'agents_md_file:Destination file for AGENTS.md directives'
     )
 
@@ -207,7 +213,7 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
-                agents|update-agents)
+                agent|update-agent|sync-agent|agents|update-agents|sync-agents)
                     _arguments \
                         '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
                         '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
@@ -259,6 +265,9 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agents -d "Generate and synchronize AGENTS.md directives"
@@ -284,10 +293,10 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l r
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
 
-# Options for agents
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s f -l file -d "Output markdown file"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -a "update check set get unset"
+# Options for agent
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -a "update check set get unset"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"

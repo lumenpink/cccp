@@ -174,9 +174,9 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
-        "agents"|"update-agents"|"sync-agents")
+        "agent"|"agents"|"update-agent"|"update-agents"|"sync-agent"|"sync-agents")
             shift || true
-            cmd_agents "$@"
+            cmd_agent "$@"
             exit 0
             ;;
         "set-av"|"set-agent-var")
@@ -193,7 +193,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agents|set-av|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
