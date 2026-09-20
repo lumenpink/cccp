@@ -104,6 +104,10 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 | `check_updates` | **Global only** | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
 | `pinned_version` | **Global only** | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
 | `post_push_hook` | Repo / Global | Command or script executed following a successful `git push` | None | Executable script path or shell command |
+| `tickets_file` | Repo / Global | Target path for synced Codeberg issues | `.antigravity/tickets.md` | File path |
+| `agents_md_url` | Repo / Global | Remote URL or local path to AGENTS.md skeleton template | Codeberg template | URL or file path |
+| `agents_md_file` | Repo / Global | Output file path for AGENTS.md directives | `AGENTS.md` | File path |
+| `agent_var_<name>` | Repo / Global | Local project variable for template interpolation | None | String value |
 
 > [!NOTE]
 > **Global-Only Update Directives**: Configuration directives governing binary tool updates (`update_channel`, `update_interval_days`, `check_updates`, `pinned_version`) apply machine-wide to the installed binary. They are strictly stored in the user configuration (`~/.config/cccp/config`) and are rejected in repository-level `.cccprc` files to prevent repositories from altering system tool updates. Running `cccp config <update_key> <val>` automatically routes to the global configuration.
@@ -474,6 +478,59 @@ Check whether your post-push hook is active and properly detected:
     Script Path : ./scripts/update-tickets.sh
     Executable  : yes
   ```
+
+### Codeberg Issue Synchronization (`tickets`)
+
+Synchronizes open issues from Codeberg API into a clean Markdown document (`.antigravity/tickets.md` by default) strictly enforcing a 10KB context limit without cutting issues mid-text:
+
+```bash
+cccp tickets                # Fetch and sync tickets for current repository
+cccp sync-tickets           # Command alias
+cccp tickets --file <path>  # Override target file path
+cccp tickets --max-bytes N  # Custom byte ceiling (default: 10240)
+```
+
+- **Dynamic Auto-Discovery**: Automatically extracts repository owner and name from Codeberg Git remotes (SSH & HTTPS).
+- **Safe Pipeline Execution**: If the remote is not on Codeberg or network fails, outputs a warning to `stderr` and exits cleanly with status `0` so hooks and automated pipelines never break.
+- **Git Protection**: Automatically ensures `.antigravity/` and ticket temporary artifacts are added to `.gitignore`.
+- **Chained Automation**: Can be configured directly as a post-push hook:
+  ```bash
+  cccp config post_push_hook "cccp tickets"
+  ```
+
+### Centralized AI Agent Directives (`agents` & `set-av`)
+
+Keep high-impact development directives and rules for AI coding assistants (Antigravity, Claude, Copilot) synchronized across all your repositories from a single central template while interpolating local project variables:
+
+```bash
+# 1. Inspect required template variables and local coverage
+cccp agents check
+
+# 2. Ergonomically configure local project variables in .cccprc
+cccp set-av project_name "My Great App"
+cccp set-av tech_stack "TypeScript, Fastify, PostgreSQL"
+cccp set-av test_cmd "npm test"
+cccp set-av lint_cmd "npm run lint"
+
+# 3. Generate or update AGENTS.md
+cccp agents
+```
+
+#### Commands & Shortcuts
+
+| Command | Action |
+| :--- | :--- |
+| `cccp agents` | Fetches template, validates variables, and generates `AGENTS.md` |
+| `cccp agents check` | Displays table of detected variables and whether each is configured |
+| `cccp agents set <var> <val>` | Sets `agent_var_<var> = <val>` in local repository `.cccprc` |
+| `cccp set-av <var> <val>` | Fast shortcut for `cccp agents set` |
+| `cccp agents get <var>` | Reads configured value of an agent variable |
+| `cccp agents unset <var>` | Removes variable override from `.cccprc` |
+
+#### Variable Format & Abort Safety
+
+- Supports both `{{VAR_NAME}}` and `${VAR_NAME}` in template files.
+- **Strict Abort Guard**: If any required variable in the skeleton is missing from `.cccprc` and environment, `cccp agents` outputs a clear message indicating how to set the missing variables and **aborts with exit code 1**, preventing incomplete or corrupt files.
 
 ### Commit Message Format
 

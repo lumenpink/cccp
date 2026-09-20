@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.2+20260920.a702a8f"
+CCCP_VERSION="2.3.0-dev.7+20260920.1280bb0"
 export CCCP_VERSION
 
 # Verify required tools
@@ -55,6 +55,8 @@ ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
 TICKETS_FILE="${TICKETS_FILE:-}"
+AGENTS_MD_URL="${AGENTS_MD_URL:-https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md}"
+AGENTS_MD_FILE="${AGENTS_MD_FILE:-}"
 
 # =============================================================================
 # Validation Functions
@@ -1069,6 +1071,342 @@ EOF
 
 
 # =============================================================================
+# Agents Functions
+# =============================================================================
+fetch_agents_template() {
+    url="$1"
+
+    # If it's a local file path
+    if [ -f "$url" ]; then
+        cat "$url"
+        return 0
+    fi
+
+    case "$url" in
+        file://*)
+            local_path="${url#file://}"
+            if [ -f "$local_path" ]; then
+                cat "$local_path"
+                return 0
+            fi
+            ;;
+        http://*|https://*)
+            if command -v curl >/dev/null 2>&1; then
+                content=$(curl -s -f "$url" 2>/dev/null || true)
+                if [ -n "$content" ]; then
+                    printf '%s\n' "$content"
+                    return 0
+                fi
+            fi
+            ;;
+    esac
+
+    # Fallback: check local repository template if available
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "$git_root" ] && [ -f "$git_root/src/base/AGENTS_template.md" ]; then
+        cat "$git_root/src/base/AGENTS_template.md"
+        return 0
+    fi
+
+    return 1
+}
+
+extract_template_vars() {
+    template_text="$1"
+    printf '%s\n' "$template_text" | grep -oE '(\{\{[A-Za-z0-9_]+\}|\$\{[A-Za-z0-9_]+\})' 2>/dev/null | \
+        sed -E -e 's/^(\{\{|\$\{)//' -e 's/(\}\}|\})$//' | \
+        sort -u || true
+}
+
+resolve_agent_var() {
+    var_name="$1"
+    norm_name=$(echo "$var_name" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+    up_name=$(echo "$var_name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+
+    # 1. Environment variables have highest precedence
+    # Check AGENT_VAR_NAME or direct VAR_NAME
+    env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_name}:-\${AGENT_VAR_${norm_name}:-}}\"")
+    if [ -n "$env_val" ]; then
+        echo "$env_val"
+        return 0
+    fi
+
+    # 2. Local repository configuration (.cccprc)
+    local_file=""
+    if command -v get_local_config_file >/dev/null 2>&1; then
+        local_file=$(get_local_config_file 2>/dev/null || true)
+    fi
+
+    if [ -n "$local_file" ] && [ -f "$local_file" ] && command -v read_file_key >/dev/null 2>&1; then
+        val=$(read_file_key "$local_file" "agent_var_${norm_name}" 2>/dev/null || true)
+        [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_name}" 2>/dev/null || true)
+        [ -z "$val" ] && val=$(read_file_key "$local_file" "${norm_name}" 2>/dev/null || true)
+        if [ -n "$val" ]; then
+            echo "$val"
+            return 0
+        fi
+    fi
+
+    # 3. Global configuration
+    global_file=""
+    if command -v get_global_config_file >/dev/null 2>&1; then
+        global_file=$(get_global_config_file 2>/dev/null || true)
+    fi
+
+    if [ -n "$global_file" ] && [ -f "$global_file" ] && command -v read_file_key >/dev/null 2>&1; then
+        val=$(read_file_key "$global_file" "agent_var_${norm_name}" 2>/dev/null || true)
+        [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_name}" 2>/dev/null || true)
+        if [ -n "$val" ]; then
+            echo "$val"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+cmd_agents() {
+    # Ensure config hierarchy is loaded
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
+    action="update"
+    target_url=""
+    target_file=""
+    var_key=""
+    var_val=""
+
+    # Check for subcommands or options
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "agents"
+                else
+                    echo "Usage: cccp agents [update|check|set|get|unset] [options]"
+                fi
+                return 0
+                ;;
+            check|--check|vars|list-vars)
+                action="check"
+                shift
+                ;;
+            set|set-var)
+                action="set"
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing variable name for 'set'" >&2; return 1; }
+                var_key="$1"
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing value for 'set $var_key'" >&2; return 1; }
+                var_val="$1"
+                shift
+                ;;
+            get)
+                action="get"
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing variable name for 'get'" >&2; return 1; }
+                var_key="$1"
+                shift
+                ;;
+            unset)
+                action="unset"
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing variable name for 'unset'" >&2; return 1; }
+                var_key="$1"
+                shift
+                ;;
+            update)
+                action="update"
+                shift
+                ;;
+            -u|--url)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --url" >&2; return 1; }
+                target_url="$1"
+                shift
+                ;;
+            -f|--file)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --file" >&2; return 1; }
+                target_file="$1"
+                shift
+                ;;
+            *)
+                echo "Error: Unknown option or command '$1'" >&2
+                return 1
+                ;;
+        esac
+    done
+
+    # Handle variable setting (ergonomic set-av / agents set)
+    if [ "$action" = "set" ]; then
+        norm_key=$(echo "$var_key" | sed 's/^agent_var_//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -z "$local_cfg" ]; then
+            echo "Error: Not inside a git repository. Cannot save to local .cccprc." >&2
+            return 1
+        fi
+        set_file_key() { write_file_key "$@"; }
+        write_file_key "$local_cfg" "agent_var_${norm_key}" "$var_val"
+        echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
+        return 0
+    fi
+
+    # Handle variable getting
+    if [ "$action" = "get" ]; then
+        norm_key=$(echo "$var_key" | sed 's/^agent_var_//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+        if val=$(resolve_agent_var "$norm_key"); then
+            echo "$val"
+            return 0
+        else
+            echo "Error: Variable '${norm_key}' is not set." >&2
+            return 1
+        fi
+    fi
+
+    # Handle variable unsetting
+    if [ "$action" = "unset" ]; then
+        norm_key=$(echo "$var_key" | sed 's/^agent_var_//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -z "$local_cfg" ]; then
+            echo "Error: Not inside a git repository." >&2
+            return 1
+        fi
+        unset_file_key "$local_cfg" "agent_var_${norm_key}"
+        echo "Unset agent variable '${norm_key}' from ${local_cfg}"
+        return 0
+    fi
+
+    # Resolve template URL
+    if [ -z "$target_url" ]; then
+        target_url="${AGENTS_MD_URL:-}"
+    fi
+    if [ -z "$target_url" ]; then
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            target_url=$(read_file_key "$local_cfg" "agents_md_url" 2>/dev/null || true)
+        fi
+    fi
+    if [ -z "$target_url" ]; then
+        global_cfg=$(get_global_config_file 2>/dev/null || true)
+        if [ -n "$global_cfg" ] && [ -f "$global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            target_url=$(read_file_key "$global_cfg" "agents_md_url" 2>/dev/null || true)
+        fi
+    fi
+    if [ -z "$target_url" ]; then
+        target_url="$DEFAULT_AGENTS_MD_URL"
+    fi
+
+    # Resolve output destination file
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$target_file" ]; then
+        target_file="${AGENTS_MD_FILE:-}"
+    fi
+    if [ -z "$target_file" ]; then
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            target_file=$(read_file_key "$local_cfg" "agents_md_file" 2>/dev/null || true)
+        fi
+    fi
+    if [ -z "$target_file" ]; then
+        if [ -n "$git_root" ]; then
+            target_file="$git_root/AGENTS.md"
+        else
+            target_file="AGENTS.md"
+        fi
+    fi
+
+    # Fetch template
+    echo "Fetching AGENTS template from: $target_url"
+    if ! template_content=$(fetch_agents_template "$target_url"); then
+        echo "Error: Unable to fetch AGENTS template from '$target_url'." >&2
+        return 1
+    fi
+
+    # Extract variables
+    vars=$(extract_template_vars "$template_content")
+
+    # Diagnostic check mode
+    if [ "$action" = "check" ]; then
+        echo ""
+        echo "Template: $target_url"
+        echo "Destination: $target_file"
+        echo ""
+        if [ -z "$vars" ]; then
+            echo "No customizable variables detected in template."
+            return 0
+        fi
+
+        echo "Detected Variables:"
+        missing_count=0
+        for v in $vars; do
+            norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
+            if val=$(resolve_agent_var "$v"); then
+                echo "  [✓] $v = $val"
+            else
+                echo "  [✗] $v = (missing - configure via: cccp agents set $norm_v \"<val>\")"
+                missing_count=$((missing_count + 1))
+            fi
+        done
+        echo ""
+        if [ "$missing_count" -gt 0 ]; then
+            echo "Status: $missing_count variable(s) missing. Cannot generate $target_file."
+            return 1
+        else
+            echo "Status: All variables configured! Ready to run 'cccp agents'."
+            return 0
+        fi
+    fi
+
+    # Generate / update mode
+    missing_vars=""
+    for v in $vars; do
+        if ! resolve_agent_var "$v" >/dev/null 2>&1; then
+            norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
+            missing_vars="${missing_vars}\n  - $v (configure with: cccp agents set $norm_v \"<value>\")"
+        fi
+    done
+
+    if [ -n "$missing_vars" ]; then
+        printf "Error: Missing required variables for %s:%b\n" "$target_file" "$missing_vars" >&2
+        echo "Aborting generation of $target_file." >&2
+        return 1
+    fi
+
+    # Perform interpolation
+    result="$template_content"
+    interpolated_count=0
+    for v in $vars; do
+        val=$(resolve_agent_var "$v")
+        # Replace {{VAR}}
+        pattern_mustache="{{${v}}}"
+        # Replace ${VAR}
+        pattern_shell="\${${v}}"
+
+        # Safe multi-line string replacement using awk/sed or temp python/sh
+        # We can use awk or sed with escaped delimiters
+        esc_val=$(printf '%s\n' "$val" | sed -e 's/[\/&]/\\&/g')
+        result=$(printf '%s\n' "$result" | sed -e "s/$pattern_mustache/$esc_val/g" -e "s/$pattern_shell/$esc_val/g")
+        interpolated_count=$((interpolated_count + 1))
+    done
+
+    # Write destination file atomically
+    tmp_out="${target_file}.tmp.$$"
+    mkdir -p "$(dirname "$target_file")"
+    printf '%s\n' "$result" > "$tmp_out"
+    mv "$tmp_out" "$target_file"
+
+    echo "Done! Generated $target_file with $interpolated_count variable(s) substituted."
+    return 0
+}
+
+cmd_set_av() {
+    cmd_agents set "$@"
+}
+
+
+# =============================================================================
 # Hooks Functions
 # =============================================================================
 install_global_binary() {
@@ -1978,6 +2316,30 @@ show_help() {
             echo "  and can be chained with 'post_push_hook' to run automatically on every push:"
             echo "    $ cccp config set post_push_hook \"cccp tickets\""
             ;;
+        "agents"|"update-agents"|"set-av")
+            echo "cccp.sh agents - Generate and Synchronize AGENTS.md Directives"
+            echo "============================================================"
+            echo ""
+            echo "Generates or updates AGENTS.md using a shared Markdown skeleton with local variable"
+            echo "interpolation from .cccprc, strictly preventing incomplete file generation."
+            echo ""
+            echo "Usage:"
+            echo "  $0 agents [options]                     # Generate/update AGENTS.md"
+            echo "  $0 agents check [options]               # Validate template variables status"
+            echo "  $0 agents set <var_name> <value>        # Set local agent variable in .cccprc"
+            echo "  $0 agents get <var_name>                # Read agent variable value"
+            echo "  $0 agents unset <var_name>              # Remove agent variable from .cccprc"
+            echo "  $0 set-av <var_name> <value>            # Fast shortcut to set agent variable"
+            echo ""
+            echo "Options:"
+            echo "  -u, --url <url_or_path>  Template URL or local file path"
+            echo "  -f, --file <path>        Output markdown file (default: ./AGENTS.md)"
+            echo ""
+            echo "Variable Substitution:"
+            echo "  Supports both {{VAR_NAME}} and \${VAR_NAME} in the skeleton. Variables are"
+            echo "  resolved from local .cccprc (keys: agent_var_<name>) or environment variables."
+            echo "  If any variable is missing, the generator aborts with exit code 1."
+            ;;
         "commit")
             echo "cccp.sh commit - Conventional Commit Creation"
             echo "============================================="
@@ -2267,6 +2629,8 @@ show_help() {
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
             echo "  push [args...]     Execute git push and trigger optional post-push hook"
             echo "  tickets [options]  Sync Codeberg issues into markdown within strict context limit"
+            echo "  agents [options]   Generate/update AGENTS.md directives with local variable interpolation"
+            echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
             echo "  check-update       Inspect remote version, release channel, and pin status"
@@ -2481,6 +2845,8 @@ get_default_config_value() {
         pinned_version|pin_version) echo "" ;;
         post_push_hook) echo "" ;;
         tickets_file) echo ".antigravity/tickets.md" ;;
+        agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
+        agents_md_file) echo "AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -2728,6 +3094,8 @@ load_hierarchical_config() {
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
+    env_agents_url="${AGENTS_MD_URL:-}"
+    env_agents_file="${AGENTS_MD_FILE:-}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -2745,6 +3113,8 @@ load_hierarchical_config() {
     PINNED_VERSION=""
     POST_PUSH_HOOK=""
     TICKETS_FILE=""
+    AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+    AGENTS_MD_FILE=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
     COMMIT_SUBSCOPES="${COMMIT_SUBSCOPES:-components pages services utils auth models views controllers handlers}"
@@ -2811,6 +3181,11 @@ load_hierarchical_config() {
 
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
+
+        g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
+        [ -n "$g_ag_url" ] && AGENTS_MD_URL="$g_ag_url"
+        g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$g_ag_file" ] && AGENTS_MD_FILE="$g_ag_file"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -2859,6 +3234,11 @@ load_hierarchical_config() {
 
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
+
+        l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
+        [ -n "$l_ag_url" ] && AGENTS_MD_URL="$l_ag_url"
+        l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$l_ag_file" ] && AGENTS_MD_FILE="$l_ag_file"
     fi
 
     # 3. Environment variables take highest precedence
@@ -2878,10 +3258,14 @@ load_hierarchical_config() {
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
+    [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
+    [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
     export TICKETS_FILE
+    export AGENTS_MD_URL
+    export AGENTS_MD_FILE
 
     # Legacy environment overrides
     if [ -z "$env_strict_scopes" ]; then
@@ -3903,8 +4287,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents set-av changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file agents_md_url agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -3913,6 +4297,21 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        agents|update-agents)
+            case "$prev" in
+                -u|--url|-f|--file)
+                    return 0
+                    ;;
+            esac
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-u --url -f --file -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "update check set get unset" -- "$cur"))
+            fi
+            ;;
+        set-av)
+            return 0
+            ;;
         tickets|sync-tickets)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -m --max-bytes -t --token -h --help" -- "$cur"))
@@ -3994,6 +4393,9 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'agents:Generate and synchronize AGENTS.md directives'
+        'update-agents:Generate and synchronize AGENTS.md directives'
+        'set-av:Fast shortcut to configure local agent variable'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -4020,6 +4422,8 @@ _cccp() {
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
         'tickets_file:Destination file for Codeberg issues sync'
+        'agents_md_url:URL or path to AGENTS.md skeleton template'
+        'agents_md_file:Destination file for AGENTS.md directives'
     )
 
     _arguments -C \
@@ -4072,6 +4476,14 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
+                agents|update-agents)
+                    _arguments \
+                        '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
+                        '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
+                        '1:subcommand:(update check set get unset)'
+                    ;;
+                set-av)
+                    ;;
                 update)
                     _arguments \
                         '--channel[Release channel]:channel:(stable nightly)'
@@ -4116,6 +4528,9 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a set-av -d "Fast shortcut to configure local agent variable"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -4136,6 +4551,11 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l o
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Codeberg repository name"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
+
+# Options for agents
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s u -l url -d "Template URL or local file path"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -a "update check set get unset"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
@@ -4256,7 +4676,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av")
                 check_auto_update || true
                 ;;
         esac
@@ -4377,6 +4797,16 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
+        "agents"|"update-agents")
+            shift || true
+            cmd_agents "$@"
+            exit 0
+            ;;
+        "set-av"|"set-agent-var")
+            shift || true
+            cmd_set_av "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -4386,7 +4816,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agents|set-av|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
