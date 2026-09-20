@@ -42,8 +42,11 @@ STRICT_TYPES="${STRICT_TYPES:-1}"
 ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 
-# Optional Post-Push Hook command or script
+# Optional Post-Push Hook command or script and sync actions
 POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
+POST_PUSH_SYNC="${POST_PUSH_SYNC:-}"
+POST_PUSH_SYNC_TICKETS="${POST_PUSH_SYNC_TICKETS:-0}"
+POST_PUSH_SYNC_AGENTS="${POST_PUSH_SYNC_AGENTS:-0}"
 
 # Tickets synchronization output file
 TICKETS_FILE="${TICKETS_FILE:-}"

@@ -120,9 +120,15 @@ show_help() {
             echo "    CCCP_PUSH_OLD_SHA  Commit SHA prior to push"
             echo "    CCCP_PUSH_NEW_SHA  Commit SHA following push"
             echo ""
+            echo "Automatic Synchronization Actions:"
+            echo "  Post-push can automatically run synchronization tasks configured via:"
+            echo "    post_push_sync_tickets = 1  (or sync_tickets = 1) -> syncs Codeberg issues"
+            echo "    post_push_sync_agents  = 1  (or sync_agents  = 1) -> syncs AGENTS.md directives"
+            echo "    post_push_sync         = tickets, agents          -> combined list"
+            echo ""
             echo "Note on Native 'git push':"
-            echo "  The post-push hook also executes transparently on native 'git push' commands"
-            echo "  via the 'reference-transaction committed' hook."
+            echo "  The post-push hook and sync actions also execute transparently on native 'git push'"
+            echo "  commands via the 'reference-transaction committed' hook."
             ;;
         "tickets"|"sync-tickets")
             echo "cccp.sh tickets - Synchronize Codeberg Issues into Markdown"
@@ -153,7 +159,7 @@ show_help() {
             echo "  and can be chained with 'post_push_hook' to run automatically on every push:"
             echo "    $ cccp config set post_push_hook \"cccp tickets\""
             ;;
-        "agents"|"update-agents"|"set-av")
+        "agents"|"update-agents"|"sync-agents"|"set-av")
             echo "cccp.sh agents - Generate and Synchronize AGENTS.md Directives"
             echo "============================================================"
             echo ""

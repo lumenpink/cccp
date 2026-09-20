@@ -174,7 +174,7 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
-        "agents"|"update-agents")
+        "agents"|"update-agents"|"sync-agents")
             shift || true
             cmd_agents "$@"
             exit 0

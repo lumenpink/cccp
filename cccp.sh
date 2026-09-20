@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.9+20260920.576a634"
+CCCP_VERSION="2.3.0-dev.10+20260920.d798517"
 export CCCP_VERSION
 
 # Verify required tools
@@ -54,6 +54,9 @@ STRICT_TYPES="${STRICT_TYPES:-1}"
 ALLOW_ANY_SCOPE="${ALLOW_ANY_SCOPE:-1}"
 ALLOW_ANY_SUBSCOPE="${ALLOW_ANY_SUBSCOPE:-1}"
 POST_PUSH_HOOK="${POST_PUSH_HOOK:-}"
+POST_PUSH_SYNC="${POST_PUSH_SYNC:-}"
+POST_PUSH_SYNC_TICKETS="${POST_PUSH_SYNC_TICKETS:-0}"
+POST_PUSH_SYNC_AGENTS="${POST_PUSH_SYNC_AGENTS:-0}"
 TICKETS_FILE="${TICKETS_FILE:-}"
 AGENTS_MD_URL="${AGENTS_MD_URL:-https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md}"
 AGENTS_MD_FILE="${AGENTS_MD_FILE:-}"
@@ -1696,12 +1699,14 @@ audit_git_hooks() {
         pp_source=$(echo "$pp_info" | grep "^source=" | cut -d= -f2-)
         pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
         pp_exec=$(echo "$pp_info" | grep "^executable=" | cut -d= -f2-)
+        pp_sync=$(echo "$pp_info" | grep "^sync_actions=" | cut -d= -f2-)
         echo "   Post-Push   : Active"
         echo "   Source      : $pp_source"
         echo "   Script Path : $pp_path"
         echo "   Executable  : $pp_exec"
+        [ -n "$pp_sync" ] && echo "   Sync Actions: $pp_sync"
     else
-        echo "   Post-Push   : None (Optional - set 'post_push_hook' in .cccprc or create .cccp/hooks/post-push)"
+        echo "   Post-Push   : None (Optional - configure 'post_push_hook' or 'post_push_sync' in .cccprc)"
     fi
     echo ""
     echo "========================================================"
@@ -1897,7 +1902,43 @@ resolve_post_push_hook() {
     return 1
 }
 
+is_post_push_sync_tickets_enabled() {
+    case "${POST_PUSH_SYNC_TICKETS:-0}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    esac
+    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
+        case "$action" in
+            tickets|sync-tickets) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+is_post_push_sync_agents_enabled() {
+    case "${POST_PUSH_SYNC_AGENTS:-0}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    esac
+    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
+        case "$action" in
+            agents|sync-agents) return 0 ;;
+        esac
+    done
+    return 1
+}
+
 get_post_push_hook_info() {
+    sync_actions=""
+    if is_post_push_sync_tickets_enabled; then
+        sync_actions="sync-tickets"
+    fi
+    if is_post_push_sync_agents_enabled; then
+        if [ -n "$sync_actions" ]; then
+            sync_actions="$sync_actions, sync-agents"
+        else
+            sync_actions="sync-agents"
+        fi
+    fi
+
     if [ -n "${POST_PUSH_HOOK:-}" ]; then
         echo "status=active"
         echo "source=config (POST_PUSH_HOOK)"
@@ -1911,6 +1952,7 @@ get_post_push_hook_info() {
         else
             echo "executable=command"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_ROOT:-}" ] && [ -e "$GIT_ROOT/.cccp/hooks/post-push" ]; then
         echo "status=active"
@@ -1921,6 +1963,7 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push.local" ]; then
         echo "status=active"
@@ -1931,6 +1974,7 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push" ]; then
         echo "status=active"
@@ -1941,6 +1985,14 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
+        return 0
+    elif [ -n "$sync_actions" ]; then
+        echo "status=active"
+        echo "source=built-in ($sync_actions)"
+        echo "path=(built-in sync)"
+        echo "executable=yes"
+        echo "sync_actions=$sync_actions"
         return 0
     fi
 
@@ -1954,8 +2006,24 @@ run_post_push_hook() {
     old_sha="${3:-}"
     new_sha="${4:-}"
 
+    # Ensure config hierarchy is loaded
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
     hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
-    [ -z "$hook_cmd" ] && return 0
+    sync_tickets_active=0
+    sync_agents_active=0
+    if is_post_push_sync_tickets_enabled; then
+        sync_tickets_active=1
+    fi
+    if is_post_push_sync_agents_enabled; then
+        sync_agents_active=1
+    fi
+
+    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agents_active" -eq 0 ]; then
+        return 0
+    fi
 
     export CCCP_PUSH_REMOTE="$remote"
     export CCCP_PUSH_BRANCH="$branch"
@@ -1965,11 +2033,40 @@ run_post_push_hook() {
     # Mark as executed for this session to avoid duplicate execution in cccp push
     export CCCP_POST_PUSH_RAN=1
 
-    if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
-        "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
-    else
-        sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+    # 1. Execute custom hook script if configured
+    if [ -n "$hook_cmd" ]; then
+        if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
+            "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
+        else
+            sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+        fi
     fi
+
+    # 2. Execute sync-tickets if enabled
+    if [ "$sync_tickets_active" -eq 1 ]; then
+        if command -v cmd_tickets >/dev/null 2>&1; then
+            cmd_tickets || true
+        elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/tickets.sh" ]; then
+            . "$GIT_ROOT/src/utils/tickets.sh"
+            cmd_tickets || true
+        elif command -v cccp >/dev/null 2>&1; then
+            cccp tickets || true
+        fi
+    fi
+
+    # 3. Execute sync-agents if enabled
+    if [ "$sync_agents_active" -eq 1 ]; then
+        if command -v cmd_agents >/dev/null 2>&1; then
+            cmd_agents update || true
+        elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/agents.sh" ]; then
+            . "$GIT_ROOT/src/utils/agents.sh"
+            cmd_agents update || true
+        elif command -v cccp >/dev/null 2>&1; then
+            cccp agents update || true
+        fi
+    fi
+
+    return 0
 }
 
 cmd_reference_transaction() {
@@ -2294,9 +2391,15 @@ show_help() {
             echo "    CCCP_PUSH_OLD_SHA  Commit SHA prior to push"
             echo "    CCCP_PUSH_NEW_SHA  Commit SHA following push"
             echo ""
+            echo "Automatic Synchronization Actions:"
+            echo "  Post-push can automatically run synchronization tasks configured via:"
+            echo "    post_push_sync_tickets = 1  (or sync_tickets = 1) -> syncs Codeberg issues"
+            echo "    post_push_sync_agents  = 1  (or sync_agents  = 1) -> syncs AGENTS.md directives"
+            echo "    post_push_sync         = tickets, agents          -> combined list"
+            echo ""
             echo "Note on Native 'git push':"
-            echo "  The post-push hook also executes transparently on native 'git push' commands"
-            echo "  via the 'reference-transaction committed' hook."
+            echo "  The post-push hook and sync actions also execute transparently on native 'git push'"
+            echo "  commands via the 'reference-transaction committed' hook."
             ;;
         "tickets"|"sync-tickets")
             echo "cccp.sh tickets - Synchronize Codeberg Issues into Markdown"
@@ -2327,7 +2430,7 @@ show_help() {
             echo "  and can be chained with 'post_push_hook' to run automatically on every push:"
             echo "    $ cccp config set post_push_hook \"cccp tickets\""
             ;;
-        "agents"|"update-agents"|"set-av")
+        "agents"|"update-agents"|"sync-agents"|"set-av")
             echo "cccp.sh agents - Generate and Synchronize AGENTS.md Directives"
             echo "============================================================"
             echo ""
@@ -3104,6 +3207,9 @@ load_hierarchical_config() {
     env_check="${CHECK_UPDATES:-}"
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_post_push_hook="${POST_PUSH_HOOK:-}"
+    env_post_push_sync="${POST_PUSH_SYNC:-}"
+    env_post_push_sync_tickets="${POST_PUSH_SYNC_TICKETS:-}"
+    env_post_push_sync_agents="${POST_PUSH_SYNC_AGENTS:-}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
     env_agents_url="${AGENTS_MD_URL:-}"
     env_agents_file="${AGENTS_MD_FILE:-}"
@@ -3123,6 +3229,9 @@ load_hierarchical_config() {
     CHECK_UPDATES="1"
     PINNED_VERSION=""
     POST_PUSH_HOOK=""
+    POST_PUSH_SYNC=""
+    POST_PUSH_SYNC_TICKETS="0"
+    POST_PUSH_SYNC_AGENTS="0"
     TICKETS_FILE=""
     AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
     AGENTS_MD_FILE=""
@@ -3190,6 +3299,17 @@ load_hierarchical_config() {
         g_post_push=$(read_file_key "$global_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$g_post_push" ] && POST_PUSH_HOOK="$g_post_push"
 
+        g_pp_sync=$(read_file_key "$global_file" "post_push_sync" 2>/dev/null || true)
+        [ -n "$g_pp_sync" ] && POST_PUSH_SYNC="$g_pp_sync"
+
+        g_pp_tickets=$(read_file_key "$global_file" "post_push_sync_tickets" 2>/dev/null || true)
+        [ -z "$g_pp_tickets" ] && g_pp_tickets=$(read_file_key "$global_file" "sync_tickets" 2>/dev/null || true)
+        [ -n "$g_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$g_pp_tickets"
+
+        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agents" 2>/dev/null || true)
+        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
+
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
 
@@ -3243,6 +3363,17 @@ load_hierarchical_config() {
         l_post_push=$(read_file_key "$local_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$l_post_push" ] && POST_PUSH_HOOK="$l_post_push"
 
+        l_pp_sync=$(read_file_key "$local_file" "post_push_sync" 2>/dev/null || true)
+        [ -n "$l_pp_sync" ] && POST_PUSH_SYNC="$l_pp_sync"
+
+        l_pp_tickets=$(read_file_key "$local_file" "post_push_sync_tickets" 2>/dev/null || true)
+        [ -z "$l_pp_tickets" ] && l_pp_tickets=$(read_file_key "$local_file" "sync_tickets" 2>/dev/null || true)
+        [ -n "$l_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$l_pp_tickets"
+
+        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agents" 2>/dev/null || true)
+        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
+
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
 
@@ -3268,12 +3399,18 @@ load_hierarchical_config() {
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
+    [ -n "$env_post_push_sync" ] && POST_PUSH_SYNC="$env_post_push_sync"
+    [ -n "$env_post_push_sync_tickets" ] && POST_PUSH_SYNC_TICKETS="$env_post_push_sync_tickets"
+    [ -n "$env_post_push_sync_agents" ] && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agents"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
     [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
     [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
+    export POST_PUSH_SYNC
+    export POST_PUSH_SYNC_TICKETS
+    export POST_PUSH_SYNC_AGENTS
     export TICKETS_FILE
     export AGENTS_MD_URL
     export AGENTS_MD_FILE
@@ -3964,7 +4101,14 @@ show_status() {
         pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
         if [ "$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)" = "active" ]; then
             pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
-            post_push_status="$pp_path (active)"
+            pp_sync=$(echo "$pp_info" | grep "^sync_actions=" | cut -d= -f2-)
+            if [ -n "$pp_sync" ] && [ "$pp_path" = "(built-in sync)" ]; then
+                post_push_status="$pp_sync (active)"
+            elif [ -n "$pp_sync" ]; then
+                post_push_status="$pp_path + $pp_sync (active)"
+            else
+                post_push_status="$pp_path (active)"
+            fi
         fi
     elif [ -n "${POST_PUSH_HOOK:-}" ]; then
         post_push_status="$POST_PUSH_HOOK (active)"
@@ -4298,8 +4442,8 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents set-av changelog update install completion hooks soviet help"
-    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook tickets_file agents_md_url agents_md_file"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
+    local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agents tickets_file agents_md_url agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands" -- "$cur"))
@@ -4308,7 +4452,7 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
-        agents|update-agents)
+        agents|update-agents|sync-agents)
             case "$prev" in
                 -u|--url|-f|--file)
                     return 0
@@ -4406,6 +4550,7 @@ _cccp() {
         'sync-tickets:Sync Codeberg issues into markdown'
         'agents:Generate and synchronize AGENTS.md directives'
         'update-agents:Generate and synchronize AGENTS.md directives'
+        'sync-agents:Generate and synchronize AGENTS.md directives'
         'set-av:Fast shortcut to configure local agent variable'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
@@ -4432,6 +4577,9 @@ _cccp() {
         'update_interval_days:Days between update checks'
         'check_updates:Enable automated update notifications'
         'post_push_hook:Custom script or command executed following git push'
+        'post_push_sync:Combined list of post-push sync actions (tickets, agents)'
+        'post_push_sync_tickets:Enable automatic tickets sync on post-push'
+        'post_push_sync_agents:Enable automatic AGENTS.md sync on post-push'
         'tickets_file:Destination file for Codeberg issues sync'
         'agents_md_url:URL or path to AGENTS.md skeleton template'
         'agents_md_file:Destination file for AGENTS.md directives'
@@ -4541,6 +4689,7 @@ complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues 
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
+complete -c cccp -n "__fish_use_subcommand" -a sync-agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a set-av -d "Fast shortcut to configure local agent variable"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
@@ -4564,9 +4713,9 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l m
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
 
 # Options for agents
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s u -l url -d "Template URL or local file path"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -s f -l file -d "Output markdown file"
-complete -c cccp -n "__fish_seen_subcommand_from agents update-agents" -a "update check set get unset"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -s f -l file -d "Output markdown file"
+complete -c cccp -n "__fish_seen_subcommand_from agents update-agents sync-agents" -a "update check set get unset"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
@@ -4808,7 +4957,7 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
-        "agents"|"update-agents")
+        "agents"|"update-agents"|"sync-agents")
             shift || true
             cmd_agents "$@"
             exit 0

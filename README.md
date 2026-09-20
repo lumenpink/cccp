@@ -104,6 +104,9 @@ cccp config --unset strict_scopes           # Removes override, reverting to glo
 | `check_updates` | **Global only** | Enable automated background update notifications | `1` | `1` (enabled), `0` (disabled) |
 | `pinned_version` | **Global only** | Freeze tool updates to a specific version | None | Valid version string (e.g. `2.0.0`) |
 | `post_push_hook` | Repo / Global | Command or script executed following a successful `git push` | None | Executable script path or shell command |
+| `post_push_sync` | Repo / Global | Combined list of built-in post-push sync actions | None | `tickets, agents` |
+| `post_push_sync_tickets` | Repo / Global | Automatically sync Codeberg tickets following git push | `0` | `1` (enabled), `0` (disabled) |
+| `post_push_sync_agents` | Repo / Global | Automatically update AGENTS.md directives following git push | `0` | `1` (enabled), `0` (disabled) |
 | `tickets_file` | Repo / Global | Target path for synced Codeberg issues | `.antigravity/tickets.md` | File path |
 | `agents_md_url` | Repo / Global | Remote URL or local path to AGENTS.md skeleton template | Codeberg template | URL or file path |
 | `agents_md_file` | Repo / Global | Output file path for AGENTS.md directives | `AGENTS.md` | File path |
@@ -477,9 +480,28 @@ Check whether your post-push hook is active and properly detected:
     Source      : config (POST_PUSH_HOOK)
     Script Path : ./scripts/update-tickets.sh
     Executable  : yes
+    Sync Actions: sync-tickets, sync-agents
   ```
 
-### Codeberg Issue Synchronization (`tickets`)
+#### Built-in Post-Push Synchronization (`sync-tickets` & `sync-agents`)
+
+Rather than writing custom scripts, you can enable built-in synchronization directly in `.cccprc`:
+
+```ini
+# Enable individual sync actions:
+post_push_sync_tickets = 1
+post_push_sync_agents  = 1
+
+# Or configure as a combined list:
+post_push_sync = tickets, agents
+```
+
+When enabled, any successful `git push` (native or via `cccp push`) will automatically:
+1. Refresh open Codeberg issues into `.antigravity/tickets.md`.
+2. Regenerate `AGENTS.md` directives from your centralized template.
+3. Conclude safely without making any automatic git commits.
+
+### Codeberg Issue Synchronization (`tickets` & `sync-tickets`)
 
 Synchronizes open issues from Codeberg API into a clean Markdown document (`.antigravity/tickets.md` by default) strictly enforcing a 10KB context limit without cutting issues mid-text:
 

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (hooks) add sync-tickets and sync-agents to post-push hook (#3)
   - (cli) wire agents command and autocompletion into cccp (#2)
   - (agents) implement dynamic AGENTS.md generator and variable manager (#2)
   - (cli) add dynamic codeberg tickets synchronization command

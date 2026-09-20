@@ -476,5 +476,61 @@ Describe 'hooks'
       rm -f "$log_file" "$script_file"
       unset POST_PUSH_HOOK || true
     End
+
+    It 'detects sync-tickets enabled from flag'
+      export POST_PUSH_SYNC_TICKETS=1
+      export POST_PUSH_SYNC_AGENTS=0
+      When call is_post_push_sync_tickets_enabled
+      The status should be success
+      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENTS || true
+    End
+
+    It 'detects sync-agents disabled from flag'
+      export POST_PUSH_SYNC_TICKETS=1
+      export POST_PUSH_SYNC_AGENTS=0
+      When call is_post_push_sync_agents_enabled
+      The status should be failure
+      unset POST_PUSH_SYNC_TICKETS POST_PUSH_SYNC_AGENTS || true
+    End
+
+    It 'detects sync-tickets and sync-agents enabled from combined list'
+      export POST_PUSH_SYNC="tickets, agents"
+      check_both() {
+        is_post_push_sync_tickets_enabled && is_post_push_sync_agents_enabled
+      }
+      When call check_both
+      The status should be success
+      unset POST_PUSH_SYNC || true
+    End
+
+    It 'reports active post-push status and sync actions in get_post_push_hook_info'
+      export POST_PUSH_SYNC="tickets, agents"
+      When call get_post_push_hook_info
+      The status should be success
+      The output should include "status=active"
+      The output should include "source=built-in (sync-tickets, sync-agents)"
+      The output should include "sync_actions=sync-tickets, sync-agents"
+      unset POST_PUSH_SYNC || true
+    End
+
+    It 'triggers cmd_tickets and cmd_agents update during run_post_push_hook'
+      tickets_called=0
+      agents_called=0
+
+      cmd_tickets() {
+        echo "CALLED_TICKETS"
+      }
+      cmd_agents() {
+        echo "CALLED_AGENTS_$1"
+      }
+
+      export POST_PUSH_SYNC="tickets, agents"
+      When call run_post_push_hook "origin" "main" "sha1" "sha2"
+      The status should be success
+      The output should include "CALLED_TICKETS"
+      The output should include "CALLED_AGENTS_update"
+
+      unset POST_PUSH_SYNC || true
+    End
   End
 End

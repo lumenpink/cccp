@@ -302,6 +302,9 @@ load_hierarchical_config() {
     env_check="${CHECK_UPDATES:-}"
     env_pinned="${PINNED_VERSION:-${CCCP_PINNED_VERSION:-}}"
     env_post_push_hook="${POST_PUSH_HOOK:-}"
+    env_post_push_sync="${POST_PUSH_SYNC:-}"
+    env_post_push_sync_tickets="${POST_PUSH_SYNC_TICKETS:-}"
+    env_post_push_sync_agents="${POST_PUSH_SYNC_AGENTS:-}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
     env_agents_url="${AGENTS_MD_URL:-}"
     env_agents_file="${AGENTS_MD_FILE:-}"
@@ -321,6 +324,9 @@ load_hierarchical_config() {
     CHECK_UPDATES="1"
     PINNED_VERSION=""
     POST_PUSH_HOOK=""
+    POST_PUSH_SYNC=""
+    POST_PUSH_SYNC_TICKETS="0"
+    POST_PUSH_SYNC_AGENTS="0"
     TICKETS_FILE=""
     AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
     AGENTS_MD_FILE=""
@@ -388,6 +394,17 @@ load_hierarchical_config() {
         g_post_push=$(read_file_key "$global_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$g_post_push" ] && POST_PUSH_HOOK="$g_post_push"
 
+        g_pp_sync=$(read_file_key "$global_file" "post_push_sync" 2>/dev/null || true)
+        [ -n "$g_pp_sync" ] && POST_PUSH_SYNC="$g_pp_sync"
+
+        g_pp_tickets=$(read_file_key "$global_file" "post_push_sync_tickets" 2>/dev/null || true)
+        [ -z "$g_pp_tickets" ] && g_pp_tickets=$(read_file_key "$global_file" "sync_tickets" 2>/dev/null || true)
+        [ -n "$g_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$g_pp_tickets"
+
+        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agents" 2>/dev/null || true)
+        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
+
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
 
@@ -441,6 +458,17 @@ load_hierarchical_config() {
         l_post_push=$(read_file_key "$local_file" "post_push_hook" 2>/dev/null || true)
         [ -n "$l_post_push" ] && POST_PUSH_HOOK="$l_post_push"
 
+        l_pp_sync=$(read_file_key "$local_file" "post_push_sync" 2>/dev/null || true)
+        [ -n "$l_pp_sync" ] && POST_PUSH_SYNC="$l_pp_sync"
+
+        l_pp_tickets=$(read_file_key "$local_file" "post_push_sync_tickets" 2>/dev/null || true)
+        [ -z "$l_pp_tickets" ] && l_pp_tickets=$(read_file_key "$local_file" "sync_tickets" 2>/dev/null || true)
+        [ -n "$l_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$l_pp_tickets"
+
+        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agents" 2>/dev/null || true)
+        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
+
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
 
@@ -466,12 +494,18 @@ load_hierarchical_config() {
     [ -n "$env_check" ] && CHECK_UPDATES="$env_check"
     [ -n "$env_pinned" ] && PINNED_VERSION="$env_pinned"
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
+    [ -n "$env_post_push_sync" ] && POST_PUSH_SYNC="$env_post_push_sync"
+    [ -n "$env_post_push_sync_tickets" ] && POST_PUSH_SYNC_TICKETS="$env_post_push_sync_tickets"
+    [ -n "$env_post_push_sync_agents" ] && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agents"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
     [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
     [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
+    export POST_PUSH_SYNC
+    export POST_PUSH_SYNC_TICKETS
+    export POST_PUSH_SYNC_AGENTS
     export TICKETS_FILE
     export AGENTS_MD_URL
     export AGENTS_MD_FILE

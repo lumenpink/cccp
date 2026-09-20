@@ -95,6 +95,36 @@ Describe 'push'
       unset POST_PUSH_HOOK || true
     End
 
+    It 'triggers post-push sync actions upon successful push'
+      REMOTE_DIR="$(mktemp -d)"
+      git clone --bare "$TEST_DIR" "$REMOTE_DIR/remote.git" >/dev/null 2>&1
+      git remote add origin "$REMOTE_DIR/remote.git"
+      git branch -M main
+
+      echo "sync test" >> README.md
+      git add README.md
+      git commit -m "feat: third feature"
+
+      cmd_tickets() {
+        echo "PUSH_SYNC_TICKETS_TRIGGERED"
+      }
+      cmd_agents() {
+        echo "PUSH_SYNC_AGENTS_$1_TRIGGERED"
+      }
+
+      export POST_PUSH_SYNC="tickets, agents"
+      test_cmd_push_sync() {
+        cmd_push -u origin main 2>/dev/null
+      }
+      When call test_cmd_push_sync
+      The status should be success
+      The output should include "PUSH_SYNC_TICKETS_TRIGGERED"
+      The output should include "PUSH_SYNC_AGENTS_update_TRIGGERED"
+
+      rm -rf "$REMOTE_DIR"
+      unset POST_PUSH_SYNC || true
+    End
+
     It 'fails when executed outside of a git repository'
       NON_GIT_DIR="$(mktemp -d)"
       cd "$NON_GIT_DIR"

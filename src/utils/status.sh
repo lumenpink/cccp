@@ -101,7 +101,14 @@ show_status() {
         pp_info=$(get_post_push_hook_info 2>/dev/null || echo "status=none")
         if [ "$(echo "$pp_info" | grep "^status=" | cut -d= -f2-)" = "active" ]; then
             pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
-            post_push_status="$pp_path (active)"
+            pp_sync=$(echo "$pp_info" | grep "^sync_actions=" | cut -d= -f2-)
+            if [ -n "$pp_sync" ] && [ "$pp_path" = "(built-in sync)" ]; then
+                post_push_status="$pp_sync (active)"
+            elif [ -n "$pp_sync" ]; then
+                post_push_status="$pp_path + $pp_sync (active)"
+            else
+                post_push_status="$pp_path (active)"
+            fi
         fi
     elif [ -n "${POST_PUSH_HOOK:-}" ]; then
         post_push_status="$POST_PUSH_HOOK (active)"

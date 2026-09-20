@@ -305,12 +305,14 @@ audit_git_hooks() {
         pp_source=$(echo "$pp_info" | grep "^source=" | cut -d= -f2-)
         pp_path=$(echo "$pp_info" | grep "^path=" | cut -d= -f2-)
         pp_exec=$(echo "$pp_info" | grep "^executable=" | cut -d= -f2-)
+        pp_sync=$(echo "$pp_info" | grep "^sync_actions=" | cut -d= -f2-)
         echo "   Post-Push   : Active"
         echo "   Source      : $pp_source"
         echo "   Script Path : $pp_path"
         echo "   Executable  : $pp_exec"
+        [ -n "$pp_sync" ] && echo "   Sync Actions: $pp_sync"
     else
-        echo "   Post-Push   : None (Optional - set 'post_push_hook' in .cccprc or create .cccp/hooks/post-push)"
+        echo "   Post-Push   : None (Optional - configure 'post_push_hook' or 'post_push_sync' in .cccprc)"
     fi
     echo ""
     echo "========================================================"
@@ -525,9 +527,51 @@ resolve_post_push_hook() {
 }
 
 # -----------------------------------------------------------------------------
+# Check whether post-push tickets synchronization is enabled
+# -----------------------------------------------------------------------------
+is_post_push_sync_tickets_enabled() {
+    case "${POST_PUSH_SYNC_TICKETS:-0}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    esac
+    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
+        case "$action" in
+            tickets|sync-tickets) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Check whether post-push agents synchronization is enabled
+# -----------------------------------------------------------------------------
+is_post_push_sync_agents_enabled() {
+    case "${POST_PUSH_SYNC_AGENTS:-0}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+    esac
+    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
+        case "$action" in
+            agents|sync-agents) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# -----------------------------------------------------------------------------
 # Detailed metadata about the active post-push hook for inspection and audit
 # -----------------------------------------------------------------------------
 get_post_push_hook_info() {
+    sync_actions=""
+    if is_post_push_sync_tickets_enabled; then
+        sync_actions="sync-tickets"
+    fi
+    if is_post_push_sync_agents_enabled; then
+        if [ -n "$sync_actions" ]; then
+            sync_actions="$sync_actions, sync-agents"
+        else
+            sync_actions="sync-agents"
+        fi
+    fi
+
     if [ -n "${POST_PUSH_HOOK:-}" ]; then
         echo "status=active"
         echo "source=config (POST_PUSH_HOOK)"
@@ -541,6 +585,7 @@ get_post_push_hook_info() {
         else
             echo "executable=command"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_ROOT:-}" ] && [ -e "$GIT_ROOT/.cccp/hooks/post-push" ]; then
         echo "status=active"
@@ -551,6 +596,7 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push.local" ]; then
         echo "status=active"
@@ -561,6 +607,7 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
         return 0
     elif [ -n "${GIT_HOOKS_DIR:-}" ] && [ -e "$GIT_HOOKS_DIR/post-push" ]; then
         echo "status=active"
@@ -571,6 +618,14 @@ get_post_push_hook_info() {
         else
             echo "executable=no (warning: file is not executable)"
         fi
+        [ -n "$sync_actions" ] && echo "sync_actions=$sync_actions"
+        return 0
+    elif [ -n "$sync_actions" ]; then
+        echo "status=active"
+        echo "source=built-in ($sync_actions)"
+        echo "path=(built-in sync)"
+        echo "executable=yes"
+        echo "sync_actions=$sync_actions"
         return 0
     fi
 
@@ -588,8 +643,24 @@ run_post_push_hook() {
     old_sha="${3:-}"
     new_sha="${4:-}"
 
+    # Ensure config hierarchy is loaded
+    if command -v load_hierarchical_config >/dev/null 2>&1; then
+        load_hierarchical_config
+    fi
+
     hook_cmd=$(resolve_post_push_hook 2>/dev/null || true)
-    [ -z "$hook_cmd" ] && return 0
+    sync_tickets_active=0
+    sync_agents_active=0
+    if is_post_push_sync_tickets_enabled; then
+        sync_tickets_active=1
+    fi
+    if is_post_push_sync_agents_enabled; then
+        sync_agents_active=1
+    fi
+
+    if [ -z "$hook_cmd" ] && [ "$sync_tickets_active" -eq 0 ] && [ "$sync_agents_active" -eq 0 ]; then
+        return 0
+    fi
 
     export CCCP_PUSH_REMOTE="$remote"
     export CCCP_PUSH_BRANCH="$branch"
@@ -599,11 +670,40 @@ run_post_push_hook() {
     # Mark as executed for this session to avoid duplicate execution in cccp push
     export CCCP_POST_PUSH_RAN=1
 
-    if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
-        "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
-    else
-        sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+    # 1. Execute custom hook script if configured
+    if [ -n "$hook_cmd" ]; then
+        if [ -f "$hook_cmd" ] && [ -x "$hook_cmd" ]; then
+            "$hook_cmd" "$remote" "$branch" "$old_sha" "$new_sha"
+        else
+            sh -c "$hook_cmd \"\$@\"" -- "$remote" "$branch" "$old_sha" "$new_sha"
+        fi
     fi
+
+    # 2. Execute sync-tickets if enabled
+    if [ "$sync_tickets_active" -eq 1 ]; then
+        if command -v cmd_tickets >/dev/null 2>&1; then
+            cmd_tickets || true
+        elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/tickets.sh" ]; then
+            . "$GIT_ROOT/src/utils/tickets.sh"
+            cmd_tickets || true
+        elif command -v cccp >/dev/null 2>&1; then
+            cccp tickets || true
+        fi
+    fi
+
+    # 3. Execute sync-agents if enabled
+    if [ "$sync_agents_active" -eq 1 ]; then
+        if command -v cmd_agents >/dev/null 2>&1; then
+            cmd_agents update || true
+        elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/src/utils/agents.sh" ]; then
+            . "$GIT_ROOT/src/utils/agents.sh"
+            cmd_agents update || true
+        elif command -v cccp >/dev/null 2>&1; then
+            cccp agents update || true
+        fi
+    fi
+
+    return 0
 }
 
 # -----------------------------------------------------------------------------

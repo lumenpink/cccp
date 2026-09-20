@@ -4,3 +4,4 @@ agent_var_tech_stack = POSIX Shell, Git
 agent_var_test_cmd = shellspec
 agent_var_lint_cmd = ./combine.sh && sh -n cccp.sh
 agent_var_additional_directives = ## 4. Specific Directives\n- Follow strict Gosplan and Soviet aesthetic in cultural commands and easter eggs.\n- Never commit automatically unless explicitly instructed by user.
+post_push_sync = tickets, agents
