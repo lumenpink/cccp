@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.7+20260920.1280bb0"
+CCCP_VERSION="2.3.0-dev.8+20260920.2972e5f"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1127,7 +1127,7 @@ resolve_agent_var() {
     # Check AGENT_VAR_NAME or direct VAR_NAME
     env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_name}:-\${AGENT_VAR_${norm_name}:-}}\"")
     if [ -n "$env_val" ]; then
-        echo "$env_val"
+        printf '%b\n' "$env_val"
         return 0
     fi
 
@@ -1142,7 +1142,7 @@ resolve_agent_var() {
         [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_name}" 2>/dev/null || true)
         [ -z "$val" ] && val=$(read_file_key "$local_file" "${norm_name}" 2>/dev/null || true)
         if [ -n "$val" ]; then
-            echo "$val"
+            printf '%b\n' "$val"
             return 0
         fi
     fi
@@ -1157,7 +1157,7 @@ resolve_agent_var() {
         val=$(read_file_key "$global_file" "agent_var_${norm_name}" 2>/dev/null || true)
         [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_name}" 2>/dev/null || true)
         if [ -n "$val" ]; then
-            echo "$val"
+            printf '%b\n' "$val"
             return 0
         fi
     fi
@@ -1247,9 +1247,9 @@ cmd_agents() {
             echo "Error: Not inside a git repository. Cannot save to local .cccprc." >&2
             return 1
         fi
-        set_file_key() { write_file_key "$@"; }
-        write_file_key "$local_cfg" "agent_var_${norm_key}" "$var_val"
-        echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
+        clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
+        write_file_key "$local_cfg" "agent_var_${norm_key}" "$clean_val"
+        echo "Configured agent variable '${norm_key}' in ${local_cfg}"
         return 0
     fi
 
@@ -1379,15 +1379,26 @@ cmd_agents() {
     interpolated_count=0
     for v in $vars; do
         val=$(resolve_agent_var "$v")
-        # Replace {{VAR}}
-        pattern_mustache="{{${v}}}"
-        # Replace ${VAR}
-        pattern_shell="\${${v}}"
-
-        # Safe multi-line string replacement using awk/sed or temp python/sh
-        # We can use awk or sed with escaped delimiters
-        esc_val=$(printf '%s\n' "$val" | sed -e 's/[\/&]/\\&/g')
-        result=$(printf '%s\n' "$result" | sed -e "s/$pattern_mustache/$esc_val/g" -e "s/$pattern_shell/$esc_val/g")
+        REPL_VAL="$val"
+        export REPL_VAL
+        result=$(printf '%s\n' "$result" | awk -v vname="$v" '
+        BEGIN {
+            repl = ENVIRON["REPL_VAL"]
+            m_tag = "{{" vname "}}"
+            s_tag = "${" vname "}"
+            m_len = length(m_tag)
+            s_len = length(s_tag)
+        }
+        {
+            while ((idx = index($0, m_tag)) > 0) {
+                $0 = substr($0, 1, idx - 1) repl substr($0, idx + m_len)
+            }
+            while ((idx = index($0, s_tag)) > 0) {
+                $0 = substr($0, 1, idx - 1) repl substr($0, idx + s_len)
+            }
+            print
+        }')
+        unset REPL_VAL
         interpolated_count=$((interpolated_count + 1))
     done
 
