@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (codeberg) add cccp codeberg setup command (#4)
   - (agent) standardise command to singular with plural fallback
   - (hooks) add sync-tickets and sync-agents to post-push hook (#3)
   - (cli) wire agents command and autocompletion into cccp (#2)

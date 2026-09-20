@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.12+20260920.8dfd05d"
+CCCP_VERSION="2.3.0-dev.16+20260920.5005dd5"
 export CCCP_VERSION
 
 # Verify required tools
@@ -2826,6 +2826,39 @@ show_help() {
             echo "  audit   Inspect synchronization, detect frameworks (Husky/Lefthook), verify backups"
             echo "  diff    Generate diff against standard wrapper with intervention guidance"
             ;;
+        "codeberg")
+            echo "cccp.sh codeberg - Codeberg Integration Setup"
+            echo "============================================="
+            echo ""
+            echo "Interactive wizard that detects your Codeberg remote, enables post-push syncing"
+            echo "of tickets and AGENTS.md, and walks you through configuring every template variable."
+            echo ""
+            echo "Usage:"
+            echo "  $0 codeberg setup [--url <template-url>]"
+            echo ""
+            echo "Options:"
+            echo "  -u, --url <url>   URL of the AGENTS template to use."
+            echo "                    Falls back to agent_md_url in .cccprc, then the built-in default."
+            echo "  -h, --help        Show this help message"
+            echo ""
+            echo "What setup does:"
+            echo "  1. Detects the Codeberg owner/repo from the git remote 'origin'."
+            echo "     Aborts if the remote is not a Codeberg URL."
+            echo "  2. Saves codeberg_owner and codeberg_repo to .cccprc."
+            echo "  3. Enables 'ticket' in post_push_sync so issues are synced on every push."
+            echo "  4. Fetches the AGENTS template and lists all customizable variables."
+            echo "  5. Prompts interactively for each variable not yet configured."
+            echo "     Empty values are not accepted."
+            echo "  6. Enables 'agent' in post_push_sync so AGENTS.md is regenerated on every push."
+            echo ""
+            echo "Example:"
+            echo "  $0 codeberg setup"
+            echo "  $0 codeberg setup --url https://example.com/my-agents-template.md"
+            echo ""
+            echo "After setup, every 'cccp push' will automatically:"
+            echo "  • Sync open Codeberg issues → .antigravity/tickets.md"
+            echo "  • Regenerate AGENTS.md from the template → .antigravity/AGENTS.md"
+            ;;
         *)
             echo "Git Conventional Commits Helper Script"
             echo "====================================="
@@ -2850,6 +2883,7 @@ show_help() {
             echo "  push [args...]     Execute git push and trigger optional post-push hook"
             echo "  tickets [options]  Sync Codeberg issues into markdown within strict context limit"
             echo "  agent [options]    Generate/update AGENTS.md directives with local variable interpolation"
+            echo "  codeberg setup     Interactive wizard to configure Codeberg integration and AGENTS template"
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
@@ -4578,7 +4612,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents set-av changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -4598,6 +4632,12 @@ _cccp_completions() {
                 COMPREPLY=($(compgen -W "-u --url -f --file -h --help" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "update check set get unset" -- "$cur"))
+            fi
+            ;;
+        codeberg)
+            COMPREPLY=($(compgen -W "setup" -- "$cur"))
+            if [ "$prev" = "setup" ] || [ "$cur" = "-"* ]; then
+                COMPREPLY=($(compgen -W "-u --url -h --help" -- "$cur"))
             fi
             ;;
         set-av)
@@ -4691,6 +4731,7 @@ _cccp() {
         'update-agents:Generate and synchronize AGENTS.md directives'
         'sync-agents:Generate and synchronize AGENTS.md directives'
         'set-av:Fast shortcut to configure local agent variable'
+        'codeberg:Configure Codeberg integration and AGENTS template wizard'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -4783,6 +4824,11 @@ _cccp() {
                         '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
                         '1:subcommand:(update check set get unset)'
                     ;;
+                codeberg)
+                    _arguments \
+                        '(-u --url)'{-u,--url}'[AGENTS template URL]:url:' \
+                        '1:subcommand:(setup)'
+                    ;;
                 set-av)
                     ;;
                 update)
@@ -4836,6 +4882,7 @@ complete -c cccp -n "__fish_use_subcommand" -a agents -d "Generate and synchroni
 complete -c cccp -n "__fish_use_subcommand" -a update-agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agents -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a set-av -d "Fast shortcut to configure local agent variable"
+complete -c cccp -n "__fish_use_subcommand" -a codeberg -d "Configure Codeberg integration and AGENTS template wizard"
 complete -c cccp -n "__fish_use_subcommand" -a changelog -d "Generate or update CHANGELOG.md"
 complete -c cccp -n "__fish_use_subcommand" -a update -d "Update cccp executable from GitHub releases"
 complete -c cccp -n "__fish_use_subcommand" -a install -d "Install to PATH or configure Git hooks"
@@ -4861,6 +4908,10 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l t
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s f -l file -d "Output markdown file"
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -a "update check set get unset"
+
+# Options for codeberg
+complete -c cccp -n "__fish_seen_subcommand_from codeberg" -a "setup" -d "Interactive Codeberg setup wizard"
+complete -c cccp -n "__fish_seen_subcommand_from codeberg" -s u -l url -d "AGENTS template URL"
 
 # Options for config
 complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Target global config file"
@@ -5100,6 +5151,11 @@ main() {
         "tickets"|"sync-tickets")
             shift || true
             cmd_tickets "$@"
+            exit 0
+            ;;
+        "codeberg")
+            shift || true
+            cmd_codeberg "$@"
             exit 0
             ;;
         "agent"|"agents"|"update-agent"|"update-agents"|"sync-agent"|"sync-agents")

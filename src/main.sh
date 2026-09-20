@@ -174,6 +174,11 @@ main() {
             cmd_tickets "$@"
             exit 0
             ;;
+        "codeberg")
+            shift || true
+            cmd_codeberg "$@"
+            exit 0
+            ;;
         "agent"|"agents"|"update-agent"|"update-agents"|"sync-agent"|"sync-agents")
             shift || true
             cmd_agent "$@"
