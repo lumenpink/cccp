@@ -48,8 +48,8 @@ get_default_config_value() {
         pinned_version|pin_version) echo "" ;;
         post_push_hook) echo "" ;;
         tickets_file) echo ".antigravity/tickets.md" ;;
-        agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
-        agents_md_file) echo "AGENTS.md" ;;
+        agent_md_url|agents_md_url) echo "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md" ;;
+        agent_md_file|agents_md_file) echo ".antigravity/AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
         *) return 1 ;;
@@ -304,10 +304,10 @@ load_hierarchical_config() {
     env_post_push_hook="${POST_PUSH_HOOK:-}"
     env_post_push_sync="${POST_PUSH_SYNC:-}"
     env_post_push_sync_tickets="${POST_PUSH_SYNC_TICKETS:-}"
-    env_post_push_sync_agents="${POST_PUSH_SYNC_AGENTS:-}"
+    env_post_push_sync_agent="${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-}}"
     env_tickets_file="${TICKETS_FILE:-${CODEBERG_TICKETS_FILE:-}}"
-    env_agents_url="${AGENTS_MD_URL:-}"
-    env_agents_file="${AGENTS_MD_FILE:-}"
+    env_agent_url="${AGENT_MD_URL:-${AGENTS_MD_URL:-}}"
+    env_agent_file="${AGENT_MD_FILE:-${AGENTS_MD_FILE:-}}"
     env_allow_any_scope="${ALLOW_ANY_SCOPE:-}"
     env_allow_any_subscope="${ALLOW_ANY_SUBSCOPE:-}"
 
@@ -326,9 +326,12 @@ load_hierarchical_config() {
     POST_PUSH_HOOK=""
     POST_PUSH_SYNC=""
     POST_PUSH_SYNC_TICKETS="0"
+    POST_PUSH_SYNC_AGENT="0"
     POST_PUSH_SYNC_AGENTS="0"
     TICKETS_FILE=""
-    AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+    AGENT_MD_URL=""
+    AGENTS_MD_URL=""
+    AGENT_MD_FILE=""
     AGENTS_MD_FILE=""
     COMMIT_TYPES="${COMMIT_TYPES:-feat fix perf refactor revert chore build ci docs ops style test merge}"
     COMMIT_SCOPES="${COMMIT_SCOPES:-ui docs api docker db updater micropub indieauth activitypub microsub twtxt webmention theme feeds cli core config auth test build}"
@@ -401,17 +404,24 @@ load_hierarchical_config() {
         [ -z "$g_pp_tickets" ] && g_pp_tickets=$(read_file_key "$global_file" "sync_tickets" 2>/dev/null || true)
         [ -n "$g_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$g_pp_tickets"
 
-        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agent" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agent" 2>/dev/null || true)
         [ -z "$g_pp_agents" ] && g_pp_agents=$(read_file_key "$global_file" "sync_agents" 2>/dev/null || true)
-        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
+        [ -n "$g_pp_agents" ] && POST_PUSH_SYNC_AGENT="$g_pp_agents" && POST_PUSH_SYNC_AGENTS="$g_pp_agents"
 
         g_tickets=$(read_file_key "$global_file" "tickets_file" 2>/dev/null || true)
         [ -n "$g_tickets" ] && TICKETS_FILE="$g_tickets"
 
-        g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
-        [ -n "$g_ag_url" ] && AGENTS_MD_URL="$g_ag_url"
-        g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
-        [ -n "$g_ag_file" ] && AGENTS_MD_FILE="$g_ag_file"
+        g_ag_url=$(read_file_key "$global_file" "agent_md_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agents_md_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agent_url" 2>/dev/null || true)
+        [ -z "$g_ag_url" ] && g_ag_url=$(read_file_key "$global_file" "agent_var_url" 2>/dev/null || true)
+        [ -n "$g_ag_url" ] && AGENT_MD_URL="$g_ag_url" && AGENTS_MD_URL="$g_ag_url"
+
+        g_ag_file=$(read_file_key "$global_file" "agent_md_file" 2>/dev/null || true)
+        [ -z "$g_ag_file" ] && g_ag_file=$(read_file_key "$global_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$g_ag_file" ] && AGENT_MD_FILE="$g_ag_file" && AGENTS_MD_FILE="$g_ag_file"
     fi
 
     # 2. Local repository config (.cccprc) overrides global
@@ -465,17 +475,24 @@ load_hierarchical_config() {
         [ -z "$l_pp_tickets" ] && l_pp_tickets=$(read_file_key "$local_file" "sync_tickets" 2>/dev/null || true)
         [ -n "$l_pp_tickets" ] && POST_PUSH_SYNC_TICKETS="$l_pp_tickets"
 
-        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agent" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "post_push_sync_agents" 2>/dev/null || true)
+        [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agent" 2>/dev/null || true)
         [ -z "$l_pp_agents" ] && l_pp_agents=$(read_file_key "$local_file" "sync_agents" 2>/dev/null || true)
-        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
+        [ -n "$l_pp_agents" ] && POST_PUSH_SYNC_AGENT="$l_pp_agents" && POST_PUSH_SYNC_AGENTS="$l_pp_agents"
 
         l_tickets=$(read_file_key "$local_file" "tickets_file" 2>/dev/null || true)
         [ -n "$l_tickets" ] && TICKETS_FILE="$l_tickets"
 
-        l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
-        [ -n "$l_ag_url" ] && AGENTS_MD_URL="$l_ag_url"
-        l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
-        [ -n "$l_ag_file" ] && AGENTS_MD_FILE="$l_ag_file"
+        l_ag_url=$(read_file_key "$local_file" "agent_md_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agents_md_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agent_url" 2>/dev/null || true)
+        [ -z "$l_ag_url" ] && l_ag_url=$(read_file_key "$local_file" "agent_var_url" 2>/dev/null || true)
+        [ -n "$l_ag_url" ] && AGENT_MD_URL="$l_ag_url" && AGENTS_MD_URL="$l_ag_url"
+
+        l_ag_file=$(read_file_key "$local_file" "agent_md_file" 2>/dev/null || true)
+        [ -z "$l_ag_file" ] && l_ag_file=$(read_file_key "$local_file" "agents_md_file" 2>/dev/null || true)
+        [ -n "$l_ag_file" ] && AGENT_MD_FILE="$l_ag_file" && AGENTS_MD_FILE="$l_ag_file"
     fi
 
     # 3. Environment variables take highest precedence
@@ -496,18 +513,31 @@ load_hierarchical_config() {
     [ -n "$env_post_push_hook" ] && POST_PUSH_HOOK="$env_post_push_hook"
     [ -n "$env_post_push_sync" ] && POST_PUSH_SYNC="$env_post_push_sync"
     [ -n "$env_post_push_sync_tickets" ] && POST_PUSH_SYNC_TICKETS="$env_post_push_sync_tickets"
-    [ -n "$env_post_push_sync_agents" ] && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agents"
+    [ -n "$env_post_push_sync_agent" ] && POST_PUSH_SYNC_AGENT="$env_post_push_sync_agent" && POST_PUSH_SYNC_AGENTS="$env_post_push_sync_agent"
     [ -n "$env_tickets_file" ] && TICKETS_FILE="$env_tickets_file"
-    [ -n "$env_agents_url" ] && AGENTS_MD_URL="$env_agents_url"
-    [ -n "$env_agents_file" ] && AGENTS_MD_FILE="$env_agents_file"
+    [ -n "$env_agent_url" ] && AGENT_MD_URL="$env_agent_url" && AGENTS_MD_URL="$env_agent_url"
+    [ -n "$env_agent_file" ] && AGENT_MD_FILE="$env_agent_file" && AGENTS_MD_FILE="$env_agent_file"
+
+    # 4. Final defaults if still unset
+    if [ -z "$AGENT_MD_URL" ]; then
+        AGENT_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+        AGENTS_MD_URL="$AGENT_MD_URL"
+    fi
+    if [ -z "$AGENT_MD_FILE" ]; then
+        AGENT_MD_FILE=".antigravity/AGENTS.md"
+        AGENTS_MD_FILE="$AGENT_MD_FILE"
+    fi
 
     export PINNED_VERSION
     export POST_PUSH_HOOK
     export POST_PUSH_SYNC
     export POST_PUSH_SYNC_TICKETS
+    export POST_PUSH_SYNC_AGENT
     export POST_PUSH_SYNC_AGENTS
     export TICKETS_FILE
+    export AGENT_MD_URL
     export AGENTS_MD_URL
+    export AGENT_MD_FILE
     export AGENTS_MD_FILE
 
     # Legacy environment overrides

@@ -16,7 +16,8 @@ if [ -n "$GIT_ROOT" ]; then
 fi
 
 # Default canonical template URL
-DEFAULT_AGENTS_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+DEFAULT_AGENT_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+DEFAULT_AGENTS_MD_URL="$DEFAULT_AGENT_MD_URL"
 
 # -----------------------------------------------------------------------------
 # Helper: Fetch template content from URL or local path
@@ -41,10 +42,22 @@ fetch_agents_template() {
         http://*|https://*)
             if command -v curl >/dev/null 2>&1; then
                 content=$(curl -s -f "$url" 2>/dev/null || true)
-                if [ -n "$content" ]; then
-                    printf '%s\n' "$content"
-                    return 0
+                if [ -z "$content" ]; then
+                    echo "Warning: Received empty response from '$url'." >&2
+                    return 1
                 fi
+                # Reject responses that look like HTML error pages
+                case "$content" in
+                    *'<html'*|*'<!DOCTYPE'*|*'<!doctype'*|*'<head'*|*'<body'*)
+                        echo "Warning: Response from '$url' does not appear to be a valid Markdown template (looks like HTML). Skipping." >&2
+                        return 1
+                        ;;
+                esac
+                printf '%s\n' "$content"
+                return 0
+            else
+                echo "Warning: 'curl' not available; cannot fetch remote template." >&2
+                return 1
             fi
             ;;
     esac
@@ -59,6 +72,10 @@ fetch_agents_template() {
     return 1
 }
 
+fetch_agent_template() {
+    fetch_agents_template "$@"
+}
+
 # -----------------------------------------------------------------------------
 # Helper: Extract unique variable names from template text
 # Supports both {{VAR_NAME}} and ${VAR_NAME}
@@ -71,20 +88,66 @@ extract_template_vars() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Ensure target agent file is present in .gitignore
+# -----------------------------------------------------------------------------
+ensure_agent_gitignored() {
+    target_file="$1"
+    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    [ -z "$git_root" ] && return 0
+    [ ! -d "$git_root/.git" ] && return 0
+
+    gitignore_file="$git_root/.gitignore"
+
+    # If git already ignores this path, nothing to do
+    if git check-ignore -q "$target_file" 2>/dev/null; then
+        return 0
+    fi
+
+    # Determine relative path from git root
+    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
+
+    case "$rel_path" in
+        .antigravity/*)
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
+                echo ".antigravity/" >> "$gitignore_file"
+            fi
+            ;;
+        *)
+            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
+            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
+                echo "$rel_path" >> "$gitignore_file"
+            fi
+            ;;
+    esac
+    return 0
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Resolve variable value from environment or local .cccprc
+# Normalizes variable names with/without agent_ and agents_ prefixes
 # -----------------------------------------------------------------------------
 resolve_agent_var() {
     var_name="$1"
     norm_name=$(echo "$var_name" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
-    up_name=$(echo "$var_name" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+    stripped_name=$(echo "$norm_name" | sed -E 's/^(agents|agent)_//')
 
-    # 1. Environment variables have highest precedence
-    # Check AGENT_VAR_NAME or direct VAR_NAME
-    env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_name}:-\${AGENT_VAR_${norm_name}:-}}\"")
-    if [ -n "$env_val" ]; then
-        printf '%b\n' "$env_val"
-        return 0
+    candidates="$norm_name"
+    if [ "$stripped_name" != "$norm_name" ]; then
+        candidates="$candidates $stripped_name"
+    else
+        candidates="$candidates agent_${norm_name} agents_${norm_name}"
     fi
+
+    # 1. Environment variables have highest precedence (strictly AGENT_VAR_*)
+    for cand in $candidates; do
+        up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+        env_val=$(eval "printf '%s' \"\${AGENT_VAR_${up_cand}:-\${AGENT_VAR_${cand}:-}}\"")
+        if [ -n "$env_val" ]; then
+            printf '%b\n' "$env_val"
+            return 0
+        fi
+    done
 
     # 2. Local repository configuration (.cccprc)
     local_file=""
@@ -93,13 +156,17 @@ resolve_agent_var() {
     fi
 
     if [ -n "$local_file" ] && [ -f "$local_file" ] && command -v read_file_key >/dev/null 2>&1; then
-        val=$(read_file_key "$local_file" "agent_var_${norm_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$local_file" "${norm_name}" 2>/dev/null || true)
-        if [ -n "$val" ]; then
-            printf '%b\n' "$val"
-            return 0
-        fi
+        for cand in $candidates; do
+            up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+            val=$(read_file_key "$local_file" "agent_var_${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "agent_var_${up_cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$local_file" "${up_cand}" 2>/dev/null || true)
+            if [ -n "$val" ]; then
+                printf '%b\n' "$val"
+                return 0
+            fi
+        done
     fi
 
     # 3. Global configuration
@@ -109,21 +176,24 @@ resolve_agent_var() {
     fi
 
     if [ -n "$global_file" ] && [ -f "$global_file" ] && command -v read_file_key >/dev/null 2>&1; then
-        val=$(read_file_key "$global_file" "agent_var_${norm_name}" 2>/dev/null || true)
-        [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_name}" 2>/dev/null || true)
-        if [ -n "$val" ]; then
-            printf '%b\n' "$val"
-            return 0
-        fi
+        for cand in $candidates; do
+            up_cand=$(echo "$cand" | tr '[:lower:]' '[:upper:]')
+            val=$(read_file_key "$global_file" "agent_var_${cand}" 2>/dev/null || true)
+            [ -z "$val" ] && val=$(read_file_key "$global_file" "agent_var_${up_cand}" 2>/dev/null || true)
+            if [ -n "$val" ]; then
+                printf '%b\n' "$val"
+                return 0
+            fi
+        done
     fi
 
     return 1
 }
 
 # -----------------------------------------------------------------------------
-# Main agents command dispatcher
+# Main agent command dispatcher (canonical singular)
 # -----------------------------------------------------------------------------
-cmd_agents() {
+cmd_agent() {
     # Ensure config hierarchy is loaded
     if command -v load_hierarchical_config >/dev/null 2>&1; then
         load_hierarchical_config
@@ -140,9 +210,9 @@ cmd_agents() {
         case "$1" in
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
-                    show_help "agents"
+                    show_help "agent"
                 else
-                    echo "Usage: cccp agents [update|check|set|get|unset] [options]"
+                    echo "Usage: cccp agent [update|check|set|get|unset] [options]"
                 fi
                 return 0
                 ;;
@@ -197,7 +267,7 @@ cmd_agents() {
         esac
     done
 
-    # Handle variable setting (ergonomic set-av / agents set)
+    # Handle variable setting (ergonomic set-av / agent set)
     if [ "$action" = "set" ]; then
         norm_key=$(echo "$var_key" | sed 's/^agent_var_//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
         local_cfg=$(get_local_config_file 2>/dev/null || true)
@@ -206,6 +276,21 @@ cmd_agents() {
             return 1
         fi
         clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
+
+        case "$norm_key" in
+            url|template_url|agent_url|agents_url|agent_md_url|agents_md_url)
+                write_file_key "$local_cfg" "agent_md_url" "$clean_val"
+                unset_file_key "$local_cfg" "agent_var_url" 2>/dev/null || true
+                echo "Configured agent template URL 'agent_md_url' = '${var_val}' in ${local_cfg}"
+                return 0
+                ;;
+            file|dest|destination|agent_file|agents_file|agent_md_file|agents_md_file)
+                write_file_key "$local_cfg" "agent_md_file" "$clean_val"
+                echo "Configured agent destination file 'agent_md_file' = '${var_val}' in ${local_cfg}"
+                return 0
+                ;;
+        esac
+
         write_file_key "$local_cfg" "agent_var_${norm_key}" "$clean_val"
         echo "Configured agent variable '${norm_key}' = '${var_val}' in ${local_cfg}"
         return 0
@@ -236,49 +321,56 @@ cmd_agents() {
         return 0
     fi
 
-    # Resolve template URL
-    if [ -z "$target_url" ]; then
-        target_url="${AGENTS_MD_URL:-}"
-    fi
+    # Resolve template URL: prefer CLI option, then local/global config, then env, then default
     if [ -z "$target_url" ]; then
         local_cfg=$(get_local_config_file 2>/dev/null || true)
         if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_url=$(read_file_key "$local_cfg" "agents_md_url" 2>/dev/null || true)
+            target_url=$(read_file_key "$local_cfg" "agent_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agents_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agent_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$local_cfg" "agent_var_url" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_url" ]; then
         global_cfg=$(get_global_config_file 2>/dev/null || true)
         if [ -n "$global_cfg" ] && [ -f "$global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_url=$(read_file_key "$global_cfg" "agents_md_url" 2>/dev/null || true)
+            target_url=$(read_file_key "$global_cfg" "agent_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agents_md_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agent_url" 2>/dev/null || true)
+            [ -z "$target_url" ] && target_url=$(read_file_key "$global_cfg" "agent_var_url" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_url" ]; then
-        target_url="$DEFAULT_AGENTS_MD_URL"
+        target_url="${AGENT_MD_URL:-${AGENTS_MD_URL:-}}"
+    fi
+    if [ -z "$target_url" ]; then
+        target_url="$DEFAULT_AGENT_MD_URL"
     fi
 
-    # Resolve output destination file
+    # Resolve output destination file (default: .antigravity/AGENTS.md)
     git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ -z "$target_file" ]; then
-        target_file="${AGENTS_MD_FILE:-}"
-    fi
     if [ -z "$target_file" ]; then
         local_cfg=$(get_local_config_file 2>/dev/null || true)
         if [ -n "$local_cfg" ] && [ -f "$local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-            target_file=$(read_file_key "$local_cfg" "agents_md_file" 2>/dev/null || true)
+            target_file=$(read_file_key "$local_cfg" "agent_md_file" 2>/dev/null || true)
+            [ -z "$target_file" ] && target_file=$(read_file_key "$local_cfg" "agents_md_file" 2>/dev/null || true)
         fi
     fi
     if [ -z "$target_file" ]; then
+        target_file="${AGENT_MD_FILE:-${AGENTS_MD_FILE:-}}"
+    fi
+    if [ -z "$target_file" ]; then
         if [ -n "$git_root" ]; then
-            target_file="$git_root/AGENTS.md"
+            target_file="$git_root/.antigravity/AGENTS.md"
         else
-            target_file="AGENTS.md"
+            target_file=".antigravity/AGENTS.md"
         fi
     fi
 
     # Fetch template
     echo "Fetching AGENTS template from: $target_url"
     if ! template_content=$(fetch_agents_template "$target_url"); then
-        echo "Error: Unable to fetch AGENTS template from '$target_url'." >&2
+        echo "Warning: Skipping AGENTS template generation." >&2
         return 1
     fi
 
@@ -300,10 +392,11 @@ cmd_agents() {
         missing_count=0
         for v in $vars; do
             norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
+            stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
             if val=$(resolve_agent_var "$v"); then
                 echo "  [✓] $v = $val"
             else
-                echo "  [✗] $v = (missing - configure via: cccp agents set $norm_v \"<val>\")"
+                echo "  [✗] $v = (missing - configure via: cccp agent set $stripped_v \"<val>\")"
                 missing_count=$((missing_count + 1))
             fi
         done
@@ -312,7 +405,7 @@ cmd_agents() {
             echo "Status: $missing_count variable(s) missing. Cannot generate $target_file."
             return 1
         else
-            echo "Status: All variables configured! Ready to run 'cccp agents'."
+            echo "Status: All variables configured! Ready to run 'cccp agent'."
             return 0
         fi
     fi
@@ -322,7 +415,8 @@ cmd_agents() {
     for v in $vars; do
         if ! resolve_agent_var "$v" >/dev/null 2>&1; then
             norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
-            missing_vars="${missing_vars}\n  - $v (configure with: cccp agents set $norm_v \"<value>\")"
+            stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
+            missing_vars="${missing_vars}\n  - $v (configure with: cccp agent set $stripped_v \"<value>\")"
         fi
     done
 
@@ -366,13 +460,23 @@ cmd_agents() {
     printf '%s\n' "$result" > "$tmp_out"
     mv "$tmp_out" "$target_file"
 
+    # Ensure target file is gitignored
+    ensure_agent_gitignored "$target_file"
+
     echo "Done! Generated $target_file with $interpolated_count variable(s) substituted."
     return 0
+}
+
+# -----------------------------------------------------------------------------
+# Backwards-compatible plural dispatcher
+# -----------------------------------------------------------------------------
+cmd_agents() {
+    cmd_agent "$@"
 }
 
 # -----------------------------------------------------------------------------
 # Ergonomic shortcut for set-av
 # -----------------------------------------------------------------------------
 cmd_set_av() {
-    cmd_agents set "$@"
+    cmd_agent set "$@"
 }

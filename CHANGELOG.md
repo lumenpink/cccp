@@ -10,6 +10,7 @@
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes
+  - (agent) correct URL resolution precedence and add content validation
   - (agents) align confirmation output and JSON handling (#2)
   - (agents) support multi-line variables and exact awk substring replacement (#2)
   - (hooks) allow non-semver utility tags and bypass remote sync in reference-transaction
