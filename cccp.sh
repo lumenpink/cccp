@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.16+20260920.5005dd5"
+CCCP_VERSION="2.3.0-dev.18+20260920.36fcd6f"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1244,6 +1244,7 @@ cmd_agent() {
     target_file=""
     var_key=""
     var_val=""
+    url_from_cli=0
 
     # Check for subcommands or options
     while [ $# -gt 0 ]; do
@@ -1292,6 +1293,7 @@ cmd_agent() {
                 shift
                 [ $# -gt 0 ] || { echo "Error: Missing argument for --url" >&2; return 1; }
                 target_url="$1"
+                url_from_cli=1
                 shift
                 ;;
             -f|--file)
@@ -1404,6 +1406,14 @@ cmd_agent() {
             target_file="$git_root/.antigravity/AGENTS.md"
         else
             target_file=".antigravity/AGENTS.md"
+        fi
+    fi
+
+    # Persist explicit --url to local config so subsequent runs reuse it
+    if [ "$url_from_cli" -eq 1 ] && command -v get_local_config_file >/dev/null 2>&1; then
+        _persist_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$_persist_cfg" ] && command -v write_file_key >/dev/null 2>&1; then
+            write_file_key "$_persist_cfg" "agent_md_url" "$target_url"
         fi
     fi
 

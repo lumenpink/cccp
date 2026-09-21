@@ -12,6 +12,7 @@
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes
+  - (agent) persist --url to .cccprc automatically when passed via CLI
   - (agent) correct URL resolution precedence and add content validation
   - (agents) align confirmation output and JSON handling (#2)
   - (agents) support multi-line variables and exact awk substring replacement (#2)
