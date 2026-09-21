@@ -33,7 +33,7 @@ _cccp_completions() {
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "-u --url -f --file -h --help" -- "$cur"))
             else
-                COMPREPLY=($(compgen -W "update check set get unset" -- "$cur"))
+                COMPREPLY=($(compgen -W "update check fill set get unset" -- "$cur"))
             fi
             ;;
         codeberg)
@@ -224,7 +224,7 @@ _cccp() {
                     _arguments \
                         '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
                         '(-f --file)'{-f,--file}'[Output markdown file]:file:_files' \
-                        '1:subcommand:(update check set get unset)'
+                        '1:subcommand:(update check fill set get unset)'
                     ;;
                 codeberg)
                     _arguments \
@@ -309,7 +309,7 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l t
 # Options for agent
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s f -l file -d "Output markdown file"
-complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -a "update check set get unset"
+complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -a "update check fill set get unset"
 
 # Options for codeberg
 complete -c cccp -n "__fish_seen_subcommand_from codeberg" -a "setup" -d "Interactive Codeberg setup wizard"

@@ -169,6 +169,7 @@ show_help() {
             echo "Usage:"
             echo "  $0 agent [options]                      # Generate/update AGENTS.md"
             echo "  $0 agent check [options]                # Validate template variables status"
+            echo "  $0 agent fill [options]                 # Interactively prompt and save missing variables"
             echo "  $0 agent set <var_name> <value>         # Set local agent variable in .cccprc"
             echo "  $0 agent get <var_name>                 # Read agent variable value"
             echo "  $0 agent unset <var_name>               # Remove agent variable from .cccprc"
@@ -185,7 +186,8 @@ show_help() {
             echo "Variable Substitution:"
             echo "  Supports both {{VAR_NAME}} and \${VAR_NAME} in the skeleton. Variables are"
             echo "  resolved from local .cccprc (keys: agent_var_<name>) or environment variables."
-            echo "  If any variable is missing, the generator aborts with exit code 1."
+            echo "  If variables are missing, the file is still generated with placeholders intact"
+            echo "  and a warning is displayed. Run '$0 agent fill' to complete them interactively."
             ;;
         "commit")
             echo "cccp.sh commit - Conventional Commit Creation"
