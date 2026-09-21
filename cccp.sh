@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.25+20260921.d07924f"
+CCCP_VERSION="2.3.0-dev.26+20260921.233189a"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1368,11 +1368,11 @@ cmd_tickets() {
     # Ensure target file is gitignored
     ensure_tickets_gitignored "$output_file"
 
-    issues_json=""
+    fetch_status=0
     case "$provider" in
         github)
             echo "Fetching open issues from GitHub (${owner}/${repo})..."
-            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${cli_token:-${GITHUB_TOKEN:-}}" || true)
+            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${cli_token:-${GITHUB_TOKEN:-}}") || fetch_status=$?
             ;;
         forgejo)
             if [ "$host" = "codeberg.org" ]; then
@@ -1380,7 +1380,7 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${cli_token:-${CODEBERG_TOKEN:-}}" || true)
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${cli_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
             ;;
         gitlab)
             if [ "$host" = "framagit.org" ]; then
@@ -1388,12 +1388,12 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from GitLab (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${cli_token:-${GITLAB_TOKEN:-}}" || true)
+            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${cli_token:-${GITLAB_TOKEN:-}}") || fetch_status=$?
             ;;
         sourcehut)
             owner_clean=$(echo "$owner" | sed 's/^~//')
             echo "Fetching open issues from SourceHut (~${owner_clean}/${repo})..."
-            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${cli_token:-${SOURCEHUT_TOKEN:-}}" || true)
+            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${cli_token:-${SOURCEHUT_TOKEN:-}}") || fetch_status=$?
             ;;
         *)
             echo "Warning: Unsupported provider '${provider}'." >&2
@@ -1401,7 +1401,7 @@ cmd_tickets() {
             ;;
     esac
 
-    if [ -z "$issues_json" ]; then
+    if [ "$fetch_status" -ne 0 ]; then
         case "$provider" in
             forgejo)
                 api_name="Codeberg API"

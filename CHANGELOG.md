@@ -15,6 +15,7 @@
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes
+  - (tickets) handle empty issue lists gracefully without false error warning
   - (agent) persist --url to .cccprc automatically when passed via CLI
   - (agent) correct URL resolution precedence and add content validation
   - (agents) align confirmation output and JSON handling (#2)
