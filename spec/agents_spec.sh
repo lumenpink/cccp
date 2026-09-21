@@ -159,23 +159,26 @@ Describe 'agents'
   End
 
   Describe 'cmd_agent update / generate'
-    It 'aborts and returns 1 when variables are missing without creating file'
+    It 'generates file and warns when variables are missing'
       tmpl_file="$TEST_DIR/template.md"
       out_file="$TEST_DIR/.antigravity/AGENTS.md"
       printf 'Name: {{PROJECT_NAME}}\nStack: ${TECH_STACK}\n' > "$tmpl_file"
 
-      test_abort_missing() {
+      test_warn_missing() {
         cmd_agent --url "$tmpl_file" --file "$out_file"
       }
 
-      When call test_abort_missing
-      The status should be failure
+      When call test_warn_missing
+      The status should be success
       The output should include "Fetching AGENTS template from:"
-      The error should include "Error: Missing required variables for"
-      The error should include "PROJECT_NAME"
-      The error should include "TECH_STACK"
-      The error should include "Aborting generation of"
-      The path "$out_file" should not be exist
+      The output should include "Done! Generated"
+      The error should include "Warning: 2 variable(s) missing in"
+      The error should include "project_name"
+      The error should include "tech_stack"
+      The error should include "Run 'cccp agent fill' to interactively provide missing variables."
+      The path "$out_file" should be exist
+      The contents of file "$out_file" should include "Name: {{PROJECT_NAME}}"
+      The contents of file "$out_file" should include 'Stack: ${TECH_STACK}'
     End
 
     It 'interpolates variables, generates default .antigravity/AGENTS.md, and adds to .gitignore'
@@ -197,6 +200,29 @@ Describe 'agents'
       The contents of file "$TEST_DIR/.antigravity/AGENTS.md" should include "Project: SuperCCCP"
       The contents of file "$TEST_DIR/.antigravity/AGENTS.md" should include "Lang: portuguese"
       The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
+    End
+  End
+
+  Describe 'cmd_agent fill'
+    It 'prompts interactively for missing variables and regenerates file'
+      tmpl_file="$TEST_DIR/template.md"
+      out_file="$TEST_DIR/.antigravity/AGENTS.md"
+      printf 'Name: {{PROJECT_NAME}}\nStack: ${TECH_STACK}\n' > "$tmpl_file"
+      cmd_agent set project_name "MyProject" >/dev/null 2>&1
+
+      # Pipe input into cmd_agent fill
+      test_fill() {
+        printf 'posix-shell\n' | cmd_agent fill --url "$tmpl_file" --file "$out_file"
+      }
+
+      When call test_fill
+      The status should be success
+      The output should include "[✓] project_name = MyProject"
+      The output should include "Saved 1 variable(s). Regenerating"
+      The path "$out_file" should be exist
+      The contents of file "$out_file" should include "Name: MyProject"
+      The contents of file "$out_file" should include "Stack: posix-shell"
+      The contents of file "$TEST_DIR/.cccprc" should include "agent_var_tech_stack = posix-shell"
     End
   End
 End

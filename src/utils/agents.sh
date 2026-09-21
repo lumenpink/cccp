@@ -245,6 +245,10 @@ cmd_agent() {
                 var_key="$1"
                 shift
                 ;;
+            fill|fill-vars)
+                action="fill"
+                shift
+                ;;
             update)
                 action="update"
                 shift
@@ -420,48 +424,93 @@ cmd_agent() {
         fi
     fi
 
-    # Generate / update mode
-    missing_vars=""
+    # Fill mode: prompt interactively for missing variables, then regenerate
+    if [ "$action" = "fill" ]; then
+        local_cfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -z "$local_cfg" ]; then
+            echo "Error: Not inside a git repository. Cannot save to local .cccprc." >&2
+            return 1
+        fi
+
+        if [ -z "$vars" ]; then
+            echo "No customizable variables detected in template. Nothing to fill."
+            return 0
+        fi
+
+        filled_count=0
+        for v in $vars; do
+            norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
+            stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
+
+            if resolve_agent_var "$v" >/dev/null 2>&1; then
+                existing=$(resolve_agent_var "$v")
+                echo "  [✓] $stripped_v = $existing  (already set, skipping)"
+                continue
+            fi
+
+            val=""
+            while [ -z "$val" ]; do
+                printf "  %s: " "$stripped_v"
+                read -r val
+                if [ -z "$val" ]; then
+                    echo "    ↳ Value cannot be empty."
+                fi
+            done
+
+            write_file_key "$local_cfg" "agent_var_${stripped_v}" "$val"
+            filled_count=$((filled_count + 1))
+        done
+
+        if [ "$filled_count" -gt 0 ]; then
+            echo ""
+            echo "Saved $filled_count variable(s). Regenerating $target_file..."
+            # Re-run as update now that vars are set
+            cmd_agent update --url "$target_url" --file "$target_file"
+        else
+            echo "No missing variables — already complete. Run 'cccp agent' to regenerate."
+        fi
+        return 0
+    fi
+
+    # Generate / update mode — write file even when variables are missing
+    missing_count=0
+    missing_list=""
     for v in $vars; do
         if ! resolve_agent_var "$v" >/dev/null 2>&1; then
             norm_v=$(echo "$v" | tr '[:upper:]' '[:lower:]')
             stripped_v=$(echo "$norm_v" | sed -E 's/^(agents|agent)_//')
-            missing_vars="${missing_vars}\n  - $v (configure with: cccp agent set $stripped_v \"<value>\")"
+            missing_list="${missing_list}\n  - ${stripped_v} (configure with: cccp agent set ${stripped_v} \"<value>\")"
+            missing_count=$((missing_count + 1))
         fi
     done
 
-    if [ -n "$missing_vars" ]; then
-        printf "Error: Missing required variables for %s:%b\n" "$target_file" "$missing_vars" >&2
-        echo "Aborting generation of $target_file." >&2
-        return 1
-    fi
-
-    # Perform interpolation
+    # Perform interpolation (missing vars leave placeholder intact)
     result="$template_content"
     interpolated_count=0
     for v in $vars; do
-        val=$(resolve_agent_var "$v")
-        REPL_VAL="$val"
-        export REPL_VAL
-        result=$(printf '%s\n' "$result" | awk -v vname="$v" '
-        BEGIN {
-            repl = ENVIRON["REPL_VAL"]
-            m_tag = "{{" vname "}}"
-            s_tag = "${" vname "}"
-            m_len = length(m_tag)
-            s_len = length(s_tag)
-        }
-        {
-            while ((idx = index($0, m_tag)) > 0) {
-                $0 = substr($0, 1, idx - 1) repl substr($0, idx + m_len)
+        if val=$(resolve_agent_var "$v" 2>/dev/null); then
+            REPL_VAL="$val"
+            export REPL_VAL
+            result=$(printf '%s\n' "$result" | awk -v vname="$v" '
+            BEGIN {
+                repl = ENVIRON["REPL_VAL"]
+                m_tag = "{{" vname "}}"
+                s_tag = "${" vname "}"
+                m_len = length(m_tag)
+                s_len = length(s_tag)
             }
-            while ((idx = index($0, s_tag)) > 0) {
-                $0 = substr($0, 1, idx - 1) repl substr($0, idx + s_len)
-            }
-            print
-        }')
-        unset REPL_VAL
-        interpolated_count=$((interpolated_count + 1))
+            {
+                while ((idx = index($0, m_tag)) > 0) {
+                    $0 = substr($0, 1, idx - 1) repl substr($0, idx + m_len)
+                }
+                while ((idx = index($0, s_tag)) > 0) {
+                    $0 = substr($0, 1, idx - 1) repl substr($0, idx + s_len)
+                }
+                print
+            }')
+            unset REPL_VAL
+            interpolated_count=$((interpolated_count + 1))
+        fi
     done
 
     # Write destination file atomically
@@ -474,6 +523,10 @@ cmd_agent() {
     ensure_agent_gitignored "$target_file"
 
     echo "Done! Generated $target_file with $interpolated_count variable(s) substituted."
+    if [ "$missing_count" -gt 0 ]; then
+        printf "Warning: %d variable(s) missing in %s:%b\n" "$missing_count" "$target_file" "$missing_list" >&2
+        echo "Run 'cccp agent fill' to interactively provide missing variables." >&2
+    fi
     return 0
 }
 
