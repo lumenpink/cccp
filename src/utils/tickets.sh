@@ -13,18 +13,27 @@ if [ -n "$GIT_ROOT" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Helper: Extract Codeberg owner and repository from remote URL
+# Helper: Extract Git provider, owner and repository from remote URL
 # -----------------------------------------------------------------------------
-parse_codeberg_url() {
+parse_remote_url() {
     url="$1"
     clean=$(echo "$url" | sed -e 's/\.git$//' -e 's|/*$||')
     case "$clean" in
+        *github.com[:/]*)
+            repo_path=$(echo "$clean" | sed -e 's|^.*github\.com[:/]||' -e 's|^/*||')
+            owner=$(echo "$repo_path" | cut -d'/' -f1)
+            repo=$(echo "$repo_path" | cut -d'/' -f2)
+            if [ -n "$owner" ] && [ -n "$repo" ]; then
+                echo "github $owner $repo"
+                return 0
+            fi
+            ;;
         *codeberg.org[:/]*)
             repo_path=$(echo "$clean" | sed -e 's|^.*codeberg\.org[:/]||' -e 's|^/*||')
             owner=$(echo "$repo_path" | cut -d'/' -f1)
             repo=$(echo "$repo_path" | cut -d'/' -f2)
             if [ -n "$owner" ] && [ -n "$repo" ]; then
-                echo "$owner $repo"
+                echo "codeberg $owner $repo"
                 return 0
             fi
             ;;
@@ -32,58 +41,151 @@ parse_codeberg_url() {
     return 1
 }
 
-# -----------------------------------------------------------------------------
-# Helper: Resolve Codeberg owner and repo dynamically
-# Priority: Flags/Env -> Remote 'origin' -> Other remotes -> Graceful exit
-# -----------------------------------------------------------------------------
-resolve_codeberg_info() {
-    resolved_owner="${CODEBERG_OWNER:-${CODEBERG_USER:-}}"
-    resolved_repo="${CODEBERG_REPO:-}"
-
-    if [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
-        echo "$resolved_owner $resolved_repo"
-        return 0
+parse_codeberg_url() {
+    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        prov=$(echo "$parsed" | cut -d' ' -f1)
+        if [ "$prov" = "codeberg" ]; then
+            echo "$parsed" | cut -d' ' -f2,3
+            return 0
+        fi
     fi
+    return 1
+}
+
+parse_github_url() {
+    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        prov=$(echo "$parsed" | cut -d' ' -f1)
+        if [ "$prov" = "github" ]; then
+            echo "$parsed" | cut -d' ' -f2,3
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Resolve Git provider, owner and repo dynamically
+# Priority: Flags/Env -> Remote push URL -> Remote fetch URL -> Other remotes
+# -----------------------------------------------------------------------------
+resolve_tickets_info() {
+    resolved_provider="${TICKETS_PROVIDER:-}"
+    resolved_owner="${TICKETS_OWNER:-${CODEBERG_OWNER:-${CODEBERG_USER:-${GITHUB_OWNER:-${GITHUB_USER:-}}}}}"
+    resolved_repo="${TICKETS_REPO:-${CODEBERG_REPO:-${GITHUB_REPO:-}}}"
 
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        # Check 'origin' first
-        origin_url=$(git config remote.origin.url 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-        if [ -n "$origin_url" ]; then
-            if parsed=$(parse_codeberg_url "$origin_url"); then
-                p_owner=$(echo "$parsed" | cut -d' ' -f1)
-                p_repo=$(echo "$parsed" | cut -d' ' -f2)
+        # 1. Check 'origin' push URL, then fetch URL
+        origin_push_url=$(git config remote.origin.pushurl 2>/dev/null || git remote get-url --push origin 2>/dev/null || true)
+        origin_fetch_url=$(git config remote.origin.url 2>/dev/null || git remote get-url origin 2>/dev/null || true)
+
+        for u in "$origin_push_url" "$origin_fetch_url"; do
+            [ -z "$u" ] && continue
+            if parsed=$(parse_remote_url "$u"); then
+                p_prov=$(echo "$parsed" | cut -d' ' -f1)
+                p_owner=$(echo "$parsed" | cut -d' ' -f2)
+                p_repo=$(echo "$parsed" | cut -d' ' -f3)
+                resolved_provider="${resolved_provider:-$p_prov}"
                 resolved_owner="${resolved_owner:-$p_owner}"
                 resolved_repo="${resolved_repo:-$p_repo}"
-                echo "$resolved_owner $resolved_repo"
+                echo "$resolved_provider $resolved_owner $resolved_repo"
                 return 0
             fi
-        fi
+        done
 
-        # Check any other configured git remotes
+        # 2. Check any other configured git remotes
         all_remotes=$(git remote 2>/dev/null || true)
         for rmt in $all_remotes; do
             [ "$rmt" = "origin" ] && continue
-            rmt_url=$(git config "remote.${rmt}.url" 2>/dev/null || git remote get-url "$rmt" 2>/dev/null || true)
-            if [ -n "$rmt_url" ]; then
-                if parsed=$(parse_codeberg_url "$rmt_url"); then
-                    p_owner=$(echo "$parsed" | cut -d' ' -f1)
-                    p_repo=$(echo "$parsed" | cut -d' ' -f2)
+            rmt_push_url=$(git config "remote.${rmt}.pushurl" 2>/dev/null || git remote get-url --push "$rmt" 2>/dev/null || true)
+            rmt_fetch_url=$(git config "remote.${rmt}.url" 2>/dev/null || git remote get-url "$rmt" 2>/dev/null || true)
+            for u in "$rmt_push_url" "$rmt_fetch_url"; do
+                [ -z "$u" ] && continue
+                if parsed=$(parse_remote_url "$u"); then
+                    p_prov=$(echo "$parsed" | cut -d' ' -f1)
+                    p_owner=$(echo "$parsed" | cut -d' ' -f2)
+                    p_repo=$(echo "$parsed" | cut -d' ' -f3)
+                    resolved_provider="${resolved_provider:-$p_prov}"
                     resolved_owner="${resolved_owner:-$p_owner}"
                     resolved_repo="${resolved_repo:-$p_repo}"
-                    echo "$resolved_owner $resolved_repo"
+                    echo "$resolved_provider $resolved_owner $resolved_repo"
                     return 0
                 fi
-            fi
+            done
         done
     fi
 
+    # Fallback if owner and repo are already known from environment
     if [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
-        echo "$resolved_owner $resolved_repo"
+        if [ -z "$resolved_provider" ]; then
+            if [ -n "${GITHUB_OWNER:-}" ] || [ -n "${GITHUB_REPO:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+                resolved_provider="github"
+            else
+                resolved_provider="codeberg"
+            fi
+        fi
+        echo "$resolved_provider $resolved_owner $resolved_repo"
         return 0
     fi
 
     return 1
+}
+
+resolve_codeberg_info() {
+    if [ -n "${CODEBERG_OWNER:-}" ] && [ -n "${CODEBERG_REPO:-}" ]; then
+        echo "$CODEBERG_OWNER $CODEBERG_REPO"
+        return 0
+    fi
+    if info=$(resolve_tickets_info 2>/dev/null); then
+        p_prov=$(echo "$info" | cut -d' ' -f1)
+        if [ "$p_prov" = "codeberg" ]; then
+            echo "$info" | cut -d' ' -f2,3
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Gosplan Rate Limiter (Max 55 requests / hour)
+# -----------------------------------------------------------------------------
+check_tickets_rate_limit() {
+    rate_limit_file="${TICKETS_RATE_LIMIT_FILE:-}"
+    if [ -z "$rate_limit_file" ]; then
+        git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+        if [ -n "$git_dir" ] && [ -d "$git_dir" ]; then
+            rate_limit_file="$git_dir/cccp_tickets_rate_limit"
+        else
+            rate_limit_file="${TMPDIR:-/tmp}/cccp_tickets_rate_limit_${USER:-default}"
+        fi
+    fi
+
+    max_calls="${TICKETS_HOURLY_LIMIT:-55}"
+    now=$(date +%s)
+    cutoff=$((now - 3600))
+    tmp_rl="${rate_limit_file}.tmp.$$"
+    count=0
+
+    if [ -f "$rate_limit_file" ]; then
+        while IFS= read -r ts || [ -n "$ts" ]; do
+            case "$ts" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            if [ "$ts" -gt "$cutoff" ] 2>/dev/null; then
+                echo "$ts" >> "$tmp_rl"
+                count=$((count + 1))
+            fi
+        done < "$rate_limit_file"
+    fi
+
+    if [ "$count" -ge "$max_calls" ]; then
+        rm -f "$tmp_rl"
+        echo "Предупреждение (Gosplan Quota): Hourly limit reached (${count}/${max_calls} requests in the last hour). Skipping tickets sync gracefully." >&2
+        return 1
+    fi
+
+    echo "$now" >> "$tmp_rl"
+    mv "$tmp_rl" "$rate_limit_file"
+    return 0
 }
 
 # -----------------------------------------------------------------------------
@@ -123,7 +225,7 @@ ensure_tickets_gitignored() {
 }
 
 # -----------------------------------------------------------------------------
-# Synchronize Codeberg tickets to markdown
+# Synchronize tickets to markdown (GitHub / Codeberg)
 # -----------------------------------------------------------------------------
 cmd_tickets() {
     # Ensure config hierarchy is loaded
@@ -131,11 +233,12 @@ cmd_tickets() {
         load_hierarchical_config
     fi
 
+    cli_provider=""
     cli_owner=""
     cli_repo=""
     cli_file=""
     cli_max_bytes=""
-    cli_token="${CODEBERG_TOKEN:-}"
+    cli_token="${TICKETS_TOKEN:-}"
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -143,7 +246,7 @@ cmd_tickets() {
                 if command -v show_help >/dev/null 2>&1; then
                     show_help "tickets"
                 else
-                    echo "Usage: cccp tickets [--file <path>] [--owner <owner>] [--repo <repo>] [--max-bytes <num>]"
+                    echo "Usage: cccp tickets [--file <path>] [--owner <owner>] [--repo <repo>] [--provider <provider>] [--max-bytes <num>]"
                 fi
                 return 0
                 ;;
@@ -163,6 +266,12 @@ cmd_tickets() {
                 shift
                 [ $# -gt 0 ] || { echo "Error: Missing argument for --repo" >&2; return 1; }
                 cli_repo="$1"
+                shift
+                ;;
+            -p|--provider)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for --provider" >&2; return 1; }
+                cli_provider="$1"
                 shift
                 ;;
             -m|--max-bytes)
@@ -192,24 +301,29 @@ cmd_tickets() {
         fi
     done
 
-    # Resolve Owner and Repo
-    if [ -n "$cli_owner" ] && [ -n "$cli_repo" ]; then
-        owner="$cli_owner"
-        repo="$cli_repo"
-    else
-        info=$(resolve_codeberg_info || true)
-        if [ -z "$info" ]; then
-            echo "Warning: Unable to determine Codeberg repository and owner from git remote or environment." >&2
-            return 0
+    # Resolve Provider, Owner and Repo
+    provider="$cli_provider"
+    owner="$cli_owner"
+    repo="$cli_repo"
+
+    if [ -z "$provider" ] || [ -z "$owner" ] || [ -z "$repo" ]; then
+        info=$(resolve_tickets_info || true)
+        if [ -n "$info" ]; then
+            [ -z "$provider" ] && provider=$(echo "$info" | cut -d' ' -f1)
+            [ -z "$owner" ] && owner=$(echo "$info" | cut -d' ' -f2)
+            [ -z "$repo" ] && repo=$(echo "$info" | cut -d' ' -f3)
         fi
-        owner=$(echo "$info" | cut -d' ' -f1)
-        repo=$(echo "$info" | cut -d' ' -f2)
-        [ -n "$cli_owner" ] && owner="$cli_owner"
-        [ -n "$cli_repo" ] && repo="$cli_repo"
     fi
 
     if [ -z "$owner" ] || [ -z "$repo" ]; then
-        echo "Warning: Unable to determine Codeberg repository and owner from git remote or environment." >&2
+        echo "Warning: Unable to determine repository and owner from git remote or environment." >&2
+        return 0
+    fi
+
+    provider="${provider:-github}"
+
+    # Check rate limit (55 requests/hour)
+    if ! check_tickets_rate_limit; then
         return 0
     fi
 
@@ -236,22 +350,35 @@ cmd_tickets() {
     # Ensure target file is gitignored
     ensure_tickets_gitignored "$output_file"
 
-    api_url="https://codeberg.org/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
-
-    echo "Fetching open issues from Codeberg (${owner}/${repo})..."
-    if [ -n "$cli_token" ]; then
-        response=$(curl -s -f -H "Authorization: token ${cli_token}" "$api_url" 2>/dev/null || true)
+    if [ "$provider" = "github" ]; then
+        api_url="https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30"
+        echo "Fetching open issues from GitHub (${owner}/${repo})..."
+        token="${cli_token:-${GITHUB_TOKEN:-}}"
+        if [ -n "$token" ]; then
+            response=$(curl -s -f -H "User-Agent: cccp" -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
+        else
+            response=$(curl -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
+        fi
+        api_name="GitHub API"
     else
-        response=$(curl -s -f "$api_url" 2>/dev/null || true)
+        api_url="https://codeberg.org/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
+        echo "Fetching open issues from Codeberg (${owner}/${repo})..."
+        token="${cli_token:-${CODEBERG_TOKEN:-}}"
+        if [ -n "$token" ]; then
+            response=$(curl -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
+        else
+            response=$(curl -s -f "$api_url" 2>/dev/null || true)
+        fi
+        api_name="Codeberg API"
     fi
 
     if [ -z "$response" ] || ! printf '%s\n' "$response" | jq -e . >/dev/null 2>&1; then
-        echo "Warning: Failed to retrieve or parse issues from Codeberg API (${owner}/${repo})." >&2
+        echo "Warning: Failed to retrieve or parse issues from ${api_name} (${owner}/${repo})." >&2
         return 0
     fi
 
     if ! printf '%s\n' "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
-        echo "Warning: Unexpected response format from Codeberg API." >&2
+        echo "Warning: Unexpected response format from ${api_name}." >&2
         return 0
     fi
 
@@ -270,7 +397,7 @@ EOF
     count=0
     stopped_early=0
 
-    printf '%s\n' "$response" | jq -c '.[]' > "$issues_tmp"
+    printf '%s\n' "$response" | jq -c '.[] | select(.pull_request == null)' > "$issues_tmp"
 
     jq_ticket_filter='
         "## [#" + (.number|tostring) + "] " + .title + "\n" +

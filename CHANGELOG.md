@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (tickets) add GitHub issues sync and Gosplan rate limiter
   - (agent) add fill subcommand and generate template despite missing variables
   - (codeberg) add cccp codeberg setup command (#4)
   - (agent) standardise command to singular with plural fallback

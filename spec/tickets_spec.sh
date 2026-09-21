@@ -18,12 +18,22 @@ Describe 'tickets'
     git commit -q -m "chore: initial commit"
 
     GIT_ROOT="$TEST_DIR"
+    unset TICKETS_PROVIDER || true
+    unset TICKETS_OWNER || true
+    unset TICKETS_REPO || true
+    unset TICKETS_TOKEN || true
     unset CODEBERG_OWNER || true
     unset CODEBERG_REPO || true
     unset CODEBERG_USER || true
     unset CODEBERG_TOKEN || true
+    unset GITHUB_OWNER || true
+    unset GITHUB_REPO || true
+    unset GITHUB_USER || true
+    unset GITHUB_TOKEN || true
     unset TICKETS_FILE || true
     unset CODEBERG_TICKETS_FILE || true
+    unset TICKETS_HOURLY_LIMIT || true
+    unset TICKETS_RATE_LIMIT_FILE || true
   }
 
   cleanup() {
@@ -32,6 +42,43 @@ Describe 'tickets'
 
   BeforeEach 'setup'
   AfterEach 'cleanup'
+
+  Describe 'parse_remote_url'
+    It 'parses SSH GitHub URL'
+      When call parse_remote_url "git@github.com:alice/wonderland.git"
+      The status should be success
+      The output should eq "github alice wonderland"
+    End
+
+    It 'parses HTTPS GitHub URL'
+      When call parse_remote_url "https://github.com/bob/builder.git"
+      The status should be success
+      The output should eq "github bob builder"
+    End
+
+    It 'parses HTTPS GitHub URL without .git'
+      When call parse_remote_url "https://github.com/carol/crypto"
+      The status should be success
+      The output should eq "github carol crypto"
+    End
+
+    It 'parses SSH Codeberg URL'
+      When call parse_remote_url "git@codeberg.org:alice/wonderland.git"
+      The status should be success
+      The output should eq "codeberg alice wonderland"
+    End
+
+    It 'parses HTTPS Codeberg URL'
+      When call parse_remote_url "https://codeberg.org/bob/builder.git"
+      The status should be success
+      The output should eq "codeberg bob builder"
+    End
+
+    It 'returns failure for unsupported git host URLs'
+      When call parse_remote_url "git@gitlab.com:someone/project.git"
+      The status should be failure
+    End
+  End
 
   Describe 'parse_codeberg_url'
     It 'parses SSH codeberg URL'
@@ -64,6 +111,63 @@ Describe 'tickets'
     End
   End
 
+  Describe 'parse_github_url'
+    It 'parses SSH github URL'
+      When call parse_github_url "git@github.com:alice/wonderland.git"
+      The status should be success
+      The output should eq "alice wonderland"
+    End
+
+    It 'parses HTTPS github URL'
+      When call parse_github_url "https://github.com/bob/builder.git"
+      The status should be success
+      The output should eq "bob builder"
+    End
+
+    It 'returns failure for non-github URLs'
+      When call parse_github_url "git@codeberg.org:someone/project.git"
+      The status should be failure
+    End
+  End
+
+  Describe 'resolve_tickets_info'
+    It 'resolves GitHub remote origin'
+      git remote add origin "git@github.com:lumenpink/cccp.git"
+
+      When call resolve_tickets_info
+      The status should be success
+      The output should eq "github lumenpink cccp"
+    End
+
+    It 'resolves Codeberg remote origin'
+      git remote add origin "git@codeberg.org:lumenpink/cccp.git"
+
+      When call resolve_tickets_info
+      The status should be success
+      The output should eq "codeberg lumenpink cccp"
+    End
+
+    It 'prioritizes remote pushurl over fetch url'
+      git remote add origin "git@codeberg.org:fetch/repo.git"
+      git config remote.origin.pushurl "git@github.com:push/repo.git"
+
+      When call resolve_tickets_info
+      The status should be success
+      The output should eq "github push repo"
+    End
+
+    It 'prioritizes TICKETS_OWNER and TICKETS_REPO'
+      export TICKETS_OWNER="myorg"
+      export TICKETS_REPO="myrepo"
+      export TICKETS_PROVIDER="github"
+      git remote add origin "git@codeberg.org:other/repo.git"
+
+      When call resolve_tickets_info
+      The status should be success
+      The output should eq "github myorg myrepo"
+    End
+  End
+
   Describe 'resolve_codeberg_info'
     It 'prioritizes CODEBERG_OWNER and CODEBERG_REPO'
       export CODEBERG_OWNER="myorg"
@@ -91,24 +195,58 @@ Describe 'tickets'
     End
   End
 
+  Describe 'check_tickets_rate_limit'
+    It 'allows calls when under the hourly limit'
+      export TICKETS_RATE_LIMIT_FILE="$TEST_DIR/rate_limit.txt"
+      export TICKETS_HOURLY_LIMIT=3
+
+      When call check_tickets_rate_limit
+      The status should be success
+      The file "$TEST_DIR/rate_limit.txt" should be exist
+    End
+
+    It 'gracefully blocks and warns when limit is reached'
+      export TICKETS_RATE_LIMIT_FILE="$TEST_DIR/rate_limit.txt"
+      export TICKETS_HOURLY_LIMIT=2
+      now=$(date +%s)
+      printf '%s\n%s\n' "$now" "$now" > "$TEST_DIR/rate_limit.txt"
+
+      When call check_tickets_rate_limit
+      The status should be failure
+      The error should include "Gosplan Quota"
+      The error should include "Hourly limit reached"
+    End
+
+    It 'expires timestamps older than 1 hour'
+      export TICKETS_RATE_LIMIT_FILE="$TEST_DIR/rate_limit.txt"
+      export TICKETS_HOURLY_LIMIT=2
+      now=$(date +%s)
+      old=$((now - 4000))
+      printf '%s\n%s\n' "$old" "$old" > "$TEST_DIR/rate_limit.txt"
+
+      When call check_tickets_rate_limit
+      The status should be success
+    End
+  End
+
   Describe 'cmd_tickets'
     It 'shows usage on --help flag'
       When call cmd_tickets --help
       The status should be success
-      The output should include "cccp.sh tickets - Synchronize Codeberg Issues into Markdown"
+      The output should include "cccp.sh tickets - Synchronize"
       The output should include "Usage:"
     End
 
-    It 'exits 0 with warning on stderr when no Codeberg repo is found'
-      git remote add origin "git@github.com:foo/bar.git"
+    It 'exits 0 with warning on stderr when no supported repo is found'
+      git remote add origin "git@gitlab.com:foo/bar.git"
 
-      test_no_codeberg() {
+      test_no_repo() {
         cmd_tickets
       }
 
-      When call test_no_codeberg
+      When call test_no_repo
       The status should be success
-      The error should include "Warning: Unable to determine Codeberg repository and owner"
+      The error should include "Warning: Unable to determine repository and owner"
     End
 
     It 'ensures tickets file directory is in .gitignore'
@@ -130,7 +268,7 @@ Describe 'tickets'
       The output should include ".antigravity/"
     End
 
-    It 'syncs tickets formatting and respects budget ceiling'
+    It 'syncs Codeberg tickets formatting and respects budget ceiling'
       export CODEBERG_OWNER="testowner"
       export CODEBERG_REPO="testrepo"
 
@@ -166,6 +304,70 @@ JSON
       The status should be success
       The output should include "Done! Synced 2 complete ticket(s)"
       The path "$target" should be exist
+    End
+
+    It 'syncs GitHub tickets and filters out pull requests'
+      git remote add origin "git@github.com:octocat/Hello-World.git"
+
+      curl() {
+        cat << 'JSON'
+[
+  {
+    "number": 10,
+    "title": "A Real Bug Issue",
+    "state": "open",
+    "labels": [{"name": "defect"}],
+    "html_url": "https://github.com/octocat/Hello-World/issues/10",
+    "body": "Bug description here.",
+    "pull_request": null
+  },
+  {
+    "number": 11,
+    "title": "Feature PR that must be skipped",
+    "state": "open",
+    "labels": [{"name": "enhancement"}],
+    "html_url": "https://github.com/octocat/Hello-World/pull/11",
+    "body": "PR description here.",
+    "pull_request": {
+      "url": "https://api.github.com/repos/octocat/Hello-World/pulls/11"
+    }
+  },
+  {
+    "number": 12,
+    "title": "Another Genuine Issue",
+    "state": "open",
+    "labels": [],
+    "html_url": "https://github.com/octocat/Hello-World/issues/12",
+    "body": "Another issue description."
+  }
+]
+JSON
+      }
+
+      target="$TEST_DIR/gh_tickets.md"
+      test_gh_sync() {
+        cmd_tickets --file "$target"
+      }
+
+      When call test_gh_sync
+      The status should be success
+      The output should include "Fetching open issues from GitHub"
+      The output should include "Done! Synced 2 complete ticket(s)"
+      The contents of file "$target" should include "A Real Bug Issue"
+      The contents of file "$target" should include "Another Genuine Issue"
+      The contents of file "$target" should not include "Feature PR that must be skipped"
+    End
+
+    It 'gracefully exits 0 when rate limit is hit in cmd_tickets'
+      git remote add origin "git@github.com:octocat/Hello-World.git"
+      export TICKETS_RATE_LIMIT_FILE="$TEST_DIR/rate_limit.txt"
+      export TICKETS_HOURLY_LIMIT=1
+      now=$(date +%s)
+      echo "$now" > "$TEST_DIR/rate_limit.txt"
+
+      When call cmd_tickets
+      The status should be success
+      The error should include "Gosplan Quota"
     End
 
     It 'exits 0 with warning when Codeberg API call fails'

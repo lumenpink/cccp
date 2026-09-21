@@ -47,7 +47,7 @@ _cccp_completions() {
             ;;
         tickets|sync-tickets)
             if [ "${cur#*-}" != "$cur" ]; then
-                COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -m --max-bytes -t --token -h --help" -- "$cur"))
+                COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -p --provider -m --max-bytes -t --token -h --help" -- "$cur"))
             fi
             ;;
         config)
@@ -301,10 +301,11 @@ complete -c cccp -n "__fish_seen_subcommand_from tag" -l no-v -d "Tag without v 
 
 # Options for tickets
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s f -l file -d "Output markdown file"
-complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Codeberg repository owner"
-complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Codeberg repository name"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Repository owner"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Repository name"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider (github or codeberg)"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
-complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Codeberg personal access token"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Personal access token"
 
 # Options for agent
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
