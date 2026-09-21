@@ -1,0 +1,185 @@
+name: "CI & Release"
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-and-test:
+    name: Lint & Run ShellSpec Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ShellSpec
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Git for tests
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name "Test User"
+          git config --global user.email "test@example.com"
+
+      - name: Lint and Format Check
+        run: |
+          ./combine.sh
+          sh -n cccp.sh
+          if [ -n "$(git status --porcelain cccp.sh)" ]; then
+            echo "::error::cccp.sh is out of sync with modular sources! Run ./combine.sh and commit."
+            git diff cccp.sh
+            exit 1
+          fi
+
+      - name: Run ShellSpec (Modular Mode)
+        run: |
+          shellspec --format documentation
+
+      - name: Run ShellSpec (Bundled Mode)
+        run: |
+          CCCP_TEST_TARGET=bundled shellspec --format documentation
+
+  release:
+    name: Publish Release or Nightly
+    needs: lint-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build standalone cccp.sh
+        run: |
+          ./combine.sh
+          sh -n cccp.sh
+
+      - name: Gosplan SemVer Quality Check
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${{ github.ref_name }}"
+          CLEAN_VER="${TAG#v}"
+          if [ ! -f VERSION ]; then
+            echo "::error::VERSION file does not exist in release commit!"
+            exit 1
+          fi
+          FILE_VER=$(head -n 1 VERSION | tr -d ' \r\n')
+          if [ "$CLEAN_VER" != "$FILE_VER" ]; then
+            echo "::error::Tag '$TAG' does not match VERSION file content ('$FILE_VER')!"
+            exit 1
+          fi
+          echo "Gosplan SemVer verification passed: tag '$TAG' matches VERSION '$FILE_VER'."
+
+      - name: Publish Official Tag Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          CLEAN_VER="${TAG#v}"
+          TAG_SUBJECT=$(git tag -l --format="%(contents:subject)" "$TAG" 2>/dev/null || true)
+          RELEASE_TITLE="$TAG"
+          if echo "$TAG_SUBJECT" | grep -q ': '; then
+            TITLE_PART=$(echo "$TAG_SUBJECT" | sed -E 's/^[^:]+: //')
+            RELEASE_TITLE="$TAG - $TITLE_PART"
+          fi
+          
+          # Extract notes from CHANGELOG.md
+          NOTES=$(awk -v t1="$TAG" -v t2="$CLEAN_VER" '
+            $0 ~ "^### \\[" t1 "\\]" || $0 ~ "^### \\[" t2 "\\]" { in_section = 1; next }
+            in_section && ($0 ~ "^###? \\[" || $0 ~ "^## ") { in_section = 0 }
+            in_section { print }
+          ' CHANGELOG.md 2>/dev/null || true)
+          
+          if ! echo "$NOTES" | grep -q '^[[:space:]]*- '; then
+            NOTES="- Routine maintenance, documentation updates, and operational improvements."
+          fi
+
+          echo "$NOTES" > /tmp/release_notes.md
+
+          API_URL="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://codeberg.org}/api/v1}"
+          REPO="${GITHUB_REPOSITORY:-lumenpink/cccp}"
+
+          # Create release via Forgejo API
+          RELEASE_JSON=$(curl -s -f -X POST \
+            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            "$API_URL/repos/$REPO/releases" \
+            -d @- <<EOF
+          {
+            "tag_name": "$TAG",
+            "name": "$RELEASE_TITLE",
+            "body": $(printf '%s' "$NOTES" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}' | sed '$ s/\\n$//' | sed 's/^/"/' | sed 's/$/"/'),
+            "draft": false,
+            "prerelease": false
+          }
+          EOF
+          ) || true
+
+          RELEASE_ID=$(echo "$RELEASE_JSON" | grep -o '"id":[0-9]*' | head -n 1 | cut -d: -f2 || true)
+
+          # Upload artifact
+          if [ -n "$RELEASE_ID" ]; then
+            curl -s -f -X POST \
+              -H "Authorization: token $FORGEJO_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              "$API_URL/repos/$REPO/releases/$RELEASE_ID/assets?name=cccp.sh" \
+              --data-binary @cccp.sh || true
+          fi
+
+      - name: Publish Rolling Nightly Build
+        if: github.ref == 'refs/heads/main'
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          COMMIT_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          PRED_VER=$(./cccp.sh version 2>/dev/null && cat VERSION || echo "dev")
+          
+          API_URL="${GITHUB_API_URL:-${GITHUB_SERVER_URL:-https://codeberg.org}/api/v1}"
+          REPO="${GITHUB_REPOSITORY:-lumenpink/cccp}"
+
+          # Delete existing nightly release if present
+          EXISTING_NIGHTLY=$(curl -s -H "Authorization: token $FORGEJO_TOKEN" "$API_URL/repos/$REPO/releases/tags/nightly" || true)
+          EXISTING_ID=$(echo "$EXISTING_NIGHTLY" | grep -o '"id":[0-9]*' | head -n 1 | cut -d: -f2 || true)
+          if [ -n "$EXISTING_ID" ]; then
+            curl -s -X DELETE -H "Authorization: token $FORGEJO_TOKEN" "$API_URL/repos/$REPO/releases/$EXISTING_ID" || true
+          fi
+
+          NIGHTLY_BODY="Automated rolling nightly build from branch main at commit $COMMIT_HASH ($COMMIT_DATE).\n\n**Predicted Next Version:** \`$PRED_VER\`\n\n### Standalone Download\n\`\`\`bash\ncurl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh -o cccp.sh && chmod +x cccp.sh\n\`\`\`"
+
+          RELEASE_JSON=$(curl -s -f -X POST \
+            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            "$API_URL/repos/$REPO/releases" \
+            -d @- <<EOF
+          {
+            "tag_name": "nightly",
+            "target_commitish": "main",
+            "name": "Nightly Build ($COMMIT_HASH)",
+            "body": "$NIGHTLY_BODY",
+            "draft": false,
+            "prerelease": true
+          }
+          EOF
+          ) || true
+
+          RELEASE_ID=$(echo "$RELEASE_JSON" | grep -o '"id":[0-9]*' | head -n 1 | cut -d: -f2 || true)
+          if [ -n "$RELEASE_ID" ]; then
+            curl -s -f -X POST \
+              -H "Authorization: token $FORGEJO_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              "$API_URL/repos/$REPO/releases/$RELEASE_ID/assets?name=cccp.sh" \
+              --data-binary @cccp.sh || true
+          fi
