@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.23+20260921.647c565"
+CCCP_VERSION="2.3.0-dev.25+20260921.d07924f"
 export CCCP_VERSION
 
 # Verify required tools
@@ -789,48 +789,150 @@ cmd_push() {
 parse_remote_url() {
     url="$1"
     clean=$(echo "$url" | sed -e 's/\.git$//' -e 's|/*$||')
+
     case "$clean" in
-        *github.com[:/]*)
-            repo_path=$(echo "$clean" | sed -e 's|^.*github\.com[:/]||' -e 's|^/*||')
-            owner=$(echo "$repo_path" | cut -d'/' -f1)
-            repo=$(echo "$repo_path" | cut -d'/' -f2)
-            if [ -n "$owner" ] && [ -n "$repo" ]; then
-                echo "github $owner $repo"
-                return 0
-            fi
+        *://*)
+            no_proto=$(echo "$clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
+            host_part=$(echo "$no_proto" | cut -d'/' -f1)
+            host=$(echo "$host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
+            path=$(echo "$no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
             ;;
-        *codeberg.org[:/]*)
-            repo_path=$(echo "$clean" | sed -e 's|^.*codeberg\.org[:/]||' -e 's|^/*||')
-            owner=$(echo "$repo_path" | cut -d'/' -f1)
-            repo=$(echo "$repo_path" | cut -d'/' -f2)
-            if [ -n "$owner" ] && [ -n "$repo" ]; then
-                echo "codeberg $owner $repo"
-                return 0
-            fi
+        *:*)
+            host_part=$(echo "$clean" | sed -e 's|:.*$||')
+            host=$(echo "$host_part" | sed -e 's|^.*@||')
+            path=$(echo "$clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
+            ;;
+        *)
+            return 1
             ;;
     esac
-    return 1
+
+    owner=$(echo "$path" | sed -e 's|/[^/]*$||')
+    repo=$(echo "$path" | sed -e 's|^.*/||')
+
+    [ -n "$host" ] && [ -n "$owner" ] && [ -n "$repo" ] || return 1
+    echo "$host $owner $repo"
+    return 0
 }
 
 parse_codeberg_url() {
     if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        prov=$(echo "$parsed" | cut -d' ' -f1)
-        if [ "$prov" = "codeberg" ]; then
-            echo "$parsed" | cut -d' ' -f2,3
-            return 0
-        fi
+        host=$(echo "$parsed" | cut -d' ' -f1)
+        owner=$(echo "$parsed" | cut -d' ' -f2)
+        repo=$(echo "$parsed" | cut -d' ' -f3)
+        case "$host" in
+            *codeberg.org*)
+                echo "$owner $repo"
+                return 0
+                ;;
+        esac
     fi
     return 1
 }
 
 parse_github_url() {
     if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        prov=$(echo "$parsed" | cut -d' ' -f1)
-        if [ "$prov" = "github" ]; then
-            echo "$parsed" | cut -d' ' -f2,3
-            return 0
+        host=$(echo "$parsed" | cut -d' ' -f1)
+        owner=$(echo "$parsed" | cut -d' ' -f2)
+        repo=$(echo "$parsed" | cut -d' ' -f3)
+        case "$host" in
+            *github.com*)
+                echo "$owner $repo"
+                return 0
+                ;;
+        esac
+    fi
+    return 1
+}
+
+parse_gitlab_url() {
+    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        host=$(echo "$parsed" | cut -d' ' -f1)
+        owner=$(echo "$parsed" | cut -d' ' -f2)
+        repo=$(echo "$parsed" | cut -d' ' -f3)
+        case "$host" in
+            gitlab.com|framagit.org)
+                echo "$owner $repo"
+                return 0
+                ;;
+        esac
+    fi
+    return 1
+}
+
+detect_forge_provider() {
+    host="$1"
+    [ -z "$host" ] && return 1
+
+    # 1. Check local config override if set
+    cfg_provider="${TICKETS_PROVIDER:-}"
+    if [ -z "$cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
+        git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+        if [ -n "$git_root" ] && [ -f "$git_root/.cccprc" ]; then
+            cfg_provider="$(read_file_key "$git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
         fi
     fi
+    if [ -n "$cfg_provider" ]; then
+        echo "$cfg_provider"
+        return 0
+    fi
+
+    # 2. Fast-path: Deterministic domain lookup
+    case "$host" in
+        github.com)
+            echo "github"
+            return 0
+            ;;
+        codeberg.org|gitea.com)
+            echo "forgejo"
+            return 0
+            ;;
+        framagit.org|gitlab.com)
+            echo "gitlab"
+            return 0
+            ;;
+        *.sr.ht|git.sr.ht|todo.sr.ht)
+            echo "sourcehut"
+            return 0
+            ;;
+    esac
+
+    # 3. Cache lookup (in .git/cccp_provider_cache)
+    git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+    cache_file=""
+    if [ -n "$git_dir" ] && [ -d "$git_dir" ]; then
+        cache_file="$git_dir/cccp_provider_cache"
+        if [ -f "$cache_file" ]; then
+            cached=$(grep -E "^${host}:" "$cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
+            if [ -n "$cached" ]; then
+                echo "$cached"
+                return 0
+            fi
+        fi
+    fi
+
+    # 4. Active Probing (Strict detection without false assumptions)
+    detected=""
+    probe_gitea=$(curl -s -f -m 3 "https://${host}/api/v1/version" 2>/dev/null || true)
+    if [ -n "$probe_gitea" ] && printf '%s\n' "$probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
+        detected="forgejo"
+    else
+        probe_gl=$(curl -s -f -I -m 3 "https://${host}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${host}/" 2>/dev/null || true)
+        case "$probe_gl" in
+            *gitlab*|*GitLab*)
+                detected="gitlab"
+                ;;
+        esac
+    fi
+
+    if [ -n "$detected" ]; then
+        if [ -n "$cache_file" ]; then
+            echo "${host}:${detected}" >> "$cache_file"
+        fi
+        echo "$detected"
+        return 0
+    fi
+
     return 1
 }
 
@@ -838,6 +940,20 @@ resolve_tickets_info() {
     resolved_provider="${TICKETS_PROVIDER:-}"
     resolved_owner="${TICKETS_OWNER:-${CODEBERG_OWNER:-${CODEBERG_USER:-${GITHUB_OWNER:-${GITHUB_USER:-}}}}}"
     resolved_repo="${TICKETS_REPO:-${CODEBERG_REPO:-${GITHUB_REPO:-}}}"
+    resolved_host=""
+
+    # If provider, owner and repo are already known from environment/flags
+    if [ -n "$resolved_provider" ] && [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
+        case "$resolved_provider" in
+            github) resolved_host="github.com" ;;
+            codeberg|forgejo) resolved_host="codeberg.org" ;;
+            gitlab) resolved_host="framagit.org" ;;
+            sourcehut) resolved_host="git.sr.ht" ;;
+            *) resolved_host="codeberg.org" ;;
+        esac
+        echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
+        return 0
+    fi
 
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -848,14 +964,17 @@ resolve_tickets_info() {
         for u in "$origin_push_url" "$origin_fetch_url"; do
             [ -z "$u" ] && continue
             if parsed=$(parse_remote_url "$u"); then
-                p_prov=$(echo "$parsed" | cut -d' ' -f1)
+                p_host=$(echo "$parsed" | cut -d' ' -f1)
                 p_owner=$(echo "$parsed" | cut -d' ' -f2)
                 p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                resolved_provider="${resolved_provider:-$p_prov}"
-                resolved_owner="${resolved_owner:-$p_owner}"
-                resolved_repo="${resolved_repo:-$p_repo}"
-                echo "$resolved_provider $resolved_owner $resolved_repo"
-                return 0
+                if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
+                    resolved_provider="${resolved_provider:-$p_prov}"
+                    resolved_owner="${resolved_owner:-$p_owner}"
+                    resolved_repo="${resolved_repo:-$p_repo}"
+                    resolved_host="$p_host"
+                    echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
+                    return 0
+                fi
             fi
         done
 
@@ -868,14 +987,17 @@ resolve_tickets_info() {
             for u in "$rmt_push_url" "$rmt_fetch_url"; do
                 [ -z "$u" ] && continue
                 if parsed=$(parse_remote_url "$u"); then
-                    p_prov=$(echo "$parsed" | cut -d' ' -f1)
+                    p_host=$(echo "$parsed" | cut -d' ' -f1)
                     p_owner=$(echo "$parsed" | cut -d' ' -f2)
                     p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                    resolved_provider="${resolved_provider:-$p_prov}"
-                    resolved_owner="${resolved_owner:-$p_owner}"
-                    resolved_repo="${resolved_repo:-$p_repo}"
-                    echo "$resolved_provider $resolved_owner $resolved_repo"
-                    return 0
+                    if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
+                        resolved_provider="${resolved_provider:-$p_prov}"
+                        resolved_owner="${resolved_owner:-$p_owner}"
+                        resolved_repo="${resolved_repo:-$p_repo}"
+                        resolved_host="$p_host"
+                        echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
+                        return 0
+                    fi
                 fi
             done
         done
@@ -886,11 +1008,20 @@ resolve_tickets_info() {
         if [ -z "$resolved_provider" ]; then
             if [ -n "${GITHUB_OWNER:-}" ] || [ -n "${GITHUB_REPO:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
                 resolved_provider="github"
+                resolved_host="github.com"
             else
-                resolved_provider="codeberg"
+                resolved_provider="forgejo"
+                resolved_host="codeberg.org"
             fi
+        else
+            case "$resolved_provider" in
+                github) resolved_host="${resolved_host:-github.com}" ;;
+                codeberg|forgejo) resolved_host="${resolved_host:-codeberg.org}" ;;
+                gitlab) resolved_host="${resolved_host:-framagit.org}" ;;
+                sourcehut) resolved_host="${resolved_host:-git.sr.ht}" ;;
+            esac
         fi
-        echo "$resolved_provider $resolved_owner $resolved_repo"
+        echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
         return 0
     fi
 
@@ -904,12 +1035,128 @@ resolve_codeberg_info() {
     fi
     if info=$(resolve_tickets_info 2>/dev/null); then
         p_prov=$(echo "$info" | cut -d' ' -f1)
-        if [ "$p_prov" = "codeberg" ]; then
+        if [ "$p_prov" = "forgejo" ] || [ "$p_prov" = "codeberg" ]; then
             echo "$info" | cut -d' ' -f2,3
             return 0
         fi
     fi
     return 1
+}
+
+_tickets_fetch_github() {
+    host="$1"
+    owner="$2"
+    repo="$3"
+    token="$4"
+
+    if [ "$host" = "github.com" ]; then
+        api_url="https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30"
+    else
+        api_url="https://${host}/api/v3/repos/${owner}/${repo}/issues?state=open&per_page=30"
+    fi
+
+    auth_header=""
+    [ -n "$token" ] && auth_header="Authorization: Bearer ${token}"
+
+    if [ -n "$auth_header" ]; then
+        resp=$(curl -s -f -H "User-Agent: cccp" -H "$auth_header" "$api_url" 2>/dev/null || true)
+    else
+        resp=$(curl -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
+    fi
+
+    [ -z "$resp" ] && return 1
+    printf '%s\n' "$resp" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1 || return 1
+
+    printf '%s\n' "$resp" | jq -c '.[] | select(.pull_request == null) | {
+        number: .number,
+        title: .title,
+        state: .state,
+        labels: (if (.labels | length) > 0 then [.labels[].name] else [] end),
+        html_url: .html_url,
+        body: .body
+    }'
+}
+
+_tickets_fetch_forgejo() {
+    host="$1"
+    owner="$2"
+    repo="$3"
+    token="$4"
+
+    api_url="https://${host}/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
+
+    if [ -n "$token" ]; then
+        resp=$(curl -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
+    else
+        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+    fi
+
+    [ -z "$resp" ] && return 1
+    printf '%s\n' "$resp" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1 || return 1
+
+    printf '%s\n' "$resp" | jq -c '.[] | {
+        number: .number,
+        title: .title,
+        state: .state,
+        labels: (if (.labels | length) > 0 then [.labels[].name] else [] end),
+        html_url: .html_url,
+        body: .body
+    }'
+}
+
+_tickets_fetch_gitlab() {
+    host="$1"
+    owner="$2"
+    repo="$3"
+    token="$4"
+
+    url_encoded=$(echo "${owner}/${repo}" | sed -e 's|/|%2F|g')
+    api_url="https://${host}/api/v4/projects/${url_encoded}/issues?state=opened&per_page=30"
+
+    if [ -n "$token" ]; then
+        resp=$(curl -s -f -H "PRIVATE-TOKEN: ${token}" "$api_url" 2>/dev/null || true)
+    else
+        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+    fi
+
+    [ -z "$resp" ] && return 1
+    printf '%s\n' "$resp" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1 || return 1
+
+    printf '%s\n' "$resp" | jq -c '.[] | {
+        number: .iid,
+        title: .title,
+        state: .state,
+        labels: (if (.labels | length) > 0 then (.labels | map(if type == "string" then . else .name end)) else [] end),
+        html_url: .web_url,
+        body: .description
+    }'
+}
+
+_tickets_fetch_sourcehut() {
+    host="$1"
+    owner="$2"
+    repo="$3"
+    token="$4"
+
+    owner_clean=$(echo "$owner" | sed 's/^~//')
+    api_url="https://todo.sr.ht/api/user/~${owner_clean}/trackers/${repo}/tickets"
+
+    if [ -n "$token" ]; then
+        resp=$(curl -s -f -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
+    else
+        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+    fi
+
+    [ -z "$resp" ] && return 1
+
+    printf '%s\n' "$resp" | jq -c '.results[]? // .[]? | {
+        number: .id,
+        title: .title,
+        state: .status,
+        labels: [],
+        html_url: ("https://todo.sr.ht/~" + "'"$owner_clean"'" + "/" + "'"$repo"'" + "/" + (.id|tostring)),
+        body: .description
+    }'
 }
 
 check_tickets_rate_limit() {
@@ -1059,10 +1306,11 @@ cmd_tickets() {
         fi
     done
 
-    # Resolve Provider, Owner and Repo
+    # Resolve Provider, Owner, Repo, and Host
     provider="$cli_provider"
     owner="$cli_owner"
     repo="$cli_repo"
+    host=""
 
     if [ -z "$provider" ] || [ -z "$owner" ] || [ -z "$repo" ]; then
         info=$(resolve_tickets_info || true)
@@ -1070,6 +1318,7 @@ cmd_tickets() {
             [ -z "$provider" ] && provider=$(echo "$info" | cut -d' ' -f1)
             [ -z "$owner" ] && owner=$(echo "$info" | cut -d' ' -f2)
             [ -z "$repo" ] && repo=$(echo "$info" | cut -d' ' -f3)
+            host=$(echo "$info" | cut -d' ' -f4)
         fi
     fi
 
@@ -1078,7 +1327,18 @@ cmd_tickets() {
         return 0
     fi
 
-    provider="${provider:-github}"
+    provider="${provider:-forgejo}"
+    [ "$provider" = "codeberg" ] && provider="forgejo"
+
+    if [ -z "$host" ]; then
+        case "$provider" in
+            github) host="github.com" ;;
+            forgejo) host="codeberg.org" ;;
+            gitlab) host="framagit.org" ;;
+            sourcehut) host="git.sr.ht" ;;
+            *) host="codeberg.org" ;;
+        esac
+    fi
 
     # Check rate limit (55 requests/hour)
     if ! check_tickets_rate_limit; then
@@ -1108,35 +1368,51 @@ cmd_tickets() {
     # Ensure target file is gitignored
     ensure_tickets_gitignored "$output_file"
 
-    if [ "$provider" = "github" ]; then
-        api_url="https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30"
-        echo "Fetching open issues from GitHub (${owner}/${repo})..."
-        token="${cli_token:-${GITHUB_TOKEN:-}}"
-        if [ -n "$token" ]; then
-            response=$(curl -s -f -H "User-Agent: cccp" -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
-        else
-            response=$(curl -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
-        fi
-        api_name="GitHub API"
-    else
-        api_url="https://codeberg.org/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
-        echo "Fetching open issues from Codeberg (${owner}/${repo})..."
-        token="${cli_token:-${CODEBERG_TOKEN:-}}"
-        if [ -n "$token" ]; then
-            response=$(curl -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
-        else
-            response=$(curl -s -f "$api_url" 2>/dev/null || true)
-        fi
-        api_name="Codeberg API"
-    fi
+    issues_json=""
+    case "$provider" in
+        github)
+            echo "Fetching open issues from GitHub (${owner}/${repo})..."
+            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${cli_token:-${GITHUB_TOKEN:-}}" || true)
+            ;;
+        forgejo)
+            if [ "$host" = "codeberg.org" ]; then
+                echo "Fetching open issues from Codeberg (${owner}/${repo})..."
+            else
+                echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
+            fi
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${cli_token:-${CODEBERG_TOKEN:-}}" || true)
+            ;;
+        gitlab)
+            if [ "$host" = "framagit.org" ]; then
+                echo "Fetching open issues from Framagit (${owner}/${repo})..."
+            else
+                echo "Fetching open issues from GitLab (${owner}/${repo} on ${host})..."
+            fi
+            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${cli_token:-${GITLAB_TOKEN:-}}" || true)
+            ;;
+        sourcehut)
+            owner_clean=$(echo "$owner" | sed 's/^~//')
+            echo "Fetching open issues from SourceHut (~${owner_clean}/${repo})..."
+            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${cli_token:-${SOURCEHUT_TOKEN:-}}" || true)
+            ;;
+        *)
+            echo "Warning: Unsupported provider '${provider}'." >&2
+            return 0
+            ;;
+    esac
 
-    if [ -z "$response" ] || ! printf '%s\n' "$response" | jq -e . >/dev/null 2>&1; then
+    if [ -z "$issues_json" ]; then
+        case "$provider" in
+            forgejo)
+                api_name="Codeberg API"
+                [ "$host" != "codeberg.org" ] && api_name="Forgejo API"
+                ;;
+            github) api_name="GitHub API" ;;
+            gitlab) api_name="GitLab API" ;;
+            sourcehut) api_name="SourceHut API" ;;
+            *) api_name="${provider} API" ;;
+        esac
         echo "Warning: Failed to retrieve or parse issues from ${api_name} (${owner}/${repo})." >&2
-        return 0
-    fi
-
-    if ! printf '%s\n' "$response" | jq -e 'if type == "array" then true else false end' >/dev/null 2>&1; then
-        echo "Warning: Unexpected response format from ${api_name}." >&2
         return 0
     fi
 
@@ -1155,12 +1431,12 @@ EOF
     count=0
     stopped_early=0
 
-    printf '%s\n' "$response" | jq -c '.[] | select(.pull_request == null)' > "$issues_tmp"
+    printf '%s\n' "$issues_json" > "$issues_tmp"
 
     jq_ticket_filter='
         "## [#" + (.number|tostring) + "] " + .title + "\n" +
         "- **Status**: `" + .state + "`\n" +
-        "- **Labels**: " + (if (.labels | length) > 0 then ([.labels[].name] | join(", ")) else "none" end) + "\n" +
+        "- **Labels**: " + (if (.labels | length) > 0 then (.labels | join(", ")) else "none" end) + "\n" +
         "- **Link**: " + .html_url + "\n\n" +
         "### Description\n" +
         (.body // "_No description provided._") + "\n\n" +

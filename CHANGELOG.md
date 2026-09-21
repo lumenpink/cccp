@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (tickets) implement generic forge detection and multi-driver ticket sync (#5)
   - (tickets) add GitHub issues sync and Gosplan rate limiter
   - (agent) add fill subcommand and generate template despite missing variables
   - (codeberg) add cccp codeberg setup command (#4)

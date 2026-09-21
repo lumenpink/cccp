@@ -47,35 +47,108 @@ Describe 'tickets'
     It 'parses SSH GitHub URL'
       When call parse_remote_url "git@github.com:alice/wonderland.git"
       The status should be success
-      The output should eq "github alice wonderland"
+      The output should eq "github.com alice wonderland"
     End
 
     It 'parses HTTPS GitHub URL'
       When call parse_remote_url "https://github.com/bob/builder.git"
       The status should be success
-      The output should eq "github bob builder"
+      The output should eq "github.com bob builder"
     End
 
     It 'parses HTTPS GitHub URL without .git'
       When call parse_remote_url "https://github.com/carol/crypto"
       The status should be success
-      The output should eq "github carol crypto"
+      The output should eq "github.com carol crypto"
     End
 
     It 'parses SSH Codeberg URL'
       When call parse_remote_url "git@codeberg.org:alice/wonderland.git"
       The status should be success
-      The output should eq "codeberg alice wonderland"
+      The output should eq "codeberg.org alice wonderland"
     End
 
     It 'parses HTTPS Codeberg URL'
       When call parse_remote_url "https://codeberg.org/bob/builder.git"
       The status should be success
-      The output should eq "codeberg bob builder"
+      The output should eq "codeberg.org bob builder"
     End
 
-    It 'returns failure for unsupported git host URLs'
-      When call parse_remote_url "git@gitlab.com:someone/project.git"
+    It 'parses SSH Framagit URL'
+      When call parse_remote_url "git@framagit.org:myteam/myrepo.git"
+      The status should be success
+      The output should eq "framagit.org myteam myrepo"
+    End
+
+    It 'parses HTTPS GitLab URL with subgroups'
+      When call parse_remote_url "https://gitlab.com/group/subgroup/repo.git"
+      The status should be success
+      The output should eq "gitlab.com group/subgroup repo"
+    End
+
+    It 'parses SSH SourceHut URL'
+      When call parse_remote_url "git@git.sr.ht:~alice/wonderland"
+      The status should be success
+      The output should eq "git.sr.ht ~alice wonderland"
+    End
+
+    It 'returns failure for invalid URLs'
+      When call parse_remote_url "invalid-url"
+      The status should be failure
+    End
+  End
+
+  Describe 'detect_forge_provider'
+    It 'maps github.com to github'
+      When call detect_forge_provider "github.com"
+      The status should be success
+      The output should eq "github"
+    End
+
+    It 'maps codeberg.org to forgejo'
+      When call detect_forge_provider "codeberg.org"
+      The status should be success
+      The output should eq "forgejo"
+    End
+
+    It 'maps framagit.org to gitlab'
+      When call detect_forge_provider "framagit.org"
+      The status should be success
+      The output should eq "gitlab"
+    End
+
+    It 'maps git.sr.ht to sourcehut'
+      When call detect_forge_provider "git.sr.ht"
+      The status should be success
+      The output should eq "sourcehut"
+    End
+
+    It 'actively probes self-hosted Forgejo instance'
+      curl() {
+        echo '{"version": "7.0.4"}'
+      }
+      When call detect_forge_provider "git.customforge.net"
+      The status should be success
+      The output should eq "forgejo"
+    End
+
+    It 'actively probes self-hosted GitLab instance'
+      curl() {
+        if [ "$1" = "-s" ] && [ "$2" = "-f" ] && [ "$3" = "-m" ]; then
+          return 1
+        fi
+        echo "HTTP/2 200\r\nserver: nginx\r\nx-gitlab-meta: ok\r\n"
+      }
+      When call detect_forge_provider "gitlab.mycompany.internal"
+      The status should be success
+      The output should eq "gitlab"
+    End
+
+    It 'fails when custom host probe cannot be detected'
+      curl() {
+        return 1
+      }
+      When call detect_forge_provider "git.unknown.xyz"
       The status should be failure
     End
   End
@@ -130,13 +203,32 @@ Describe 'tickets'
     End
   End
 
+  Describe 'parse_gitlab_url'
+    It 'parses Framagit URL'
+      When call parse_gitlab_url "git@framagit.org:alice/wonderland.git"
+      The status should be success
+      The output should eq "alice wonderland"
+    End
+
+    It 'parses GitLab URL'
+      When call parse_gitlab_url "https://gitlab.com/bob/builder.git"
+      The status should be success
+      The output should eq "bob builder"
+    End
+
+    It 'returns failure for non-gitlab URLs'
+      When call parse_gitlab_url "git@github.com:someone/project.git"
+      The status should be failure
+    End
+  End
+
   Describe 'resolve_tickets_info'
     It 'resolves GitHub remote origin'
       git remote add origin "git@github.com:lumenpink/cccp.git"
 
       When call resolve_tickets_info
       The status should be success
-      The output should eq "github lumenpink cccp"
+      The output should eq "github lumenpink cccp github.com"
     End
 
     It 'resolves Codeberg remote origin'
@@ -144,7 +236,15 @@ Describe 'tickets'
 
       When call resolve_tickets_info
       The status should be success
-      The output should eq "codeberg lumenpink cccp"
+      The output should eq "forgejo lumenpink cccp codeberg.org"
+    End
+
+    It 'resolves Framagit remote origin'
+      git remote add origin "git@framagit.org:myteam/myrepo.git"
+
+      When call resolve_tickets_info
+      The status should be success
+      The output should eq "gitlab myteam myrepo framagit.org"
     End
 
     It 'prioritizes remote pushurl over fetch url'
@@ -153,7 +253,7 @@ Describe 'tickets'
 
       When call resolve_tickets_info
       The status should be success
-      The output should eq "github push repo"
+      The output should eq "github push repo github.com"
     End
 
     It 'prioritizes TICKETS_OWNER and TICKETS_REPO'
@@ -164,9 +264,10 @@ Describe 'tickets'
 
       When call resolve_tickets_info
       The status should be success
-      The output should eq "github myorg myrepo"
+      The output should eq "github myorg myrepo github.com"
     End
   End
+
 
   Describe 'resolve_codeberg_info'
     It 'prioritizes CODEBERG_OWNER and CODEBERG_REPO'
@@ -238,7 +339,11 @@ Describe 'tickets'
     End
 
     It 'exits 0 with warning on stderr when no supported repo is found'
-      git remote add origin "git@gitlab.com:foo/bar.git"
+      git remote add origin "git@unknown-host.xyz:foo/bar.git"
+
+      curl() {
+        return 1
+      }
 
       test_no_repo() {
         cmd_tickets
@@ -356,6 +461,37 @@ JSON
       The contents of file "$target" should include "A Real Bug Issue"
       The contents of file "$target" should include "Another Genuine Issue"
       The contents of file "$target" should not include "Feature PR that must be skipped"
+    End
+
+    It 'syncs GitLab/Framagit tickets and normalizes fields'
+      git remote add origin "git@framagit.org:myorg/myproject.git"
+
+      curl() {
+        cat << 'JSON'
+[
+  {
+    "iid": 42,
+    "title": "GitLab Genuine Issue",
+    "state": "opened",
+    "labels": ["bug", "urgent"],
+    "web_url": "https://framagit.org/myorg/myproject/-/issues/42",
+    "description": "GitLab issue markdown body."
+  }
+]
+JSON
+      }
+
+      target="$TEST_DIR/gl_tickets.md"
+      test_gl_sync() {
+        cmd_tickets --file "$target"
+      }
+
+      When call test_gl_sync
+      The status should be success
+      The output should include "Fetching open issues from Framagit"
+      The output should include "Done! Synced 1 complete ticket(s)"
+      The contents of file "$target" should include "GitLab Genuine Issue"
+      The contents of file "$target" should include "bug, urgent"
     End
 
     It 'gracefully exits 0 when rate limit is hit in cmd_tickets'
