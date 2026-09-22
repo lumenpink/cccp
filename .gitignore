@@ -5,4 +5,9 @@ tickets.md
 tickets.tmp
 *.tmp
 spec/reports/
+site/cccp.sh
+site/version
+site/nightly/
+site/releases/
+
 

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (dist) configure stable and nightly release publishing on cccp.2lp.in (closes #14)
   - (ci) migrate cloudflare deployment to workers static assets with custom domain
   - (site) update header to standalone svg badge, add author and unlicense links
   - (site) add programmer credit with trans flag to footer (closes #9)

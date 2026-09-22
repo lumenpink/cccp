@@ -245,7 +245,7 @@ jobs:
     name: "Deploy Documentation Site"
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name == 'push'
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -261,6 +261,27 @@ jobs:
           chmod +x bin/verify-site.sh
           ./bin/verify-site.sh
 
+      - name: "Prepare Release Artifacts for Distribution"
+        run: |
+          ./combine.sh
+          chmod +x cccp.sh
+
+          # Setup Stable & Root endpoints
+          cp cccp.sh site/cccp.sh
+          head -n 1 VERSION | tr -d ' \r\n' > site/version
+
+          # Setup Nightly channel endpoints
+          mkdir -p site/nightly
+          cp cccp.sh site/nightly/cccp.sh
+          head -n 1 VERSION | tr -d ' \r\n' > site/nightly/version
+
+          # If release tag, setup versioned release archive
+          if [ -n "${GITHUB_REF_NAME:-}" ] && echo "$GITHUB_REF_NAME" | grep -q '^v[0-9]'; then
+            mkdir -p "site/releases/${GITHUB_REF_NAME}"
+            cp cccp.sh "site/releases/${GITHUB_REF_NAME}/cccp.sh"
+            echo "$GITHUB_REF_NAME" > "site/releases/${GITHUB_REF_NAME}/version"
+          fi
+
       - name: "Deploy to Cloudflare Workers (cccp.2lp.in)"
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
@@ -269,6 +290,7 @@ jobs:
             echo "Publishing static documentation site via Cloudflare Workers..."
             npx wrangler deploy || echo "::warning::Cloudflare deployment exited with status $?. Continuing with redundancy deployment."
           fi
+
 
 
       - name: "Deploy to Codeberg Pages (Redundancy)"
