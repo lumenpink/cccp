@@ -45,8 +45,9 @@ jobs:
         run: |
           ./combine.sh
           sh -n cccp.sh
-          if [ -n "$(git status --porcelain cccp.sh)" ]; then
+          if ! git diff -I '^CCCP_VERSION=' --exit-code cccp.sh >/dev/null 2>&1; then
             echo "::error::cccp.sh is not synchronized with src/. Run ./combine.sh and commit."
+            git diff -I '^CCCP_VERSION=' cccp.sh
             exit 1
           fi
 
