@@ -47,11 +47,10 @@ To prevent exceeding public API rate limits (such as GitHub's 60 requests/hour u
 
 CCCP includes an automated Forgejo Actions pipeline (`.forgejo/workflows/ci.yml`) that validates and publishes the static documentation website (`site/`) upon pushing to the `main` branch:
 
-- **Primary Target — Cloudflare Pages**:
+- **Primary Target — Cloudflare Workers (Static Assets)**:
   - Domain: [`https://cccp.2lp.in`](https://cccp.2lp.in)
-  - Configuration: Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets.
-  - Project Name: Configurable via repository variable `CLOUDFLARE_PROJECT_NAME` (defaults to `cccp`).
-  - Security & Caching: Configured via [`site/_headers`](../site/_headers).
+  - Configuration: Defined via [`wrangler.jsonc`](../wrangler.jsonc) with automated custom domain routing and edge asset caching.
+  - Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in repository secrets.
   - Graceful Fallback: If Cloudflare credentials are not configured, the pipeline logs an informational notice without failing the CI run.
 - **Redundancy Target — Codeberg Pages**:
   - Domain: `https://<user>.codeberg.page/<repo>/`

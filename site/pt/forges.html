@@ -121,7 +121,7 @@ TICKETS_OWNER=meutime TICKETS_REPO=meuprojeto cccp tickets</code></pre>
           O CCCP inclui um pipeline automatizado no Forgejo Actions (<code>.forgejo/workflows/ci.yml</code>) que valida e publica este site de documentação a cada push na branch <code>main</code>:
         </p>
         <ul>
-          <li><strong>Cloudflare Pages (<a href="https://cccp.2lp.in" target="_blank" rel="noopener">cccp.2lp.in</a>)</strong>: Alvo principal de publicação via upload direto com <code>wrangler</code>. Nome do projeto configurável via <code>CLOUDFLARE_PROJECT_NAME</code>.</li>
+          <li><strong>Cloudflare Workers (<a href="https://cccp.2lp.in" target="_blank" rel="noopener">cccp.2lp.in</a>)</strong>: Alvo principal de publicação com ativos estáticos e roteamento automático de domínio customizado via <code>wrangler.jsonc</code>.</li>
           <li><strong>Codeberg Pages (<a href="https://lumenpink.codeberg.page/cccp/" target="_blank" rel="noopener">branch pages</a>)</strong>: Espelho redundante atualizado automaticamente com o token nativo da action.</li>
           <li><strong>Validação de Integridade</strong>: <code>bin/verify-site.sh</code> garante zero links quebrados antes da publicação.</li>
         </ul>

@@ -121,7 +121,7 @@ TICKETS_OWNER=myteam TICKETS_REPO=myproject cccp tickets</code></pre>
           CCCP features an automated Forgejo Actions pipeline (<code>.forgejo/workflows/ci.yml</code>) that validates and deploys this documentation site on every push to <code>main</code>:
         </p>
         <ul>
-          <li><strong>Cloudflare Pages (<a href="https://cccp.2lp.in" target="_blank" rel="noopener">cccp.2lp.in</a>)</strong>: Primary deployment target via <code>wrangler</code> direct upload. Project name configured via <code>CLOUDFLARE_PROJECT_NAME</code>.</li>
+          <li><strong>Cloudflare Workers (<a href="https://cccp.2lp.in" target="_blank" rel="noopener">cccp.2lp.in</a>)</strong>: Primary deployment target with static assets and automated custom domain routing configured via <code>wrangler.jsonc</code>.</li>
           <li><strong>Codeberg Pages (<a href="https://lumenpink.codeberg.page/cccp/" target="_blank" rel="noopener">pages branch</a>)</strong>: Redundant mirror automatically pushed using the action's built-in token.</li>
           <li><strong>Site Verification</strong>: <code>bin/verify-site.sh</code> guarantees zero broken links before deployment.</li>
         </ul>

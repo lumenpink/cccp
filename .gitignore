@@ -1,6 +1,8 @@
 # CCCP - Ignored Files & Artifacts
 .antigravity/
+.wrangler/
 tickets.md
 tickets.tmp
 *.tmp
 spec/reports/
+

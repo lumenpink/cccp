@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (ci) migrate cloudflare deployment to workers static assets with custom domain
   - (site) update header to standalone svg badge, add author and unlicense links
   - (site) add programmer credit with trans flag to footer (closes #9)
   - (site) adicionar site estatico bilingue, design sovietico e servidor de preview (closes #7)
