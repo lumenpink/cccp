@@ -45,4 +45,50 @@ Describe 'completion'
       The output should include "# CCCP Bash Completion"
     End
   End
+
+  Describe 'generate_bash_completion'
+    It 'generates syntactically valid bash completion script'
+      run_and_validate_bash() {
+        tmp_script="$(mktemp)"
+        generate_bash_completion > "$tmp_script"
+        bash -n "$tmp_script"
+        ret=$?
+        rm -f "$tmp_script"
+        return $ret
+      }
+      When call run_and_validate_bash
+      The status should be success
+    End
+
+    It 'contains primary completion function and registration'
+      When call generate_bash_completion
+      The status should be success
+      The output should include "_cccp_completions()"
+      The output should include "complete -F _cccp_completions cccp cccp.sh"
+    End
+  End
+
+  Describe 'generate_zsh_completion'
+    It 'generates zsh completion headers and commands'
+      When call generate_zsh_completion
+      The status should be success
+      The output should include "#compdef cccp cccp.sh"
+      The output should include "_cccp()"
+      The output should include "cz:"
+      The output should include "version:"
+      The output should include "tickets:"
+    End
+  End
+
+  Describe 'generate_fish_completion'
+    It 'generates fish completion directives for core commands'
+      When call generate_fish_completion
+      The status should be success
+      The output should include "# CCCP Fish Completion"
+      The output should include "complete -c cccp -f"
+      The output should include "cz"
+      The output should include "tag"
+      The output should include "soviet"
+    End
+  End
 End

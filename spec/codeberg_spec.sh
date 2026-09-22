@@ -144,4 +144,53 @@ Describe "codeberg"
             The status should be success
         End
     End
+
+    Describe "_codeberg_enable_sync"
+        It "sets target when key is empty"
+            When call _codeberg_enable_sync "$TEST_DIR/.cccprc" "tickets"
+            The status should be success
+            The file "$TEST_DIR/.cccprc" should be exist
+            The contents of file "$TEST_DIR/.cccprc" should eq "post_push_sync = tickets"
+        End
+
+        It "appends target with comma when key already has values"
+            write_file_key "$TEST_DIR/.cccprc" "post_push_sync" "tickets"
+            When call _codeberg_enable_sync "$TEST_DIR/.cccprc" "agent"
+            The status should be success
+            The contents of file "$TEST_DIR/.cccprc" should eq "post_push_sync = tickets, agent"
+        End
+
+        It "is idempotent and does not duplicate target"
+            write_file_key "$TEST_DIR/.cccprc" "post_push_sync" "tickets, agent"
+            When call _codeberg_enable_sync "$TEST_DIR/.cccprc" "tickets"
+            The status should be success
+            The contents of file "$TEST_DIR/.cccprc" should eq "post_push_sync = tickets, agent"
+        End
+    End
+
+    Describe "_codeberg_setup"
+        It "fails when executed outside a git repository"
+            NON_GIT_DIR="$(mktemp -d)"
+            run_outside() {
+                cd "$NON_GIT_DIR"
+                _codeberg_setup
+            }
+            When call run_outside
+            The status should be failure
+            The error should include "Not inside a git repository"
+            rm -rf "$NON_GIT_DIR"
+        End
+
+        It "rejects unknown option"
+            When call _codeberg_setup "--invalid-option"
+            The status should be failure
+            The error should include "Unknown option"
+        End
+
+        It "shows help on -h flag"
+            When call _codeberg_setup "-h"
+            The status should be success
+            The output should include "Usage:"
+        End
+    End
 End

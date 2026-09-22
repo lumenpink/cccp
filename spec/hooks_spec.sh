@@ -521,6 +521,20 @@ Describe 'hooks'
       unset POST_PUSH_SYNC || true
     End
 
+    It 'is_post_push_sync_agents_enabled alias returns success when agent sync is enabled'
+      export POST_PUSH_SYNC_AGENT=1
+      When call is_post_push_sync_agents_enabled
+      The status should be success
+      unset POST_PUSH_SYNC_AGENT || true
+    End
+
+    It 'is_post_push_sync_agents_enabled alias returns failure when agent sync is disabled'
+      export POST_PUSH_SYNC_AGENT=0
+      When call is_post_push_sync_agents_enabled
+      The status should be failure
+      unset POST_PUSH_SYNC_AGENT || true
+    End
+
     It 'reports active post-push status and sync actions in get_post_push_hook_info'
       export POST_PUSH_SYNC="tickets, agent"
       When call get_post_push_hook_info

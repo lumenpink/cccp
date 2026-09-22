@@ -564,5 +564,34 @@ JSON
       When call _tickets_fetch_gitlab "gitlab.com" "owner" "repo" ""
       The status should be failure
     End
+
+    It '_tickets_fetch_sourcehut returns failure when curl fails'
+      curl() { return 1; }
+      When call _tickets_fetch_sourcehut "git.sr.ht" "owner" "repo" ""
+      The status should be failure
+    End
+
+    It '_tickets_fetch_sourcehut parses and normalizes SourceHut tickets'
+      curl() {
+        cat << 'JSON'
+{
+  "results": [
+    {
+      "id": 42,
+      "title": "SourceHut Tracker Ticket",
+      "status": "in-progress",
+      "description": "Fix bug on git.sr.ht"
+    }
+  ]
+}
+JSON
+      }
+      When call _tickets_fetch_sourcehut "git.sr.ht" "~lumen" "cccp" ""
+      The status should be success
+      The output should include "\"number\":42"
+      The output should include "\"title\":\"SourceHut Tracker Ticket\""
+      The output should include "\"state\":\"in-progress\""
+      The output should include "https://todo.sr.ht/~lumen/cccp/42"
+    End
   End
 End
