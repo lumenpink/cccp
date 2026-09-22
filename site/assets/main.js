@@ -1,15 +1,6 @@
 // CCCP Soviet Documentation Site Scripts
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Remove any polyglot shell shebang text nodes from DOM
-  if (document.body) {
-    Array.from(document.body.childNodes).forEach((node) => {
-      if (node.nodeType === Node.TEXT_NODE && (node.textContent.includes('#!/bin/sh') || node.textContent.includes('<<\\EOF'))) {
-        node.remove();
-      }
-    });
-  }
-
   // Add copy-to-clipboard buttons to all code blocks
   document.querySelectorAll('pre').forEach((block) => {
     const copyButton = document.createElement('button');
