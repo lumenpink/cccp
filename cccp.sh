@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.26+20260921.233189a"
+CCCP_VERSION="2.3.0-dev.29+20260921.5343f22"
 export CCCP_VERSION
 
 # Verify required tools
@@ -2347,12 +2347,8 @@ install_git_hooks() {
         # Handle existing hook (whether regular file or symlink)
         if [ -e "$hook_path" ] || [ -L "$hook_path" ]; then
             backup_name="$hook_path.old"
-            counter=1
-            while { [ -e "$backup_name" ] || [ -L "$backup_name" ]; } && [ "$counter" -le 100 ]; do
-                backup_name="$hook_path.old.$counter"
-                counter=$((counter + 1))
-            done
-            mv "$hook_path" "$backup_name"
+            rm -f "$hook_path.old."*
+            mv -f "$hook_path" "$backup_name"
             echo "Backed up existing hook to: $backup_name"
         fi
 
