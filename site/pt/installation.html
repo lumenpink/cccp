@@ -60,8 +60,11 @@
         Instalar o CCCP no <code>PATH</code> do seu sistema torna o executável <code>cccp</code> acessível universalmente a partir de qualquer diretório ou terminal:
       </p>
 
-      <pre><code># Baixar e instalar em ~/.local/bin/cccp (ou /usr/local/bin/cccp se executado como root)
-curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g</code></pre>
+      <pre><code># Instalação automatizada em uma linha (instala em ~/.local/bin/cccp)
+curl -fsSL https://cccp.2lp.in | sh
+
+# Ou instale a versão de desenvolvimento rolling (nightly):
+curl -fsSL https://cccp.2lp.in | sh -s -- nightly</code></pre>
 
       <p>
         Caso já tenha clonado o repositório localmente:

@@ -14,8 +14,11 @@ CCCP can be deployed in two modes:
 The fastest way to equip your developer workstation is via the automated installer:
 
 ```bash
-# Download and install globally into ~/.local/bin/cccp (or /usr/local/bin/cccp if run as root)
-curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g
+# Automated one-liner installation (installs into ~/.local/bin/cccp)
+curl -fsSL https://cccp.2lp.in | sh
+
+# Or install the rolling nightly development build:
+curl -fsSL https://cccp.2lp.in | sh -s -- nightly
 ```
 
 Alternatively, from within a cloned repository:

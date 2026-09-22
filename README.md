@@ -22,7 +22,7 @@ A comprehensive, zero-dependency POSIX shell tool for enforcing and automating C
 
 ```bash
 # 1. Install globally into ~/.local/bin/cccp
-curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g
+curl -fsSL https://cccp.2lp.in | sh
 
 # 2. Enter any Git project and install compliance hooks
 cd my-project

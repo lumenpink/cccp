@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.39+20260922.4cacd4c"
+CCCP_VERSION="2.3.0-dev.40+20260922.fd40b47"
 export CCCP_VERSION
 
 # Verify required tools
@@ -4544,18 +4544,23 @@ check_auto_update() {
         remote_ver=""
 
         if [ "$channel" = "nightly" ]; then
-            remote_ver="nightly"
+            ver_url="https://cccp.2lp.in/nightly/version"
         else
-            api_url="https://api.github.com/repos/lumenpink/cccp.sh/releases/latest"
-            response=""
-            if command -v curl >/dev/null 2>&1; then
-                response=$(curl -s --max-time 2 "$api_url" 2>/dev/null || true)
-            elif command -v wget >/dev/null 2>&1; then
-                response=$(wget -q -T 2 -O- "$api_url" 2>/dev/null || true)
-            fi
+            ver_url="https://cccp.2lp.in/version"
+        fi
 
-            if [ -n "$response" ]; then
+        response=""
+        if command -v curl >/dev/null 2>&1; then
+            response=$(curl -s --max-time 2 "$ver_url" 2>/dev/null || true)
+        elif command -v wget >/dev/null 2>&1; then
+            response=$(wget -q -T 2 -O- "$ver_url" 2>/dev/null || true)
+        fi
+
+        if [ -n "$response" ]; then
+            if echo "$response" | grep -q '"tag_name":'; then
                 remote_ver=$(echo "$response" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 | sed 's/^v//')
+            else
+                remote_ver=$(echo "$response" | head -n 1 | tr -d ' \r\n' | sed 's/^v//')
             fi
         fi
 
@@ -4615,23 +4620,28 @@ cmd_check_update() {
 
     remote_ver=""
     if [ "$channel" = "nightly" ]; then
-        remote_ver="nightly"
+        ver_url="https://cccp.2lp.in/nightly/version"
     else
-        api_url="https://api.github.com/repos/lumenpink/cccp.sh/releases/latest"
-        response=""
-        if command -v curl >/dev/null 2>&1; then
-            response=$(curl -s --max-time 3 "$api_url" 2>/dev/null || true)
-        elif command -v wget >/dev/null 2>&1; then
-            response=$(wget -q -T 3 -O- "$api_url" 2>/dev/null || true)
-        fi
+        ver_url="https://cccp.2lp.in/version"
+    fi
 
-        if [ -n "$response" ]; then
+    response=""
+    if command -v curl >/dev/null 2>&1; then
+        response=$(curl -s --max-time 3 "$ver_url" 2>/dev/null || true)
+    elif command -v wget >/dev/null 2>&1; then
+        response=$(wget -q -T 3 -O- "$ver_url" 2>/dev/null || true)
+    fi
+
+    if [ -n "$response" ]; then
+        if echo "$response" | grep -q '"tag_name":'; then
             remote_ver=$(echo "$response" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1 | sed 's/^v//')
+        else
+            remote_ver=$(echo "$response" | head -n 1 | tr -d ' \r\n' | sed 's/^v//')
         fi
     fi
 
     if [ -z "$remote_ver" ]; then
-        echo "Remote Version    : unavailable (unable to reach GitHub API)"
+        echo "Remote Version    : unavailable (unable to reach distribution endpoint)"
         echo "Status            : Offline or telemetry unreachable. Verify network connection."
         return 0
     fi
@@ -4738,12 +4748,17 @@ update_script() {
     fi
 
     # Determine download URL
+    fallback_url=""
     if [ "$do_pin" -eq 1 ] && [ -n "$pin_target" ]; then
-        download_url="https://github.com/lumenpink/cccp.sh/releases/download/v${pin_target#v}/cccp.sh"
+        clean_pin="${pin_target#v}"
+        download_url="https://cccp.2lp.in/releases/v${clean_pin}/cccp.sh"
+        fallback_url="https://codeberg.org/lumenpink/cccp/raw/tag/v${clean_pin}/cccp.sh"
     elif [ "$channel" = "nightly" ]; then
-        download_url="https://github.com/lumenpink/cccp.sh/releases/download/nightly/cccp.sh"
+        download_url="https://cccp.2lp.in/nightly/cccp.sh"
+        fallback_url="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
     elif [ "$channel" = "stable" ]; then
-        download_url="https://github.com/lumenpink/cccp.sh/releases/latest/download/cccp.sh"
+        download_url="https://cccp.2lp.in/cccp.sh"
+        fallback_url="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
     else
         echo "Error: Invalid update channel '$channel'. Choose 'stable' or 'nightly'." >&2
         return 1
@@ -4767,17 +4782,20 @@ update_script() {
     echo "Downloading from: $download_url"
 
     tmp_file="$(mktemp)"
+    downloaded=0
     if command -v curl >/dev/null 2>&1; then
-        if ! curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
-            echo "Error: Failed to download update from $download_url" >&2
-            rm -f "$tmp_file"
-            return 1
+        if curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && curl -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
         fi
     elif command -v wget >/dev/null 2>&1; then
-        if ! wget -q "$download_url" -O "$tmp_file" 2>/dev/null; then
-            echo "Error: Failed to download update from $download_url" >&2
-            rm -f "$tmp_file"
-            return 1
+        if wget -q "$download_url" -O "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && wget -q "$fallback_url" -O "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
         fi
     else
         echo "Error: Neither curl nor wget is available." >&2
@@ -4785,8 +4803,8 @@ update_script() {
         return 1
     fi
 
-    if [ ! -s "$tmp_file" ]; then
-        echo "Error: Downloaded update is empty." >&2
+    if [ "$downloaded" -eq 0 ] || [ ! -s "$tmp_file" ]; then
+        echo "Error: Failed to download update from $download_url" >&2
         rm -f "$tmp_file"
         return 1
     fi
