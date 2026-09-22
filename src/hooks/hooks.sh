@@ -45,11 +45,17 @@ install_global_binary() {
     fi
 
     # 2. Determine target destination based on EUID / uid
-    user_id=$(id -u 2>/dev/null || echo "1000")
-    if [ "$user_id" -eq 0 ]; then
-        target_dir="/usr/local/bin"
+    if [ -n "${CCCP_INSTALL_DIR:-}" ]; then
+        target_dir="$CCCP_INSTALL_DIR"
+    elif [ -n "${XDG_BIN_HOME:-}" ]; then
+        target_dir="$XDG_BIN_HOME"
     else
-        target_dir="${XDG_BIN_HOME:-$HOME/.local/bin}"
+        user_id=$(id -u 2>/dev/null || echo "1000")
+        if [ "$user_id" -eq 0 ]; then
+            target_dir="/usr/local/bin"
+        else
+            target_dir="$HOME/.local/bin"
+        fi
     fi
 
     mkdir -p "$target_dir"
