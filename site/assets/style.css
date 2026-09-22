@@ -647,8 +647,22 @@ tr:nth-child(even) {
   max-width: 1200px;
   margin: 0 auto;
   text-align: center;
-  font-size: 0.85rem;
-  color: #9c978e;
+  font-size: 0.9rem;
+  color: #c4bfb5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer-bottom a {
+  color: var(--c-gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+.footer-bottom a:hover {
+  color: var(--c-cream-surface);
 }
 
 /* Copy Button */
