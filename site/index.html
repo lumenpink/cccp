@@ -1,3 +1,6 @@
+#!/bin/sh
+<<\EOF
+<!--
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,13 +84,16 @@
       </div>
       <p>Execute these commands in your shell to join the Stakhanovite Git movement:</p>
       <pre><code># 1. Install globally into your PATH (~/.local/bin/cccp)
-curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g
+curl -fsSL https://cccp.2lp.in | sh
 
 # 2. Enter any Git repository and activate compliance hooks
 cd my-project && cccp install
 
 # 3. Create your first compliant commit with the interactive wizard
-cccp cz</code></pre>
+cccp cz
+
+# Pro-tip: To install the rolling nightly edge build:
+# curl -fsSL https://cccp.2lp.in | sh -s -- nightly</code></pre>
     </div>
 
     <!-- Features Grid -->
@@ -168,6 +174,43 @@ cccp cz</code></pre>
       <p>Standard types: <code>feat</code> (minor bump), <code>fix</code> (patch bump), <code>docs</code>, <code>style</code>, <code>refactor</code>, <code>perf</code>, <code>test</code>, <code>build</code>, <code>ci</code>, <code>chore</code>, <code>revert</code>. Breaking changes (<code>!</code>) trigger an immediate Major version bump.</p>
     </div>
 
+    <!-- Comradely Homages & Loving Dedication -->
+    <section class="banner-decree" style="margin-top: 48px; border-color: var(--c-gold);">
+      <div class="banner-decree-title" style="color: var(--c-gold);">
+        <span>★</span>
+        <span>Comradely Homages & Loving Dedication</span>
+        <span>★</span>
+      </div>
+
+      <!-- Dedication to Lisi -->
+      <div style="background: rgba(184, 29, 29, 0.08); border-left: 4px solid var(--c-red-primary); padding: 16px; margin: 18px 0; border-radius: 2px;">
+        <h3 style="font-family: var(--font-display); color: var(--c-red-primary); margin-top: 0; font-size: 1.3rem;">
+          ❤️ To Lisi, My Brightest Star & Love of My Life
+        </h3>
+        <blockquote style="margin: 0; font-style: italic; font-size: 1.05rem; line-height: 1.6; color: var(--c-charcoal);">
+          «À Lisi, minha estrela mais brilhante e o grande amor da minha vida. No vasto cosmos do código e da revolução, cada linha deste sistema orbita ao redor de você. Para todo o sempre, tua.»<br>
+          <span style="font-size: 0.9rem; color: #666;">(To Lisi, my brightest star and the love of my life. In the vast cosmos of code and revolution, every single line of this system orbits around you. Forever yours.)</span>
+        </blockquote>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 20px;">
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🧙‍♂️ The Hashbang Sorcery</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Comradely salute to the wizards of <a href="https://hashbang.sh" target="_blank" rel="noopener" style="font-weight: bold; color: var(--c-red-primary);">hashbang.sh</a> for the legendary dual-serving polyglot heredoc voodoo (HTML & Shell Script in a single static file).</p>
+        </div>
+
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🐕🚀 Laika & Cosmic Pioneers</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Honoring the courage of Laika (1954–1957), the small brave stray who touched the cosmic void, and the Soviet constructivist masters (Rodchenko, El Lissitzky, Mayakovsky).</p>
+        </div>
+
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🏳️‍⚧️ Latina Travesti Vanguard</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">With uncompromised pride, fierce resilience, and love to all queer and trans comrades building sovereign, liberated open technology.</p>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Site Footer -->
@@ -190,3 +233,102 @@ cccp cz</code></pre>
 
 </body>
 </html>
+<!--
+EOF
+
+# =============================================================================
+# CCCP — Conventional Commits Compliance Program
+# Universal POSIX Shell Installer & Workstation Provisioner
+#
+# DEDICATION:
+# «À Lisi, minha estrela mais brilhante e o grande amor da minha vida.
+#  No vasto cosmos do código e da revolução, cada linha deste sistema
+#  orbita ao redor de você. Para todo o sempre, tua.»
+#
+# COMRADELY HOMAGES & ACKNOWLEDGMENTS:
+# - Hashbang.sh wizards for the legendary HTML/shell polyglot heredoc voodoo
+# - Laika (1954–1957) 🐕🚀, the courageous cosmic pioneer who dared to touch the stars
+# - The Soviet constructivist avant-garde (Rodchenko, El Lissitzky, Mayakovsky)
+# - Latina Travesti & Trans Vanguard 🏳️‍⚧️ fighting for bodily and digital sovereignty
+# - Licensed under GNU GPL-3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
+# =============================================================================
+
+set -eu
+
+# Formatting helpers
+RED='\033[0;31m'
+GOLD='\033[0;33m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Fallback if not on an interactive terminal
+if [ ! -t 1 ]; then
+    RED='' GOLD='' CYAN='' GREEN='' NC=''
+fi
+
+echo "${GOLD}★ STATE PLANNING COMMITTEE (GOSPLAN)${NC}"
+echo "${GOLD}★ CCCP — Conventional Commits Compliance Program${NC}"
+echo "${CYAN}«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»${NC}"
+echo ""
+
+# Parse channel or flag arguments
+CHANNEL="stable"
+for arg in "$@"; do
+    case "$arg" in
+        nightly|--nightly) CHANNEL="nightly" ;;
+        stable|--stable)   CHANNEL="stable" ;;
+    esac
+done
+
+INSTALL_DIR="${CCCP_INSTALL_DIR:-$HOME/.local/bin}"
+mkdir -p "$INSTALL_DIR"
+
+if [ "$CHANNEL" = "nightly" ]; then
+    PRIMARY_URL="https://cccp.2lp.in/nightly/cccp.sh"
+    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
+    echo "★ Channel selected: ${GOLD}NIGHTLY${NC} (rolling edge build)"
+else
+    PRIMARY_URL="https://cccp.2lp.in/cccp.sh"
+    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
+    echo "★ Channel selected: ${GOLD}STABLE${NC} (official release)"
+fi
+
+echo "★ Fetching standalone binary into ${CYAN}$INSTALL_DIR/cccp${NC}..."
+
+if curl -fsSL "$PRIMARY_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
+    echo "✔ Downloaded from primary distribution (${PRIMARY_URL})."
+elif curl -fsSL "$FALLBACK_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
+    echo "✔ Downloaded from Codeberg fallback mirror."
+else
+    echo "${RED}Error: Failed to download cccp from distribution endpoints.${NC}" >&2
+    exit 1
+fi
+
+chmod +x "$INSTALL_DIR/cccp"
+
+# Verify execution
+if "$INSTALL_DIR/cccp" --version >/dev/null 2>&1; then
+    INSTALLED_VER=$("$INSTALL_DIR/cccp" --version 2>/dev/null || echo "installed")
+    echo "${GREEN}✔ CCCP ${INSTALLED_VER} successfully deployed!${NC}"
+else
+    echo "${GREEN}✔ CCCP binary placed at $INSTALL_DIR/cccp.${NC}"
+fi
+
+# PATH check notification
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *)
+        echo ""
+        echo "${GOLD}Notice: $INSTALL_DIR is not yet in your PATH.${NC}"
+        echo "Add it to your ~/.profile, ~/.bashrc or ~/.zshrc:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        ;;
+esac
+
+echo ""
+echo "★ To equip any Git repository, run:  ${CYAN}cd my-project && cccp install${NC}"
+echo "★ To craft a compliant commit:      ${CYAN}cccp cz${NC}"
+echo "${GOLD}★ Comrade, your workstation is now compliant!${NC}"
+exit 0
+

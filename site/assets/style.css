@@ -44,11 +44,19 @@ body {
   background-size: 16px 16px;
   color: var(--c-charcoal);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 0;
   line-height: 1.65;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Direct container elements restore standard typography */
+.state-banner,
+.site-header,
+.container,
+.site-footer {
+  font-size: 16px;
 }
 
 /* Top Gosplan Banner Bar */

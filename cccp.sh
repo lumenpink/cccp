@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.38+20260922.03c7390"
+CCCP_VERSION="2.3.0-dev.39+20260922.4cacd4c"
 export CCCP_VERSION
 
 # Verify required tools

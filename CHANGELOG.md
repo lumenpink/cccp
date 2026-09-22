@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (installer) polyglot html/shell installer and loving tribute to Lisi (closes #15) (closes #16)
   - (dist) configure stable and nightly release publishing on cccp.2lp.in (closes #14)
   - (ci) migrate cloudflare deployment to workers static assets with custom domain
   - (site) update header to standalone svg badge, add author and unlicense links
