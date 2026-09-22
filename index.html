@@ -1,0 +1,347 @@
+#!/bin/sh
+<<\EOF
+<!--
+  =============================================================================
+  CCCP — Conventional Commits Compliance Program
+  Semantic Versioning, Git Hooks & Forge Synchronization Manager
+  Website & Universal Installer: https://cccp.2lp.in
+
+  DEDICATION:
+  “To Lisi, my brightest star and the love of my life.
+   In the vast cosmos of code and revolution, every single line of this
+   system orbits around you. Forever yours.”
+
+  DEDICATIONS & ACKNOWLEDGMENTS:
+  - Hashbang.sh wizards for the legendary HTML/shell polyglot heredoc voodoo
+  - Laika (1954–1957) 🐕🚀, the courageous cosmic pioneer who dared to touch the stars
+  - The Soviet constructivist avant-garde (Rodchenko, El Lissitzky, Mayakovsky)
+  - Latina Travesti & Trans Vanguard 🏳️‍⚧️ fighting for bodily and digital sovereignty
+  - Licensed under GNU GPL-3.0 (https://www.gnu.org/licenses/gpl-3.0.html)
+  =============================================================================
+- -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    if (document.body) {
+      for (var n of Array.from(document.body.childNodes)) {
+        if (n.nodeType === 3) n.remove();
+      }
+    }
+  </script>
+  <style>
+    body { font-size: 0; }
+    body > * { font-size: 1rem; }
+  </style>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCCP - Conventional Commits Compliance Program</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <!-- Top State Banner -->
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>ORDER NO. 227: NOT ONE STEP BACK FROM CONVENTIONAL COMMITS!</span>
+    <span>★</span>
+  </aside>
+
+  <!-- Site Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Home">
+        <img src="assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link active">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <!-- Explicit Header Language Selector -->
+      <a href="pt/index.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container">
+    
+    <!-- Russian Motto Banner -->
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»</span>
+      <span class="motto-translation">Into a bright future with standardized, clean Git commit history!</span>
+    </div>
+
+    <!-- Hero Section with Vintage Poster Artwork -->
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Discipline In Every Commit</h1>
+        <p class="hero-subtitle">Automated SemVer, Git Hooks & Forge Synchronization</p>
+        <p class="hero-lead">
+          A zero-dependency POSIX shell suite that automates Conventional Commits compliance, predictive Semantic Versioning 2.0.0, portable Git hooks, multi-forge ticket synchronization, and AI agent directives.
+        </p>
+
+        <div class="cta-group">
+          <a href="installation.html" class="btn btn-primary">★ Equip Workstation</a>
+          <a href="commands.html" class="btn btn-secondary">Command Index</a>
+        </div>
+      </div>
+
+      <div class="hero-poster-wrapper">
+        <img src="assets/poster.jpg" alt="1950s Soviet propaganda poster for CCCP: Heroic cosmonaut and worker reaching to the stars with Sputnik and Git branching lines" class="hero-poster-img">
+      </div>
+    </section>
+
+    <!-- Quickstart Decree Box -->
+    <div class="banner-decree">
+      <div class="banner-decree-title">
+        <span>★</span>
+        <span>Gosplan Quickstart Decree — Three Steps to Full Compliance</span>
+      </div>
+      <p>Execute these commands in your shell to join the Stakhanovite Git movement:</p>
+      <pre><code># 1. Install globally into your PATH (~/.local/bin/cccp)
+curl -fsSL https://cccp.2lp.in | sh
+
+# 2. Enter any Git repository and activate compliance hooks
+cd my-project && cccp install
+
+# 3. Create your first compliant commit with the interactive wizard
+cccp cz
+
+# Pro-tip: To install the rolling nightly edge build:
+# curl -fsSL https://cccp.2lp.in | sh -s -- nightly</code></pre>
+    </div>
+
+    <!-- Features Grid -->
+    <section>
+      <h2 style="font-family: var(--font-display); font-size: 2.2rem; text-transform: uppercase; margin-bottom: 24px; color: var(--c-red-primary); border-bottom: 3px solid var(--c-charcoal); padding-bottom: 8px;">
+        ★ Pillars of the Collective Workflow
+      </h2>
+
+      <div class="grid">
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">01</span>
+            <h3 class="card-title">Pure POSIX Architecture</h3>
+          </div>
+          <p>Zero external runtimes, zero npm overhead, zero Python, and zero awk dialetics. Runs anywhere: Linux, macOS, BSD, and Git Bash on Windows with BusyBox compatibility.</p>
+          <a href="installation.html" class="card-link">Installation Guide &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">02</span>
+            <h3 class="card-title">Predictive SemVer 2.0.0</h3>
+          </div>
+          <p>Dynamically calculates the prospective release version between tags. Automatically bumps Major, Minor, or Patch based strictly on Conventional Commit signals.</p>
+          <a href="versioning.html" class="card-link">Versioning Mechanics &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">03</span>
+            <h3 class="card-title">Git Hook Inspectorate</h3>
+          </div>
+          <p>Portable hook scripts for commit-msg, post-commit, pre-push, and reference-transaction with automated version diffing, audit commands, and backup management.</p>
+          <a href="hooks.html" class="card-link">Explore Hooks &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">04</span>
+            <h3 class="card-title">Multi-Forge Ticket Sync</h3>
+          </div>
+          <p>Seamlessly sink upstream issues from Codeberg/Forgejo, GitHub, GitLab/Framagit, and SourceHut into markdown format with sliding hourly quota protection.</p>
+          <a href="forges.html" class="card-link">Forge Integration &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">05</span>
+            <h3 class="card-title">AI Agent Directives</h3>
+          </div>
+          <p>Empower Google Antigravity, Claude, and GitHub Copilot with standardized AGENTS.md instructions synchronized from remote templates with variable validation.</p>
+          <a href="agents.html" class="card-link">Agent Directives &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">06</span>
+            <h3 class="card-title">Hierarchical Configuration</h3>
+          </div>
+          <p>4-tier cascade: Built-in defaults &lt; Global ~/.cccprc &lt; Local .cccprc &lt; Environment Variables &lt; CLI parameters with immediate CLI editing.</p>
+          <a href="configuration.html" class="card-link">Configuration System &rarr;</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- Soviet Directive Callout -->
+    <div class="banner-directive">
+      <div class="banner-directive-title">
+        <span>☭</span>
+        <span>Order No. 227 — Conventional Commit Format</span>
+      </div>
+      <p>All commits must adhere strictly to the standardized format:</p>
+      <pre><code>&lt;type&gt;[optional scope]: &lt;description&gt;
+
+[optional body]
+
+[optional footer(s)]</code></pre>
+      <p>Standard types: <code>feat</code> (minor bump), <code>fix</code> (patch bump), <code>docs</code>, <code>style</code>, <code>refactor</code>, <code>perf</code>, <code>test</code>, <code>build</code>, <code>ci</code>, <code>chore</code>, <code>revert</code>. Breaking changes (<code>!</code>) trigger an immediate Major version bump.</p>
+    </div>
+
+    <!-- Dedications & Acknowledgments -->
+    <section class="banner-decree" style="margin-top: 48px; border-color: var(--c-gold);">
+      <div class="banner-decree-title" style="color: var(--c-gold);">
+        <span>★</span>
+        <span>Dedications & Acknowledgments</span>
+        <span>★</span>
+      </div>
+
+      <!-- Dedication to Lisi -->
+      <div style="background: rgba(184, 29, 29, 0.08); border-left: 4px solid var(--c-red-primary); padding: 16px; margin: 18px 0; border-radius: 2px;">
+        <h3 style="font-family: var(--font-display); color: var(--c-red-primary); margin-top: 0; font-size: 1.3rem;">
+          ❤️ To Lisi, My Brightest Star & Love of My Life
+        </h3>
+        <blockquote style="margin: 0; font-style: italic; font-size: 1.05rem; line-height: 1.6; color: var(--c-charcoal);">
+          “To Lisi, my brightest star and the love of my life. In the vast cosmos of code and revolution, every single line of this system orbits around you. Forever yours.”
+        </blockquote>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 20px;">
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🧙‍♂️ The Hashbang Sorcery</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Comradely salute to the wizards of <a href="https://hashbang.sh" target="_blank" rel="noopener" style="font-weight: bold; color: var(--c-red-primary);">hashbang.sh</a> for the legendary dual-serving polyglot heredoc voodoo (HTML & Shell Script in a single static file).</p>
+        </div>
+
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🐕🚀 Laika & Cosmic Pioneers</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">Honoring the courage of Laika (1954–1957), the small brave stray who touched the cosmic void, and the Soviet constructivist masters (Rodchenko, El Lissitzky, Mayakovsky).</p>
+        </div>
+
+        <div style="padding: 12px; border: 1px solid var(--c-cream-dark); background: var(--c-cream);">
+          <h4 style="font-family: var(--font-display); margin: 0 0 8px 0; color: var(--c-red-primary);">🏳️‍⚧️ Latina Travesti Vanguard</h4>
+          <p style="margin: 0; font-size: 0.9rem; line-height: 1.5;">With uncompromised pride, fierce resilience, and love to all queer and trans comrades building sovereign, liberated open technology.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="pt/index.html">Versão em Português</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Crafted by <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Made with pride by a <a href="https://en.wikipedia.org/wiki/Travesti_(gender_identity)" target="_blank" rel="noopener">Latina travesti 🏳️‍⚧️</a></p>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
+<!--
+EOF
+# =============================================================================
+# CCCP — Universal POSIX Shell Installer
+# =============================================================================
+
+set -eu
+
+# Formatting helpers
+RED="\033[0;31m"
+GOLD="\033[0;33m"
+CYAN="\033[0;36m"
+GREEN="\033[0;32m"
+NC="\033[0m"
+
+# Fallback if not on an interactive terminal
+if [ ! -t 1 ]; then
+    RED="" GOLD="" CYAN="" GREEN="" NC=""
+fi
+
+echo "${GOLD}★ STATE PLANNING COMMITTEE (GOSPLAN)${NC}"
+echo "${GOLD}★ CCCP — Conventional Commits Compliance Program${NC}"
+echo "${CYAN}«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»${NC}"
+echo ""
+
+# Parse channel or flag arguments
+CHANNEL="stable"
+for arg in "$@"; do
+    case "$arg" in
+        nightly|--nightly) CHANNEL="nightly" ;;
+        stable|--stable)   CHANNEL="stable" ;;
+    esac
+done
+
+INSTALL_DIR="${CCCP_INSTALL_DIR:-$HOME/.local/bin}"
+mkdir -p "$INSTALL_DIR"
+
+if [ "$CHANNEL" = "nightly" ]; then
+    PRIMARY_URL="https://cccp.2lp.in/nightly/cccp.sh"
+    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
+    echo "★ Channel selected: ${GOLD}NIGHTLY${NC} (rolling edge build)"
+else
+    PRIMARY_URL="https://cccp.2lp.in/cccp.sh"
+    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
+    echo "★ Channel selected: ${GOLD}STABLE${NC} (official release)"
+fi
+
+echo "★ Fetching standalone binary into ${CYAN}$INSTALL_DIR/cccp${NC}..."
+
+if curl -fsSL "$PRIMARY_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
+    echo "✔ Downloaded from primary distribution (${PRIMARY_URL})."
+elif curl -fsSL "$FALLBACK_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
+    echo "✔ Downloaded from Codeberg fallback mirror."
+else
+    echo "${RED}Error: Failed to download cccp from distribution endpoints.${NC}" >&2
+    exit 1
+fi
+
+chmod +x "$INSTALL_DIR/cccp"
+
+# Verify execution
+if "$INSTALL_DIR/cccp" --version >/dev/null 2>&1; then
+    INSTALLED_VER=$("$INSTALL_DIR/cccp" --version 2>/dev/null || echo "installed")
+    echo "${GREEN}✔ CCCP ${INSTALLED_VER} successfully deployed!${NC}"
+else
+    echo "${GREEN}✔ CCCP binary placed at $INSTALL_DIR/cccp.${NC}"
+fi
+
+# PATH check notification
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *)
+        echo ""
+        echo "${GOLD}Notice: $INSTALL_DIR is not yet in your PATH.${NC}"
+        echo "Add it to your ~/.profile, ~/.bashrc or ~/.zshrc:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        ;;
+esac
+
+echo ""
+echo "★ To equip any Git repository, run:  ${CYAN}cd my-project && cccp install${NC}"
+echo "★ To craft a compliant commit:      ${CYAN}cccp cz${NC}"
+echo "${GOLD}★ Comrade, your workstation is now compliant!${NC}"
+exit 0

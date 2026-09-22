@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diretrizes para Agentes de IA - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>DEPARTAMENTO DE DIRETIVAS CIBERNÉTICAS &amp; AGENTES</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Início">
+        <img src="../assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link active">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../agents.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ТЕХНИКА В ПЕРИОД РЕКОНСТРУКЦИИ РЕШАЕТ ВСЁ!»</span>
+      <span class="motto-translation">A técnica no período de reconstrução decide tudo! Harmonizando o desenvolvimento humano e de IA.</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Diretrizes para Agentes de IA &amp; `AGENTS.md`</h1>
+      
+      <p class="hero-lead">
+        O CCCP estabelece uma ponte padronizada e automatizada entre os mantenedores humanos e os agentes autônomos de IA (Google Antigravity, Claude, Copilot), governando as convenções do projeto via instruções centralizadas no <code>AGENTS.md</code>.
+      </p>
+
+      <h2>1. Sincronização de Templates Centralizados (`cccp agents`)</h2>
+      <p>
+        Em vez de manter instruções duplicadas manualmente em dezenas de repositórios, o CCCP pode baixar, validar e injetar a configuração local diretamente no <code>AGENTS.md</code> do projeto:
+      </p>
+
+      <pre><code># Atualizar o AGENTS.md local a partir da URL do template configurado:
+cccp agents update
+
+# Inspecionar variáveis de template pendentes e cobertura atual:
+cccp agents vars</code></pre>
+
+      <h2>2. Resolução Interativa de Variáveis (`cccp set-av`)</h2>
+      <p>
+        Quando um template de <code>AGENTS.md</code> requer valores específicos do repositório (ex: comandos de teste, comando de build, stack tecnológica), o CCCP fornece um assistente interativo:
+      </p>
+
+      <pre><code># Executar assistente interativo para preencher as variáveis necessárias:
+cccp set-av
+
+# Inspecionar as variáveis configuradas atualmente:
+cccp set-av --list</code></pre>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Protocolo de Zero Alucinação</span>
+        </div>
+        <p>Todas as variáveis preenchidas pelo <code>cccp set-av</code> são salvas localmente no <code>.cccprc</code>. Quando o comando <code>cccp agents update</code> é executado, essas variáveis são injetadas de forma determinística, impedindo que os agentes de IA façam suposições ou violem as regras do repositório.</p>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="../agents.html">English Version</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Criado por <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Feito com orgulho por uma <a href="https://pt.wikipedia.org/wiki/Travesti_(identidade_de_g%C3%AAnero)" target="_blank" rel="noopener">travesti latina 🏳️‍⚧️</a></p>
+      <p>Licenciado sob a <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> e matriz modular GOST 1.1.0.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

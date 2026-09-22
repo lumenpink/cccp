@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git Hooks - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>GIT HOOKS INSPECTORATE</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Home">
+        <img src="assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link active">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <a href="pt/hooks.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«НИ ШАГУ НАЗАД ОТ СТАНДАРТОВ!»</span>
+      <span class="motto-translation">Not a single step back from standards! — Order No. 227 Git Hook Enforcement</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Git Hooks &amp; Automation Squad</h1>
+      
+      <p class="hero-lead">
+        CCCP operates as an automated commissar for your Git workflow, preventing non-compliant commits before they enter version control and automating changelog updates upon push.
+      </p>
+
+      <h2>1. The Four Standard Hooks</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Hook Name</th>
+              <th>Trigger Lifecycle</th>
+              <th>Enforcement &amp; Automated Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>commit-msg</code></td>
+              <td>During <code>git commit</code></td>
+              <td>Validates commit syntax against Conventional Commits; provides instant error guidance.</td>
+            </tr>
+            <tr>
+              <td><code>post-commit</code></td>
+              <td>After successful commit</td>
+              <td>Synchronizes <code>CHANGELOG.md</code> and writes updated predictive development version to <code>VERSION</code>.</td>
+            </tr>
+            <tr>
+              <td><code>pre-push</code></td>
+              <td>During <code>git push</code></td>
+              <td>Verifies that release tags match committed <code>VERSION</code> files and blocks pushing dev versions as tags.</td>
+            </tr>
+            <tr>
+              <td><code>reference-transaction</code></td>
+              <td>During <code>git tag</code></td>
+              <td>Intercepts tag creation to prevent tagging commits with dirty or uncommitted development states.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. Inspecting Hooks (`cccp hooks`)</h2>
+      <p>CCCP includes a built-in inspectorate to audit and diff installed hooks:</p>
+
+      <pre><code># Audit installed hooks for version synchronization:
+cccp hooks audit
+
+# Inspect differences against canonical templates (detects third-party tools like Husky):
+cccp hooks diff</code></pre>
+
+      <h2>3. Post-Push Automation &amp; Custom Scripts</h2>
+      <p>
+        Executing <code>cccp push</code> triggers the post-push lifecycle, allowing custom scripts or automated synchronization actions:
+      </p>
+
+      <pre><code># Push to remote and run post-push hooks:
+cccp push origin main</code></pre>
+
+      <h3>Discovery Precedence for Custom Post-Push Scripts</h3>
+      <ol>
+        <li>Path defined in <code>POST_PUSH_HOOK</code> environment variable or <code>.cccprc</code></li>
+        <li>Shared team script in <code>.cccp/hooks/post-push</code></li>
+        <li>Local developer script in <code>.git/hooks/post-push.local</code></li>
+      </ol>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Automated Synchronization Post-Push</span>
+        </div>
+        <p>Enable automatic syncing of tickets and AI agent directives whenever a push succeeds:</p>
+        <pre><code>cccp config post_push_sync "tickets,agent"</code></pre>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="pt/hooks.html">Versão em Português</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Crafted by <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Made with pride by a <a href="https://en.wikipedia.org/wiki/Travesti_(gender_identity)" target="_blank" rel="noopener">Latina travesti 🏳️‍⚧️</a></p>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

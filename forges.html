@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Forge Sync - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>MULTI-FORGE SYNCHRONIZATION BUREAU</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Home">
+        <img src="assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link active">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <a href="pt/forges.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ДРУЖБА И СОТРУДНИЧЕСТВО ВСЕХ СИСТЕМ!»</span>
+      <span class="motto-translation">Friendship and cooperation among all systems! Interoperability across Git forges.</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Multi-Forge &amp; Ticket Synchronization</h1>
+      
+      <p class="hero-lead">
+        CCCP connects your Git workflow directly to upstream issue trackers, automatically synchronizing open issues into a local markdown document (<code>.antigravity/tickets.md</code>) for developers and autonomous AI coding agents.
+      </p>
+
+      <h2>1. Supported Remote Forges</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Forge Ecosystem</th>
+              <th>Supported Domains</th>
+              <th>Active Probing &amp; Identification</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Forgejo &amp; Gitea</strong></td>
+              <td><code>codeberg.org</code>, self-hosted</td>
+              <td>Probes <code>/api/v1/version</code> for self-hosted instances</td>
+            </tr>
+            <tr>
+              <td><strong>GitHub</strong></td>
+              <td><code>github.com</code>, GitHub Enterprise</td>
+              <td>Uses GitHub REST API v3, filtering out pull requests</td>
+            </tr>
+            <tr>
+              <td><strong>GitLab</strong></td>
+              <td><code>framagit.org</code>, <code>gitlab.com</code>, custom</td>
+              <td>Probes <code>/api/v4/version</code> and supports nested subgroups</td>
+            </tr>
+            <tr>
+              <td><strong>SourceHut</strong></td>
+              <td><code>git.sr.ht</code>, <code>*.sr.ht</code></td>
+              <td>Extracts issues via SourceHut GraphQL tracker</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. Synchronizing Tickets (`cccp tickets`)</h2>
+      <pre><code># Synchronize tickets using automatic remote forge detection:
+cccp tickets
+
+# Force a specific forge driver:
+cccp tickets --provider forgejo
+
+# Specify custom owner and repository slug:
+TICKETS_OWNER=myteam TICKETS_REPO=myproject cccp tickets</code></pre>
+
+      <h2>3. Gosplan Hourly Quota Protection</h2>
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Sliding 1-Hour Rate Limiting</span>
+        </div>
+        <p>
+          To prevent API rate limit exhaustion against public endpoints (such as GitHub's 60 calls/hour ceiling for unauthenticated requests), CCCP monitors request timestamps in <code>.git/cccp_tickets_rate_limit</code>:
+        </p>
+        <ul>
+          <li><strong>Ceiling</strong>: Default max 55 requests per sliding hour.</li>
+          <li><strong>Zero-Disruption Guarantee</strong>: When quota is reached, CCCP cleanly exits with code <code>0</code> and emits a Gosplan quota notification without halting Git push chains or CI workflows.</li>
+        </ul>
+      </div>
+
+      <div class="content-block">
+        <h2>4. Continuous Integration & Site Publishing</h2>
+        <p>
+          CCCP features an automated Forgejo Actions pipeline (<code>.forgejo/workflows/ci.yml</code>) that validates and deploys this documentation site on every push to <code>main</code>:
+        </p>
+        <ul>
+          <li><strong>Cloudflare Workers (<a href="https://cccp.2lp.in" target="_blank" rel="noopener">cccp.2lp.in</a>)</strong>: Primary deployment target with static assets and automated custom domain routing configured via <code>wrangler.jsonc</code>.</li>
+          <li><strong>Codeberg Pages (<a href="https://lumenpink.codeberg.page/cccp/" target="_blank" rel="noopener">pages branch</a>)</strong>: Redundant mirror automatically pushed using the action's built-in token.</li>
+          <li><strong>Site Verification</strong>: <code>bin/verify-site.sh</code> guarantees zero broken links before deployment.</li>
+        </ul>
+      </div>
+
+    </article>
+
+  </main>
+
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="pt/forges.html">Versão em Português</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Crafted by <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Made with pride by a <a href="https://en.wikipedia.org/wiki/Travesti_(gender_identity)" target="_blank" rel="noopener">Latina travesti 🏳️‍⚧️</a></p>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

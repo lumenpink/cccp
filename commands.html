@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLI Commands - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>COMMAND &amp; ARSENAL REGISTRY</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Home">
+        <img src="assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link active">Commands</a>
+      </nav>
+
+      <a href="pt/commands.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«БУДЬ НАЧЕКУ И СОБЛЮДАЙ ДИСЦИПЛИНУ!»</span>
+      <span class="motto-translation">Be vigilant and maintain strict discipline across all Git commands!</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>CLI Command Registry</h1>
+      
+      <p class="hero-lead">
+        Comprehensive reference for every command, option, and subcommand supported by the CCCP command line utility.
+      </p>
+
+      <!-- Instant Interactive Search Filter -->
+      <input type="text" id="command-search" class="search-box" placeholder="🔍 Filter commands (e.g. cz, lint, tag, config)..." aria-label="Filter commands">
+
+      <div class="command-item">
+        <h2>★ `cccp commit -i` / `cccp cz`</h2>
+        <p>Interactive commit wizard. Prompts you step-by-step for commit type, optional scope, subject line, optional body, and breaking changes.</p>
+        <pre><code># Launch interactive wizard:
+cccp cz
+# or:
+cccp commit -i</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp status`</h2>
+        <p>Inspects the full operational state of your Git repository:</p>
+        <ul>
+          <li>Branch status and upstream tracking.</li>
+          <li>Predictive development SemVer and commit count ahead of tag.</li>
+          <li>Hook synchronization status and installed hook versions.</li>
+          <li>Resolved configuration values from `.cccprc` and environment.</li>
+        </ul>
+        <pre><code>cccp status</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp lint [<revision-range>]`</h2>
+        <p>Validates commit messages across a git revision range (ideal for pull requests and CI workflows):</p>
+        <pre><code># Lint commits on current feature branch compared to main:
+cccp lint origin/main..HEAD
+
+# Lint the previous 3 commits:
+cccp lint HEAD~3..HEAD</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp tag [<version>]`</h2>
+        <p>Calculates the next version according to SemVer rules, updates <code>VERSION</code>, writes release notes in <code>CHANGELOG.md</code>, and creates a tagged commit:</p>
+        <pre><code># Predictive auto-bump:
+cccp tag
+
+# Explicit version with custom annotation:
+cccp tag 2.3.0 --title "Stakhanovite Release" -m "Delivered ahead of quota"</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp push [<args>...]`</h2>
+        <p>Runs standard <code>git push</code>, enforces tag compliance via <code>pre-push</code>, and triggers automated post-push hooks.</p>
+        <pre><code>cccp push origin main --tags</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp completion <shell>`</h2>
+        <p>Generates native shell completion scripts for Bash, Zsh, and Fish:</p>
+        <pre><code># Bash (add to ~/.bashrc):
+eval "$(cccp completion bash)"
+
+# Zsh (add to ~/.zshrc before compinit):
+eval "$(cccp completion zsh)"
+
+# Fish:
+cccp completion fish > ~/.config/fish/completions/cccp.fish</code></pre>
+      </div>
+
+      <div class="command-item">
+        <h2>★ `cccp soviet`</h2>
+        <p>Displays the official Soviet emblem, Gosplan Order No. 227 banner, and Stakhanovite labor guidelines:</p>
+        <pre><code>cccp soviet</code></pre>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="pt/commands.html">Versão em Português</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Crafted by <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Made with pride by a <a href="https://en.wikipedia.org/wiki/Travesti_(gender_identity)" target="_blank" rel="noopener">Latina travesti 🏳️‍⚧️</a></p>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Installation - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>INSTALLATION INSPECTORATE</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Home">
+        <img src="assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link active">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <a href="pt/installation.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ДАТЬ РОДИНЕ КАЧЕСТВЕННЫЙ КОД!»</span>
+      <span class="motto-translation">Deliver robust, high-quality code to the collective Motherland!</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Installation &amp; Deployment</h1>
+      
+      <p class="hero-lead">
+        CCCP can be deployed in two complementary modes: globally across your entire development workstation, or locally inside individual Git repositories via lightweight hook wrappers.
+      </p>
+
+      <h2>1. Global Installation (System PATH)</h2>
+      <p>
+        Installing CCCP into your system <code>PATH</code> makes the <code>cccp</code> executable universally available from any directory or terminal:
+      </p>
+
+      <pre><code># Automated one-liner installation (installs into ~/.local/bin/cccp)
+curl -fsSL https://cccp.2lp.in | sh
+
+# Or install the rolling nightly development build:
+curl -fsSL https://cccp.2lp.in | sh -s -- nightly</code></pre>
+
+      <p>
+        If you already have cloned the repository locally:
+      </p>
+      <pre><code>./cccp.sh install --global</code></pre>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Automatic PATH Verification</span>
+        </div>
+        <p>If <code>~/.local/bin</code> is not currently present in your <code>$PATH</code>, the installer automatically appends the necessary export statement to your <code>~/.bashrc</code> (and <code>~/.zshrc</code> if found) with actionable instructions.</p>
+      </div>
+
+      <h2>2. Local Repository Hooks Installation</h2>
+      <p>
+        Within any Git project, you can install portable Git hook wrappers without modifying system directories:
+      </p>
+
+      <pre><code>cd my-git-repo
+cccp install</code></pre>
+
+      <p>This configures four standard hooks in <code>.git/hooks/</code>:</p>
+      <ul>
+        <li><strong><code>commit-msg</code></strong>: Validates commit message syntax before commits are finalized.</li>
+        <li><strong><code>post-commit</code></strong>: Updates <code>CHANGELOG.md</code> and synchronizes predictive development versioning in <code>VERSION</code>.</li>
+        <li><strong><code>pre-push</code></strong>: Verifies that pushed release tags contain clean matching version files.</li>
+        <li><strong><code>reference-transaction</code></strong>: Prevents creating tags pointing to non-compliant or development commits.</li>
+      </ul>
+
+      <h2>3. Safety &amp; Non-Destructive Backups</h2>
+      <p>
+        Whenever <code>cccp install</code> encounters pre-existing Git hooks not created by CCCP, it safely backs them up into timestamped/incremented files (e.g. <code>commit-msg.old</code>) so that no custom logic is ever destroyed.
+      </p>
+
+      <h2>4. Uninstallation</h2>
+      <pre><code># Remove Git hooks from active repository:
+cccp uninstall
+
+# Remove global executable:
+rm -f ~/.local/bin/cccp</code></pre>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="pt/installation.html">Versão em Português</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Crafted by <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Made with pride by a <a href="https://en.wikipedia.org/wiki/Travesti_(gender_identity)" target="_blank" rel="noopener">Latina travesti 🏳️‍⚧️</a></p>
+      <p>Licensed under <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

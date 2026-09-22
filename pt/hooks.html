@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git Hooks - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>INSPETORIA DE GIT HOOKS</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand" aria-label="CCCP Início">
+        <img src="../assets/logo.svg" alt="CCCP Logo" class="brand-logo">
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link active">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../hooks.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«НИ ШАГУ НАЗАД ОТ СТАНДАРТОВ!»</span>
+      <span class="motto-translation">Nem um passo atrás dos padrões! — Aplicação dos Git Hooks sob a Ordem nº 227</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Pelotão de Git Hooks &amp; Automação</h1>
+      
+      <p class="hero-lead">
+        O CCCP atua como um comissário automatizado para o fluxo do seu repositório Git, bloqueando commits fora do padrão antes que entrem no versionamento e sincronizando changelogs em cada push.
+      </p>
+
+      <h2>1. Os Quatro Hooks Padrão</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome do Hook</th>
+              <th>Ciclo de Disparo</th>
+              <th>Aplicação &amp; Ação Automatizada</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>commit-msg</code></td>
+              <td>Durante <code>git commit</code></td>
+              <td>Valida a sintaxe conforme Conventional Commits; exibe dicas corretivas imediatas.</td>
+            </tr>
+            <tr>
+              <td><code>post-commit</code></td>
+              <td>Após commit concluído</td>
+              <td>Sincroniza o <code>CHANGELOG.md</code> e atualiza a versão preditiva de desenvolvimento no <code>VERSION</code>.</td>
+            </tr>
+            <tr>
+              <td><code>pre-push</code></td>
+              <td>Durante <code>git push</code></td>
+              <td>Verifica se as tags enviadas correspondem aos arquivos <code>VERSION</code> comitados e bloqueia push indevido.</td>
+            </tr>
+            <tr>
+              <td><code>reference-transaction</code></td>
+              <td>Durante <code>git tag</code></td>
+              <td>Intercepta a criação de tags locais para impedir que apontem para estados de desenvolvimento sujos.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. Inspecionando Hooks (`cccp hooks`)</h2>
+      <p>O CCCP conta com um inspetor embutido para auditar e verificar diferenças (diff) nos hooks instalados:</p>
+
+      <pre><code># Auditar hooks instalados quanto à sincronização de versão:
+cccp hooks audit
+
+# Exibir diff unificado em relação aos modelos padrão (detecta Husky ou customizações):
+cccp hooks diff</code></pre>
+
+      <h2>3. Automação Pós-Push &amp; Scripts Customizados</h2>
+      <p>
+        Executar <code>cccp push</code> inicia o ciclo pós-push, permitindo scripts personalizados e ações automáticas de sincronização:
+      </p>
+
+      <pre><code># Enviar ao repositório remoto e disparar hooks pós-push:
+cccp push origin main</code></pre>
+
+      <h3>Ordem de Descoberta para Scripts Pós-Push</h3>
+      <ol>
+        <li>Caminho definido na variável <code>POST_PUSH_HOOK</code> ou no <code>.cccprc</code></li>
+        <li>Script compartilhado do projeto em <code>.cccp/hooks/post-push</code></li>
+        <li>Script local do desenvolvedor em <code>.git/hooks/post-push.local</code></li>
+      </ol>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Sincronização Pós-Push Automatizada</span>
+        </div>
+        <p>Ative a sincronização automática de tickets e diretrizes de agentes sempre que um push for bem-sucedido:</p>
+        <pre><code>cccp config post_push_sync "tickets,agent"</code></pre>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://lumen.pink" target="_blank" rel="noopener">lumen.pink</a>
+        <a href="../hooks.html">English Version</a>
+      </div>
+    </div>
+            <div class="footer-bottom">
+      <p>Criado por <a href="https://lumen.pink" target="_blank" rel="noopener">Lumen Pink</a> • Feito com orgulho por uma <a href="https://pt.wikipedia.org/wiki/Travesti_(identidade_de_g%C3%AAnero)" target="_blank" rel="noopener">travesti latina 🏳️‍⚧️</a></p>
+      <p>Licenciado sob a <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" rel="noopener">GNU GPLv3</a> e matriz modular GOST 1.1.0.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
