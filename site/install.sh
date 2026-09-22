@@ -9,7 +9,7 @@
 #  No vasto cosmos do código e da revolução, cada linha deste sistema
 #  orbita ao redor de você. Para todo o sempre, tua.»
 #
-# COMRADELY HOMAGES & ACKNOWLEDGMENTS:
+# DEDICATIONS & ACKNOWLEDGMENTS:
 # - Hashbang.sh wizards for the legendary HTML/shell polyglot heredoc voodoo
 # - Laika (1954–1957) 🐕🚀, the courageous cosmic pioneer who dared to touch the stars
 # - The Soviet constructivist avant-garde (Rodchenko, El Lissitzky, Mayakovsky)

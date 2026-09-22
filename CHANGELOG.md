@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (web) implement hashbang polyglot installer and dedications section
   - (update) refactor cccp update and install routines for cccp.2lp.in channels (closes #17)
   - (installer) polyglot html/shell installer and loving tribute to Lisi (closes #15) (closes #16)
   - (dist) configure stable and nightly release publishing on cccp.2lp.in (closes #14)
