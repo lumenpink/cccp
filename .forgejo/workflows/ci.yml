@@ -237,3 +237,69 @@ jobs:
           name: "${{ steps.notes.outputs.title }}"
           files: cccp.sh
           body_path: /tmp/release_notes.md
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 5 — Deploy Static Documentation Site (Cloudflare Pages + Codeberg Pages)
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy-site:
+    name: "Deploy Documentation Site"
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PROJECT_NAME: ${{ vars.CLOUDFLARE_PROJECT_NAME || 'cccp' }}
+    steps:
+      - name: "Checkout repository"
+        uses: https://github.com/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Verify Site Integrity & Links"
+        run: |
+          chmod +x bin/verify-site.sh
+          ./bin/verify-site.sh
+
+      - name: "Deploy to Cloudflare Pages (cccp.2lp.in)"
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::Cloudflare credentials (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID) not configured in repository secrets. Skipping Cloudflare Pages deployment."
+          else
+            echo "Publishing site to Cloudflare Pages project '${CLOUDFLARE_PROJECT_NAME}'..."
+            npx wrangler pages deploy site \
+              --project-name="${CLOUDFLARE_PROJECT_NAME}" \
+              --branch=main \
+              --commit-dirty=true || echo "::warning::Cloudflare Pages deployment exited with status $?. Continuing with redundancy deployment."
+          fi
+
+      - name: "Deploy to Codeberg Pages (Redundancy)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "actions-user"
+          git config user.email "actions@codeberg.org"
+
+          WORKTREE_DIR=$(mktemp -d)
+          if git ls-remote --exit-code --heads origin pages >/dev/null 2>&1; then
+            git fetch origin pages:pages
+            git worktree add "$WORKTREE_DIR" pages
+          else
+            git worktree add --orphan -b pages "$WORKTREE_DIR"
+          fi
+
+          rm -rf "${WORKTREE_DIR:?}"/*
+          cp -r site/* "$WORKTREE_DIR/"
+
+          cd "$WORKTREE_DIR"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No documentation changes to deploy to Codeberg Pages."
+          else
+            git commit -m "docs(site): deploy documentation to Codeberg Pages [skip ci]"
+            git push origin pages
+            echo "Successfully deployed documentation to Codeberg Pages."
+          fi
+          cd - >/dev/null
+          git worktree remove "$WORKTREE_DIR" --force || true
+
