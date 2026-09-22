@@ -298,4 +298,121 @@ Describe 'Configuration Manager'
       The output should equal "Agricultural machinery division"
     End
   End
+
+  Describe 'Configuration Paths'
+    BeforeEach 'reset_env'
+
+    It 'resolves global config dir using XDG_CONFIG_HOME'
+      export XDG_CONFIG_HOME="/tmp/my_xdg"
+      When call get_global_config_dir
+      The output should eq "/tmp/my_xdg/cccp"
+    End
+
+    It 'resolves global config dir using HOME fallback'
+      export XDG_CONFIG_HOME=""
+      export HOME="/tmp/my_home"
+      When call get_global_config_dir
+      The output should eq "/tmp/my_home/.config/cccp"
+    End
+
+    It 'resolves global config file path'
+      export XDG_CONFIG_HOME="/tmp/my_xdg"
+      When call get_global_config_file
+      The output should eq "/tmp/my_xdg/cccp/config"
+    End
+
+    It 'resolves local config file inside git repository'
+      cd "$TEST_DIR"
+      When call get_local_config_file
+      The output should eq "$TEST_DIR/.cccprc"
+    End
+
+    It 'returns empty string when outside git repository'
+      OUTSIDE_DIR="$(mktemp -d)"
+      cd "$OUTSIDE_DIR"
+      When call get_local_config_file
+      The output should eq ""
+      rm -rf "$OUTSIDE_DIR"
+      cd "$TEST_DIR"
+    End
+  End
+
+  Describe 'normalize_config_key'
+    It 'converts uppercase letters to lowercase'
+      When call normalize_config_key "STRICT_SCOPES"
+      The output should eq "strict_scopes"
+    End
+
+    It 'converts hyphens to underscores'
+      When call normalize_config_key "update-interval-days"
+      The output should eq "update_interval_days"
+    End
+
+    It 'handles mixed case and hyphens'
+      When call normalize_config_key "Allow-Any-Scope"
+      The output should eq "allow_any_scope"
+    End
+  End
+
+  Describe 'get_default_config_value'
+    It 'returns defaults for known keys'
+      When call get_default_config_value "strict_scopes"
+      The status should be success
+      The output should eq "0"
+    End
+
+    It 'returns default for update_channel'
+      When call get_default_config_value "update_channel"
+      The status should be success
+      The output should eq "stable"
+    End
+
+    It 'returns default for tickets_file'
+      When call get_default_config_value "tickets_file"
+      The status should be success
+      The output should eq ".antigravity/tickets.md"
+    End
+
+    It 'returns failure for unknown key'
+      When call get_default_config_value "nonexistent_key_xyz"
+      The status should be failure
+    End
+  End
+
+  Describe 'is_global_only_config_key'
+    It 'returns success for update_channel'
+      When call is_global_only_config_key "update_channel"
+      The status should be success
+    End
+
+    It 'returns success for check_updates'
+      When call is_global_only_config_key "check_updates"
+      The status should be success
+    End
+
+    It 'returns success for pinned_version'
+      When call is_global_only_config_key "pinned_version"
+      The status should be success
+    End
+
+    It 'returns failure for local/repository keys'
+      When call is_global_only_config_key "strict_scopes"
+      The status should be failure
+    End
+  End
+
+  Describe 'list_file_keys'
+    BeforeEach 'reset_env'
+
+    It 'lists keys with specified prefix ignoring comments and blanks'
+      CFG_FILE="$TEST_DIR/test.conf"
+      printf "# Comment line\n\nkey_one=alpha\nkey_two=beta\n" > "$CFG_FILE"
+      When call list_file_keys "$CFG_FILE" "local"
+      The status should be success
+      The output should include "[local] key_one = alpha"
+      The output should include "[local] key_two = beta"
+      The output should not include "Comment line"
+      rm -f "$CFG_FILE"
+    End
+  End
 End

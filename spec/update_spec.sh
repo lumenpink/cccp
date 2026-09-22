@@ -194,4 +194,83 @@ EOF
       The output should eq "2.0.0"
     End
   End
+
+  Describe 'semver_is_newer'
+    It 'returns success when remote major version is greater'
+      When call semver_is_newer "2.0.0" "1.9.9"
+      The status should be success
+    End
+
+    It 'returns failure when remote major version is lower'
+      When call semver_is_newer "1.9.9" "2.0.0"
+      The status should be failure
+    End
+
+    It 'returns success when remote minor version is greater'
+      When call semver_is_newer "1.3.0" "1.2.9"
+      The status should be success
+    End
+
+    It 'returns failure when remote minor version is lower'
+      When call semver_is_newer "1.2.9" "1.3.0"
+      The status should be failure
+    End
+
+    It 'returns success when remote patch version is greater'
+      When call semver_is_newer "1.2.5" "1.2.4"
+      The status should be success
+    End
+
+    It 'returns failure when remote patch version is lower'
+      When call semver_is_newer "1.2.4" "1.2.5"
+      The status should be failure
+    End
+
+    It 'returns failure when versions are strictly equal'
+      When call semver_is_newer "1.2.3" "1.2.3"
+      The status should be failure
+    End
+
+    It 'strips leading v prefix transparently'
+      When call semver_is_newer "v2.0.0" "1.9.9"
+      The status should be success
+    End
+
+    It 'handles leading v prefix on both versions'
+      When call semver_is_newer "v1.2.4" "v1.2.3"
+      The status should be success
+    End
+
+    It 'recognizes release as newer than pre-release on same base version'
+      When call semver_is_newer "1.0.0" "1.0.0-rc.1"
+      The status should be success
+    End
+
+    It 'recognizes pre-release as not newer than release on same base version'
+      When call semver_is_newer "1.0.0-rc.1" "1.0.0"
+      The status should be failure
+    End
+
+    It 'strips build metadata before version comparison'
+      When call semver_is_newer "1.0.1+build.1" "1.0.0+build.2"
+      The status should be success
+    End
+  End
+
+  Describe 'get_update_cache_file'
+    BeforeEach 'reset_env'
+
+    It 'respects custom XDG_CONFIG_HOME'
+      export XDG_CONFIG_HOME="/tmp/custom_config"
+      When call get_update_cache_file
+      The output should eq "/tmp/custom_config/cccp/update_cache"
+    End
+
+    It 'falls back to HOME/.config when XDG_CONFIG_HOME is empty'
+      export XDG_CONFIG_HOME=""
+      export HOME="/tmp/custom_home"
+      When call get_update_cache_file
+      The output should eq "/tmp/custom_home/.config/cccp/update_cache"
+    End
+  End
 End
