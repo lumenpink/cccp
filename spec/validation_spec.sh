@@ -156,4 +156,27 @@ Describe 'validation'
       rm -rf "$NON_GIT_DIR"
     End
   End
+
+  Describe 'check_prerequisites'
+    It 'succeeds when inside git repo and tools are present'
+      When call check_prerequisites
+      The status should be success
+    End
+
+    It 'fails when executed outside a git repo'
+      NON_GIT_DIR="$(mktemp -d)"
+      cd "$NON_GIT_DIR"
+      When call check_prerequisites
+      The status should be failure
+      The error should include "Not a git repository"
+      rm -rf "$NON_GIT_DIR"
+    End
+
+    It 'fails when tools are missing'
+      PATH="/dev/null"
+      When call check_prerequisites
+      The status should be failure
+      The error should include "Required system tools are missing from PATH"
+    End
+  End
 End

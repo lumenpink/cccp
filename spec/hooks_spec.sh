@@ -551,4 +551,107 @@ Describe 'hooks'
       unset POST_PUSH_SYNC || true
     End
   End
+
+  Describe 'detect_hook_framework'
+    setup_framework_tests() {
+      FRAMEWORK_DIR="$(mktemp -d)"
+    }
+    cleanup_framework_tests() {
+      rm -rf "$FRAMEWORK_DIR"
+    }
+    BeforeEach 'setup_framework_tests'
+    AfterEach 'cleanup_framework_tests'
+
+    It 'returns none for nonexistent file'
+      When call detect_hook_framework "$FRAMEWORK_DIR/nonexistent"
+      The output should eq "none"
+    End
+
+    It 'detects Husky framework'
+      echo "#!/bin/sh" > "$FRAMEWORK_DIR/hook"
+      echo ". \"\$(dirname \"\$0\")/husky.sh\"" >> "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Husky"
+    End
+
+    It 'detects Lefthook framework'
+      echo "#!/bin/sh" > "$FRAMEWORK_DIR/hook"
+      echo "# lefthook run commit-msg" >> "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Lefthook"
+    End
+
+    It 'detects pre-commit framework'
+      echo "#!/usr/bin/env python3" > "$FRAMEWORK_DIR/hook"
+      echo "# pre-commit hook" >> "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "pre-commit (Python framework)"
+    End
+
+    It 'detects Overcommit framework'
+      echo "#!/usr/bin/env ruby" > "$FRAMEWORK_DIR/hook"
+      echo "# overcommit hook" >> "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Overcommit"
+    End
+
+    It 'detects Custom Shell Script from shebang'
+      echo "#!/bin/sh" > "$FRAMEWORK_DIR/hook"
+      echo "echo 'hello'" >> "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Custom Shell Script"
+    End
+
+    It 'detects Custom Node.js Script from shebang'
+      echo "#!/usr/bin/env node" > "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Custom Node.js Script"
+    End
+
+    It 'detects Custom Python Script from shebang'
+      echo "#!/usr/bin/python3" > "$FRAMEWORK_DIR/hook"
+      When call detect_hook_framework "$FRAMEWORK_DIR/hook"
+      The output should eq "Custom Python Script"
+    End
+  End
+
+  Describe 'get_canonical_hook_content'
+    It 'generates wrapper script with specified version and hook name'
+      When call get_canonical_hook_content "commit-msg" "2.5.0" "/custom/root"
+      The output should include "#!/bin/sh"
+      The output should include "# cccp-hook-version: 2.5.0"
+      The output should include "exec cccp commit-msg"
+      The output should include "exec \"/custom/root/cccp.sh\" commit-msg"
+    End
+  End
+
+  Describe 'get_hook_backups'
+    setup_backup_tests() {
+      BACKUP_DIR="$(mktemp -d)"
+    }
+    cleanup_backup_tests() {
+      rm -rf "$BACKUP_DIR"
+    }
+    BeforeEach 'setup_backup_tests'
+    AfterEach 'cleanup_backup_tests'
+
+    It 'returns empty string when no backups exist'
+      When call get_hook_backups "$BACKUP_DIR/commit-msg"
+      The output should eq ""
+    End
+
+    It 'finds .old backup file'
+      touch "$BACKUP_DIR/commit-msg.old"
+      When call get_hook_backups "$BACKUP_DIR/commit-msg"
+      The output should include "commit-msg.old"
+    End
+
+    It 'finds numbered .old backups'
+      touch "$BACKUP_DIR/commit-msg.old"
+      touch "$BACKUP_DIR/commit-msg.old.1"
+      When call get_hook_backups "$BACKUP_DIR/commit-msg"
+      The output should include "commit-msg.old"
+      The output should include "commit-msg.old.1"
+    End
+  End
 End
