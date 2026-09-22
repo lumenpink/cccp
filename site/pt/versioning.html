@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Versionamento - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>ACELERAÇÃO DA PRODUÇÃO SEMVER</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="../assets/logo.svg" alt="Distintivo Estrela Vermelha CCCP" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Programa de Conformidade</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link active">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../versioning.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ПЯТИЛЕТКУ — В ЧЕТЫРЕ ГОДА!»</span>
+      <span class="motto-translation">O Plano Quinquenal em quatro anos! Acelerar a produção através do SemVer automatizado!</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Versionamento Semântico Preditivo</h1>
+      
+      <p class="hero-lead">
+        O CCCP garante Versionamento Semântico determinístico (SemVer 2.0.0) calculado diretamente dos sinais dos seus commits, projetando previsões imediatas de release e registrando o progresso do desenvolvimento contínuo.
+      </p>
+
+      <h2>1. Os Dois Estados de Versão</h2>
+
+      <h3>A. Versão de Release Limpa</h3>
+      <p>Quando o commit ativo corresponde exatamente a uma tag anotada de release do Git:</p>
+      <pre><code>MAJOR.MINOR.PATCH
+Exemplo: 2.1.0</code></pre>
+
+      <h3>B. Versão de Desenvolvimento Preditiva</h3>
+      <p>Ao trabalhar em commits ainda não lançados entre tags, o CCCP projeta a versão de release prevista e anexa metadados de telemetria no arquivo <code>VERSION</code>:</p>
+      <pre><code>&lt;VERSAO_ALVO&gt;-dev.&lt;COMMITS_A_FRENTE&gt;+&lt;DATA&gt;.&lt;HASH_CURTO&gt;
+Exemplo: 2.2.0-dev.14+20260921.233189a</code></pre>
+
+      <h2>2. Regras de Elevação de Versão &amp; Diretivas</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Sinal do Commit</th>
+              <th>Impacto no SemVer</th>
+              <th>Significado &amp; Diretiva Partidária</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Marcador <code>!</code> ou <code>BREAKING CHANGE:</code></td>
+              <td><strong>MAJOR</strong> (<code>X.0.0</code>)</td>
+              <td>Mudança revolucionária de paradigma; quebra de contratos de API</td>
+            </tr>
+            <tr>
+              <td><code>feat:</code> ou <code>feat(escopo):</code></td>
+              <td><strong>MINOR</strong> (<code>x.Y.0</code>)</td>
+              <td>Avanço industrial para a Pátria; nova funcionalidade retrocompatível</td>
+            </tr>
+            <tr>
+              <td><code>fix:</code>, <code>perf:</code>, <code>refactor:</code>, <code>chore:</code></td>
+              <td><strong>PATCH</strong> (<code>x.y.Z</code>)</td>
+              <td>Manutenção de rotina; reparo de sabotagens ou defeitos no maquinário</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>3. Criando Tags de Release (`cccp tag`)</h2>
+      <p>
+        Quando concluir uma etapa do plano, promova sua branch de desenvolvimento para uma versão estável oficial:
+      </p>
+
+      <pre><code># Promover para a próxima versão calculada automaticamente:
+cccp tag
+
+# Promover para versão explícita:
+cccp tag 2.3.0
+
+# Definir título personalizado e anotação:
+cccp tag --title "Lançamento Vostok" -m "Conformidade automatizada estabelecida"</code></pre>
+
+      <div class="banner-directive">
+        <div class="banner-directive-title">
+          <span>☭</span>
+          <span>Garantia de Proteção da Ordem nº 227</span>
+        </div>
+        <p>O comando <code>cccp tag</code> bloqueia execuções com árvore de trabalho suja e garante que o <code>CHANGELOG.md</code> e o <code>VERSION</code> estejam perfeitamente sincronizados antes de aplicar as tags no Git.</p>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="../versioning.html">English Version</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Dedicado ao domínio público sob The Unlicense.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

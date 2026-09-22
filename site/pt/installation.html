@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instalação - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>INSPETORIA DE INSTALAÇÃO</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="../assets/logo.svg" alt="Distintivo Estrela Vermelha CCCP" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Programa de Conformidade</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link active">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../installation.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ДАТЬ РОДИНЕ КАЧЕСТВЕННЫЙ КОД!»</span>
+      <span class="motto-translation">Dar à Pátria código robusto e de alta qualidade!</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Instalação &amp; Implantação</h1>
+      
+      <p class="hero-lead">
+        O CCCP pode ser implantado em dois modos complementares: globalmente em toda a sua estação de trabalho, ou localmente dentro de repositórios Git individuais via wrappers portáteis de hooks.
+      </p>
+
+      <h2>1. Instalação Global (PATH do Sistema)</h2>
+      <p>
+        Instalar o CCCP no <code>PATH</code> do seu sistema torna o executável <code>cccp</code> acessível universalmente a partir de qualquer diretório ou terminal:
+      </p>
+
+      <pre><code># Baixar e instalar em ~/.local/bin/cccp (ou /usr/local/bin/cccp se executado como root)
+curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g</code></pre>
+
+      <p>
+        Caso já tenha clonado o repositório localmente:
+      </p>
+      <pre><code>./cccp.sh install --global</code></pre>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Verificação Automática de PATH</span>
+        </div>
+        <p>Se <code>~/.local/bin</code> não estiver presente no seu <code>$PATH</code>, o instalador adiciona automaticamente o comando de exportação no seu <code>~/.bashrc</code> (e <code>~/.zshrc</code> se encontrado) com orientações claras.</p>
+      </div>
+
+      <h2>2. Instalação Local de Hooks no Repositório</h2>
+      <p>
+        Em qualquer projeto Git, você pode instalar wrappers portáteis sem alterar diretórios do sistema:
+      </p>
+
+      <pre><code>cd meu-repositorio-git
+cccp install</code></pre>
+
+      <p>Isso configura quatro hooks essenciais em <code>.git/hooks/</code>:</p>
+      <ul>
+        <li><strong><code>commit-msg</code></strong>: Valida a sintaxe da mensagem antes que o commit seja concluído.</li>
+        <li><strong><code>post-commit</code></strong>: Atualiza o <code>CHANGELOG.md</code> e sincroniza a versão de desenvolvimento preditiva no <code>VERSION</code>.</li>
+        <li><strong><code>pre-push</code></strong>: Impede que tags de release sejam enviadas sem o arquivo de versão devidamente sincronizado.</li>
+        <li><strong><code>reference-transaction</code></strong>: Bloqueia a criação de tags que apontem para commits fora de conformidade ou versões de desenvolvimento.</li>
+      </ul>
+
+      <h2>3. Segurança &amp; Backups Não-Destrutivos</h2>
+      <p>
+        Sempre que o <code>cccp install</code> encontra hooks pré-existentes não criados pelo CCCP, ele cria cópias de segurança automáticas com sufixos incrementais (ex: <code>commit-msg.old</code>) para que nenhuma regra personalizada seja perdida.
+      </p>
+
+      <h2>4. Desinstalação</h2>
+      <pre><code># Remover hooks do Git no repositório atual:
+cccp uninstall
+
+# Remover o executável global:
+rm -f ~/.local/bin/cccp</code></pre>
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="../installation.html">English Version</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Dedicado ao domínio público sob The Unlicense.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (site) adicionar site estatico bilingue, design sovietico e servidor de preview (closes #7)
   - (tickets) implement generic forge detection and multi-driver ticket sync (#5)
   - (tickets) add GitHub issues sync and Gosplan rate limiter
   - (agent) add fill subcommand and generate template despite missing variables

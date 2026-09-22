@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCCP - Programa de Conformidade de Conventional Commits</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <!-- Barra de Diretivas do Estado -->
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>ORDEM Nº 227: NEM UM PASSO ATRÁS DOS CONVENTIONAL COMMITS!</span>
+    <span>★</span>
+  </aside>
+
+  <!-- Cabeçalho Principal -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="../assets/logo.svg" alt="Distintivo Estrela Vermelha CCCP" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Programa de Conformidade</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link active">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <!-- Seletor Semântico de Idioma no Cabeçalho -->
+      <a href="../index.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="container">
+    
+    <!-- Lema Soviético da Seção -->
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»</span>
+      <span class="motto-translation">Rumo ao futuro radiante com um histórico de commits padronizado e limpo!</span>
+    </div>
+
+    <!-- Seção Hero com Pôster de Época -->
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Disciplina em Cada Commit</h1>
+        <p class="hero-subtitle">SemVer Automatizado, Git Hooks &amp; Sincronização de Forges</p>
+        <p class="hero-lead">
+          Uma suíte em POSIX Shell sem dependências externas que automatiza a conformidade com Conventional Commits, Semantic Versioning 2.0.0 preditivo, hooks portáteis do Git, sincronização de tickets multi-forge e diretrizes para agentes de IA.
+        </p>
+
+        <div class="cta-group">
+          <a href="installation.html" class="btn btn-primary">★ Equipar Máquina</a>
+          <a href="commands.html" class="btn btn-secondary">Índice de Comandos</a>
+        </div>
+      </div>
+
+      <div class="hero-poster-wrapper">
+        <img src="../assets/poster.jpg" alt="Cartaz de propaganda soviética anos 50/60 para o CCCP: Cosmonauta e trabalhador heróicos rumo às estrelas com Sputnik e ramificações do Git" class="hero-poster-img">
+      </div>
+    </section>
+
+    <!-- Decreto de Início Rápido do Gosplan -->
+    <div class="banner-decree">
+      <div class="banner-decree-title">
+        <span>★</span>
+        <span>Decreto de Início Rápido do Gosplan — Três Passos para a Conformidade Total</span>
+      </div>
+      <p>Execute estes comandos no seu terminal para ingressar no movimento Stakhanovista do Git:</p>
+      <pre><code># 1. Instalar globalmente no seu PATH (~/.local/bin/cccp)
+curl -fsSL https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh | sh -s -- install -g
+
+# 2. Entrar em qualquer repositório Git e ativar os hooks de conformidade
+cd meu-projeto && cccp install
+
+# 3. Criar seu primeiro commit em conformidade com o assistente interativo
+cccp cz</code></pre>
+    </div>
+
+    <!-- Grade de Recursos -->
+    <section>
+      <h2 style="font-family: var(--font-display); font-size: 2.2rem; text-transform: uppercase; margin-bottom: 24px; color: var(--c-red-primary); border-bottom: 3px solid var(--c-charcoal); padding-bottom: 8px;">
+        ★ Pilares do Fluxo de Trabalho Coletivo
+      </h2>
+
+      <div class="grid">
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">01</span>
+            <h3 class="card-title">Arquitetura POSIX Pura</h3>
+          </div>
+          <p>Zero interpretadores pesados, zero custo do npm, sem Python e sem dialetos de awk. Funciona no Linux, macOS, BSD e Git Bash no Windows com compatibilidade BusyBox.</p>
+          <a href="installation.html" class="card-link">Guia de Instalação &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">02</span>
+            <h3 class="card-title">SemVer 2.0.0 Preditivo</h3>
+          </div>
+          <p>Calcula dinamicamente a versão de release prevista entre tags. Eleva automaticamente Major, Minor ou Patch baseado rigorosamente nos sinais das mensagens de commit.</p>
+          <a href="versioning.html" class="card-link">Mecânica de Versões &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">03</span>
+            <h3 class="card-title">Inspetoria de Git Hooks</h3>
+          </div>
+          <p>Scripts portáteis para commit-msg, post-commit, pre-push e reference-transaction com auditoria de versão, verificação de diferenças (diff) e backups automáticos.</p>
+          <a href="hooks.html" class="card-link">Explorar Hooks &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">04</span>
+            <h3 class="card-title">Sincronização Multi-Forge</h3>
+          </div>
+          <p>Consolida tickets abertos do Codeberg/Forgejo, GitHub, GitLab/Framagit e SourceHut diretamente em markdown com proteção de taxa horária deslizante.</p>
+          <a href="forges.html" class="card-link">Integração com Forges &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">05</span>
+            <h3 class="card-title">Diretrizes para Agentes de IA</h3>
+          </div>
+          <p>Capacite o Google Antigravity, Claude e GitHub Copilot com instruções padronizadas no AGENTS.md sincronizadas de templates remotos com validação de variáveis.</p>
+          <a href="agents.html" class="card-link">Diretrizes de Agentes &rarr;</a>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <span class="card-number">06</span>
+            <h3 class="card-title">Configuração Hierárquica</h3>
+          </div>
+          <p>Cascata em 4 níveis: Padrões internos &lt; ~/.cccprc global &lt; .cccprc local &lt; Variáveis de ambiente &lt; Parâmetros de CLI com edição imediata.</p>
+          <a href="configuration.html" class="card-link">Sistema de Configuração &rarr;</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- Caixa de Diretiva Soviética -->
+    <div class="banner-directive">
+      <div class="banner-directive-title">
+        <span>☭</span>
+        <span>Ordem nº 227 — Formato do Conventional Commit</span>
+      </div>
+      <p>Todos os commits devem seguir rigorosamente a estrutura padronizada:</p>
+      <pre><code>&lt;tipo&gt;[escopo opcional]: &lt;descrição&gt;
+
+[corpo opcional]
+
+[rodapé(s) opcional(is)]</code></pre>
+      <p>Tipos padrão: <code>feat</code> (bump minor), <code>fix</code> (patch bump), <code>docs</code>, <code>style</code>, <code>refactor</code>, <code>perf</code>, <code>test</code>, <code>build</code>, <code>ci</code>, <code>chore</code>, <code>revert</code>. Mudanças que quebram compatibilidade (<code>!</code>) disparam elevação Major imediata.</p>
+    </div>
+
+  </main>
+
+  <!-- Rodapé -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="https://github.com/lumenpink/cccp.sh" target="_blank" rel="noopener">Espelho GitHub</a>
+        <a href="../index.html">English Version</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Dedicado ao domínio público sob The Unlicense. Desenvolvido com Shell POSIX puro &amp; arte gráfica Construtivista Soviética.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

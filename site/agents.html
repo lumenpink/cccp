@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agent Directives - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>CYBERNETIC &amp; AGENTIC DIRECTIVES BUREAU</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="assets/logo.svg" alt="CCCP Red Star Badge" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Compliance Program</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link active">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <a href="pt/agents.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ТЕХНИКА В ПЕРИОД РЕКОНСТРУКЦИИ РЕШАЕТ ВСЁ!»</span>
+      <span class="motto-translation">Technology during the period of reconstruction decides everything! Harmonizing human and AI development.</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>AI Agent Directives &amp; `AGENTS.md`</h1>
+      
+      <p class="hero-lead">
+        CCCP establishes a standardized, automated bridge between human maintainers and autonomous AI agents (Google Antigravity, Claude, Copilot), governing project conventions through centralized instructions in <code>AGENTS.md</code>.
+      </p>
+
+      <h2>1. Centralized Template Synchronization (`cccp agents`)</h2>
+      <p>
+        Instead of maintaining duplicate agent instructions across dozens of repositories, CCCP can pull, validate, and inject local configuration into your project's <code>AGENTS.md</code>:
+      </p>
+
+      <pre><code># Update local AGENTS.md from configured template URL:
+cccp agents update
+
+# Inspect missing template variables and current coverage:
+cccp agents vars</code></pre>
+
+      <h2>2. Interactive Variable Resolution (`cccp set-av`)</h2>
+      <p>
+        When an <code>AGENTS.md</code> template requires repository-specific values (e.g., test commands, run commands, primary language stack), CCCP provides an interactive wizard:
+      </p>
+
+      <pre><code># Run interactive wizard to populate required variables:
+cccp set-av
+
+# Inspect currently configured variables:
+cccp set-av --list</code></pre>
+
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Zero Hallucination Protocol</span>
+        </div>
+        <p>All template variables populated via <code>cccp set-av</code> are persisted locally in <code>.cccprc</code>. Whenever <code>cccp agents update</code> runs, these variables are injected deterministically, preventing AI agents from making assumptions or violating repository rules.</p>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="pt/agents.html">Versão em Português</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Licensed under GNU GPL-3.0 and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

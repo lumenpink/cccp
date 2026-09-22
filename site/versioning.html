@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Versioning - CCCP Documentation</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="assets/style.css">
+  <script defer src="assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="State Directives">
+    <span>★ STATE PLANNING COMMITTEE (GOSPLAN)</span>
+    <span>•</span>
+    <span>SEMVER PRODUCTION ACCELERATION</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="assets/logo.svg" alt="CCCP Red Star Badge" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Compliance Program</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Primary Navigation">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="installation.html" class="nav-link">Installation</a>
+        <a href="configuration.html" class="nav-link">Config</a>
+        <a href="versioning.html" class="nav-link active">Versioning</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agents</a>
+        <a href="commands.html" class="nav-link">Commands</a>
+      </nav>
+
+      <a href="pt/versioning.html" class="lang-badge" title="Versão em Português do Brasil">
+        <span>☭</span>
+        <span>PT-BR</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ПЯТИЛЕТКУ — В ЧЕТЫРЕ ГОДА!»</span>
+      <span class="motto-translation">The Five-Year Plan in four years! Accelerate production through automated SemVer!</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Predictive Semantic Versioning</h1>
+      
+      <p class="hero-lead">
+        CCCP guarantees deterministic Semantic Versioning (SemVer 2.0.0) calculated directly from your commit signals, generating instant release predictions and tracking unreleased development progress.
+      </p>
+
+      <h2>1. The Two Version States</h2>
+
+      <h3>A. Clean Release SemVer</h3>
+      <p>When the working tree commit exactly corresponds to an annotated Git release tag:</p>
+      <pre><code>MAJOR.MINOR.PATCH
+Example: 2.1.0</code></pre>
+
+      <h3>B. Predictive Development SemVer</h3>
+      <p>When working on unreleased commits between tags, CCCP continuously projects the prospective release target and attaches build telemetry into the <code>VERSION</code> file:</p>
+      <pre><code>&lt;TARGET_SEMVER&gt;-dev.&lt;COMMITS_AHEAD&gt;+&lt;DATE&gt;.&lt;SHORT_HASH&gt;
+Example: 2.2.0-dev.14+20260921.233189a</code></pre>
+
+      <h2>2. Version Bump Rules &amp; Directives</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Commit Signal</th>
+              <th>SemVer Impact</th>
+              <th>Meaning &amp; Party Directive</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>!</code> breaking marker or <code>BREAKING CHANGE:</code></td>
+              <td><strong>MAJOR</strong> (<code>X.0.0</code>)</td>
+              <td>Revolutionary paradigm shift; breaking API contracts</td>
+            </tr>
+            <tr>
+              <td><code>feat:</code> or <code>feat(scope):</code></td>
+              <td><strong>MINOR</strong> (<code>x.Y.0</code>)</td>
+              <td>Industrial advancement; backwards-compatible features</td>
+            </tr>
+            <tr>
+              <td><code>fix:</code>, <code>perf:</code>, <code>refactor:</code>, <code>chore:</code></td>
+              <td><strong>PATCH</strong> (<code>x.y.Z</code>)</td>
+              <td>Routine maintenance; repairing defects in the machinery</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>3. Tagging Releases (`cccp tag`)</h2>
+      <p>
+        When you are ready to conclude a milestone, promote your development branch into an official release:
+      </p>
+
+      <pre><code># Promote to automatically calculated next version:
+cccp tag
+
+# Promote to explicit version:
+cccp tag 2.3.0
+
+# Provide custom title and annotation message:
+cccp tag --title "The Vostok Release" -m "Automated compliance established"</code></pre>
+
+      <div class="banner-directive">
+        <div class="banner-directive-title">
+          <span>☭</span>
+          <span>Order No. 227 Protection Guarantee</span>
+        </div>
+        <p>The <code>cccp tag</code> command intercepts dirty working trees and ensures that <code>CHANGELOG.md</code> and <code>VERSION</code> are synchronized before applying signed Git tags.</p>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — CONVENTIONAL COMMITS COMPLIANCE PROGRAM</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="pt/versioning.html">Versão em Português</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Licensed under GNU GPL-3.0 and GOST 1.1.0 modular matrix.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

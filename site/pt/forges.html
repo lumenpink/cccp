@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sincronização Multi-Forge - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>DEPARTAMENTO DE SINCRONIZAÇÃO MULTI-FORGE</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="../assets/logo.svg" alt="Distintivo Estrela Vermelha CCCP" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Programa de Conformidade</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link active">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../forges.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ДРУЖБА И СОТРУДНИЧЕСТВО ВСЕХ СИСТЕМ!»</span>
+      <span class="motto-translation">Amizade e cooperação entre todos os sistemas! Interoperabilidade entre forges Git.</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Sincronização Multi-Forge &amp; Tickets</h1>
+      
+      <p class="hero-lead">
+        O CCCP conecta seu fluxo de trabalho Git diretamente aos rastreadores de issues upstream, sincronizando automaticamente tickets abertos em um documento markdown local (<code>.antigravity/tickets.md</code>) para desenvolvedores e agentes autônomos de IA.
+      </p>
+
+      <h2>1. Forges Remotos Suportados</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Ecossistema do Forge</th>
+              <th>Domínios Suportados</th>
+              <th>Identificação &amp; Sondagem Ativa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Forgejo &amp; Gitea</strong></td>
+              <td><code>codeberg.org</code>, instâncias próprias</td>
+              <td>Sonda <code>/api/v1/version</code> para servidores auto-hospedados</td>
+            </tr>
+            <tr>
+              <td><strong>GitHub</strong></td>
+              <td><code>github.com</code>, GitHub Enterprise</td>
+              <td>Utiliza a API REST v3 do GitHub, filtrando pull requests</td>
+            </tr>
+            <tr>
+              <td><strong>GitLab</strong></td>
+              <td><code>framagit.org</code>, <code>gitlab.com</code>, customizados</td>
+              <td>Sonda <code>/api/v4/version</code> e suporta subgrupos aninhados</td>
+            </tr>
+            <tr>
+              <td><strong>SourceHut</strong></td>
+              <td><code>git.sr.ht</code>, <code>*.sr.ht</code></td>
+              <td>Extrai issues via GraphQL do tracker SourceHut</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. Sincronizando Tickets (`cccp tickets`)</h2>
+      <pre><code># Sincronizar tickets com detecção automática do remote:
+cccp tickets
+
+# Forçar driver de forge específico:
+cccp tickets --provider forgejo
+
+# Informar proprietário e repositório explicitamente:
+TICKETS_OWNER=meutime TICKETS_REPO=meuprojeto cccp tickets</code></pre>
+
+      <h2>3. Proteção de Cota Horária do Gosplan</h2>
+      <div class="banner-decree">
+        <div class="banner-decree-title">
+          <span>★</span>
+          <span>Controle de Taxa Deslizante de 1 Hora</span>
+        </div>
+        <p>
+          Para evitar o esgotamento de limites de requisições em APIs públicas (como o teto de 60 requisições/hora do GitHub sem autenticação), o CCCP rastreia as chamadas em <code>.git/cccp_tickets_rate_limit</code>:
+        </p>
+        <ul>
+          <li><strong>Teto Padrão</strong>: Máximo de 55 requisições em janela deslizante de 1 hora.</li>
+          <li><strong>Garantia de Não-Interrupção</strong>: Ao atingir o limite, o CCCP encerra suavemente com código <code>0</code> e emite aviso do Gosplan, sem interromper o <code>git push</code> ou pipelines de CI.</li>
+        </ul>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="../forges.html">English Version</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Dedicado ao domínio público sob The Unlicense.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

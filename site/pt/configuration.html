@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuração - Documentação CCCP</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script defer src="../assets/main.js"></script>
+</head>
+<body>
+
+  <aside class="state-banner" aria-label="Diretivas do Estado">
+    <span>★ COMITÊ DE PLANEJAMENTO ESTATAL (GOSPLAN)</span>
+    <span>•</span>
+    <span>ARQUITETURA DE PLANEJAMENTO CENTRAL</span>
+    <span>★</span>
+  </aside>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="brand">
+        <img src="../assets/logo.svg" alt="Distintivo Estrela Vermelha CCCP" class="brand-logo">
+        <div>
+          <span class="brand-title">CCCP</span>
+          <span class="brand-subtitle">Programa de Conformidade</span>
+        </div>
+      </a>
+
+      <nav class="site-nav" aria-label="Navegação Principal">
+        <a href="index.html" class="nav-link">Início</a>
+        <a href="installation.html" class="nav-link">Instalação</a>
+        <a href="configuration.html" class="nav-link active">Configuração</a>
+        <a href="versioning.html" class="nav-link">Versionamento</a>
+        <a href="hooks.html" class="nav-link">Hooks</a>
+        <a href="forges.html" class="nav-link">Forges</a>
+        <a href="agents.html" class="nav-link">Agentes</a>
+        <a href="commands.html" class="nav-link">Comandos</a>
+      </nav>
+
+      <a href="../configuration.html" class="lang-badge" title="English Version">
+        <span>★</span>
+        <span>EN</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    
+    <div class="russian-motto">
+      <span class="motto-cyrillic">«ПЛАН — ЭТО ЗАКОН, ВЫПОЛНЕНИЕ — ДОЛГ!»</span>
+      <span class="motto-translation">O plano é lei, o cumprimento é dever! — Diretriz Estatal do Gosplan</span>
+    </div>
+
+    <article class="doc-content">
+      <h1>Configuração Hierárquica</h1>
+      
+      <p class="hero-lead">
+        O CCCP aplica uma rigorosa cascata de configuração em 4 níveis inspirada na exatidão do Comitê de Planejamento Estatal (Gosplan), garantindo comportamento determinístico em repositórios locais e ambientes globais.
+      </p>
+
+      <h2>A Cascata Hierárquica de 4 Níveis</h2>
+      <pre><code>Prioridade 1: Variáveis de Ambiente (mais alta — sobrescritas temporárias)
+Prioridade 2: Configuração Local (.cccprc na raiz do repositório)
+Prioridade 3: Configuração Global (~/.cccprc no diretório do usuário)
+Prioridade 4: Padrões de Fábrica do Gosplan (fallback determinístico)</code></pre>
+
+      <h2>Utilizando o Comando `cccp config`</h2>
+
+      <h3>Inspecionar Configuração</h3>
+      <pre><code># Exibir a configuração resolvida ativa:
+cccp config
+
+# Exibir apenas valores globais:
+cccp config --global
+
+# Exibir apenas valores do repositório local:
+cccp config --local</code></pre>
+
+      <h3>Atualizar Configurações</h3>
+      <pre><code># Definir chave no .cccprc local:
+cccp config tickets_provider codeberg
+
+# Definir chave globalmente para todos os projetos:
+cccp config --global cz_prompt_breaking true</code></pre>
+
+      <h3>Remover Configurações</h3>
+      <pre><code># Remover chave local:
+cccp config --unset tickets_provider
+
+# Remover chave global:
+cccp config --global --unset cz_prompt_breaking</code></pre>
+
+      <h2>Diretivas de Configuração Suportadas</h2>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Chave da Diretiva</th>
+              <th>Descrição</th>
+              <th>Valor Padrão</th>
+              <th>Opções Permitidas / Exemplos</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>types</code></td>
+              <td>Lista de tipos de commit permitidos</td>
+              <td>11 tipos padrão</td>
+              <td><code>feat,fix,docs,style,refactor,perf,test,build,ci,chore,revert</code></td>
+            </tr>
+            <tr>
+              <td><code>strict_types</code></td>
+              <td>Validação estrita dos tipos</td>
+              <td><code>1</code></td>
+              <td><code>1</code> (estrito), <code>0</code> (permite tipos arbitrários)</td>
+            </tr>
+            <tr>
+              <td><code>strict_scopes</code></td>
+              <td>Validação estrita da lista de escopos</td>
+              <td><code>0</code></td>
+              <td><code>1</code> (validação estrita), <code>0</code> (permissivo)</td>
+            </tr>
+            <tr>
+              <td><code>scopes</code></td>
+              <td>Lista de escopos permitidos</td>
+              <td>Vazio (todos permitidos)</td>
+              <td><code>api,ui,db,core,cli</code></td>
+            </tr>
+            <tr>
+              <td><code>tickets_provider</code></td>
+              <td>Provedor de issues upstream</td>
+              <td>Detectado automaticamente</td>
+              <td><code>forgejo</code>, <code>github</code>, <code>gitlab</code>, <code>sourcehut</code></td>
+            </tr>
+            <tr>
+              <td><code>tickets_limit</code></td>
+              <td>Limite teto de cota horária</td>
+              <td><code>55</code></td>
+              <td>Inteiro (até 60)</td>
+            </tr>
+            <tr>
+              <td><code>post_push_sync</code></td>
+              <td>Sincronização pós-push automática</td>
+              <td>Vazio</td>
+              <td><code>tickets</code>, <code>agent</code>, <code>tickets,agent</code></td>
+            </tr>
+            <tr>
+              <td><code>pinned_version</code></td>
+              <td>Fixa o verificador de atualização em versão exata</td>
+              <td>Vazio</td>
+              <td>Ex: <code>2.3.0</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </article>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>CCCP — PROGRAMA DE CONFORMIDADE DE CONVENTIONAL COMMITS</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://codeberg.org/lumenpink/cccp" target="_blank" rel="noopener">Codeberg</a>
+        <a href="../configuration.html">English Version</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Dedicado ao domínio público sob The Unlicense.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
