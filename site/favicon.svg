@@ -35,10 +35,34 @@
     <polygon points="120,15 190,44 219,120 190,196 120,225 50,196 21,120 50,44"
              fill="url(#sovietRed)" stroke="url(#goldEdge)" stroke-width="2.5"/>
 
-    <!-- Top Soviet Red & Gold Star -->
-    <g transform="translate(120, 36)">
-      <polygon points="0,-18 5,-5 19,-5 8,4 12,17 0,9 -12,17 -8,4 -19,-5 -5,-5"
-               fill="#c71c1c" stroke="url(#sovietGold)" stroke-width="2"/>
+    <!-- Top Solid 3D Faceted Soviet Star (Maciça) -->
+    <g transform="translate(120, 48)">
+      <!-- Star base shadow -->
+      <polygon points="0,-20 5.5,-5.5 20,-5.5 8.5,4 12.5,18 0,9.5 -12.5,18 -8.5,4 -20,-5.5 -5.5,-5.5"
+               fill="#4a0808"/>
+      <!-- Facet 1 (Top Left Dark) -->
+      <polygon points="0,0 0,-19 -5.5,-5.5" fill="#c48a12"/>
+      <!-- Facet 2 (Top Left Light) -->
+      <polygon points="0,0 0,-19 5.5,-5.5" fill="#ffe082"/>
+      <!-- Facet 3 (Right Top Dark) -->
+      <polygon points="0,0 19,-5.5 5.5,-5.5" fill="#c48a12"/>
+      <!-- Facet 4 (Right Top Light) -->
+      <polygon points="0,0 19,-5.5 8.5,4" fill="#ffd54f"/>
+      <!-- Facet 5 (Right Bottom Dark) -->
+      <polygon points="0,0 12.5,17 8.5,4" fill="#a06e09"/>
+      <!-- Facet 6 (Right Bottom Light) -->
+      <polygon points="0,0 12.5,17 0,9.5" fill="#ffd54f"/>
+      <!-- Facet 7 (Left Bottom Dark) -->
+      <polygon points="0,0 -12.5,17 0,9.5" fill="#a06e09"/>
+      <!-- Facet 8 (Left Bottom Light) -->
+      <polygon points="0,0 -12.5,17 -8.5,4" fill="#ffe082"/>
+      <!-- Facet 9 (Left Top Dark) -->
+      <polygon points="0,0 -19,-5.5 -8.5,4" fill="#c48a12"/>
+      <!-- Facet 10 (Left Top Light) -->
+      <polygon points="0,0 -19,-5.5 -5.5,-5.5" fill="#ffe082"/>
+      <!-- Outer gold stroke -->
+      <polygon points="0,-19 5.5,-5.5 19,-5.5 8.5,4 12.5,17 0,9.5 -12.5,17 -8.5,4 -19,-5.5 -5.5,-5.5"
+               fill="none" stroke="#533804" stroke-width="1.2"/>
     </g>
 
     <!-- PROMINENT LARGE CCCP TYPOGRAPHY (Constructivist Heavy Block Letters) -->
@@ -53,13 +77,15 @@
       <path d="M 170,82 H 210 V 126 H 192 V 154 H 170 Z M 190,98 V 110 H 192 V 98 Z"/>
     </g>
 
-    <!-- Lower Agitprop Gold Banner Ribbon -->
-    <path d="M 28,172 L 120,164 L 212,172 L 202,198 L 120,189 L 38,198 Z"
-          fill="#171514" stroke="url(#sovietGold)" stroke-width="2"/>
+    <!-- Lower Agitprop Gold Banner Ribbon - Cobre a moldura perfeitamente na largura exata do octógono -->
+    <polygon points="29,168 211,168 200,196 40,196"
+             fill="#171514" stroke="url(#sovietGold)" stroke-width="2"/>
     
-    <text x="120" y="185" text-anchor="middle"
+    <!-- Texto Perfeitamente Alinhado e Contido -->
+    <text x="120" y="186" text-anchor="middle"
           font-family="'Oswald', 'Trebuchet MS', 'Impact', sans-serif"
-          font-size="11" font-weight="900" letter-spacing="1.8"
+          font-size="10.5" font-weight="900" letter-spacing="1.4"
+          textLength="144" lengthAdjust="spacingAndGlyphs"
           fill="url(#sovietGold)">CONVENTIONAL COMMITS</text>
   </g>
 </svg>
