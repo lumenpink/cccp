@@ -61,7 +61,8 @@ jobs:
 
       - name: "Upload Test Report Artifact"
         if: always()
-        uses: https://github.com/actions/upload-artifact@v4
+        continue-on-error: true
+        uses: https://github.com/actions/upload-artifact@v3
         with:
           name: test-results
           path: report/
