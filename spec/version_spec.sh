@@ -140,6 +140,71 @@ Describe 'version'
       When call calculate_target_version
       The output should eq "2.1.0"
     End
+
+    It 'ignores non-SemVer tags like nightly and preserves SemVer baseline'
+      git tag -a "v3.0.0" -m "v3.0.0 release"
+      git tag -a "nightly" -m "nightly build tag"
+      echo "feat after nightly" >> file.txt
+      git add file.txt
+      git commit -m "feat: feature after nightly utility tag"
+      When call calculate_target_version
+      The output should eq "3.1.0"
+    End
+
+    It 'treats standard git merge commits as patch increment'
+      git tag -a "v3.1.0" -m "v3.1.0 release"
+      echo "merge update" >> file.txt
+      git add file.txt
+      git commit -m "Merge branch 'release-3.1' into main"
+      When call calculate_target_version
+      The output should eq "3.1.1"
+    End
+  End
+
+  Describe 'repositories with non-v tags'
+    setup_non_v() {
+      NON_V_DIR="$(mktemp -d)"
+      cd "$NON_V_DIR"
+      git init
+      git config user.email "test@example.com"
+      git config user.name "Test User"
+      touch README.md
+      git add README.md
+      git commit -m "initial commit"
+      git tag -a "1.0.0" -m "1.0.0 release"
+    }
+
+    cleanup_non_v() {
+      rm -rf "$NON_V_DIR"
+      cd "$TEST_DIR"
+    }
+
+    BeforeAll 'setup_non_v'
+    AfterAll 'cleanup_non_v'
+
+    It 'calculates next patch version from non-v tag baseline'
+      echo "fix" >> README.md
+      git add README.md
+      git commit -m "fix: patch bug"
+      When call calculate_target_version
+      The output should eq "1.0.1"
+    End
+
+    It 'calculates next minor version from non-v tag baseline'
+      echo "feat" >> README.md
+      git add README.md
+      git commit -m "feat: new capability"
+      When call calculate_target_version
+      The output should eq "1.1.0"
+    End
+
+    It 'calculates next major version on breaking change from non-v tag baseline'
+      echo "breaking" >> README.md
+      git add README.md
+      git commit -m "feat!: breaking change"
+      When call calculate_target_version
+      The output should eq "2.0.0"
+    End
   End
 
   Describe 'generate_version_info'

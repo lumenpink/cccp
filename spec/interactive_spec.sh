@@ -149,5 +149,92 @@ EOF
       The output should include "MSG:party(kremlin): state directive"
       rm -f "$TEST_DIR/.cccprc"
     End
+
+    It 'recovers from invalid type selection and prompts again until valid'
+      echo "retry type change" >> README.md
+      git add README.md
+
+      run_wizard_retry_type() {
+        printf "99\ninvalid_type\n1\n\nrecover from invalid type\nn\n\ny\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_retry_type
+      The status should be success
+      The output should include "Invalid selection. Please choose a number"
+      The output should include "MSG:feat: recover from invalid type"
+    End
+
+    It 'recovers from empty subject and prompts again until provided'
+      echo "retry subject change" >> README.md
+      git add README.md
+
+      run_wizard_retry_subject() {
+        printf "1\n\n   \n\nvalid subject after empty\nn\n\ny\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_retry_subject
+      The status should be success
+      The output should include "Commit subject cannot be empty."
+      The output should include "MSG:feat: valid subject after empty"
+    End
+
+    It 'aborts cleanly when input stream terminates during type selection'
+      echo "eof change" >> README.md
+      git add README.md
+
+      run_wizard_eof_type() {
+        printf "" | interactive_commit
+      }
+
+      When call run_wizard_eof_type
+      The status should be failure
+      The output should include "★ CCCP Assembly Line (Interactive Soviet Wizard) ★"
+    End
+
+    It 'aborts cleanly when input stream terminates during subject entry'
+      echo "eof subject change" >> README.md
+      git add README.md
+
+      run_wizard_eof_subject() {
+        printf "1\ncore\n" | interactive_commit
+      }
+
+      When call run_wizard_eof_subject
+      The status should be failure
+      The output should include "Step 3: Commit subject"
+    End
+
+    It 'fails when validation rejects message under strict scopes constraint'
+      echo "strict scope change" >> README.md
+      git add README.md
+
+      run_wizard_strict_failure() {
+        STRICT_SCOPES=1 COMMIT_SCOPES="core,cli"
+        export STRICT_SCOPES COMMIT_SCOPES
+        printf "1\nunauthorized_scope\ntest strict\nn\n\ny\n" | interactive_commit
+      }
+
+      When call run_wizard_strict_failure
+      The status should be failure
+      The output should include "Proposed State Commit"
+      The error should include "Validation failed on constructed message"
+    End
+
+    It 'accepts confirmation with full word yes'
+      echo "yes confirmation change" >> README.md
+      git add README.md
+
+      run_wizard_yes_word() {
+        printf "1\n\nconfirm with yes word\nn\n\nyes\n" | interactive_commit
+        echo "MSG:$(git log -1 --format='%s')"
+      }
+
+      When call run_wizard_yes_word
+      The status should be success
+      The output should include "MSG:feat: confirm with yes word"
+    End
   End
 End
+
