@@ -524,4 +524,45 @@ JSON
       The error should include "Warning: Failed to retrieve or parse issues from Codeberg API"
     End
   End
+
+  Describe 'ensure_tickets_gitignored'
+    It 'adds .antigravity/ directory to .gitignore when tickets file is in .antigravity'
+      rm -f "$TEST_DIR/.gitignore"
+      When call ensure_tickets_gitignored "$TEST_DIR/.antigravity/tickets.md"
+      The status should be success
+      The file "$TEST_DIR/.gitignore" should be exist
+      The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
+    End
+
+    It 'is idempotent and does not duplicate existing entry'
+      echo ".antigravity/" > "$TEST_DIR/.gitignore"
+      ensure_and_count() {
+        ensure_tickets_gitignored "$TEST_DIR/.antigravity/tickets.md"
+        grep -c "^\.antigravity/" "$TEST_DIR/.gitignore"
+      }
+      When call ensure_and_count
+      The status should be success
+      The output should eq "1"
+    End
+  End
+
+  Describe 'Isolated Driver Failure Handlers'
+    It '_tickets_fetch_github returns failure when curl fails'
+      curl() { return 1; }
+      When call _tickets_fetch_github "github.com" "owner" "repo" ""
+      The status should be failure
+    End
+
+    It '_tickets_fetch_forgejo returns failure when curl fails'
+      curl() { return 1; }
+      When call _tickets_fetch_forgejo "codeberg.org" "owner" "repo" ""
+      The status should be failure
+    End
+
+    It '_tickets_fetch_gitlab returns failure when curl fails'
+      curl() { return 1; }
+      When call _tickets_fetch_gitlab "gitlab.com" "owner" "repo" ""
+      The status should be failure
+    End
+  End
 End

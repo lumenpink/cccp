@@ -225,4 +225,40 @@ Describe 'agents'
       The contents of file "$TEST_DIR/.cccprc" should include "agent_var_tech_stack = posix-shell"
     End
   End
+
+  Describe 'ensure_agent_gitignored'
+    It 'adds .antigravity/ directory to .gitignore'
+      rm -f "$TEST_DIR/.gitignore"
+      When call ensure_agent_gitignored "$TEST_DIR/.antigravity/AGENTS.md"
+      The status should be success
+      The file "$TEST_DIR/.gitignore" should be exist
+      The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
+    End
+
+    It 'is idempotent and does not duplicate entries'
+      echo ".antigravity/" > "$TEST_DIR/.gitignore"
+      ensure_and_count() {
+        ensure_agent_gitignored "$TEST_DIR/.antigravity/AGENTS.md"
+        grep -c "^\.antigravity/" "$TEST_DIR/.gitignore"
+      }
+      When call ensure_and_count
+      The status should be success
+      The output should eq "1"
+    End
+  End
+
+  Describe 'fetch_agent_template'
+    It 'fetches template from local file path'
+      local_tmpl="$TEST_DIR/my_local_template.md"
+      echo "# Direct Local Template" > "$local_tmpl"
+      When call fetch_agent_template "$local_tmpl"
+      The status should be success
+      The output should include "# Direct Local Template"
+    End
+
+    It 'fails when local template file does not exist'
+      When call fetch_agent_template "$TEST_DIR/nonexistent_file.md"
+      The status should be failure
+    End
+  End
 End

@@ -103,4 +103,46 @@ Describe 'changelog'
       The output should not include "### Performance Improvements"
     End
   End
+
+  Describe 'format_commit_message'
+    It 'formats commit message without scope'
+      When call format_commit_message "feat: revolutionary tractor assembly"
+      The output should eq "  - revolutionary tractor assembly"
+    End
+
+    It 'formats commit message with single scope'
+      When call format_commit_message "feat(engine): high efficiency turbine"
+      The output should eq "  - (engine) high efficiency turbine"
+    End
+
+    It 'formats commit message with multiple scopes'
+      When call format_commit_message "fix(ui,api): synchronization discrepancy"
+      The output should eq "  - (ui,api) synchronization discrepancy"
+    End
+
+    It 'formats commit message with subscope'
+      When call format_commit_message "perf(db/queries): batch collective records"
+      The output should eq "  - (db/queries) batch collective records"
+    End
+  End
+
+  Describe 'format_tag_header'
+    It 'formats standard tag header without title'
+      git tag -a "v1.1.0" -m "" -f
+      When call format_tag_header "v1.1.0"
+      The output should eq "### [v1.1.0]"
+    End
+
+    It 'formats tag header with Release title prefix'
+      git tag -a "v1.2.0" -m "Release v1.2.0: Five-Year Plan Milestone" -f
+      When call format_tag_header "v1.2.0"
+      The output should eq "### [v1.2.0] - Five-Year Plan Milestone"
+    End
+
+    It 'formats tag header with custom subject title'
+      git tag -a "v1.3.0" -m "feat: Cosmic Sputnik Launch" -f
+      When call format_tag_header "v1.3.0"
+      The output should eq "### [v1.3.0] - Cosmic Sputnik Launch"
+    End
+  End
 End 
