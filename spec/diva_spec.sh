@@ -14,6 +14,7 @@ Describe 'diva'
     git config user.name "Test User"
     git config remote.origin.url "https://codeberg.org/lumenpink/myproject.git"
 
+    export HOME="$TEST_DIR"
     unset GEMINI_API_KEY || true
     unset CODEBERG_TOKEN || true
     unset TILDEGIT_TOKEN || true
@@ -33,6 +34,14 @@ Describe 'diva'
       When call _diva_resolve_api_key
       The status should be success
       The output should eq "AIzaSyTestEnvKey123"
+    End
+
+    It 'resolves key from ~/.env when unset in memory'
+      unset GEMINI_API_KEY || true
+      echo "GEMINI_API_KEY=AIzaSyDotEnvKey789" > "$TEST_DIR/.env"
+      When call _diva_resolve_api_key
+      The status should be success
+      The output should eq "AIzaSyDotEnvKey789"
     End
 
     It 'resolves key from .cccprc config'

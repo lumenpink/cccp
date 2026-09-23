@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.63+20260923.2981491"
+CCCP_VERSION="2.3.0-dev.64+20260923.48bc9f6"
 export CCCP_VERSION
 
 # Verify required tools
@@ -2947,12 +2947,30 @@ cmd_catalog() {
 # Diva Functions
 # =============================================================================
 _diva_resolve_api_key() {
+    # 1. Environment / In-memory variable
     if [ -n "${GEMINI_API_KEY:-}" ]; then
         printf '%s\n' "$GEMINI_API_KEY"
         return 0
     fi
 
-    # 1. Check local config (.cccprc)
+    # 2. Check ~/.env (or local .env)
+    for _env_file in "${HOME}/.env" ".env"; do
+        if [ -f "$_env_file" ]; then
+            if command -v read_file_key >/dev/null 2>&1; then
+                if _k=$(read_file_key "$_env_file" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
+                    printf '%s\n' "$_k"
+                    return 0
+                fi
+            fi
+            _env_val=$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?GEMINI_API_KEY[[:space:]]*=[[:space:]]*"?([^"#]+)"?.*/\2/p' "$_env_file" 2>/dev/null | sed -e 's/[[:space:]]*$//' -e "s/^'//" -e "s/'$//" | head -n 1 || true)
+            if [ -n "$_env_val" ]; then
+                printf '%s\n' "$_env_val"
+                return 0
+            fi
+        fi
+    done
+
+    # 3. Check local config (.cccprc)
     _local_cfg=""
     if command -v get_local_config_file >/dev/null 2>&1; then
         _local_cfg=$(get_local_config_file 2>/dev/null || true)
@@ -2968,7 +2986,7 @@ _diva_resolve_api_key() {
         fi
     fi
 
-    # 2. Check global config (~/.config/cccp/.cccprc)
+    # 4. Check global config (~/.config/cccp/.cccprc)
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
