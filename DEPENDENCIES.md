@@ -31,6 +31,6 @@ All `awk` variants must be replaced by pure POSIX parameter expansions, `sed`, `
 ## 3. Standard POSIX Baseline (IEEE Std 1003.1)
 
 The following utilities are assumed to be present in any standard POSIX-compliant environment:
-- `cat`, `cut`, `date`, `diff`, `dirname`, `find`, `grep`, `head`, `mkdir`, `mktemp`, `mv`, `printf`, `rm`, `sed`, `sleep`, `sort`, `tail`, `tr`, `uname`, `uniq`, `wc`, `xargs`.
+- `cat`, `cut`, `date`, `diff`, `dirname`, `find`, `fold`, `grep`, `head`, `mkdir`, `mktemp`, `mv`, `printf`, `rm`, `sed`, `sleep`, `sort`, `tail`, `tr`, `uname`, `uniq`, `wc`, `xargs`.
 
 No non-standard flags (GNU extensions) may be used with these tools.

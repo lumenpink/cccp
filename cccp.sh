@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.70+20260923.b06bddb"
+CCCP_VERSION="2.3.0-dev.71+20260923.c2a6a19"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3166,6 +3166,64 @@ _diva_extract_tickets() {
     return 0
 }
 
+_diva_box_field() {
+    _b_prefix="$1"
+    _b_text="$2"
+    _b_cont="              "
+    _b_first=1
+
+    _trimmed=$(printf '%s' "$_b_text" | tr -d ' \t\n')
+    if [ -z "$_trimmed" ]; then
+        _spaces=$(printf "%*s" 61 "")
+        printf "│ %s%s │\n" "$_b_prefix" "$_spaces"
+        return 0
+    fi
+
+    printf '%s\n' "$_b_text" | fold -s -w 61 | while IFS= read -r _b_chunk || [ -n "$_b_chunk" ]; do
+        _b_chunk=$(printf '%s' "$_b_chunk" | sed 's/[[:space:]]*$//')
+        [ -z "$_b_chunk" ] && continue
+
+        if [ "$_b_first" -eq 1 ]; then
+            _pfx="$_b_prefix"
+            _b_first=0
+        else
+            _pfx="$_b_cont"
+        fi
+
+        _clen=$(printf '%s' "$_b_chunk" | wc -m | tr -d ' ')
+        _pad=$((61 - _clen))
+        [ "$_pad" -lt 0 ] && _pad=0
+        _spaces=""
+        [ "$_pad" -gt 0 ] && _spaces=$(printf "%*s" "$_pad" "")
+        printf "│ %s%s%s │\n" "$_pfx" "$_b_chunk" "$_spaces"
+    done
+}
+
+_diva_box_body() {
+    _bb_body="$1"
+    echo "│ 📝 Prévia do Corpo:                                                         │"
+    [ -z "$_bb_body" ] && return 0
+
+    printf '%s\n' "$_bb_body" | head -n 8 | while IFS= read -r _bb_line || [ -n "$_bb_line" ]; do
+        _bb_trimmed=$(printf '%s' "$_bb_line" | tr -d ' \t\n')
+        if [ -z "$_bb_trimmed" ]; then
+            _bb_spaces=$(printf "%*s" 75 "")
+            printf "│ %s │\n" "$_bb_spaces"
+        else
+            printf '%s\n' "$_bb_line" | fold -s -w 72 | while IFS= read -r _bb_chunk || [ -n "$_bb_chunk" ]; do
+                _bb_chunk=$(printf '%s' "$_bb_chunk" | sed 's/[[:space:]]*$//')
+                [ -z "$_bb_chunk" ] && continue
+                _clen=$(printf '%s' "$_bb_chunk" | wc -m | tr -d ' ')
+                _pad=$((72 - _clen))
+                [ "$_pad" -lt 0 ] && _pad=0
+                _bb_spaces=""
+                [ "$_pad" -gt 0 ] && _bb_spaces=$(printf "%*s" "$_pad" "")
+                printf "│    %s%s │\n" "$_bb_chunk" "$_bb_spaces"
+            done
+        fi
+    done
+}
+
 _diva_present_and_dispatch() {
     _tickets_json="$1"
     _forge="$2"
@@ -3211,22 +3269,25 @@ _diva_present_and_dispatch() {
 
         _num=$((_idx + 1))
         echo "┌─────────────────────────────────────────────────────────────────────────────┐"
-        printf "│ [ДИВАН] Ticket %d/%d\n" "$_num" "$_count"
+        _hdr=$(printf "[ДИВАН] Ticket %d/%d" "$_num" "$_count")
+        _hlen=$(printf '%s' "$_hdr" | wc -m | tr -d ' ')
+        _hpad=$((75 - _hlen))
+        [ "$_hpad" -lt 0 ] && _hpad=0
+        _hspaces=""
+        [ "$_hpad" -gt 0 ] && _hspaces=$(printf "%*s" "$_hpad" "")
+        printf "│ %s%s │\n" "$_hdr" "$_hspaces"
         echo "├─────────────────────────────────────────────────────────────────────────────┤"
         if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-            printf "│ 🎯 Destino  : %s/%s (%s)\n" "$_owner" "$_repo" "$_forge"
+            _diva_box_field "🎯 Destino  : " "${_owner}/${_repo} (${_forge})"
         fi
-        printf "│ 📌 Título   : %s\n" "$_title"
+        _diva_box_field "📌 Título   : " "$_title"
         if [ -n "$_rationale" ]; then
-            printf "│ 💡 Racional : %s\n" "$_rationale"
+            _diva_box_field "💡 Racional : " "$_rationale"
         fi
         if [ -n "$_labels" ]; then
-            printf "│ 🏷️  Labels   : %s\n" "$_labels"
+            _diva_box_field "🏷️ Labels   : " "$_labels"
         fi
-        echo "│ 📝 Prévia do Corpo:"
-        printf '%s\n' "$_body" | head -n 8 | while IFS= read -r _bline || [ -n "$_bline" ]; do
-            printf "│    %s\n" "$_bline"
-        done
+        _diva_box_body "$_body"
         echo "└─────────────────────────────────────────────────────────────────────────────┘"
 
         if [ "$_dry_run" -eq 1 ]; then

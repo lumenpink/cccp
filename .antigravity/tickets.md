@@ -1,7 +1,52 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-23 13:00:48 UTC
+> Synced at: 2026-09-23 16:55:45 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#27] feat(catalog): suporte a diretório padrão via config global, env e flags
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/27
+
+### Description
+## Descrição  A função `catalog` atualmente não possui um diretório padrão definido. É necessário implementar a resolução do diretório alvo utilizando a seguinte ordem de precedência:  1. Flag passada pela linha de comando 2. Variável de ambiente 3. Configuração global do `cccp` 4. Valor fallback: `~/src`  ## Passos para Reproduzir  1. Executar a função/comando `catalog` sem especificar um diretório por parâmetro/flag. 2. Verificar a ausência de um fallback ou busca na configuração global.  ## Esperado vs Atual  - **Esperado**: A função `catalog` deve determinar o diretório utilizando a hierarquia (Flag > Env > Config Global > `~/src`). - **Atual**: A função não possui suporte a diretório padrão.
+
+---
+## [#26] fix(generator): prevent truncation of long/tall tickets in output
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/26
+
+### Description
+## Description  Ao gerar tickets com grande volume de texto ou muitas linhas, o resultado final está sendo exibido apenas parcialmente (truncado).  ## Steps to Reproduce  1. Criar ou gerar um ticket com conteúdo extenso (altura/linhas elevadas). 2. Exibir a saída do gerador. 3. Observar que o ticket é cortado e apenas uma parte é apresentada.  ## Expected vs Actual  - **Esperado:** O ticket deve ser exibido integralmente, independentemente da altura/quantidade de linhas. - **Atual:** Apenas uma parte do ticket é exibida quando ele excede uma determinada altura.
+
+---
+## [#25] fix(generator): fix ASCII table right border and text wrapping in columns
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/25
+
+### Description
+## Description  A representação em tabela ASCII do gerador de tickets não está fechando a borda da margem direita e não aplica quebra de linha (text wrapping) no conteúdo da coluna X, prejudicando a apresentação visual.  ## Steps to Reproduce  1. Gerar um ticket que contenha texto longo na coluna X. 2. Visualizar a tabela ASCII gerada. 3. Observar que a borda lateral direita está ausente/desalinhada e o texto não quebra linha.  ## Expected vs Actual  - **Esperado:** A tabela ASCII deve ser exibida com a borda direita devidamente fechada e com quebra de linha automática nas colunas para manter a largura consistente. - **Atual:** A borda direita fica aberta e o texto da coluna X é impresso sem quebras de linha.
+
+---
+## [#24] refactor(core): auditar e reutilizar trechos de código e funções duplicadas na base de código
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/24
+
+### Description
+## Description  Mapear e refatorar a base de código para identificar outras funções idênticas ou similares, bem como blocos de código duplicados, promovendo a reutilização através de utilitários e módulos comuns.  ## Steps to Reproduce  N/A (Auditoria de código/refatoração geral)  ## Expected vs Actual  - **Esperado**: Base de código enxuta, sem blocos ou funções redundantes. - **Atual**: Presença de código duplicado e lógica redundante espalhada no projeto.
+
+---
+## [#23] refactor(repo): consolidar funções de identificação de repositório e usuário
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/23
+
+### Description
+## Description  Existe duplicação de funções encarregadas de obter dados sobre o repositório atual, como o nome do repositório e o usuário/owner. Esta lógica deve ser extraída e consolidada em uma única função/módulo reutilizável.  ## Steps to Reproduce  N/A (Identificação de débito técnico/refatoração)  ## Expected vs Actual  - **Esperado**: Uma única função centralizada, reutilizável e com testes unitários para identificar o repositório e usuário atual. - **Atual**: Funções e trechos de código repetidos executando a mesma verificação em múltiplos locais.
+
+---
 ## [#22] ci(deps): automate external binary dependency detection and track in DEPENDENCIES.md
 - **Status**: `open`
 - **Labels**: none
@@ -90,74 +135,5 @@ result=$(printf '%s\n' "$result" | awk -v vname="$v" '...')
 - [ ] Garantir que `! grep -rn "awk" src/` retorna 0 ocorrências de código executável.
 - [ ] Passar na suíte de testes do ShellSpec (`shellspec`).
 - [ ] Passar no ShellCheck (`shellcheck -s sh src/*.sh`).
-
----
-## [#19] feat(diva): integrate gemini-powered interactive ticket triage bot into posix shell
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/19
-
-### Description
-### Context & Rationale
-Integrate the capabilities of `diva` (`ticket_bot.py`) into CCCP as a native interactive subcommand (`cccp diva` or `cccp divan`).
-
-### Scope & Architecture
-1. **Interactive Conversational Triage (O Divã):**
-   - Accept freeform problem descriptions, complaints, or brainstorms in natural language (Portuguese, English, etc.) via interactive prompt or stdin.
-2. **Gemini REST API Integration:**
-   - Pure POSIX `curl` integration with Google Gemini REST API (`v1beta/models/gemini-2.5-flash:generateContent`).
-   - Use structured JSON response schemas or system instructions to split raw input into discrete issues with:
-     - `title` (Conventional Commits formatted or concise summary)
-     - `body` (reproduction steps, expected behavior, context)
-     - `labels` / `tags`
-3. **User Confirmation & Review:**
-   - Display proposed tickets cleanly in terminal with preview styling.
-   - Interactive prompt allowing the user to approve (`[Y/n]`), edit, or cancel before opening.
-4. **Automated Multi-Forge Dispatch:**
-   - Dispatch approved issues to the active project's forge (Codeberg/Forgejo API or GitHub via REST / `tea` / `gh`).
-
-### Strict POSIX & Tooling Constraints
-- ⚠️ **NO AWK ALLOWED**: Do NOT use `awk`. JSON formatting, extraction and text processing must be handled via pure shell string manipulation, `sed`, `grep`, `tr`, and `cut`.
-- Zero external runtime dependencies (no Python, no `requests`, no `dotenv`).
-- Reads `GEMINI_API_KEY` from environment or `.cccprc`.
-- Must run cleanly under `dash`, `ash`, `busybox sh`, and standard POSIX `/bin/sh`.
-
-### Acceptance Criteria
-- [ ] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
-- [ ] Absolutely zero `awk` invocations across the codebase.
-- [ ] Integrates seamlessly with CCCP's existing ticket synchronization pipeline (`.antigravity/tickets.md`).
-
----
-## [#18] feat(catalog): port catalog metadata engine and forge synchronizer to posix shell
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/18
-
-### Description
-### Context & Rationale
-Integrate the capabilities of `catalog.py` into CCCP as a zero-dependency POSIX shell module (`cccp catalog`).
-
-### Scope & Architecture
-1. **Local Cataloging:**
-   - Scan workspace/source directories for Git repositories.
-   - Read and write standard `.git/description` per repository.
-   - Generate structured `catalog.json` and `README.md` project tables.
-2. **Metadata Extraction:**
-   - Heuristically extract 1-line descriptions, licenses, and tags from `Cargo.toml`, `package.json`, `composer.json`, and `README.md`.
-3. **Multi-Forge Sync:**
-   - Direct HTTP REST integration via `curl` with Forgejo (Codeberg, TildeGit) and GitHub APIs.
-   - Synchronize descriptions, topics/tags, and website URLs.
-
-### Strict POSIX & Tooling Constraints
-- ⚠️ **NO AWK ALLOWED**: Do NOT use `awk` (avoid dialect incompatibilities between gawk, mawk, nawk, and busybox awk).
-- Use strictly POSIX-compliant standard shell utilities: pure parameter expansion (`${var#...}`, `${var%...}`), `sed`, `grep`, `tr`, `cut`, and shell builtins.
-- Zero external runtime dependencies (no Python, no Node, no Perl).
-- Must run cleanly under `dash`, `ash`, `busybox sh`, and standard POSIX `/bin/sh`.
-
-### Acceptance Criteria
-- [ ] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
-- [ ] Absolutely zero `awk` invocations across the codebase.
-- [ ] Subcommands: `cccp catalog list`, `cccp catalog sync-local`, `cccp catalog sync-remote`.
-- [ ] Unit and integration tests under `spec/`.
 
 ---

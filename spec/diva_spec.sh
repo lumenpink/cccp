@@ -117,6 +117,38 @@ Line 2: second line"
       The output should include "ui, enhancement"
       The output should include "[DRY-RUN] Simulação ativa. Ticket não publicado."
     End
+
+    It 'closes the right border on all lines of the ASCII box'
+      sample_tickets='{
+  "tickets": [
+    {
+      "title": "fix(generator): fix ASCII table right border and text wrapping in columns",
+      "rationale": "Separar a apresentação visual da tabela fechando a margem direita",
+      "labels": ["bug", "generator"],
+      "body": "## Description\nThis is a long line that demonstrates wrapping in the body preview section of the ticket box."
+    }
+  ]
+}'
+      When call _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "myproject" 1
+      The status should be success
+      The output should include "│ [ДИВАН] Ticket 1/1                                                          │"
+      The output should include "│ 📌 Título   : fix(generator): fix ASCII table right border and text         │"
+      The output should include "│               wrapping in columns                                           │"
+      The output should include "│ 💡 Racional : Separar a apresentação visual da tabela fechando a margem     │"
+      The output should include "│ 🏷️ Labels   : bug, generator                                                │"
+      The output should include "│ 📝 Prévia do Corpo:                                                         │"
+      The output should include "│    ## Description                                                           │"
+    End
+
+    It 'wraps long text across multiple lines with aligned continuation prefix'
+      long_title="fix(generator): extremely long title that exceeds sixty-one characters by a very significant margin to trigger multi-line column text wrapping"
+      sample_tickets=$(printf '{"tickets":[{"title":"%s","body":"preview"}]}' "$long_title")
+      When call _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "myproject" 1
+      The status should be success
+      The output should include "│ 📌 Título   : fix(generator): extremely long title that exceeds sixty-one   │"
+      The output should include "│               characters by a very significant margin to trigger            │"
+      The output should include "│               multi-line column text wrapping                               │"
+    End
   End
 
   Describe 'cmd_diva CLI interface'
