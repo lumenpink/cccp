@@ -124,6 +124,34 @@ ensure_agent_gitignored() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Pure POSIX substring replacement without awk or sed escaping issues
+# -----------------------------------------------------------------------------
+_posix_replace_all() {
+    _haystack="$1"
+    _needle="$2"
+    _repl="$3"
+    _res=""
+
+    [ -z "$_needle" ] && { printf '%s' "$_haystack"; return 0; }
+
+    while :; do
+        case "$_haystack" in
+            *"$_needle"*)
+                _before="${_haystack%%"$_needle"*}"
+                _after="${_haystack#*"$_needle"}"
+                _res="${_res}${_before}${_repl}"
+                _haystack="$_after"
+                ;;
+            *)
+                _res="${_res}${_haystack}"
+                break
+                ;;
+        esac
+    done
+    printf '%s' "$_res"
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Resolve variable value from environment or local .cccprc
 # Normalizes variable names with/without agent_ and agents_ prefixes
 # -----------------------------------------------------------------------------
@@ -281,7 +309,18 @@ cmd_agent() {
             echo "Error: Not inside a git repository. Cannot save to local .cccprc." >&2
             return 1
         fi
-        clean_val=$(printf '%s' "$var_val" | awk '{ if (NR > 1) printf "\\n"; printf "%s", $0 }')
+        clean_val=""
+        _first=1
+        while IFS= read -r _line || [ -n "$_line" ]; do
+            if [ "$_first" -eq 1 ]; then
+                clean_val="$_line"
+                _first=0
+            else
+                clean_val="${clean_val}\\n${_line}"
+            fi
+        done <<EOF
+$var_val
+EOF
 
         case "$norm_key" in
             url|template_url|agent_url|agents_url|agent_md_url|agents_md_url)
@@ -489,26 +528,10 @@ cmd_agent() {
     interpolated_count=0
     for v in $vars; do
         if val=$(resolve_agent_var "$v" 2>/dev/null); then
-            REPL_VAL="$val"
-            export REPL_VAL
-            result=$(printf '%s\n' "$result" | awk -v vname="$v" '
-            BEGIN {
-                repl = ENVIRON["REPL_VAL"]
-                m_tag = "{{" vname "}}"
-                s_tag = "${" vname "}"
-                m_len = length(m_tag)
-                s_len = length(s_tag)
-            }
-            {
-                while ((idx = index($0, m_tag)) > 0) {
-                    $0 = substr($0, 1, idx - 1) repl substr($0, idx + m_len)
-                }
-                while ((idx = index($0, s_tag)) > 0) {
-                    $0 = substr($0, 1, idx - 1) repl substr($0, idx + s_len)
-                }
-                print
-            }')
-            unset REPL_VAL
+            m_tag="{{${v}}}"
+            s_tag="\${${v}}"
+            result=$(_posix_replace_all "$result" "$m_tag" "$val")
+            result=$(_posix_replace_all "$result" "$s_tag" "$val")
             interpolated_count=$((interpolated_count + 1))
         fi
     done

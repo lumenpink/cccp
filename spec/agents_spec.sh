@@ -201,6 +201,22 @@ Describe 'agents'
       The contents of file "$TEST_DIR/.antigravity/AGENTS.md" should include "Lang: portuguese"
       The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
     End
+
+    It 'safely interpolates variables containing sed-sensitive and special characters'
+      tmpl_file="$TEST_DIR/template.md"
+      out_file="$TEST_DIR/.antigravity/AGENTS.md"
+      printf 'URL: {{API_URL}}\nNote: ${SPECIAL_NOTE}\nRepeat: {{API_URL}}\n' > "$tmpl_file"
+
+      cmd_agent set api_url "https://api.example.com/v1?a=1&b=2/c\\d" >/dev/null 2>&1
+      cmd_agent set special_note "Special & chars / and \"double\" quotes" >/dev/null 2>&1
+
+      When call cmd_agent --url "$tmpl_file" --file "$out_file"
+      The status should be success
+      The output should include "Done! Generated"
+      The contents of file "$out_file" should include 'URL: https://api.example.com/v1?a=1&b=2/c\d'
+      The contents of file "$out_file" should include 'Note: Special & chars / and "double" quotes'
+      The contents of file "$out_file" should include 'Repeat: https://api.example.com/v1?a=1&b=2/c\d'
+    End
   End
 
   Describe 'cmd_agent fill'
@@ -259,6 +275,37 @@ Describe 'agents'
     It 'fails when local template file does not exist'
       When call fetch_agent_template "$TEST_DIR/nonexistent_file.md"
       The status should be failure
+    End
+  End
+
+  Describe '_posix_replace_all'
+    It 'replaces multiple occurrences in string'
+      When call _posix_replace_all "foo bar foo baz foo" "foo" "qux"
+      The status should be success
+      The output should eq "qux bar qux baz qux"
+    End
+
+    It 'handles special characters like &, /, backslashes and quotes without corruption'
+      When call _posix_replace_all "start {{TAG}} end" "{{TAG}}" 'val & / \ " end'
+      The status should be success
+      The output should eq 'start val & / \ " end end'
+    End
+
+    It 'returns original string when needle is empty or not found'
+      When call _posix_replace_all "unchanged text" "" "anything"
+      The status should be success
+      The output should eq "unchanged text"
+    End
+  End
+
+  Describe 'strict zero-awk compliance'
+    It 'verifies zero executable awk invocations across src/ modules'
+      test_awk() {
+        grep -rnw "awk" "$SHELLSPEC_PROJECT_ROOT/src" | grep -v '#.*awk' || true
+      }
+      When call test_awk
+      The status should be success
+      The output should eq ""
     End
   End
 End
