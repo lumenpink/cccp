@@ -15,16 +15,44 @@ fi
 # Install cccp executable into PATH (/usr/local/bin for root, ~/.local/bin for users)
 # -----------------------------------------------------------------------------
 install_global_binary() {
-    # 1. Determine source file
+    # 1. Determine target destination based on EUID / uid
+    if [ -n "${CCCP_INSTALL_DIR:-}" ]; then
+        target_dir="$CCCP_INSTALL_DIR"
+    elif [ -n "${XDG_BIN_HOME:-}" ]; then
+        target_dir="$XDG_BIN_HOME"
+    else
+        user_id=$(id -u 2>/dev/null || echo "1000")
+        if [ "$user_id" -eq 0 ]; then
+            target_dir="/usr/local/bin"
+        else
+            target_dir="$HOME/.local/bin"
+        fi
+    fi
+
+    mkdir -p "$target_dir"
+    target_bin="$target_dir/cccp"
+
+    # 2. Determine source file
     source_bin=""
     if [ -n "${1:-}" ] && [ -f "$1" ]; then
         source_bin="$1"
-    elif [ -f "${0:-}" ] && [ -s "${0:-}" ]; then
-        source_bin="${0:-}"
-    elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/cccp.sh" ]; then
-        source_bin="$GIT_ROOT/cccp.sh"
     elif [ -f "./cccp.sh" ]; then
         source_bin="./cccp.sh"
+    elif [ -n "${GIT_ROOT:-}" ] && [ -f "$GIT_ROOT/cccp.sh" ]; then
+        source_bin="$GIT_ROOT/cccp.sh"
+    elif [ -f "${0:-}" ] && [ -s "${0:-}" ]; then
+        source_bin="${0:-}"
+    fi
+
+    # If source is already the target binary, it's already installed
+    if [ -n "$source_bin" ] && [ -f "$source_bin" ]; then
+        _src_real=$(cd "$(dirname "$source_bin")" 2>/dev/null && pwd)/$(basename "$source_bin")
+        _tgt_real=$(cd "$target_dir" 2>/dev/null && pwd)/cccp
+        if [ "$_src_real" = "$_tgt_real" ]; then
+            chmod +x "$target_bin"
+            echo "cccp is already up to date at: $target_bin"
+            return 0
+        fi
     fi
 
     if [ -z "$source_bin" ] || [ ! -f "$source_bin" ]; then
@@ -43,23 +71,6 @@ install_global_binary() {
             return 1
         fi
     fi
-
-    # 2. Determine target destination based on EUID / uid
-    if [ -n "${CCCP_INSTALL_DIR:-}" ]; then
-        target_dir="$CCCP_INSTALL_DIR"
-    elif [ -n "${XDG_BIN_HOME:-}" ]; then
-        target_dir="$XDG_BIN_HOME"
-    else
-        user_id=$(id -u 2>/dev/null || echo "1000")
-        if [ "$user_id" -eq 0 ]; then
-            target_dir="/usr/local/bin"
-        else
-            target_dir="$HOME/.local/bin"
-        fi
-    fi
-
-    mkdir -p "$target_dir"
-    target_bin="$target_dir/cccp"
 
     # 3. Copy binary and make executable
     cp "$source_bin" "$target_bin"
