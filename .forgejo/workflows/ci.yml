@@ -51,6 +51,11 @@ jobs:
             exit 1
           fi
 
+      - name: "External Dependencies Audit"
+        run: |
+          chmod +x scripts/check-deps.sh
+          scripts/check-deps.sh --verify
+
       - name: "Run ShellSpec (Modular Mode)"
         run: |
           shellspec --format documentation -o junit --reportdir report

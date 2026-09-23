@@ -107,46 +107,19 @@ _diva_resolve_forge() {
 
 _diva_resolve_forge_token() {
     _forge="$1"
+    if command -v _catalog_resolve_token >/dev/null 2>&1; then
+        _catalog_resolve_token "$_forge" && return 0
+    fi
     case "$_forge" in
         codeberg)
-            if [ -n "${CODEBERG_TOKEN:-}" ]; then
-                printf '%s\n' "$CODEBERG_TOKEN"
-                return 0
-            fi
-            if command -v get_config_value >/dev/null 2>&1; then
-                _k=$(get_config_value "codeberg_token" 2>/dev/null || true)
-                [ -n "$_k" ] && { printf '%s\n' "$_k"; return 0; }
-            fi
-            if command -v _catalog_get_tea_token >/dev/null 2>&1; then
-                _catalog_get_tea_token "codeberg" && return 0
-            fi
+            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
             ;;
         tildegit)
-            if [ -n "${TILDEGIT_TOKEN:-}" ]; then
-                printf '%s\n' "$TILDEGIT_TOKEN"
-                return 0
-            fi
-            if command -v get_config_value >/dev/null 2>&1; then
-                _k=$(get_config_value "tildegit_token" 2>/dev/null || true)
-                [ -n "$_k" ] && { printf '%s\n' "$_k"; return 0; }
-            fi
-            if command -v _catalog_get_tea_token >/dev/null 2>&1; then
-                _catalog_get_tea_token "tildegit" && return 0
-            fi
+            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
             ;;
         github)
-            if [ -n "${GITHUB_TOKEN:-}" ]; then
-                printf '%s\n' "$GITHUB_TOKEN"
-                return 0
-            fi
-            if [ -n "${GH_TOKEN:-}" ]; then
-                printf '%s\n' "$GH_TOKEN"
-                return 0
-            fi
-            if command -v get_config_value >/dev/null 2>&1; then
-                _k=$(get_config_value "github_token" 2>/dev/null || true)
-                [ -n "$_k" ] && { printf '%s\n' "$_k"; return 0; }
-            fi
+            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
+            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
             ;;
     esac
     return 1
