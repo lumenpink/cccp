@@ -29,6 +29,7 @@
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes
+  - (bin) include catalog and diva in unbundled development runner
   - (hooks) respect XDG_BIN_HOME and CCCP_INSTALL_DIR when running as root
   - (site) restore standard html5 document structure and use worker content negotiation
   - (hooks) keep only the latest hook backup on install (closes #6)

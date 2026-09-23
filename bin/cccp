@@ -40,6 +40,8 @@ fi
 . "$PROJECT_ROOT/src/utils/tickets.sh"
 . "$PROJECT_ROOT/src/utils/agents.sh"
 . "$PROJECT_ROOT/src/utils/codeberg.sh"
+. "$PROJECT_ROOT/src/utils/catalog.sh"
+. "$PROJECT_ROOT/src/utils/diva.sh"
 . "$PROJECT_ROOT/src/hooks/hooks.sh"
 . "$PROJECT_ROOT/src/utils/commit.sh"
 . "$PROJECT_ROOT/src/utils/soviet.sh"
