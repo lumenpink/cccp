@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.71+20260923.c2a6a19"
+CCCP_VERSION="2.3.0-dev.72+20260923.10f9900"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3155,7 +3155,7 @@ _diva_extract_tickets() {
         _json_text=$(printf '%s' "$_raw_gemini_resp" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null || true)
     else
         # Pure POSIX fallback
-        _json_text=$(printf '%s\n' "$_raw_gemini_resp" | grep -A 500 '"text":' | sed -e '1s/^[[:space:]]*"text":[[:space:]]*"//' -e 's/"[[:space:]]*$//' -e 's/\\n/\n/g' -e 's/\\"/"/g' || true)
+        _json_text=$(printf '%s\n' "$_raw_gemini_resp" | sed -n '/[[:space:]]*"text":[[:space:]]*"/,$p' | sed -e '1s/^[[:space:]]*"text":[[:space:]]*"//' -e 's/"[[:space:]]*$//' -e 's/\\n/\n/g' -e 's/\\"/"/g' || true)
     fi
 
     if [ -z "$_json_text" ]; then
@@ -3204,7 +3204,7 @@ _diva_box_body() {
     echo "│ 📝 Prévia do Corpo:                                                         │"
     [ -z "$_bb_body" ] && return 0
 
-    printf '%s\n' "$_bb_body" | head -n 8 | while IFS= read -r _bb_line || [ -n "$_bb_line" ]; do
+    printf '%s\n' "$_bb_body" | while IFS= read -r _bb_line || [ -n "$_bb_line" ]; do
         _bb_trimmed=$(printf '%s' "$_bb_line" | tr -d ' \t\n')
         if [ -z "$_bb_trimmed" ]; then
             _bb_spaces=$(printf "%*s" 75 "")

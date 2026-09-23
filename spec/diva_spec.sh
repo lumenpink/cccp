@@ -149,6 +149,24 @@ Line 2: second line"
       The output should include "│               characters by a very significant margin to trigger            │"
       The output should include "│               multi-line column text wrapping                               │"
     End
+
+    It 'displays full body of tall tickets without truncating at 8 lines'
+      sample_tickets='{
+  "tickets": [
+    {
+      "title": "fix: tall ticket test",
+      "body": "Line 1: Problem statement\nLine 2: Context and background\nLine 3: Affected versions\nLine 4: Configuration settings\nLine 5: Step one to reproduce\nLine 6: Step two to reproduce\nLine 7: Step three to reproduce\nLine 8: Expected outcome\nLine 9: Actual observed outcome\nLine 10: Stack trace header\nLine 11: Error details\nLine 12: Workaround attempted\nLine 13: Proposed architecture fix\nLine 14: Acceptance criteria\nLine 15: Concluding remarks"
+    }
+  ]
+}'
+      When call _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "myproject" 1
+      The status should be success
+      The output should include "Line 1: Problem statement"
+      The output should include "Line 8: Expected outcome"
+      The output should include "Line 9: Actual observed outcome"
+      The output should include "Line 12: Workaround attempted"
+      The output should include "Line 15: Concluding remarks"
+    End
   End
 
   Describe 'cmd_diva CLI interface'

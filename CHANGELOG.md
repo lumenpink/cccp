@@ -29,6 +29,7 @@
   - (hooks) implement optional post-push hook automation and cccp push command
 
 ### Bug Fixes
+  - (generator) prevent truncation of long/tall tickets in output
   - (generator) fix ASCII table right border and text wrapping in columns
   - (install) prevent same-file error and prioritize workspace script in install -g
   - (bin) include catalog and diva in unbundled development runner
