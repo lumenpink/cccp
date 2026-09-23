@@ -10,163 +10,20 @@ if [ -n "$GIT_ROOT" ]; then
     if [ -f "$GIT_ROOT/src/config/config.sh" ]; then
         . "$GIT_ROOT/src/config/config.sh"
     fi
+    if [ -f "$GIT_ROOT/src/utils/repo.sh" ]; then
+        . "$GIT_ROOT/src/utils/repo.sh"
+    fi
 fi
 
 # -----------------------------------------------------------------------------
-# Helper: Extract Git host, owner and repository from remote URL
+# Remote URL & Forge resolution delegated to src/utils/repo.sh
 # -----------------------------------------------------------------------------
-parse_remote_url() {
-    url="$1"
-    clean=$(echo "$url" | sed -e 's/\.git$//' -e 's|/*$||')
-
-    case "$clean" in
-        *://*)
-            no_proto=$(echo "$clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            host_part=$(echo "$no_proto" | cut -d'/' -f1)
-            host=$(echo "$host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            path=$(echo "$no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
-            ;;
-        *:*)
-            host_part=$(echo "$clean" | sed -e 's|:.*$||')
-            host=$(echo "$host_part" | sed -e 's|^.*@||')
-            path=$(echo "$clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-
-    owner=$(echo "$path" | sed -e 's|/[^/]*$||')
-    repo=$(echo "$path" | sed -e 's|^.*/||')
-
-    [ -n "$host" ] && [ -n "$owner" ] && [ -n "$repo" ] || return 1
-    echo "$host $owner $repo"
-    return 0
-}
-
-parse_codeberg_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
-            *codeberg.org*)
-                echo "$owner $repo"
-                return 0
-                ;;
-        esac
+if ! command -v parse_remote_url >/dev/null 2>&1; then
+    _script_dir="$(cd "$(dirname "$0")" 2>/dev/null && pwd || true)"
+    if [ -n "$_script_dir" ] && [ -f "$_script_dir/repo.sh" ]; then
+        . "$_script_dir/repo.sh"
     fi
-    return 1
-}
-
-parse_github_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
-            *github.com*)
-                echo "$owner $repo"
-                return 0
-                ;;
-        esac
-    fi
-    return 1
-}
-
-parse_gitlab_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
-            gitlab.com|framagit.org)
-                echo "$owner $repo"
-                return 0
-                ;;
-        esac
-    fi
-    return 1
-}
-
-# -----------------------------------------------------------------------------
-# Helper: Detect Forge Provider (Fast-path -> Config -> Cache -> Active Probe)
-# -----------------------------------------------------------------------------
-detect_forge_provider() {
-    host="$1"
-    [ -z "$host" ] && return 1
-
-    # 1. Check local config override if set
-    cfg_provider="${TICKETS_PROVIDER:-}"
-    if [ -z "$cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
-        git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-        if [ -n "$git_root" ] && [ -f "$git_root/.cccprc" ]; then
-            cfg_provider="$(read_file_key "$git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
-        fi
-    fi
-    if [ -n "$cfg_provider" ]; then
-        echo "$cfg_provider"
-        return 0
-    fi
-
-    # 2. Fast-path: Deterministic domain lookup
-    case "$host" in
-        github.com)
-            echo "github"
-            return 0
-            ;;
-        codeberg.org|gitea.com)
-            echo "forgejo"
-            return 0
-            ;;
-        framagit.org|gitlab.com)
-            echo "gitlab"
-            return 0
-            ;;
-        *.sr.ht|git.sr.ht|todo.sr.ht)
-            echo "sourcehut"
-            return 0
-            ;;
-    esac
-
-    # 3. Cache lookup (in .git/cccp_provider_cache)
-    git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
-    cache_file=""
-    if [ -n "$git_dir" ] && [ -d "$git_dir" ]; then
-        cache_file="$git_dir/cccp_provider_cache"
-        if [ -f "$cache_file" ]; then
-            cached=$(grep -E "^${host}:" "$cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
-            if [ -n "$cached" ]; then
-                echo "$cached"
-                return 0
-            fi
-        fi
-    fi
-
-    # 4. Active Probing (Strict detection without false assumptions)
-    detected=""
-    probe_gitea=$(curl -s -f -m 3 "https://${host}/api/v1/version" 2>/dev/null || true)
-    if [ -n "$probe_gitea" ] && printf '%s\n' "$probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
-        detected="forgejo"
-    else
-        probe_gl=$(curl -s -f -I -m 3 "https://${host}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${host}/" 2>/dev/null || true)
-        case "$probe_gl" in
-            *gitlab*|*GitLab*)
-                detected="gitlab"
-                ;;
-        esac
-    fi
-
-    if [ -n "$detected" ]; then
-        if [ -n "$cache_file" ]; then
-            echo "${host}:${detected}" >> "$cache_file"
-        fi
-        echo "$detected"
-        return 0
-    fi
-
-    return 1
-}
+fi
 
 # -----------------------------------------------------------------------------
 # Helper: Resolve Git provider, owner, repo, and host dynamically
@@ -192,50 +49,18 @@ resolve_tickets_info() {
 
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        # 1. Check 'origin' push URL, then fetch URL
-        origin_push_url=$(git config remote.origin.pushurl 2>/dev/null || git remote get-url --push origin 2>/dev/null || true)
-        origin_fetch_url=$(git config remote.origin.url 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-
-        for u in "$origin_push_url" "$origin_fetch_url"; do
-            [ -z "$u" ] && continue
-            if parsed=$(parse_remote_url "$u"); then
-                p_host=$(echo "$parsed" | cut -d' ' -f1)
-                p_owner=$(echo "$parsed" | cut -d' ' -f2)
-                p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
-                    resolved_provider="${resolved_provider:-$p_prov}"
-                    resolved_owner="${resolved_owner:-$p_owner}"
-                    resolved_repo="${resolved_repo:-$p_repo}"
-                    resolved_host="$p_host"
-                    echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
-                    return 0
-                fi
-            fi
-        done
-
-        # 2. Check any other configured git remotes
-        all_remotes=$(git remote 2>/dev/null || true)
-        for rmt in $all_remotes; do
-            [ "$rmt" = "origin" ] && continue
-            rmt_push_url=$(git config "remote.${rmt}.pushurl" 2>/dev/null || git remote get-url --push "$rmt" 2>/dev/null || true)
-            rmt_fetch_url=$(git config "remote.${rmt}.url" 2>/dev/null || git remote get-url "$rmt" 2>/dev/null || true)
-            for u in "$rmt_push_url" "$rmt_fetch_url"; do
-                [ -z "$u" ] && continue
-                if parsed=$(parse_remote_url "$u"); then
-                    p_host=$(echo "$parsed" | cut -d' ' -f1)
-                    p_owner=$(echo "$parsed" | cut -d' ' -f2)
-                    p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                    if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
-                        resolved_provider="${resolved_provider:-$p_prov}"
-                        resolved_owner="${resolved_owner:-$p_owner}"
-                        resolved_repo="${resolved_repo:-$p_repo}"
-                        resolved_host="$p_host"
-                        echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
-                        return 0
-                    fi
-                fi
-            done
-        done
+        if _dinfo=$(detect_repo_info 2>/dev/null); then
+            p_prov=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
+            p_owner=$(printf '%s' "$_dinfo" | cut -d' ' -f2)
+            p_repo=$(printf '%s' "$_dinfo" | cut -d' ' -f3)
+            p_host=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            resolved_provider="${resolved_provider:-$p_prov}"
+            resolved_owner="${resolved_owner:-$p_owner}"
+            resolved_repo="${resolved_repo:-$p_repo}"
+            resolved_host="$p_host"
+            printf '%s %s %s %s\n' "$resolved_provider" "$resolved_owner" "$resolved_repo" "$resolved_host"
+            return 0
+        fi
     fi
 
     # Fallback if owner and repo are already known from environment

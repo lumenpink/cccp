@@ -13,6 +13,9 @@ if [ -n "$GIT_ROOT" ]; then
     if [ -f "$GIT_ROOT/src/utils/config_manager.sh" ]; then
         . "$GIT_ROOT/src/utils/config_manager.sh"
     fi
+    if [ -f "$GIT_ROOT/src/utils/repo.sh" ]; then
+        . "$GIT_ROOT/src/utils/repo.sh"
+    fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -112,42 +115,31 @@ _catalog_resolve_token() {
 # -----------------------------------------------------------------------------
 _catalog_detect_forge_and_slug() {
     _url="$1"
-    _clean=$(printf '%s\n' "$_url" | sed -e 's/\.git$//' -e 's|/*$||')
+    if [ -z "$_url" ]; then
+        printf 'local unknown false\n'
+        return 0
+    fi
 
-    _host=""
-    _path=""
-    case "$_clean" in
-        *://*)
-            _no_proto=$(printf '%s\n' "$_clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            _host_part=$(printf '%s\n' "$_no_proto" | cut -d'/' -f1)
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            _path=$(printf '%s\n' "$_no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
-            ;;
-        *:*)
-            _host_part=$(printf '%s\n' "$_clean" | sed -e 's|:.*$||')
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||')
-            _path=$(printf '%s\n' "$_clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
-            ;;
-        *)
-            printf 'local unknown false\n'
-            return 0
-            ;;
+    if ! _parsed=$(parse_remote_url "$_url" 2>/dev/null); then
+        printf 'local unknown false\n'
+        return 0
+    fi
+
+    _chost=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+    _cowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+    _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
+    _cslug="${_cowner}/${_crepo}"
+
+    _cforge="unknown"
+    case "$_chost" in
+        *codeberg.org*) _cforge="codeberg" ;;
+        *tildegit.org*) _cforge="tildegit" ;;
+        *github.com*)   _cforge="github" ;;
+        *gitlab.com*|*framagit.org*) _cforge="gitlab" ;;
+        *sr.ht*)        _cforge="sourcehut" ;;
     esac
 
-    _owner=$(printf '%s\n' "$_path" | sed -e 's|/[^/]*$||')
-    _repo=$(printf '%s\n' "$_path" | sed -e 's|^.*/||')
-    _slug="${_owner}/${_repo}"
-
-    _forge="unknown"
-    case "$_host" in
-        *codeberg.org*) _forge="codeberg" ;;
-        *tildegit.org*) _forge="tildegit" ;;
-        *github.com*)   _forge="github" ;;
-        *gitlab.com*)   _forge="gitlab" ;;
-        *sr.ht*)        _forge="sourcehut" ;;
-    esac
-
-    printf '%s %s false\n' "$_forge" "$_slug"
+    printf '%s %s false\n' "$_cforge" "$_cslug"
 }
 
 # -----------------------------------------------------------------------------

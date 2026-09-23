@@ -71,6 +71,7 @@ src/
 ├── config.sh              # Hierarchical configuration parser (.cccprc)
 ├── semver.sh              # SemVer 2.0.0 math, parsing and predictive release calculation
 ├── hooks.sh               # Git hook generator and lifecycle management
+├── repo.sh                # Unified Git remote & forge resolver
 ├── tickets.sh             # Multi-forge ticket fetcher and markdown synchronizer
 ├── catalog.sh             # (Issue #18) Local workspace scanner & forge metadata engine
 └── diva.sh                # (Issue #19) Interactive Gemini-powered ticket triage bot

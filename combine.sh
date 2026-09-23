@@ -122,6 +122,12 @@ printf "# Push Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/push.sh" >> "$OUTPUT_FILE"
 
+# Add repo function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Repository & Forge Resolver Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/repo.sh" >> "$OUTPUT_FILE"
+
 # Add tickets function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Tickets Functions\n" >> "$OUTPUT_FILE"

@@ -3,6 +3,7 @@
 
 Describe "codeberg"
     Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
+    Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/repo.sh}"
     Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/tickets.sh}"
     Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/agents.sh}"
     Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/codeberg.sh}"

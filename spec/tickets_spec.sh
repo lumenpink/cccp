@@ -4,6 +4,7 @@
 Describe 'tickets'
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/help.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/repo.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/tickets.sh}"
 
   setup() {

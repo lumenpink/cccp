@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.69+20260923.388e9fc"
+CCCP_VERSION="2.3.0-dev.70+20260923.b06bddb"
 export CCCP_VERSION
 
 # Verify required tools
@@ -784,45 +784,140 @@ cmd_push() {
 
 
 # =============================================================================
-# Tickets Functions
+# Repository & Forge Resolver Functions
 # =============================================================================
 parse_remote_url() {
-    url="$1"
-    clean=$(echo "$url" | sed -e 's/\.git$//' -e 's|/*$||')
+    _raw_url="$1"
+    [ -z "$_raw_url" ] && return 1
 
-    case "$clean" in
+    _clean=$(printf '%s\n' "$_raw_url" | sed -e 's/\.git$//' -e 's|/*$||')
+
+    _host=""
+    _path=""
+    case "$_clean" in
         *://*)
-            no_proto=$(echo "$clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            host_part=$(echo "$no_proto" | cut -d'/' -f1)
-            host=$(echo "$host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            path=$(echo "$no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
+            _no_proto=$(printf '%s\n' "$_clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
+            _host_part=$(printf '%s\n' "$_no_proto" | cut -d'/' -f1)
+            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
+            _path=$(printf '%s\n' "$_no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
             ;;
         *:*)
-            host_part=$(echo "$clean" | sed -e 's|:.*$||')
-            host=$(echo "$host_part" | sed -e 's|^.*@||')
-            path=$(echo "$clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
+            _host_part=$(printf '%s\n' "$_clean" | sed -e 's|:.*$||')
+            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||')
+            _path=$(printf '%s\n' "$_clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
             ;;
         *)
             return 1
             ;;
     esac
 
-    owner=$(echo "$path" | sed -e 's|/[^/]*$||')
-    repo=$(echo "$path" | sed -e 's|^.*/||')
+    [ -z "$_path" ] && return 1
 
-    [ -n "$host" ] && [ -n "$owner" ] && [ -n "$repo" ] || return 1
-    echo "$host $owner $repo"
+    _owner=$(printf '%s\n' "$_path" | sed -e 's|/[^/]*$||')
+    _repo=$(printf '%s\n' "$_path" | sed -e 's|^.*/||')
+
+    [ -n "$_host" ] && [ -n "$_owner" ] && [ -n "$_repo" ] || return 1
+    printf '%s %s %s\n' "$_host" "$_owner" "$_repo"
     return 0
 }
 
+detect_forge_provider() {
+    _fhost="$1"
+    [ -z "$_fhost" ] && return 1
+
+    # 1. Check local config override if set
+    _cfg_provider="${TICKETS_PROVIDER:-}"
+    if [ -z "$_cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
+        _git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+        if [ -n "$_git_root" ] && [ -f "$_git_root/.cccprc" ]; then
+            _cfg_provider="$(read_file_key "$_git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
+        fi
+    fi
+    if [ -n "$_cfg_provider" ]; then
+        printf '%s\n' "$_cfg_provider"
+        return 0
+    fi
+
+    # 2. Fast-path: Deterministic domain lookup
+    case "$_fhost" in
+        *github.com*)
+            printf 'github\n'
+            return 0
+            ;;
+        *codeberg.org*|*gitea.com*)
+            printf 'forgejo\n'
+            return 0
+            ;;
+        *tildegit.org*)
+            printf 'tildegit\n'
+            return 0
+            ;;
+        *gitlab.com*|*framagit.org*)
+            printf 'gitlab\n'
+            return 0
+            ;;
+        *.sr.ht*|git.sr.ht|todo.sr.ht)
+            printf 'sourcehut\n'
+            return 0
+            ;;
+    esac
+
+    # 3. Cache lookup (in .git/cccp_provider_cache)
+    _git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
+    _cache_file=""
+    if [ -n "$_git_dir" ] && [ -d "$_git_dir" ]; then
+        _cache_file="$_git_dir/cccp_provider_cache"
+        if [ -f "$_cache_file" ]; then
+            _cached=$(grep -E "^${_fhost}:" "$_cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
+            if [ -n "$_cached" ]; then
+                printf '%s\n' "$_cached"
+                return 0
+            fi
+        fi
+    fi
+
+    # 4. Active Probing (Strict detection without false assumptions)
+    if command -v curl >/dev/null 2>&1; then
+        _probe_gitea=$(curl -s -f -m 3 "https://${_fhost}/api/v1/version" 2>/dev/null || true)
+        if [ -n "$_probe_gitea" ]; then
+            if command -v jq >/dev/null 2>&1; then
+                if printf '%s\n' "$_probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
+                    [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
+                    printf 'forgejo\n'
+                    return 0
+                fi
+            else
+                case "$_probe_gitea" in
+                    *\"version\"*)
+                        [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
+                        printf 'forgejo\n'
+                        return 0
+                        ;;
+                esac
+            fi
+        fi
+
+        _probe_gl=$(curl -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
+        case "$_probe_gl" in
+            *gitlab*|*GitLab*)
+                [ -n "$_cache_file" ] && printf '%s:gitlab\n' "$_fhost" >> "$_cache_file"
+                printf 'gitlab\n'
+                return 0
+                ;;
+        esac
+    fi
+
+    return 1
+}
+
 parse_codeberg_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
+    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+        _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+        _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
+        case "$_host" in
             *codeberg.org*)
-                echo "$owner $repo"
+                printf '%s %s\n' "$_owner" "$_repo"
                 return 0
                 ;;
         esac
@@ -831,13 +926,13 @@ parse_codeberg_url() {
 }
 
 parse_github_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
+    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+        _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+        _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
+        case "$_host" in
             *github.com*)
-                echo "$owner $repo"
+                printf '%s %s\n' "$_owner" "$_repo"
                 return 0
                 ;;
         esac
@@ -846,13 +941,13 @@ parse_github_url() {
 }
 
 parse_gitlab_url() {
-    if parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        host=$(echo "$parsed" | cut -d' ' -f1)
-        owner=$(echo "$parsed" | cut -d' ' -f2)
-        repo=$(echo "$parsed" | cut -d' ' -f3)
-        case "$host" in
-            gitlab.com|framagit.org)
-                echo "$owner $repo"
+    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
+        _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+        _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+        _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
+        case "$_host" in
+            *gitlab.com*|*framagit.org*)
+                printf '%s %s\n' "$_owner" "$_repo"
                 return 0
                 ;;
         esac
@@ -860,82 +955,76 @@ parse_gitlab_url() {
     return 1
 }
 
-detect_forge_provider() {
-    host="$1"
-    [ -z "$host" ] && return 1
+detect_repo_info() {
+    _target_path="${1:-.}"
 
-    # 1. Check local config override if set
-    cfg_provider="${TICKETS_PROVIDER:-}"
-    if [ -z "$cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
-        git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-        if [ -n "$git_root" ] && [ -f "$git_root/.cccprc" ]; then
-            cfg_provider="$(read_file_key "$git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
-        fi
-    fi
-    if [ -n "$cfg_provider" ]; then
-        echo "$cfg_provider"
-        return 0
+    if [ ! -d "$_target_path" ]; then
+        return 1
     fi
 
-    # 2. Fast-path: Deterministic domain lookup
-    case "$host" in
-        github.com)
-            echo "github"
-            return 0
-            ;;
-        codeberg.org|gitea.com)
-            echo "forgejo"
-            return 0
-            ;;
-        framagit.org|gitlab.com)
-            echo "gitlab"
-            return 0
-            ;;
-        *.sr.ht|git.sr.ht|todo.sr.ht)
-            echo "sourcehut"
-            return 0
-            ;;
-    esac
+    # Check origin push URL first, then fetch URL
+    _origin_url=$(git -C "$_target_path" config remote.origin.pushurl 2>/dev/null \
+        || git -C "$_target_path" config remote.origin.url 2>/dev/null \
+        || git -C "$_target_path" remote get-url origin 2>/dev/null || true)
 
-    # 3. Cache lookup (in .git/cccp_provider_cache)
-    git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
-    cache_file=""
-    if [ -n "$git_dir" ] && [ -d "$git_dir" ]; then
-        cache_file="$git_dir/cccp_provider_cache"
-        if [ -f "$cache_file" ]; then
-            cached=$(grep -E "^${host}:" "$cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
-            if [ -n "$cached" ]; then
-                echo "$cached"
-                return 0
-            fi
+    if [ -z "$_origin_url" ]; then
+        # Try any configured remote
+        _first_remote=$(git -C "$_target_path" remote 2>/dev/null | head -n 1 || true)
+        if [ -n "$_first_remote" ]; then
+            _origin_url=$(git -C "$_target_path" config "remote.${_first_remote}.url" 2>/dev/null \
+                || git -C "$_target_path" remote get-url "$_first_remote" 2>/dev/null || true)
         fi
     fi
 
-    # 4. Active Probing (Strict detection without false assumptions)
-    detected=""
-    probe_gitea=$(curl -s -f -m 3 "https://${host}/api/v1/version" 2>/dev/null || true)
-    if [ -n "$probe_gitea" ] && printf '%s\n' "$probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
-        detected="forgejo"
-    else
-        probe_gl=$(curl -s -f -I -m 3 "https://${host}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${host}/" 2>/dev/null || true)
-        case "$probe_gl" in
-            *gitlab*|*GitLab*)
-                detected="gitlab"
-                ;;
-        esac
+    [ -z "$_origin_url" ] && return 1
+
+    if ! _parsed=$(parse_remote_url "$_origin_url" 2>/dev/null); then
+        return 1
     fi
 
-    if [ -n "$detected" ]; then
-        if [ -n "$cache_file" ]; then
-            echo "${host}:${detected}" >> "$cache_file"
-        fi
-        echo "$detected"
-        return 0
-    fi
+    _rhost=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+    _rowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+    _rname=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
 
-    return 1
+    if ! _rforge=$(detect_forge_provider "$_rhost" 2>/dev/null); then
+        return 1
+    fi
+    [ "$_rforge" = "unknown" ] && return 1
+
+    printf '%s %s %s %s\n' "$_rforge" "$_rowner" "$_rname" "$_rhost"
+    return 0
 }
 
+get_repo_slug() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    _o=$(printf '%s\n' "$_info" | cut -d' ' -f2)
+    _r=$(printf '%s\n' "$_info" | cut -d' ' -f3)
+    printf '%s/%s\n' "$_o" "$_r"
+    return 0
+}
+
+get_repo_owner() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f2
+    return 0
+}
+
+get_repo_name() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f3
+    return 0
+}
+
+get_repo_forge() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f1
+    return 0
+}
+
+
+# =============================================================================
+# Tickets Functions
+# =============================================================================
 resolve_tickets_info() {
     resolved_provider="${TICKETS_PROVIDER:-}"
     resolved_owner="${TICKETS_OWNER:-${CODEBERG_OWNER:-${CODEBERG_USER:-${GITHUB_OWNER:-${GITHUB_USER:-}}}}}"
@@ -957,50 +1046,18 @@ resolve_tickets_info() {
 
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        # 1. Check 'origin' push URL, then fetch URL
-        origin_push_url=$(git config remote.origin.pushurl 2>/dev/null || git remote get-url --push origin 2>/dev/null || true)
-        origin_fetch_url=$(git config remote.origin.url 2>/dev/null || git remote get-url origin 2>/dev/null || true)
-
-        for u in "$origin_push_url" "$origin_fetch_url"; do
-            [ -z "$u" ] && continue
-            if parsed=$(parse_remote_url "$u"); then
-                p_host=$(echo "$parsed" | cut -d' ' -f1)
-                p_owner=$(echo "$parsed" | cut -d' ' -f2)
-                p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
-                    resolved_provider="${resolved_provider:-$p_prov}"
-                    resolved_owner="${resolved_owner:-$p_owner}"
-                    resolved_repo="${resolved_repo:-$p_repo}"
-                    resolved_host="$p_host"
-                    echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
-                    return 0
-                fi
-            fi
-        done
-
-        # 2. Check any other configured git remotes
-        all_remotes=$(git remote 2>/dev/null || true)
-        for rmt in $all_remotes; do
-            [ "$rmt" = "origin" ] && continue
-            rmt_push_url=$(git config "remote.${rmt}.pushurl" 2>/dev/null || git remote get-url --push "$rmt" 2>/dev/null || true)
-            rmt_fetch_url=$(git config "remote.${rmt}.url" 2>/dev/null || git remote get-url "$rmt" 2>/dev/null || true)
-            for u in "$rmt_push_url" "$rmt_fetch_url"; do
-                [ -z "$u" ] && continue
-                if parsed=$(parse_remote_url "$u"); then
-                    p_host=$(echo "$parsed" | cut -d' ' -f1)
-                    p_owner=$(echo "$parsed" | cut -d' ' -f2)
-                    p_repo=$(echo "$parsed" | cut -d' ' -f3)
-                    if p_prov=$(detect_forge_provider "$p_host" 2>/dev/null); then
-                        resolved_provider="${resolved_provider:-$p_prov}"
-                        resolved_owner="${resolved_owner:-$p_owner}"
-                        resolved_repo="${resolved_repo:-$p_repo}"
-                        resolved_host="$p_host"
-                        echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
-                        return 0
-                    fi
-                fi
-            done
-        done
+        if _dinfo=$(detect_repo_info 2>/dev/null); then
+            p_prov=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
+            p_owner=$(printf '%s' "$_dinfo" | cut -d' ' -f2)
+            p_repo=$(printf '%s' "$_dinfo" | cut -d' ' -f3)
+            p_host=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            resolved_provider="${resolved_provider:-$p_prov}"
+            resolved_owner="${resolved_owner:-$p_owner}"
+            resolved_repo="${resolved_repo:-$p_repo}"
+            resolved_host="$p_host"
+            printf '%s %s %s %s\n' "$resolved_provider" "$resolved_owner" "$resolved_repo" "$resolved_host"
+            return 0
+        fi
     fi
 
     # Fallback if owner and repo are already known from environment
@@ -2275,42 +2332,31 @@ _catalog_resolve_token() {
 
 _catalog_detect_forge_and_slug() {
     _url="$1"
-    _clean=$(printf '%s\n' "$_url" | sed -e 's/\.git$//' -e 's|/*$||')
+    if [ -z "$_url" ]; then
+        printf 'local unknown false\n'
+        return 0
+    fi
 
-    _host=""
-    _path=""
-    case "$_clean" in
-        *://*)
-            _no_proto=$(printf '%s\n' "$_clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            _host_part=$(printf '%s\n' "$_no_proto" | cut -d'/' -f1)
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            _path=$(printf '%s\n' "$_no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
-            ;;
-        *:*)
-            _host_part=$(printf '%s\n' "$_clean" | sed -e 's|:.*$||')
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||')
-            _path=$(printf '%s\n' "$_clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
-            ;;
-        *)
-            printf 'local unknown false\n'
-            return 0
-            ;;
+    if ! _parsed=$(parse_remote_url "$_url" 2>/dev/null); then
+        printf 'local unknown false\n'
+        return 0
+    fi
+
+    _chost=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
+    _cowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
+    _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
+    _cslug="${_cowner}/${_crepo}"
+
+    _cforge="unknown"
+    case "$_chost" in
+        *codeberg.org*) _cforge="codeberg" ;;
+        *tildegit.org*) _cforge="tildegit" ;;
+        *github.com*)   _cforge="github" ;;
+        *gitlab.com*|*framagit.org*) _cforge="gitlab" ;;
+        *sr.ht*)        _cforge="sourcehut" ;;
     esac
 
-    _owner=$(printf '%s\n' "$_path" | sed -e 's|/[^/]*$||')
-    _repo=$(printf '%s\n' "$_path" | sed -e 's|^.*/||')
-    _slug="${_owner}/${_repo}"
-
-    _forge="unknown"
-    case "$_host" in
-        *codeberg.org*) _forge="codeberg" ;;
-        *tildegit.org*) _forge="tildegit" ;;
-        *github.com*)   _forge="github" ;;
-        *gitlab.com*)   _forge="gitlab" ;;
-        *sr.ht*)        _forge="sourcehut" ;;
-    esac
-
-    printf '%s %s false\n' "$_forge" "$_slug"
+    printf '%s %s false\n' "$_cforge" "$_cslug"
 }
 
 _catalog_extract_description() {
@@ -3004,45 +3050,11 @@ _diva_resolve_api_key() {
 }
 
 _diva_resolve_forge() {
-    _origin=$(git config remote.origin.url 2>/dev/null || true)
-    if [ -z "$_origin" ]; then
+    if command -v detect_repo_info >/dev/null 2>&1; then
+        detect_repo_info
+    else
         return 1
     fi
-
-    _clean=$(printf '%s\n' "$_origin" | sed -e 's/\.git$//' -e 's|/*$||')
-    _host=""
-    _path=""
-    case "$_clean" in
-        *://*)
-            _no_proto=$(printf '%s\n' "$_clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            _host_part=$(printf '%s\n' "$_no_proto" | cut -d'/' -f1)
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            _path=$(printf '%s\n' "$_no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
-            ;;
-        *:*)
-            _host_part=$(printf '%s\n' "$_clean" | sed -e 's|:.*$||')
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||')
-            _path=$(printf '%s\n' "$_clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-
-    _owner=$(printf '%s\n' "$_path" | sed -e 's|/[^/]*$||')
-    _repo=$(printf '%s\n' "$_path" | sed -e 's|^.*/||')
-
-    _forge="unknown"
-    case "$_host" in
-        *codeberg.org*) _forge="codeberg" ;;
-        *tildegit.org*) _forge="tildegit" ;;
-        *github.com*)   _forge="github" ;;
-        *gitlab.com*)   _forge="gitlab" ;;
-        *sr.ht*)        _forge="sourcehut" ;;
-    esac
-
-    printf '%s %s %s %s\n' "$_forge" "$_owner" "$_repo" "$_host"
-    return 0
 }
 
 _diva_resolve_forge_token() {

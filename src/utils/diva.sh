@@ -13,6 +13,9 @@ if [ -n "$GIT_ROOT" ]; then
     if [ -f "$GIT_ROOT/src/utils/config_manager.sh" ]; then
         . "$GIT_ROOT/src/utils/config_manager.sh"
     fi
+    if [ -f "$GIT_ROOT/src/utils/repo.sh" ]; then
+        . "$GIT_ROOT/src/utils/repo.sh"
+    fi
     if [ -f "$GIT_ROOT/src/utils/tickets.sh" ]; then
         . "$GIT_ROOT/src/utils/tickets.sh"
     fi
@@ -82,45 +85,11 @@ _diva_resolve_api_key() {
 # Helper: Resolve Forge & Token for Active Repository
 # -----------------------------------------------------------------------------
 _diva_resolve_forge() {
-    _origin=$(git config remote.origin.url 2>/dev/null || true)
-    if [ -z "$_origin" ]; then
+    if command -v detect_repo_info >/dev/null 2>&1; then
+        detect_repo_info
+    else
         return 1
     fi
-
-    _clean=$(printf '%s\n' "$_origin" | sed -e 's/\.git$//' -e 's|/*$||')
-    _host=""
-    _path=""
-    case "$_clean" in
-        *://*)
-            _no_proto=$(printf '%s\n' "$_clean" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+-.]*://||')
-            _host_part=$(printf '%s\n' "$_no_proto" | cut -d'/' -f1)
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||' -e 's|:[0-9]*$||')
-            _path=$(printf '%s\n' "$_no_proto" | sed -e 's|^[^/]*/||' -e 's|^/*||')
-            ;;
-        *:*)
-            _host_part=$(printf '%s\n' "$_clean" | sed -e 's|:.*$||')
-            _host=$(printf '%s\n' "$_host_part" | sed -e 's|^.*@||')
-            _path=$(printf '%s\n' "$_clean" | sed -e 's|^[^:]*:||' -e 's|^/*||')
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-
-    _owner=$(printf '%s\n' "$_path" | sed -e 's|/[^/]*$||')
-    _repo=$(printf '%s\n' "$_path" | sed -e 's|^.*/||')
-
-    _forge="unknown"
-    case "$_host" in
-        *codeberg.org*) _forge="codeberg" ;;
-        *tildegit.org*) _forge="tildegit" ;;
-        *github.com*)   _forge="github" ;;
-        *gitlab.com*)   _forge="gitlab" ;;
-        *sr.ht*)        _forge="sourcehut" ;;
-    esac
-
-    printf '%s %s %s %s\n' "$_forge" "$_owner" "$_repo" "$_host"
-    return 0
 }
 
 _diva_resolve_forge_token() {
