@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-23 16:55:45 UTC
+> Synced at: 2026-09-23 18:17:40 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#27] feat(catalog): suporte a diretório padrão via config global, env e flags

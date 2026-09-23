@@ -22,28 +22,10 @@ fi
 # Helper: Extract Forge Token from ~/.config/tea/config.yml (Pure POSIX)
 # -----------------------------------------------------------------------------
 _catalog_get_tea_token() {
-    _target="$1"
-    _cfg="${HOME}/.config/tea/config.yml"
-    [ -f "$_cfg" ] || return 1
-
-    _found_target=0
-    while IFS= read -r _line || [ -n "$_line" ]; do
-        case "$_line" in
-            *"- name:"*"$_target"*|*"name:"*"$_target"*)
-                _found_target=1
-                ;;
-            *"- name:"*)
-                _found_target=0
-                ;;
-            *"token:"*)
-                if [ "$_found_target" -eq 1 ]; then
-                    _token=$(printf '%s' "$_line" | sed -e 's/^[[:space:]]*token:[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-                    printf '%s\n' "$_token"
-                    return 0
-                fi
-                ;;
-        esac
-    done < "$_cfg"
+    if command -v get_tea_token >/dev/null 2>&1; then
+        get_tea_token "$@"
+        return $?
+    fi
     return 1
 }
 
@@ -51,62 +33,10 @@ _catalog_get_tea_token() {
 # Helper: Resolve Forge API Token dynamically without hardcoding
 # -----------------------------------------------------------------------------
 _catalog_resolve_token() {
-    _forge="$1"
-    _cfg_k=""
-    case "$_forge" in
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            _cfg_k="codeberg_token"
-            ;;
-        tildegit)
-            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _cfg_k="tildegit_token"
-            ;;
-        github)
-            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
-            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            _cfg_k="github_token"
-            ;;
-        *) return 1 ;;
-    esac
-
-    # 1. Check local config
-    _local_cfg=""
-    if command -v get_local_config_file >/dev/null 2>&1; then
-        _local_cfg=$(get_local_config_file 2>/dev/null || true)
+    if command -v resolve_forge_token >/dev/null 2>&1; then
+        resolve_forge_token "$@"
+        return $?
     fi
-    [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
-
-    if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
-        if command -v read_file_key >/dev/null 2>&1; then
-            if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-                printf '%s\n' "$_tok"
-                return 0
-            fi
-        fi
-    fi
-
-    # 2. Check global config
-    _global_cfg=""
-    if command -v get_global_config_file >/dev/null 2>&1; then
-        _global_cfg=$(get_global_config_file 2>/dev/null || true)
-    fi
-    if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
-        if command -v read_file_key >/dev/null 2>&1; then
-            if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-                printf '%s\n' "$_tok"
-                return 0
-            fi
-        fi
-    fi
-
-    # 3. Check tea config
-    case "$_forge" in
-        codeberg|tildegit)
-            _catalog_get_tea_token "$_forge" && return 0
-            ;;
-    esac
-
     return 1
 }
 
@@ -130,13 +60,13 @@ _catalog_detect_forge_and_slug() {
     _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
     _cslug="${_cowner}/${_crepo}"
 
-    _cforge="unknown"
-    case "$_chost" in
-        *codeberg.org*) _cforge="codeberg" ;;
-        *tildegit.org*) _cforge="tildegit" ;;
-        *github.com*)   _cforge="github" ;;
-        *gitlab.com*|*framagit.org*) _cforge="gitlab" ;;
-        *sr.ht*)        _cforge="sourcehut" ;;
+    _cforge=$(detect_forge_provider "$_chost" 2>/dev/null || echo "unknown")
+    case "$_cforge" in
+        forgejo)
+            case "$_chost" in
+                *codeberg.org*) _cforge="codeberg" ;;
+            esac
+            ;;
     esac
 
     printf '%s %s false\n' "$_cforge" "$_cslug"
@@ -578,8 +508,8 @@ _catalog_sync_remote() {
                 fi
 
                 # 1. Update repo description & website
-                _esc_desc=$(printf '%s' "$_desc" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                _esc_web=$(printf '%s' "$_website" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+                _esc_desc=$(escape_json_string "$_desc")
+                _esc_web=$(escape_json_string "$_website")
                 _payload="{\"description\":\"${_esc_desc}\""
                 if [ -n "$_esc_web" ]; then
                     _payload="${_payload},\"website\":\"${_esc_web}\""
@@ -645,8 +575,8 @@ _catalog_sync_remote() {
                         continue
                     fi
 
-                    _esc_desc=$(printf '%s' "$_desc" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                    _esc_web=$(printf '%s' "$_website" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+                    _esc_desc=$(escape_json_string "$_desc")
+                    _esc_web=$(escape_json_string "$_website")
                     _payload="{\"description\":\"${_esc_desc}\""
                     [ -n "$_esc_web" ] && _payload="${_payload},\"homepage\":\"${_esc_web}\""
                     _payload="${_payload}}"

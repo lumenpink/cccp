@@ -158,7 +158,7 @@ read_file_key() {
         case "$line" in
             *"="*)
                 k="${line%%=*}"
-                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*export[[:space:]][[:space:]]*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
                 if [ "$k" = "$key" ]; then
                     val="${line#*=}"
                     val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")

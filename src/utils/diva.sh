@@ -33,16 +33,9 @@ _diva_resolve_api_key() {
 
     # 2. Check ~/.env (or local .env)
     for _env_file in "${HOME}/.env" ".env"; do
-        if [ -f "$_env_file" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                if _k=$(read_file_key "$_env_file" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
-                    printf '%s\n' "$_k"
-                    return 0
-                fi
-            fi
-            _env_val=$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?GEMINI_API_KEY[[:space:]]*=[[:space:]]*"?([^"#]+)"?.*/\2/p' "$_env_file" 2>/dev/null | sed -e 's/[[:space:]]*$//' -e "s/^'//" -e "s/'$//" | head -n 1 || true)
-            if [ -n "$_env_val" ]; then
-                printf '%s\n' "$_env_val"
+        if [ -f "$_env_file" ] && command -v read_file_key >/dev/null 2>&1; then
+            if _k=$(read_file_key "$_env_file" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
+                printf '%s\n' "$_k"
                 return 0
             fi
         fi
@@ -64,11 +57,13 @@ _diva_resolve_api_key() {
         fi
     fi
 
-    # 4. Check global config (~/.config/cccp/.cccprc)
+    # 4. Check global config (~/.config/cccp/config or ~/.cccprc)
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
     fi
+    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
+
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
         if command -v read_file_key >/dev/null 2>&1; then
             if _k=$(read_file_key "$_global_cfg" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
@@ -94,21 +89,12 @@ _diva_resolve_forge() {
 
 _diva_resolve_forge_token() {
     _forge="$1"
+    if command -v resolve_forge_token >/dev/null 2>&1; then
+        resolve_forge_token "$_forge" && return 0
+    fi
     if command -v _catalog_resolve_token >/dev/null 2>&1; then
         _catalog_resolve_token "$_forge" && return 0
     fi
-    case "$_forge" in
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            ;;
-        tildegit)
-            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            ;;
-        github)
-            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
-            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            ;;
-    esac
     return 1
 }
 
@@ -120,7 +106,11 @@ _diva_escape_json() {
     _out=""
     _first=1
     while IFS= read -r _l || [ -n "$_l" ]; do
-        _esc_l=$(printf '%s' "$_l" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g')
+        if command -v escape_json_string >/dev/null 2>&1; then
+            _esc_l=$(escape_json_string "$_l")
+        else
+            _esc_l=$(printf '%s' "$_l" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g')
+        fi
         if [ "$_first" -eq 1 ]; then
             _out="$_esc_l"
             _first=0

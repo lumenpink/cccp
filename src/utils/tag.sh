@@ -5,22 +5,18 @@ set -eu
 
 # Find the git root directory
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -z "$GIT_ROOT" ]; then
-    echo "Error: Not a git repository" >&2
-    exit 1
-fi
 
 # Set up paths relative to git root
-GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+GIT_HOOKS_DIR=$([ -n "$GIT_ROOT" ] && echo "$GIT_ROOT/.git/hooks" || echo "")
 
 # Source dependencies if available
-if [ -f "$GIT_ROOT/src/config/config.sh" ]; then
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ]; then
     . "$GIT_ROOT/src/config/config.sh"
 fi
-if [ -f "$GIT_ROOT/src/utils/version.sh" ]; then
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/version.sh" ]; then
     . "$GIT_ROOT/src/utils/version.sh"
 fi
-if [ -f "$GIT_ROOT/src/utils/changelog.sh" ]; then
+if [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/utils/changelog.sh" ]; then
     . "$GIT_ROOT/src/utils/changelog.sh"
 fi
 

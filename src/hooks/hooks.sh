@@ -540,34 +540,42 @@ resolve_post_push_hook() {
 }
 
 # -----------------------------------------------------------------------------
-# Check whether post-push tickets synchronization is enabled
+# Check whether post-push synchronization action is enabled
 # -----------------------------------------------------------------------------
-is_post_push_sync_tickets_enabled() {
-    case "${POST_PUSH_SYNC_TICKETS:-0}" in
-        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+is_post_push_sync_enabled() {
+    _target="$1"
+    case "$_target" in
+        ticket|tickets)
+            case "${POST_PUSH_SYNC_TICKETS:-0}" in
+                1|true|TRUE|yes|YES|on|ON) return 0 ;;
+            esac
+            _matches="ticket tickets sync-ticket sync-tickets"
+            ;;
+        agent|agents)
+            case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
+                1|true|TRUE|yes|YES|on|ON) return 0 ;;
+            esac
+            _matches="agent agents sync-agent sync-agents"
+            ;;
+        *)
+            return 1
+            ;;
     esac
+
     for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
-        case "$action" in
-            tickets|sync-tickets) return 0 ;;
+        case " $_matches " in
+            *" $action "*) return 0 ;;
         esac
     done
     return 1
 }
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# Check whether post-push agent synchronization is enabled
-# -----------------------------------------------------------------------------
+is_post_push_sync_tickets_enabled() {
+    is_post_push_sync_enabled tickets
+}
+
 is_post_push_sync_agent_enabled() {
-    case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
-        1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    esac
-    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
-        case "$action" in
-            agent|agents|sync-agent|sync-agents) return 0 ;;
-        esac
-    done
-    return 1
+    is_post_push_sync_enabled agent
 }
 
 is_post_push_sync_agents_enabled() {

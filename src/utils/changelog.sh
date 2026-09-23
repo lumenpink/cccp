@@ -4,11 +4,7 @@
 set -eu
 
 # Get the git root directory
-GIT_ROOT=$(git rev-parse --show-toplevel)
-if [ $? -ne 0 ]; then
-    echo "Error: Not a git repository" >&2
-    exit 1
-fi
+GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 
 # Source the configuration file if available
 [ -n "$GIT_ROOT" ] && [ -f "$GIT_ROOT/src/config/config.sh" ] && . "$GIT_ROOT/src/config/config.sh"
@@ -79,6 +75,10 @@ format_changelog_entries() {
 
 # Function to generate a changelog based on conventional commits
 generate_changelog() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
     local changelog_file="CHANGELOG.md"
 
     # Get all commits since the last tag

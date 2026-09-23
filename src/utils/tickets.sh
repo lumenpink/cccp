@@ -270,35 +270,10 @@ check_tickets_rate_limit() {
 # Helper: Ensure target tickets file is present in .gitignore
 # -----------------------------------------------------------------------------
 ensure_tickets_gitignored() {
-    target_file="$1"
-    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-
-    [ -z "$git_root" ] && return 0
-    [ ! -d "$git_root/.git" ] && return 0
-
-    gitignore_file="$git_root/.gitignore"
-
-    # If git already ignores this path, nothing to do
-    if git check-ignore -q "$target_file" 2>/dev/null; then
-        return 0
+    if command -v ensure_gitignored >/dev/null 2>&1; then
+        ensure_gitignored "$@"
+        return $?
     fi
-
-    # Determine relative path from git root
-    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
-
-    case "$rel_path" in
-        .antigravity/*)
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
-                echo ".antigravity/" >> "$gitignore_file"
-            fi
-            ;;
-        *)
-            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
-                echo "$rel_path" >> "$gitignore_file"
-            fi
-            ;;
-    esac
     return 0
 }
 
@@ -445,7 +420,9 @@ cmd_tickets() {
     case "$provider" in
         github)
             echo "Fetching open issues from GitHub (${owner}/${repo})..."
-            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${cli_token:-${GITHUB_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "github" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${_cur_token:-${GITHUB_TOKEN:-}}") || fetch_status=$?
             ;;
         forgejo)
             if [ "$host" = "codeberg.org" ]; then
@@ -453,7 +430,9 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${cli_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
             ;;
         gitlab)
             if [ "$host" = "framagit.org" ]; then
@@ -461,12 +440,16 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from GitLab (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${cli_token:-${GITLAB_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "gitlab" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${_cur_token:-${GITLAB_TOKEN:-}}") || fetch_status=$?
             ;;
         sourcehut)
             owner_clean=$(echo "$owner" | sed 's/^~//')
             echo "Fetching open issues from SourceHut (~${owner_clean}/${repo})..."
-            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${cli_token:-${SOURCEHUT_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "sourcehut" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${_cur_token:-${SOURCEHUT_TOKEN:-}}") || fetch_status=$?
             ;;
         *)
             echo "Warning: Unsupported provider '${provider}'." >&2

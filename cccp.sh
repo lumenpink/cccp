@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.73+20260923.804e57f"
+CCCP_VERSION="2.3.0-dev.74+20260923.c6db6a4"
 export CCCP_VERSION
 
 # Verify required tools
@@ -339,6 +339,10 @@ format_changelog_entries() {
 }
 
 generate_changelog() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
     local changelog_file="CHANGELOG.md"
 
     # Get all commits since the last tag
@@ -910,47 +914,30 @@ detect_forge_provider() {
     return 1
 }
 
-parse_codeberg_url() {
-    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
-        _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
-        _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
-        case "$_host" in
-            *codeberg.org*)
-                printf '%s %s\n' "$_owner" "$_repo"
-                return 0
-                ;;
-        esac
-    fi
-    return 1
-}
+parse_codeberg_url() { _parse_forge_remote "$1" "codeberg"; }
+parse_github_url()   { _parse_forge_remote "$1" "github"; }
+parse_gitlab_url()   { _parse_forge_remote "$1" "gitlab"; }
 
-parse_github_url() {
-    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
+_parse_forge_remote() {
+    _raw="$1"
+    _target_type="$2"
+    if _parsed=$(parse_remote_url "$_raw" 2>/dev/null); then
         _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
         _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
         _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
-        case "$_host" in
-            *github.com*)
-                printf '%s %s\n' "$_owner" "$_repo"
-                return 0
-                ;;
+        _match=0
+        case "$_target_type" in
+            codeberg)
+                case "$_host" in *codeberg.org*) _match=1 ;; esac ;;
+            github)
+                case "$_host" in *github.com*) _match=1 ;; esac ;;
+            gitlab)
+                case "$_host" in *gitlab.com*|*framagit.org*) _match=1 ;; esac ;;
         esac
-    fi
-    return 1
-}
-
-parse_gitlab_url() {
-    if _parsed=$(parse_remote_url "$1" 2>/dev/null); then
-        _host=$(printf '%s\n' "$_parsed" | cut -d' ' -f1)
-        _owner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
-        _repo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
-        case "$_host" in
-            *gitlab.com*|*framagit.org*)
-                printf '%s %s\n' "$_owner" "$_repo"
-                return 0
-                ;;
-        esac
+        if [ "$_match" -eq 1 ]; then
+            printf '%s %s\n' "$_owner" "$_repo"
+            return 0
+        fi
     fi
     return 1
 }
@@ -995,6 +982,10 @@ detect_repo_info() {
     return 0
 }
 
+get_git_root() {
+    git rev-parse --show-toplevel 2>/dev/null || true
+}
+
 get_repo_slug() {
     _info=$(detect_repo_info "${1:-.}") || return 1
     _o=$(printf '%s\n' "$_info" | cut -d' ' -f2)
@@ -1019,6 +1010,163 @@ get_repo_forge() {
     _info=$(detect_repo_info "${1:-.}") || return 1
     printf '%s\n' "$_info" | cut -d' ' -f1
     return 0
+}
+
+ensure_gitignored() {
+    _target_file="$1"
+    _git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+
+    [ -z "$_git_root" ] && return 0
+    [ ! -d "$_git_root/.git" ] && return 0
+
+    _gitignore_file="$_git_root/.gitignore"
+
+    # If git already ignores this path, nothing to do
+    if git check-ignore -q "$_target_file" 2>/dev/null; then
+        return 0
+    fi
+
+    # Determine relative path from git root
+    _rel_path=$(printf '%s\n' "$_target_file" | sed "s|^$_git_root/||")
+
+    case "$_rel_path" in
+        .antigravity/*)
+            if [ ! -f "$_gitignore_file" ] || ! grep -q "^\.antigravity/" "$_gitignore_file" 2>/dev/null; then
+                printf '.antigravity/\n' >> "$_gitignore_file"
+            fi
+            ;;
+        *)
+            _escaped=$(printf '%s\n' "$_rel_path" | sed 's/[.[\*^$]/\\&/g')
+            if [ ! -f "$_gitignore_file" ] || ! grep -q "^$_escaped$" "$_gitignore_file" 2>/dev/null; then
+                printf '%s\n' "$_rel_path" >> "$_gitignore_file"
+            fi
+            ;;
+    esac
+    return 0
+}
+
+get_tea_token() {
+    _target="$1"
+    _cfg="${HOME}/.config/tea/config.yml"
+    [ -f "$_cfg" ] || return 1
+
+    _found_target=0
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        case "$_line" in
+            *"- name:"*"$_target"*|*"name:"*"$_target"*)
+                _found_target=1
+                ;;
+            *"- name:"*)
+                _found_target=0
+                ;;
+            *"token:"*)
+                if [ "$_found_target" -eq 1 ]; then
+                    _token=$(printf '%s' "$_line" | sed -e 's/^[[:space:]]*token:[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+                    printf '%s\n' "$_token"
+                    return 0
+                fi
+                ;;
+        esac
+    done < "$_cfg"
+    return 1
+}
+
+resolve_forge_token() {
+    _forge="$1"
+    _env_var=""
+    _cfg_k=""
+
+    case "$_forge" in
+        codeberg|forgejo)
+            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
+            _env_var="CODEBERG_TOKEN"
+            _cfg_k="codeberg_token"
+            ;;
+        tildegit)
+            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
+            _env_var="TILDEGIT_TOKEN"
+            _cfg_k="tildegit_token"
+            ;;
+        github)
+            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
+            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
+            _env_var="GITHUB_TOKEN"
+            _cfg_k="github_token"
+            ;;
+        gitlab)
+            [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
+            _env_var="GITLAB_TOKEN"
+            _cfg_k="gitlab_token"
+            ;;
+        sourcehut)
+            [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
+            _env_var="SOURCEHUT_TOKEN"
+            _cfg_k="sourcehut_token"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    # 1. Check local and home .env files
+    for _env_f in ".env" "${HOME}/.env"; do
+        if [ -f "$_env_f" ]; then
+            if command -v read_file_key >/dev/null 2>&1; then
+                if _tok=$(read_file_key "$_env_f" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                    printf '%s\n' "$_tok"
+                    return 0
+                fi
+                if [ -n "$_env_var" ]; then
+                    if _tok=$(read_file_key "$_env_f" "$_env_var" 2>/dev/null) && [ -n "$_tok" ]; then
+                        printf '%s\n' "$_tok"
+                        return 0
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    # 2. Check local config (.cccprc)
+    _local_cfg=""
+    if command -v get_local_config_file >/dev/null 2>&1; then
+        _local_cfg=$(get_local_config_file 2>/dev/null || true)
+    fi
+    [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
+
+    if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+        if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+            printf '%s\n' "$_tok"
+            return 0
+        fi
+    fi
+
+    # 3. Check global config
+    _global_cfg=""
+    if command -v get_global_config_file >/dev/null 2>&1; then
+        _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    fi
+    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
+
+    if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+        if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+            printf '%s\n' "$_tok"
+            return 0
+        fi
+    fi
+
+    # 4. Check tea config
+    case "$_forge" in
+        codeberg|forgejo|tildegit)
+            get_tea_token "$_forge" && return 0
+            ;;
+    esac
+
+    return 1
+}
+
+escape_json_string() {
+    _raw="$1"
+    printf '%s' "$_raw" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g'
 }
 
 
@@ -1257,35 +1405,10 @@ check_tickets_rate_limit() {
 }
 
 ensure_tickets_gitignored() {
-    target_file="$1"
-    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-
-    [ -z "$git_root" ] && return 0
-    [ ! -d "$git_root/.git" ] && return 0
-
-    gitignore_file="$git_root/.gitignore"
-
-    # If git already ignores this path, nothing to do
-    if git check-ignore -q "$target_file" 2>/dev/null; then
-        return 0
+    if command -v ensure_gitignored >/dev/null 2>&1; then
+        ensure_gitignored "$@"
+        return $?
     fi
-
-    # Determine relative path from git root
-    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
-
-    case "$rel_path" in
-        .antigravity/*)
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
-                echo ".antigravity/" >> "$gitignore_file"
-            fi
-            ;;
-        *)
-            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
-                echo "$rel_path" >> "$gitignore_file"
-            fi
-            ;;
-    esac
     return 0
 }
 
@@ -1429,7 +1552,9 @@ cmd_tickets() {
     case "$provider" in
         github)
             echo "Fetching open issues from GitHub (${owner}/${repo})..."
-            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${cli_token:-${GITHUB_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "github" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_github "$host" "$owner" "$repo" "${_cur_token:-${GITHUB_TOKEN:-}}") || fetch_status=$?
             ;;
         forgejo)
             if [ "$host" = "codeberg.org" ]; then
@@ -1437,7 +1562,9 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${cli_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
             ;;
         gitlab)
             if [ "$host" = "framagit.org" ]; then
@@ -1445,12 +1572,16 @@ cmd_tickets() {
             else
                 echo "Fetching open issues from GitLab (${owner}/${repo} on ${host})..."
             fi
-            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${cli_token:-${GITLAB_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "gitlab" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_gitlab "$host" "$owner" "$repo" "${_cur_token:-${GITLAB_TOKEN:-}}") || fetch_status=$?
             ;;
         sourcehut)
             owner_clean=$(echo "$owner" | sed 's/^~//')
             echo "Fetching open issues from SourceHut (~${owner_clean}/${repo})..."
-            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${cli_token:-${SOURCEHUT_TOKEN:-}}") || fetch_status=$?
+            _cur_token="${cli_token:-}"
+            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "sourcehut" 2>/dev/null || true)
+            issues_json=$(_tickets_fetch_sourcehut "$host" "$owner" "$repo" "${_cur_token:-${SOURCEHUT_TOKEN:-}}") || fetch_status=$?
             ;;
         *)
             echo "Warning: Unsupported provider '${provider}'." >&2
@@ -1595,35 +1726,10 @@ extract_template_vars() {
 }
 
 ensure_agent_gitignored() {
-    target_file="$1"
-    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-
-    [ -z "$git_root" ] && return 0
-    [ ! -d "$git_root/.git" ] && return 0
-
-    gitignore_file="$git_root/.gitignore"
-
-    # If git already ignores this path, nothing to do
-    if git check-ignore -q "$target_file" 2>/dev/null; then
-        return 0
+    if command -v ensure_gitignored >/dev/null 2>&1; then
+        ensure_gitignored "$@"
+        return $?
     fi
-
-    # Determine relative path from git root
-    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
-
-    case "$rel_path" in
-        .antigravity/*)
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
-                echo ".antigravity/" >> "$gitignore_file"
-            fi
-            ;;
-        *)
-            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
-                echo "$rel_path" >> "$gitignore_file"
-            fi
-            ;;
-    esac
     return 0
 }
 
@@ -2245,88 +2351,18 @@ cmd_codeberg() {
 # Catalog Functions
 # =============================================================================
 _catalog_get_tea_token() {
-    _target="$1"
-    _cfg="${HOME}/.config/tea/config.yml"
-    [ -f "$_cfg" ] || return 1
-
-    _found_target=0
-    while IFS= read -r _line || [ -n "$_line" ]; do
-        case "$_line" in
-            *"- name:"*"$_target"*|*"name:"*"$_target"*)
-                _found_target=1
-                ;;
-            *"- name:"*)
-                _found_target=0
-                ;;
-            *"token:"*)
-                if [ "$_found_target" -eq 1 ]; then
-                    _token=$(printf '%s' "$_line" | sed -e 's/^[[:space:]]*token:[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
-                    printf '%s\n' "$_token"
-                    return 0
-                fi
-                ;;
-        esac
-    done < "$_cfg"
+    if command -v get_tea_token >/dev/null 2>&1; then
+        get_tea_token "$@"
+        return $?
+    fi
     return 1
 }
 
 _catalog_resolve_token() {
-    _forge="$1"
-    _cfg_k=""
-    case "$_forge" in
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            _cfg_k="codeberg_token"
-            ;;
-        tildegit)
-            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _cfg_k="tildegit_token"
-            ;;
-        github)
-            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
-            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            _cfg_k="github_token"
-            ;;
-        *) return 1 ;;
-    esac
-
-    # 1. Check local config
-    _local_cfg=""
-    if command -v get_local_config_file >/dev/null 2>&1; then
-        _local_cfg=$(get_local_config_file 2>/dev/null || true)
+    if command -v resolve_forge_token >/dev/null 2>&1; then
+        resolve_forge_token "$@"
+        return $?
     fi
-    [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
-
-    if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
-        if command -v read_file_key >/dev/null 2>&1; then
-            if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-                printf '%s\n' "$_tok"
-                return 0
-            fi
-        fi
-    fi
-
-    # 2. Check global config
-    _global_cfg=""
-    if command -v get_global_config_file >/dev/null 2>&1; then
-        _global_cfg=$(get_global_config_file 2>/dev/null || true)
-    fi
-    if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
-        if command -v read_file_key >/dev/null 2>&1; then
-            if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-                printf '%s\n' "$_tok"
-                return 0
-            fi
-        fi
-    fi
-
-    # 3. Check tea config
-    case "$_forge" in
-        codeberg|tildegit)
-            _catalog_get_tea_token "$_forge" && return 0
-            ;;
-    esac
-
     return 1
 }
 
@@ -2347,13 +2383,13 @@ _catalog_detect_forge_and_slug() {
     _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
     _cslug="${_cowner}/${_crepo}"
 
-    _cforge="unknown"
-    case "$_chost" in
-        *codeberg.org*) _cforge="codeberg" ;;
-        *tildegit.org*) _cforge="tildegit" ;;
-        *github.com*)   _cforge="github" ;;
-        *gitlab.com*|*framagit.org*) _cforge="gitlab" ;;
-        *sr.ht*)        _cforge="sourcehut" ;;
+    _cforge=$(detect_forge_provider "$_chost" 2>/dev/null || echo "unknown")
+    case "$_cforge" in
+        forgejo)
+            case "$_chost" in
+                *codeberg.org*) _cforge="codeberg" ;;
+            esac
+            ;;
     esac
 
     printf '%s %s false\n' "$_cforge" "$_cslug"
@@ -2781,8 +2817,8 @@ _catalog_sync_remote() {
                 fi
 
                 # 1. Update repo description & website
-                _esc_desc=$(printf '%s' "$_desc" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                _esc_web=$(printf '%s' "$_website" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+                _esc_desc=$(escape_json_string "$_desc")
+                _esc_web=$(escape_json_string "$_website")
                 _payload="{\"description\":\"${_esc_desc}\""
                 if [ -n "$_esc_web" ]; then
                     _payload="${_payload},\"website\":\"${_esc_web}\""
@@ -2848,8 +2884,8 @@ _catalog_sync_remote() {
                         continue
                     fi
 
-                    _esc_desc=$(printf '%s' "$_desc" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                    _esc_web=$(printf '%s' "$_website" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+                    _esc_desc=$(escape_json_string "$_desc")
+                    _esc_web=$(escape_json_string "$_website")
                     _payload="{\"description\":\"${_esc_desc}\""
                     [ -n "$_esc_web" ] && _payload="${_payload},\"homepage\":\"${_esc_web}\""
                     _payload="${_payload}}"
@@ -3056,16 +3092,9 @@ _diva_resolve_api_key() {
 
     # 2. Check ~/.env (or local .env)
     for _env_file in "${HOME}/.env" ".env"; do
-        if [ -f "$_env_file" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                if _k=$(read_file_key "$_env_file" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
-                    printf '%s\n' "$_k"
-                    return 0
-                fi
-            fi
-            _env_val=$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?GEMINI_API_KEY[[:space:]]*=[[:space:]]*"?([^"#]+)"?.*/\2/p' "$_env_file" 2>/dev/null | sed -e 's/[[:space:]]*$//' -e "s/^'//" -e "s/'$//" | head -n 1 || true)
-            if [ -n "$_env_val" ]; then
-                printf '%s\n' "$_env_val"
+        if [ -f "$_env_file" ] && command -v read_file_key >/dev/null 2>&1; then
+            if _k=$(read_file_key "$_env_file" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
+                printf '%s\n' "$_k"
                 return 0
             fi
         fi
@@ -3087,11 +3116,13 @@ _diva_resolve_api_key() {
         fi
     fi
 
-    # 4. Check global config (~/.config/cccp/.cccprc)
+    # 4. Check global config (~/.config/cccp/config or ~/.cccprc)
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
     fi
+    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
+
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
         if command -v read_file_key >/dev/null 2>&1; then
             if _k=$(read_file_key "$_global_cfg" "gemini_api_key" 2>/dev/null) && [ -n "$_k" ]; then
@@ -3114,21 +3145,12 @@ _diva_resolve_forge() {
 
 _diva_resolve_forge_token() {
     _forge="$1"
+    if command -v resolve_forge_token >/dev/null 2>&1; then
+        resolve_forge_token "$_forge" && return 0
+    fi
     if command -v _catalog_resolve_token >/dev/null 2>&1; then
         _catalog_resolve_token "$_forge" && return 0
     fi
-    case "$_forge" in
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            ;;
-        tildegit)
-            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            ;;
-        github)
-            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
-            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            ;;
-    esac
     return 1
 }
 
@@ -3137,7 +3159,11 @@ _diva_escape_json() {
     _out=""
     _first=1
     while IFS= read -r _l || [ -n "$_l" ]; do
-        _esc_l=$(printf '%s' "$_l" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g')
+        if command -v escape_json_string >/dev/null 2>&1; then
+            _esc_l=$(escape_json_string "$_l")
+        else
+            _esc_l=$(printf '%s' "$_l" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g')
+        fi
         if [ "$_first" -eq 1 ]; then
             _out="$_esc_l"
             _first=0
@@ -4110,28 +4136,40 @@ resolve_post_push_hook() {
     return 1
 }
 
-is_post_push_sync_tickets_enabled() {
-    case "${POST_PUSH_SYNC_TICKETS:-0}" in
-        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+is_post_push_sync_enabled() {
+    _target="$1"
+    case "$_target" in
+        ticket|tickets)
+            case "${POST_PUSH_SYNC_TICKETS:-0}" in
+                1|true|TRUE|yes|YES|on|ON) return 0 ;;
+            esac
+            _matches="ticket tickets sync-ticket sync-tickets"
+            ;;
+        agent|agents)
+            case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
+                1|true|TRUE|yes|YES|on|ON) return 0 ;;
+            esac
+            _matches="agent agents sync-agent sync-agents"
+            ;;
+        *)
+            return 1
+            ;;
     esac
+
     for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
-        case "$action" in
-            tickets|sync-tickets) return 0 ;;
+        case " $_matches " in
+            *" $action "*) return 0 ;;
         esac
     done
     return 1
 }
 
+is_post_push_sync_tickets_enabled() {
+    is_post_push_sync_enabled tickets
+}
+
 is_post_push_sync_agent_enabled() {
-    case "${POST_PUSH_SYNC_AGENT:-${POST_PUSH_SYNC_AGENTS:-0}}" in
-        1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    esac
-    for action in $(printf '%s' "${POST_PUSH_SYNC:-}" | tr ',' ' '); do
-        case "$action" in
-            agent|agents|sync-agent|sync-agents) return 0 ;;
-        esac
-    done
-    return 1
+    is_post_push_sync_enabled agent
 }
 
 is_post_push_sync_agents_enabled() {
@@ -4442,6 +4480,11 @@ install_cccp() {
 # Commit Message Hook Function
 # =============================================================================
 commit_msg() {
+    GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Error: Not a git repository" >&2
+        return 1
+    fi
     # Check if the hook is active to prevent infinite loops
     # If the hook is active, exit the script
     if [ -n "${HOOK_ACTIVE:-}" ] && [ "$HOOK_ACTIVE" = "1" ]; then
@@ -5374,7 +5417,7 @@ read_file_key() {
         case "$line" in
             *"="*)
                 k="${line%%=*}"
-                k=$(echo "$k" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+                k=$(echo "$k" | sed -e 's/^[[:space:]]*export[[:space:]][[:space:]]*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:upper:]' '[:lower:]' | tr '-' '_')
                 if [ "$k" = "$key" ]; then
                     val="${line#*=}"
                     val=$(echo "$val" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")

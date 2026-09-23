@@ -2,6 +2,7 @@
 . "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
 
 Describe 'repo.sh repository and remote resolver'
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/repo.sh}"
 
   setup() {
@@ -196,6 +197,80 @@ Describe 'repo.sh repository and remote resolver'
       When call get_repo_forge
       The status should be success
       The output should eq "github"
+    End
+  End
+
+  Describe 'get_git_root'
+    It 'returns git repository root path'
+      When call get_git_root
+      The status should be success
+      The output should eq "$TEST_DIR"
+    End
+  End
+
+  Describe 'ensure_gitignored'
+    It 'adds entry to .gitignore'
+      touch "$TEST_DIR/secret.txt"
+      When call ensure_gitignored "$TEST_DIR/secret.txt"
+      The status should be success
+      The file "$TEST_DIR/.gitignore" should be exist
+      The contents of file "$TEST_DIR/.gitignore" should include "secret.txt"
+    End
+
+    It 'adds .antigravity/ directory to .gitignore when target file is inside .antigravity'
+      mkdir -p "$TEST_DIR/.antigravity"
+      touch "$TEST_DIR/.antigravity/state.json"
+      When call ensure_gitignored "$TEST_DIR/.antigravity/state.json"
+      The status should be success
+      The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
+    End
+
+    It 'is idempotent and avoids duplicate entries in .gitignore'
+      touch "$TEST_DIR/data.csv"
+      ensure_gitignored "$TEST_DIR/data.csv"
+      When call ensure_gitignored "$TEST_DIR/data.csv"
+      The status should be success
+      The contents of file "$TEST_DIR/.gitignore" should eq "data.csv"
+    End
+  End
+
+  Describe 'escape_json_string'
+    It 'escapes quotes, backslashes, tabs, and carriage returns'
+      When call escape_json_string 'Line with "quotes" and \backslash and	tab'
+      The status should be success
+      The output should eq 'Line with \"quotes\" and \\backslash and\ttab'
+    End
+  End
+
+  Describe 'resolve_forge_token'
+    It 'resolves token from environment variable'
+      export CODEBERG_TOKEN="env-token-12345"
+      When call resolve_forge_token "codeberg"
+      unset CODEBERG_TOKEN
+      The status should be success
+      The output should eq "env-token-12345"
+    End
+
+    It 'resolves token from .env file'
+      echo "CODEBERG_TOKEN=from-dotenv-999" > "$TEST_DIR/.env"
+      When call resolve_forge_token "codeberg"
+      rm -f "$TEST_DIR/.env"
+      The status should be success
+      The output should eq "from-dotenv-999"
+    End
+
+    It 'resolves token from exported .env line'
+      echo "export GITHUB_TOKEN=from-export-dotenv" > "$TEST_DIR/.env"
+      When call resolve_forge_token "github"
+      rm -f "$TEST_DIR/.env"
+      The status should be success
+      The output should eq "from-export-dotenv"
+    End
+
+    It 'returns failure for unknown forge or missing token'
+      unset CODEBERG_TOKEN GITHUB_TOKEN GITLAB_TOKEN SOURCEHUT_TOKEN TILDEGIT_TOKEN || true
+      When call resolve_forge_token "unknown-forge"
+      The status should be failure
     End
   End
 

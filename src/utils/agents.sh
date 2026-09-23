@@ -7,6 +7,9 @@ set -eu
 GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "$GIT_ROOT" ]; then
     GIT_HOOKS_DIR="$GIT_ROOT/.git/hooks"
+    if [ -f "$GIT_ROOT/src/utils/repo.sh" ]; then
+        . "$GIT_ROOT/src/utils/repo.sh"
+    fi
     if [ -f "$GIT_ROOT/src/config/config.sh" ]; then
         . "$GIT_ROOT/src/config/config.sh"
     fi
@@ -91,35 +94,10 @@ extract_template_vars() {
 # Helper: Ensure target agent file is present in .gitignore
 # -----------------------------------------------------------------------------
 ensure_agent_gitignored() {
-    target_file="$1"
-    git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-
-    [ -z "$git_root" ] && return 0
-    [ ! -d "$git_root/.git" ] && return 0
-
-    gitignore_file="$git_root/.gitignore"
-
-    # If git already ignores this path, nothing to do
-    if git check-ignore -q "$target_file" 2>/dev/null; then
-        return 0
+    if command -v ensure_gitignored >/dev/null 2>&1; then
+        ensure_gitignored "$@"
+        return $?
     fi
-
-    # Determine relative path from git root
-    rel_path=$(echo "$target_file" | sed "s|^$git_root/||")
-
-    case "$rel_path" in
-        .antigravity/*)
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^\.antigravity/" "$gitignore_file" 2>/dev/null; then
-                echo ".antigravity/" >> "$gitignore_file"
-            fi
-            ;;
-        *)
-            escaped=$(echo "$rel_path" | sed 's/[.[\*^$]/\\&/g')
-            if [ ! -f "$gitignore_file" ] || ! grep -q "^$escaped$" "$gitignore_file" 2>/dev/null; then
-                echo "$rel_path" >> "$gitignore_file"
-            fi
-            ;;
-    esac
     return 0
 }
 
