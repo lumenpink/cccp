@@ -76,10 +76,11 @@ src/
 └── diva.sh                # (Issue #19) Interactive Gemini-powered ticket triage bot
 ```
 
-### 3.1. Compilation via `combine.sh`
+### 3.1. Compilation via `combine.sh` & Installation Lifecycle
 * During development, features are isolated in discrete modules under `src/`.
 * Running `./combine.sh` amalgamates all source components into a single standalone, executable script: [`cccp.sh`](file:///home/lumen/src/cccp/cccp.sh).
 * Distribution is delivered as a zero-install single file (`curl -fsSL https://cccp.2lp.in | sh`).
+* **Post-Commit Lifecycle Directive:** At the end of every commit, developers and agents must compile with `./combine.sh` and reinstall locally with `cccp install -g` to keep the environment synchronized.
 
 ---
 

@@ -21,3 +21,4 @@
 ## 4. Specific Directives
 - Follow strict Gosplan and Soviet aesthetic in cultural commands and easter eggs.
 - Never commit automatically unless explicitly instructed by user.
+- At the end of every commit, recompile with ./combine.sh and reinstall locally with cccp install -g.
