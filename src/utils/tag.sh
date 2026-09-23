@@ -156,6 +156,11 @@ create_tag() {
         generate_changelog
     fi
 
+    # If combine.sh is present, recompile cccp.sh to embed the release version
+    if [ -f "$GIT_ROOT/combine.sh" ]; then
+        ( cd "$GIT_ROOT" && ./combine.sh >/dev/null 2>&1 || true )
+    fi
+
     # Commit the release files (VERSION and CHANGELOG.md)
     if [ -n "$title" ]; then
         commit_msg="chore(release): $tag_name - $title"
@@ -165,6 +170,7 @@ create_tag() {
 
     export HOOK_ACTIVE=1
     git add "$GIT_ROOT/VERSION" "$GIT_ROOT/CHANGELOG.md"
+    [ -f "$GIT_ROOT/cccp.sh" ] && git add "$GIT_ROOT/cccp.sh"
     if ! git commit -m "$commit_msg"; then
         unset HOOK_ACTIVE
         git tag -d "$tag_name" >/dev/null 2>&1 || true
