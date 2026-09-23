@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- Routine maintenance, documentation updates, and operational improvements.
+
+## Previous Releases
+
+### [v2.3.0]
+
 ### Features
   - (tag) recompile and stage cccp.sh in release commit
   - (catalog) suporte a diretório padrão via config global, env e flags
@@ -44,8 +50,6 @@
   - (agents) align confirmation output and JSON handling (#2)
   - (agents) support multi-line variables and exact awk substring replacement (#2)
   - (hooks) allow non-semver utility tags and bypass remote sync in reference-transaction
-
-## Previous Releases
 
 ### [v2.2.0]
 
