@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-23 12:54:00 UTC
+> Synced at: 2026-09-23 13:00:48 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#22] ci(deps): automate external binary dependency detection and track in DEPENDENCIES.md
@@ -27,9 +27,9 @@ Implement an automated static analysis routine to inspect executable invocations
    - Add a CI check that fails if an unlisted external dependency is introduced or if `DEPENDENCIES.md` is out of sync with the codebase.
 
 ### Deliverables
-- [x] Create an audit script (e.g., `scripts/check-deps.sh`) using POSIX-compliant tooling or a dedicated parser.
-- [x] Commit initial baseline `DEPENDENCIES.md` detailing current requirements.
-- [x] Add CI check to prevent merging code that introduces untracked external binaries.
+- [ ] Create an audit script (e.g., `scripts/check-deps.sh`) using POSIX-compliant tooling or a dedicated parser.
+- [ ] Commit initial baseline `DEPENDENCIES.md` detailing current requirements.
+- [ ] Add CI check to prevent merging code that introduces untracked external binaries.
 
 ---
 ## [#21] feat(tooling): establish POSIX shell formatting standards and linting automation
@@ -54,10 +54,10 @@ Adopt a standardized formatting and linting pipeline tailored specifically for P
    - Add a GitHub Actions workflow to validate that all PRs adhere to the formatted style without changes.
 
 ### Deliverables
-- [x] Configure `shfmt` flags (`-i 2 -ci -bn -ln posix` or repository standard).
-- [x] Add `.editorconfig` reflecting indentation and line endings.
-- [x] Set up local formatting/linting scripts for contributors.
-- [x] Integrate formatting and linting checks into CI to fail on violations.
+- [ ] Configure `shfmt` flags (`-i 2 -ci -bn -ln posix` or repository standard).
+- [ ] Add `.editorconfig` reflecting indentation and line endings.
+- [ ] Set up local formatting/linting scripts for contributors.
+- [ ] Integrate formatting and linting checks into CI to fail on violations.
 
 ---
 ## [#20] refactor(agents): purge legacy awk usage in agents.sh for pure posix compliance
@@ -86,10 +86,10 @@ result=$(printf '%s\n' "$result" | awk -v vname="$v" '...')
 *Approved alternative:* Pure POSIX parameter expansion loop or `sed`.
 
 ### Acceptance Criteria
-- [x] Purgar todas as chamadas a `awk` em `src/utils/agents.sh`.
-- [x] Garantir que `! grep -rn "awk" src/` retorna 0 ocorrências de código executável.
-- [x] Passar na suíte de testes do ShellSpec (`shellspec`).
-- [x] Passar no ShellCheck (`shellcheck -s sh src/*.sh`).
+- [ ] Purgar todas as chamadas a `awk` em `src/utils/agents.sh`.
+- [ ] Garantir que `! grep -rn "awk" src/` retorna 0 ocorrências de código executável.
+- [ ] Passar na suíte de testes do ShellSpec (`shellspec`).
+- [ ] Passar no ShellCheck (`shellcheck -s sh src/*.sh`).
 
 ---
 ## [#19] feat(diva): integrate gemini-powered interactive ticket triage bot into posix shell
@@ -123,9 +123,9 @@ Integrate the capabilities of `diva` (`ticket_bot.py`) into CCCP as a native int
 - Must run cleanly under `dash`, `ash`, `busybox sh`, and standard POSIX `/bin/sh`.
 
 ### Acceptance Criteria
-- [x] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
-- [x] Absolutely zero `awk` invocations across the codebase.
-- [x] Integrates seamlessly with CCCP's existing ticket synchronization pipeline (`.antigravity/tickets.md`).
+- [ ] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
+- [ ] Absolutely zero `awk` invocations across the codebase.
+- [ ] Integrates seamlessly with CCCP's existing ticket synchronization pipeline (`.antigravity/tickets.md`).
 
 ---
 ## [#18] feat(catalog): port catalog metadata engine and forge synchronizer to posix shell
@@ -155,9 +155,9 @@ Integrate the capabilities of `catalog.py` into CCCP as a zero-dependency POSIX 
 - Must run cleanly under `dash`, `ash`, `busybox sh`, and standard POSIX `/bin/sh`.
 
 ### Acceptance Criteria
-- [x] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
-- [x] Absolutely zero `awk` invocations across the codebase.
-- [x] Subcommands: `cccp catalog list`, `cccp catalog sync-local`, `cccp catalog sync-remote`.
-- [x] Unit and integration tests under `spec/`.
+- [ ] 100% POSIX-compliant shell code verified via ShellCheck and ShellSpec.
+- [ ] Absolutely zero `awk` invocations across the codebase.
+- [ ] Subcommands: `cccp catalog list`, `cccp catalog sync-local`, `cccp catalog sync-remote`.
+- [ ] Unit and integration tests under `spec/`.
 
 ---

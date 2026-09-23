@@ -110,6 +110,7 @@ Line 2: second line"
       The status should be success
       The output should include "O Divã identificou 1 ticket(s)"
       The output should include "[ДИВАН] Ticket 1/1"
+      The output should include "Destino  : lumenpink/myproject (codeberg)"
       The output should include "feat(ui): add dark mode toggle"
       The output should include "Visual preference separation"
       The output should include "ui, enhancement"

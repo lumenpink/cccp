@@ -291,6 +291,9 @@ _diva_present_and_dispatch() {
         echo "┌─────────────────────────────────────────────────────────────────────────────┐"
         printf "│ [ДИВАН] Ticket %d/%d\n" "$_num" "$_count"
         echo "├─────────────────────────────────────────────────────────────────────────────┤"
+        if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+            printf "│ 🎯 Destino  : %s/%s (%s)\n" "$_owner" "$_repo" "$_forge"
+        fi
         printf "│ 📌 Título   : %s\n" "$_title"
         if [ -n "$_rationale" ]; then
             printf "│ 💡 Racional : %s\n" "$_rationale"
@@ -313,7 +316,11 @@ _diva_present_and_dispatch() {
         # Interactive confirmation
         _choice="y"
         if [ -t 0 ]; then
-            printf "  [y] Criar  [n] Pular  [e] Editar título  [f] Ver corpo completo → "
+            if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+                printf "  [y] Criar em %s/%s (%s)  [n] Pular  [e] Editar título  [f] Ver corpo completo → " "$_owner" "$_repo" "$_forge"
+            else
+                printf "  [y] Criar  [n] Pular  [e] Editar título  [f] Ver corpo completo → "
+            fi
             read -r _user_choice || _user_choice="n"
             _choice=$(printf '%s' "$_user_choice" | tr '[:upper:]' '[:lower:]')
         fi
@@ -531,6 +538,9 @@ cmd_diva() {
             _user_text=$(cat)
         else
             echo "★ [ГОСПЛАН] O Divã — Triagem Interativa de Tickets ★"
+            if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+                echo "🎯 Repositório Alvo: ${_owner}/${_repo} (${_forge})"
+            fi
             echo "Descreva seu problema, bug ou funcionalidade (digite seu relato e pressione Enter):"
             printf "> "
             read -r _user_text || _user_text=""
@@ -542,7 +552,11 @@ cmd_diva() {
         return 0
     fi
 
-    echo "-> [ГОСПЛАН] Consultando modelo Gemini ($_model) para decomposição de tickets..."
+    if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+        echo "-> [ГОСПЛАН] Consultando Gemini ($_model) para ${_owner}/${_repo} (${_forge})..."
+    else
+        echo "-> [ГОСПЛАН] Consultando Gemini ($_model) para decomposição de tickets..."
+    fi
 
     _repo_ctx="${_owner}/${_repo} (${_forge})"
     _raw_resp=$(_diva_call_gemini "$_api_key" "$_model" "$_user_text" "$_repo_ctx" 2>/dev/null || true)
