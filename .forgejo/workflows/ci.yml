@@ -56,6 +56,22 @@ jobs:
           chmod +x scripts/check-deps.sh
           scripts/check-deps.sh --verify
 
+      - name: "Install shellcheck and shfmt"
+        run: |
+          apt-get install -y shellcheck 2>/dev/null || true
+          # Install shfmt from GitHub releases
+          SHFMT_VERSION="v3.8.0"
+          curl -fsSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" \
+            -o /usr/local/bin/shfmt || true
+          chmod +x /usr/local/bin/shfmt 2>/dev/null || true
+          shellcheck --version 2>/dev/null || echo "shellcheck not available"
+          shfmt --version 2>/dev/null || echo "shfmt not available"
+
+      - name: "Shell Lint & Format Check"
+        run: |
+          chmod +x scripts/lint.sh
+          scripts/lint.sh
+
       - name: "Run ShellSpec (Modular Mode)"
         run: |
           shellspec --format documentation -o junit --reportdir report

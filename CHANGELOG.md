@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (tooling) establish POSIX shell formatting standards and linting automation
   - (diva) integrate gemini-powered interactive ticket triage bot into posix shell
   - (catalog) port catalog metadata engine and forge synchronizer to posix shell
   - (web) implement hashbang polyglot installer and dedications section

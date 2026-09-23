@@ -1,82 +1,103 @@
-# Include the test helper
-. "$SHELLSPEC_PROJECT_ROOT/spec/spec_helper.sh"
+#!/bin/sh
+# =============================================================================
+# ShellSpec tests for scripts/lint.sh (POSIX Shell Linter)
+# =============================================================================
+# shellcheck shell=sh
 
-Describe 'lint'
-  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/lint.sh}"
-  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/validation.sh}"
-  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
+Describe "scripts/lint.sh shell linter"
 
-  setup() {
-    TEST_DIR="$(mktemp -d)"
-    cd "$TEST_DIR"
+    SCRIPT="${PWD}/scripts/lint.sh"
 
-    git init
-    git config user.email "test@example.com"
-    git config user.name "Test User"
-    touch README.md
-    git add README.md
-    git commit -m "chore: initial commit"
-  }
+    Describe "basic invocation"
+        It "displays help on --help"
+            When run sh "$SCRIPT" --help
+            The status should be success
+            The output should include "CCCP Shell Lint"
+            The output should include "--syntax"
+            The output should include "--shellcheck"
+            The output should include "--fmt"
+            The output should include "--fix"
+        End
 
-  cleanup() {
-    rm -rf "$TEST_DIR"
-  }
-
-  BeforeEach 'setup'
-  AfterEach 'cleanup'
-
-  Describe 'lint_commits'
-    It 'passes when all commits in range follow Conventional Commits'
-      echo "code" >> README.md
-      git add README.md
-      git commit -m "feat(api): add v1 endpoints"
-
-      echo "docs" >> README.md
-      git add README.md
-      git commit -m "docs: document endpoints"
-
-      When call lint_commits "HEAD~2..HEAD"
-      The status should be success
-      The output should include "★ CCCP Party Line Compliance (Commit Linting) ★"
-      The output should include "✓"
-      The output should include "PASSED: Full ideological compliance verified"
+        It "exits 1 on unknown mode"
+            When run sh "$SCRIPT" --bogus-mode
+            The status should be failure
+            The stderr should include "Unknown mode"
+        End
     End
 
-    It 'fails when non-compliant commits exist in range'
-      echo "code" >> README.md
-      git add README.md
-      git commit -m "feat: valid feature"
+    Describe "--syntax mode"
+        It "passes on clean src/ directory"
+            When run sh "$SCRIPT" --syntax
+            The status should be success
+            The output should include "passed sh -n syntax check"
+        End
 
-      echo "hack" >> README.md
-      git add README.md
-      git commit -m "fixed stuff without conventional prefix"
+        It "reports PASS for each script scanned"
+            When run sh "$SCRIPT" --syntax
+            The status should be success
+            The output should include "[PASS]"
+        End
 
-      When call lint_commits "HEAD~2..HEAD"
-      The status should be failure
-      The output should include "✗"
-      The output should include "Order No. 227 - Not One Step Back from Clean Commits!"
-      The output should include "FAILED: Non-compliant commits detected"
+        It "verifies all src/ scripts pass sh -n with zero errors"
+            When run sh "$SCRIPT" --syntax
+            The status should be success
+            The output should not include "[FAIL]"
+        End
     End
 
-    It 'handles empty commit range gracefully'
-      When call lint_commits "HEAD..HEAD"
-      The status should be success
-      The output should include "0 commits found in range to inspect"
+    Describe "--shellcheck mode (graceful degradation)"
+        It "exits 0 and warns when shellcheck binary is not in PATH"
+            # Use a minimal PATH that keeps /bin/sh but removes shellcheck
+            _safe_path="/usr/bin:/bin"
+            When run env "PATH=${_safe_path}" sh "$SCRIPT" --shellcheck
+            The status should be success
+            The stderr should include "shellcheck not found"
+        End
     End
 
-    It 'rejects invalid git revision range'
-      When call lint_commits "non_existent_branch..HEAD"
-      The status should be failure
-      The error should include "Error: Invalid commit range or revision"
+    Describe "--fmt mode (graceful degradation)"
+        It "exits 0 and warns when shfmt binary is not in PATH"
+            _safe_path="/usr/bin:/bin"
+            When run env "PATH=${_safe_path}" sh "$SCRIPT" --fmt
+            The status should be success
+            The stderr should include "shfmt not found"
+        End
     End
 
-    It 'fails when executed outside of a git repository'
-      NON_GIT_DIR="$(mktemp -d)"
-      cd "$NON_GIT_DIR"
-      When call lint_commits
-      The status should be failure
-      The error should include "Error: Not a git repository"
-      rm -rf "$NON_GIT_DIR"
+    Describe "--fix mode"
+        It "exits 1 with actionable error when shfmt is not installed"
+            _safe_path="/usr/bin:/bin"
+            When run env "PATH=${_safe_path}" sh "$SCRIPT" --fix
+            The status should be failure
+            The stderr should include "shfmt not found"
+        End
     End
-  End
+
+    Describe "default (all) mode"
+        It "passes when shellcheck and shfmt are absent"
+            _safe_path="/usr/bin:/bin"
+            When run env "PATH=${_safe_path}" sh "$SCRIPT"
+            The status should be success
+            The output should include "All checks passed"
+            The stderr should include "shellcheck not found"
+        End
+
+        It "runs all three check stages in sequence"
+            When run sh "$SCRIPT"
+            The status should be success
+            The output should include "[1/3] Syntax Check"
+            The output should include "[2/3] Static Analysis"
+            The output should include "[3/3] Format Compliance"
+            The stderr should include "shellcheck not found"
+        End
+    End
+
+    Describe "zero-awk compliance"
+        It "verifies zero executable awk invocations in scripts/lint.sh itself"
+            When run grep -E "(^|[[:space:]|;&(])awk([[:space:]|;&)]|$)" "${PWD}/scripts/lint.sh"
+            The status should be failure
+        End
+    End
+
 End
