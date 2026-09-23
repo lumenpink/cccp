@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (catalog) port catalog metadata engine and forge synchronizer to posix shell
   - (web) implement hashbang polyglot installer and dedications section
   - (update) refactor cccp update and install routines for cccp.2lp.in channels (closes #17)
   - (installer) polyglot html/shell installer and loving tribute to Lisi (closes #15) (closes #16)

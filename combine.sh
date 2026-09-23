@@ -140,6 +140,12 @@ printf "# Codeberg Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/codeberg.sh" >> "$OUTPUT_FILE"
 
+# Add catalog function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Catalog Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/catalog.sh" >> "$OUTPUT_FILE"
+
 # Add hooks function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Hooks Functions\n" >> "$OUTPUT_FILE"
