@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-23 10:39:13 UTC
+> Synced at: 2026-09-23 12:54:00 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#22] ci(deps): automate external binary dependency detection and track in DEPENDENCIES.md
@@ -54,10 +54,10 @@ Adopt a standardized formatting and linting pipeline tailored specifically for P
    - Add a GitHub Actions workflow to validate that all PRs adhere to the formatted style without changes.
 
 ### Deliverables
-- [ ] Configure `shfmt` flags (`-i 2 -ci -bn -ln posix` or repository standard).
-- [ ] Add `.editorconfig` reflecting indentation and line endings.
-- [ ] Set up local formatting/linting scripts for contributors.
-- [ ] Integrate formatting and linting checks into CI to fail on violations.
+- [x] Configure `shfmt` flags (`-i 2 -ci -bn -ln posix` or repository standard).
+- [x] Add `.editorconfig` reflecting indentation and line endings.
+- [x] Set up local formatting/linting scripts for contributors.
+- [x] Integrate formatting and linting checks into CI to fail on violations.
 
 ---
 ## [#20] refactor(agents): purge legacy awk usage in agents.sh for pure posix compliance

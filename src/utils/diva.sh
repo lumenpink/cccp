@@ -433,7 +433,7 @@ _diva_present_and_dispatch() {
 # Main Subcommand Dispatcher: cmd_diva
 # -----------------------------------------------------------------------------
 cmd_diva() {
-    _model="${GEMINI_MODEL:-gemini-2.5-flash}"
+    _model="${GEMINI_MODEL:-gemini-3.6-flash}"
     _dry_run=0
     _user_text=""
     _custom_repo=""
@@ -476,7 +476,7 @@ cmd_diva() {
                 else
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
-                    echo "  --model <model>    Modelo Gemini (padrão: gemini-2.5-flash)"
+                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
                     echo "  config <api-key>   Salva GEMINI_API_KEY no .cccprc"
                 fi

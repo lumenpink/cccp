@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.64+20260923.48bc9f6"
+CCCP_VERSION="2.3.0-dev.65+20260923.d13e5d1"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3340,7 +3340,7 @@ _diva_present_and_dispatch() {
 }
 
 cmd_diva() {
-    _model="${GEMINI_MODEL:-gemini-2.5-flash}"
+    _model="${GEMINI_MODEL:-gemini-3.6-flash}"
     _dry_run=0
     _user_text=""
     _custom_repo=""
@@ -3383,7 +3383,7 @@ cmd_diva() {
                 else
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
-                    echo "  --model <model>    Modelo Gemini (padrão: gemini-2.5-flash)"
+                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
                     echo "  config <api-key>   Salva GEMINI_API_KEY no .cccprc"
                 fi
@@ -4861,7 +4861,7 @@ show_help() {
             echo ""
             echo "Options:"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
-            echo "  --model, -m <model>       Gemini model name (default: gemini-2.5-flash)"
+            echo "  --model, -m <model>       Gemini model name (default: gemini-3.6-flash)"
             echo "  --repo, -r <owner/repo>   Target repository slug (default: detected from git origin)"
             echo "  config <api-key>          Persist GEMINI_API_KEY in .cccprc"
             echo "  -h, --help                Show this help message"
