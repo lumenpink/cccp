@@ -49,48 +49,62 @@ _catalog_get_tea_token() {
 # -----------------------------------------------------------------------------
 _catalog_resolve_token() {
     _forge="$1"
+    _cfg_k=""
     case "$_forge" in
         codeberg)
-            if [ -n "${CODEBERG_TOKEN:-}" ]; then
-                printf '%s\n' "$CODEBERG_TOKEN"
-                return 0
-            fi
-            if cfg_val=$(get_config_value "codeberg_token" 2>/dev/null) && [ -n "$cfg_val" ]; then
-                printf '%s\n' "$cfg_val"
-                return 0
-            fi
-            _catalog_get_tea_token "codeberg" || return 1
+            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
+            _cfg_k="codeberg_token"
             ;;
         tildegit)
-            if [ -n "${TILDEGIT_TOKEN:-}" ]; then
-                printf '%s\n' "$TILDEGIT_TOKEN"
-                return 0
-            fi
-            if cfg_val=$(get_config_value "tildegit_token" 2>/dev/null) && [ -n "$cfg_val" ]; then
-                printf '%s\n' "$cfg_val"
-                return 0
-            fi
-            _catalog_get_tea_token "tildegit" || return 1
+            [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
+            _cfg_k="tildegit_token"
             ;;
         github)
-            if [ -n "${GITHUB_TOKEN:-}" ]; then
-                printf '%s\n' "$GITHUB_TOKEN"
-                return 0
-            fi
-            if [ -n "${GH_TOKEN:-}" ]; then
-                printf '%s\n' "$GH_TOKEN"
-                return 0
-            fi
-            if cfg_val=$(get_config_value "github_token" 2>/dev/null) && [ -n "$cfg_val" ]; then
-                printf '%s\n' "$cfg_val"
-                return 0
-            fi
-            return 1
+            [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
+            [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
+            _cfg_k="github_token"
             ;;
-        *)
-            return 1
+        *) return 1 ;;
+    esac
+
+    # 1. Check local config
+    _local_cfg=""
+    if command -v get_local_config_file >/dev/null 2>&1; then
+        _local_cfg=$(get_local_config_file 2>/dev/null || true)
+    fi
+    [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
+
+    if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
+        if command -v read_file_key >/dev/null 2>&1; then
+            if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        fi
+    fi
+
+    # 2. Check global config
+    _global_cfg=""
+    if command -v get_global_config_file >/dev/null 2>&1; then
+        _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    fi
+    if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
+        if command -v read_file_key >/dev/null 2>&1; then
+            if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        fi
+    fi
+
+    # 3. Check tea config
+    case "$_forge" in
+        codeberg|tildegit)
+            _catalog_get_tea_token "$_forge" && return 0
             ;;
     esac
+
+    return 1
 }
 
 # -----------------------------------------------------------------------------

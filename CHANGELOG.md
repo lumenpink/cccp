@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (diva) integrate gemini-powered interactive ticket triage bot into posix shell
   - (catalog) port catalog metadata engine and forge synchronizer to posix shell
   - (web) implement hashbang polyglot installer and dedications section
   - (update) refactor cccp update and install routines for cccp.2lp.in channels (closes #17)
