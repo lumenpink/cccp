@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0-dev.72+20260923.10f9900"
+CCCP_VERSION="2.3.0-dev.73+20260923.804e57f"
 export CCCP_VERSION
 
 # Verify required tools
@@ -2918,15 +2918,68 @@ _catalog_list() {
     _catalog_sync_local "$_src_dir"
 }
 
+_catalog_resolve_target_dir() {
+    _cli_dir="${1:-}"
+    _resolved=""
+
+    # 1. Command-line flag
+    if [ -n "$_cli_dir" ]; then
+        _resolved="$_cli_dir"
+    # 2. Environment variable
+    elif [ -n "${CATALOG_DIR:-}" ]; then
+        _resolved="$CATALOG_DIR"
+    elif [ -n "${CCCP_CATALOG_DIR:-}" ]; then
+        _resolved="$CCCP_CATALOG_DIR"
+    # 3. Global CCCP configuration
+    else
+        _cfg_dir=""
+        _global_cfg=""
+        if command -v get_global_config_file >/dev/null 2>&1; then
+            _global_cfg=$(get_global_config_file 2>/dev/null || true)
+        fi
+        if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
+            if command -v read_file_key >/dev/null 2>&1; then
+                _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
+            fi
+        fi
+        if [ -z "$_cfg_dir" ] && [ -f "${HOME}/.cccprc" ]; then
+            if command -v read_file_key >/dev/null 2>&1; then
+                _cfg_dir=$(read_file_key "${HOME}/.cccprc" "catalog_dir" 2>/dev/null || true)
+            fi
+        fi
+        if [ -z "$_cfg_dir" ]; then
+            _local_cfg=""
+            if command -v get_local_config_file >/dev/null 2>&1; then
+                _local_cfg=$(get_local_config_file 2>/dev/null || true)
+            fi
+            if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
+                if command -v read_file_key >/dev/null 2>&1; then
+                    _cfg_dir=$(read_file_key "$_local_cfg" "catalog_dir" 2>/dev/null || true)
+                fi
+            fi
+        fi
+
+        if [ -n "$_cfg_dir" ]; then
+            _resolved="$_cfg_dir"
+        else
+            # 4. Fallback: ~/src
+            _resolved="~/src"
+        fi
+    fi
+
+    # Expand leading tilde (~) if present
+    case "$_resolved" in
+        "~") _resolved="$HOME" ;;
+        "~/"*) _resolved="${HOME}/${_resolved#\~/}" ;;
+    esac
+
+    printf '%s\n' "$_resolved"
+}
+
 cmd_catalog() {
     _action="list"
-    _target_dir="${HOME}/src"
+    _cli_dir=""
     _as_json=0
-
-    # Fallback to current directory if ~/src doesn't exist
-    if [ ! -d "$_target_dir" ]; then
-        _target_dir="$(pwd)"
-    fi
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -2953,7 +3006,7 @@ cmd_catalog() {
             --dir|-d)
                 shift
                 [ $# -gt 0 ] || { echo "Error: Missing directory argument for $1" >&2; return 1; }
-                _target_dir="$1"
+                _cli_dir="$1"
                 shift
                 ;;
             -h|--help|help)
@@ -2970,6 +3023,8 @@ cmd_catalog() {
                 ;;
         esac
     done
+
+    _target_dir=$(_catalog_resolve_target_dir "$_cli_dir")
 
     case "$_action" in
         list)
@@ -4936,7 +4991,7 @@ show_help() {
             echo "  all                       Execute sync-local and sync-remote sequentially"
             echo ""
             echo "Options:"
-            echo "  --dir, -d <path>          Target workspace root directory (default: ~/src or current dir)"
+            echo "  --dir, -d <path>          Target workspace root directory (precedence: Flag > Env > Global Config > ~/src)"
             echo "  --json                    Output catalog directly in JSON format (with list)"
             echo "  -h, --help                Show this help message"
             echo ""
@@ -5216,6 +5271,7 @@ get_default_config_value() {
         agent_md_file|agents_md_file) echo ".antigravity/AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
+        catalog_dir) echo "~/src" ;;
         *) return 1 ;;
     esac
 }

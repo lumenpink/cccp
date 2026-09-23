@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (catalog) suporte a diretório padrão via config global, env e flags
   - (diva) display target repository and forge in prompts and ticket preview
   - (diva) update default gemini model to gemini-3.6-flash
   - (diva) fallback to ~/.env for gemini api key resolution when unset in memory

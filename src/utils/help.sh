@@ -506,7 +506,7 @@ show_help() {
             echo "  all                       Execute sync-local and sync-remote sequentially"
             echo ""
             echo "Options:"
-            echo "  --dir, -d <path>          Target workspace root directory (default: ~/src or current dir)"
+            echo "  --dir, -d <path>          Target workspace root directory (precedence: Flag > Env > Global Config > ~/src)"
             echo "  --json                    Output catalog directly in JSON format (with list)"
             echo "  -h, --help                Show this help message"
             echo ""

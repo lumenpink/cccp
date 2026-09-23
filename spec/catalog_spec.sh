@@ -265,6 +265,89 @@ EOF
     End
   End
 
+  Describe '_catalog_resolve_target_dir'
+    setup_env() {
+      TEST_DIR="$(mktemp -d)"
+      ORIG_HOME="$HOME"
+      export HOME="$TEST_DIR"
+      unset CATALOG_DIR || true
+      unset CCCP_CATALOG_DIR || true
+    }
+
+    cleanup_env() {
+      export HOME="$ORIG_HOME"
+      unset CATALOG_DIR || true
+      unset CCCP_CATALOG_DIR || true
+      rm -rf "$TEST_DIR"
+    }
+
+    BeforeEach 'setup_env'
+    AfterEach 'cleanup_env'
+
+    It 'resolves target directory from CLI flag'
+      When call _catalog_resolve_target_dir "/custom/cli/path"
+      The status should be success
+      The output should eq "/custom/cli/path"
+    End
+
+    It 'resolves target directory from CATALOG_DIR env var'
+      export CATALOG_DIR="/custom/env/path"
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "/custom/env/path"
+    End
+
+    It 'resolves target directory from CCCP_CATALOG_DIR env var'
+      export CCCP_CATALOG_DIR="/custom/cccp_env/path"
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "/custom/cccp_env/path"
+    End
+
+    It 'prioritizes CLI flag over CATALOG_DIR env var'
+      export CATALOG_DIR="/from/env"
+      When call _catalog_resolve_target_dir "/from/flag"
+      The status should be success
+      The output should eq "/from/flag"
+    End
+
+    It 'resolves target directory from global config file'
+      cfg_dir="$TEST_DIR/.config/cccp"
+      mkdir -p "$cfg_dir"
+      echo "catalog_dir = /from/global/config" > "$cfg_dir/config"
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "/from/global/config"
+    End
+
+    It 'resolves target directory from ~/.cccprc'
+      echo "catalog_dir = /from/home/cccprc" > "$TEST_DIR/.cccprc"
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "/from/home/cccprc"
+    End
+
+    It 'prioritizes environment variable over global config'
+      echo "catalog_dir = /from/config" > "$TEST_DIR/.cccprc"
+      export CATALOG_DIR="/from/env"
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "/from/env"
+    End
+
+    It 'falls back to ~/src when no flag, env, or config is set'
+      When call _catalog_resolve_target_dir ""
+      The status should be success
+      The output should eq "$TEST_DIR/src"
+    End
+
+    It 'expands leading tilde in target directory'
+      When call _catalog_resolve_target_dir "~/myprojects"
+      The status should be success
+      The output should eq "$TEST_DIR/myprojects"
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/catalog.sh'
       test_awk() {

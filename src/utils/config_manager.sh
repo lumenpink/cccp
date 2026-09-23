@@ -52,6 +52,7 @@ get_default_config_value() {
         agent_md_file|agents_md_file) echo ".antigravity/AGENTS.md" ;;
         allow_any_scope) echo "1" ;;
         allow_any_subscope) echo "1" ;;
+        catalog_dir) echo "~/src" ;;
         *) return 1 ;;
     esac
 }
