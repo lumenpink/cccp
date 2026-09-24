@@ -489,6 +489,22 @@ _diva_extract_tickets() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Extract Issue HTML URL from Forge Response (Pure POSIX + jq accelerator)
+# -----------------------------------------------------------------------------
+_diva_extract_html_url() {
+    _raw="$1"
+    if command -v jq >/dev/null 2>&1; then
+        _u=$(printf '%s' "$_raw" | jq -r '.html_url // empty' 2>/dev/null || true)
+        if [ -n "$_u" ]; then
+            printf '%s\n' "$_u"
+            return 0
+        fi
+    fi
+    # Pure POSIX fallback
+    printf '%s\n' "$_raw" | sed -n 's/.*"html_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Format and Print Column-Wrapped Box Row with Closed Right Border
 # Width: 79 columns (│ + 1 space + 75 chars content + 1 space + │)
 # -----------------------------------------------------------------------------
@@ -600,9 +616,12 @@ _diva_present_and_dispatch() {
             _labels=$(printf '%s' "$_tickets_json" | jq -r ".tickets[$_idx].labels // [] | join(\", \")")
             _body=$(printf '%s' "$_tickets_json" | jq -r ".tickets[$_idx].body // empty")
         else
-            # Simple POSIX fallback extraction for ticket block
-            _title="Ticket $((_idx + 1))"
-            _body=""
+            # Pure POSIX fallback extraction for ticket fields
+            _title=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n "$((_idx + 1))p")
+            [ -z "$_title" ] && _title="Ticket $((_idx + 1))"
+            _rationale=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"rationale"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n "$((_idx + 1))p")
+            _labels=""
+            _body=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"body"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | sed -n "$((_idx + 1))p" | sed -e 's/\\n/\n/g' -e 's/\\"/"/g')
         fi
 
         _num=$((_idx + 1))
@@ -702,9 +721,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -735,9 +752,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -775,9 +790,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -808,9 +821,7 @@ _diva_present_and_dispatch() {
                                         -H "Accept: application/vnd.github+json" \
                                         -d "{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}" \
                                         "https://api.github.com/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-                                    if command -v jq >/dev/null 2>&1; then
-                                        _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                                    fi
+                                    _issue_url=$(_diva_extract_html_url "$_post_res")
                                     if [ -n "$_issue_url" ]; then
                                         echo "  ✅ Criado: ${_issue_url}"
                                         _created_count=$((_created_count + 1))

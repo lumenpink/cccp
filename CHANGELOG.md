@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (deps) implement pure POSIX token reader for gh and issue url parser without jq (#33)
   - (diva) integrar editor kvant (kv) para edicao de tickets com navegacao por teclado
   - (llm) permitir rediscutir parametros e refinar triagem com a Gemini no diva
   - (ui) permitir edicao manual de titulo e corpo dos tickets no diva

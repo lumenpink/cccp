@@ -284,9 +284,51 @@ Describe 'repo.sh repository and remote resolver'
       The output should eq "from-export-dotenv"
     End
 
+    It 'resolves github token from ~/.config/gh/hosts.yml fallback'
+      unset GITHUB_TOKEN GH_TOKEN || true
+      mkdir -p "$TEST_DIR/.config/gh"
+      cat <<'EOF' > "$TEST_DIR/.config/gh/hosts.yml"
+github.com:
+    user: lumenpink
+    oauth_token: gho_pure_posix_gh_token
+EOF
+      export GH_CONFIG_DIR="$TEST_DIR/.config/gh"
+      When call resolve_forge_token "github"
+      unset GH_CONFIG_DIR
+      The status should be success
+      The output should eq "gho_pure_posix_gh_token"
+    End
+
     It 'returns failure for unknown forge or missing token'
-      unset CODEBERG_TOKEN FORGEJO_TOKEN GITHUB_TOKEN GITLAB_TOKEN SOURCEHUT_TOKEN TILDEGIT_TOKEN || true
+      unset CODEBERG_TOKEN FORGEJO_TOKEN GITHUB_TOKEN GH_TOKEN GITLAB_TOKEN SOURCEHUT_TOKEN TILDEGIT_TOKEN || true
+      export GH_CONFIG_DIR="$TEST_DIR/nonexistent"
       When call resolve_forge_token "unknown-forge"
+      unset GH_CONFIG_DIR
+      The status should be failure
+    End
+  End
+
+  Describe 'get_gh_token'
+    It 'extracts token from hosts.yml config file'
+      mkdir -p "$TEST_DIR/.config/gh"
+      cat <<'EOF' > "$TEST_DIR/.config/gh/hosts.yml"
+github.com:
+    user: testuser
+    oauth_token: gho_mock_token_from_hosts_yaml
+    git_protocol: ssh
+EOF
+      export GH_CONFIG_DIR="$TEST_DIR/.config/gh"
+      When call get_gh_token "github.com"
+      unset GH_CONFIG_DIR
+      The status should be success
+      The output should eq "gho_mock_token_from_hosts_yaml"
+    End
+
+    It 'returns failure when hosts.yml does not exist and gh is absent'
+      gh() { return 1; }
+      export GH_CONFIG_DIR="$TEST_DIR/nonexistent"
+      When call get_gh_token "github.com"
+      unset GH_CONFIG_DIR
       The status should be failure
     End
   End

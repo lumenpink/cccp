@@ -488,6 +488,26 @@ EOF
     End
   End
 
+  Describe '_diva_extract_html_url'
+    It 'extracts html_url using jq when available'
+      sample_json='{"id":123,"html_url":"https://codeberg.org/lumenpink/cccp/issues/42","state":"open"}'
+      When call _diva_extract_html_url "$sample_json"
+      The status should be success
+      The output should eq "https://codeberg.org/lumenpink/cccp/issues/42"
+    End
+
+    It 'extracts html_url in pure POSIX mode when jq is unavailable'
+      test_posix_extract() {
+        jq() { return 127; }
+        sample_json='{"id":456,"html_url":"https://github.com/lumenpink/kvant/issues/1","title":"test"}'
+        _diva_extract_html_url "$sample_json"
+      }
+      When call test_posix_extract
+      The status should be success
+      The output should eq "https://github.com/lumenpink/kvant/issues/1"
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/diva.sh'
       test_awk() {

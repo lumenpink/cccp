@@ -321,7 +321,58 @@ get_tea_token() {
 }
 
 # -----------------------------------------------------------------------------
-# Helper: Unified Forge API Token Resolution (Memory -> .env -> .cccprc -> Global -> Tea)
+# Helper: Extract GitHub CLI token from config file or gh CLI
+# -----------------------------------------------------------------------------
+get_gh_token() {
+    _target_host="${1:-github.com}"
+    _gh_cfg_dir="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/gh}"
+    _cfg="${_gh_cfg_dir}/hosts.yml"
+
+    if [ -f "$_cfg" ]; then
+        _found_host=0
+        while IFS= read -r _line || [ -n "$_line" ]; do
+            case "$_line" in
+                *"$_target_host:"*)
+                    _found_host=1
+                    ;;
+                *":"*)
+                    case "$_line" in
+                        " "*|"\t"*)
+                            ;;
+                        *)
+                            _found_host=0
+                            ;;
+                    esac
+                    ;;
+            esac
+            if [ "$_found_host" -eq 1 ]; then
+                case "$_line" in
+                    *"oauth_token:"*)
+                        _token=$(printf '%s' "$_line" | sed -e 's/^[[:space:]]*oauth_token:[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+                        if [ -n "$_token" ]; then
+                            printf '%s\n' "$_token"
+                            return 0
+                        fi
+                        ;;
+                esac
+            fi
+        done < "$_cfg"
+    fi
+
+    # Fallback to gh CLI auth token if gh is available
+    if command -v gh >/dev/null 2>&1; then
+        _tok=$(gh auth token -h "$_target_host" 2>/dev/null || gh auth token 2>/dev/null || true)
+        if [ -n "$_tok" ]; then
+            printf '%s\n' "$_tok"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Unified Forge API Token Resolution (Memory -> .env -> .cccprc -> Global -> Tea -> GH)
 # -----------------------------------------------------------------------------
 resolve_forge_token() {
     _forge="$1"
@@ -404,7 +455,7 @@ resolve_forge_token() {
         done
     fi
 
-    # 4. Check tea config
+    # 4. Check tea/gh config
     case "$_forge" in
         forgejo)
             get_tea_token "forgejo" && return 0
@@ -412,6 +463,9 @@ resolve_forge_token() {
             ;;
         codeberg|tildegit)
             get_tea_token "$_forge" && return 0
+            ;;
+        github)
+            get_gh_token "github.com" && return 0
             ;;
     esac
 

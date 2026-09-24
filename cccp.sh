@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.4+20260923.f8c7ea6"
+CCCP_VERSION="2.4.0-dev.5+20260924.13fd5f2"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1077,6 +1077,54 @@ get_tea_token() {
     return 1
 }
 
+get_gh_token() {
+    _target_host="${1:-github.com}"
+    _gh_cfg_dir="${GH_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME}/.config}/gh}"
+    _cfg="${_gh_cfg_dir}/hosts.yml"
+
+    if [ -f "$_cfg" ]; then
+        _found_host=0
+        while IFS= read -r _line || [ -n "$_line" ]; do
+            case "$_line" in
+                *"$_target_host:"*)
+                    _found_host=1
+                    ;;
+                *":"*)
+                    case "$_line" in
+                        " "*|"\t"*)
+                            ;;
+                        *)
+                            _found_host=0
+                            ;;
+                    esac
+                    ;;
+            esac
+            if [ "$_found_host" -eq 1 ]; then
+                case "$_line" in
+                    *"oauth_token:"*)
+                        _token=$(printf '%s' "$_line" | sed -e 's/^[[:space:]]*oauth_token:[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
+                        if [ -n "$_token" ]; then
+                            printf '%s\n' "$_token"
+                            return 0
+                        fi
+                        ;;
+                esac
+            fi
+        done < "$_cfg"
+    fi
+
+    # Fallback to gh CLI auth token if gh is available
+    if command -v gh >/dev/null 2>&1; then
+        _tok=$(gh auth token -h "$_target_host" 2>/dev/null || gh auth token 2>/dev/null || true)
+        if [ -n "$_tok" ]; then
+            printf '%s\n' "$_tok"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 resolve_forge_token() {
     _forge="$1"
     _keys=""
@@ -1158,7 +1206,7 @@ resolve_forge_token() {
         done
     fi
 
-    # 4. Check tea config
+    # 4. Check tea/gh config
     case "$_forge" in
         forgejo)
             get_tea_token "forgejo" && return 0
@@ -1166,6 +1214,9 @@ resolve_forge_token() {
             ;;
         codeberg|tildegit)
             get_tea_token "$_forge" && return 0
+            ;;
+        github)
+            get_gh_token "github.com" && return 0
             ;;
     esac
 
@@ -3554,6 +3605,19 @@ _diva_extract_tickets() {
     return 0
 }
 
+_diva_extract_html_url() {
+    _raw="$1"
+    if command -v jq >/dev/null 2>&1; then
+        _u=$(printf '%s' "$_raw" | jq -r '.html_url // empty' 2>/dev/null || true)
+        if [ -n "$_u" ]; then
+            printf '%s\n' "$_u"
+            return 0
+        fi
+    fi
+    # Pure POSIX fallback
+    printf '%s\n' "$_raw" | sed -n 's/.*"html_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+}
+
 _diva_box_field() {
     _b_prefix="$1"
     _b_text="$2"
@@ -3656,9 +3720,12 @@ _diva_present_and_dispatch() {
             _labels=$(printf '%s' "$_tickets_json" | jq -r ".tickets[$_idx].labels // [] | join(\", \")")
             _body=$(printf '%s' "$_tickets_json" | jq -r ".tickets[$_idx].body // empty")
         else
-            # Simple POSIX fallback extraction for ticket block
-            _title="Ticket $((_idx + 1))"
-            _body=""
+            # Pure POSIX fallback extraction for ticket fields
+            _title=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"title"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n "$((_idx + 1))p")
+            [ -z "$_title" ] && _title="Ticket $((_idx + 1))"
+            _rationale=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"rationale"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed -n "$((_idx + 1))p")
+            _labels=""
+            _body=$(printf '%s\n' "$_tickets_json" | sed -n 's/.*"body"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' | sed -n "$((_idx + 1))p" | sed -e 's/\\n/\n/g' -e 's/\\"/"/g')
         fi
 
         _num=$((_idx + 1))
@@ -3758,9 +3825,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -3791,9 +3856,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -3831,9 +3894,7 @@ _diva_present_and_dispatch() {
                                 -d "$_issue_payload" \
                                 "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                            if command -v jq >/dev/null 2>&1; then
-                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                            fi
+                            _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
@@ -3864,9 +3925,7 @@ _diva_present_and_dispatch() {
                                         -H "Accept: application/vnd.github+json" \
                                         -d "{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}" \
                                         "https://api.github.com/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-                                    if command -v jq >/dev/null 2>&1; then
-                                        _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                                    fi
+                                    _issue_url=$(_diva_extract_html_url "$_post_res")
                                     if [ -n "$_issue_url" ]; then
                                         echo "  ✅ Criado: ${_issue_url}"
                                         _created_count=$((_created_count + 1))
