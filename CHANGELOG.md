@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (web) implement cccp web command and mayak command bridge (ref #41)
   - (comrades) support ARM32 architectures, 1960s-style raw bootstrap downloaders, and auto-recruitment
   - (deps) implement pure POSIX token reader for gh and issue url parser without jq (#33)
   - (diva) integrar editor kvant (kv) para edicao de tickets com navegacao por teclado

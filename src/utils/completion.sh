@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -24,6 +24,20 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        diva|divan)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--web -w --dry-run --model -m --temp -t --repo -r -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "config" -- "$cur"))
+            fi
+            ;;
+        web)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-p --port --host --no-open -q --quiet -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "diva status tickets" -- "$cur"))
+            fi
+            ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
             case "$prev" in
                 -u|--url|-f|--file)
@@ -134,6 +148,11 @@ _cccp() {
         'sync-agents:Generate and synchronize AGENTS.md directives'
         'set-av:Fast shortcut to configure local agent variable'
         'codeberg:Configure Codeberg integration and AGENTS template wizard'
+        'catalog:Inventory workspaces, update .git/description and sync forges'
+        'diva:Gemini-powered issue triage bot with multi-forge dispatch'
+        'divan:Gemini-powered issue triage bot with multi-forge dispatch'
+        'web:Interactive Gosplan Web Cockpit via Mayak Command Bridge'
+        'comrades:Manage micro ecosystem tools (kvant and svyaz)'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -321,6 +340,21 @@ complete -c cccp -n "__fish_seen_subcommand_from config" -s g -l global -d "Targ
 complete -c cccp -n "__fish_seen_subcommand_from config" -l local -d "Target local repository config file"
 complete -c cccp -n "__fish_seen_subcommand_from config" -s l -l list -d "List configuration key/value pairs"
 complete -c cccp -n "__fish_seen_subcommand_from config" -l unset -d "Remove a configuration key"
+
+# Options for diva
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s w -l web -d "Open interactive triage cockpit in web browser"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -l dry-run -d "Simulate triage without forge publication"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s m -l model -d "Gemini model name"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s t -l temp -d "Sampling temperature"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s r -l repo -d "Target repository slug"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -a "config" -d "Persist GEMINI_API_KEY in .cccprc"
+
+# Options for web
+complete -c cccp -n "__fish_seen_subcommand_from web" -s p -l port -d "Port to listen on"
+complete -c cccp -n "__fish_seen_subcommand_from web" -l host -d "Host address to bind to"
+complete -c cccp -n "__fish_seen_subcommand_from web" -l no-open -d "Do not open browser"
+complete -c cccp -n "__fish_seen_subcommand_from web" -s q -l quiet -d "Quiet mode"
+complete -c cccp -n "__fish_seen_subcommand_from web" -a "diva status tickets"
 
 # Options for completion
 complete -c cccp -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
