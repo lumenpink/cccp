@@ -23,6 +23,40 @@ DEFAULT_AGENT_MD_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/src/ba
 DEFAULT_AGENTS_MD_URL="$DEFAULT_AGENT_MD_URL"
 
 # -----------------------------------------------------------------------------
+# Helper: Dispatch HTTP request via sv / svyaz / curl
+# -----------------------------------------------------------------------------
+_agents_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Fetch template content from URL or local path
 # -----------------------------------------------------------------------------
 fetch_agents_template() {
@@ -43,8 +77,8 @@ fetch_agents_template() {
             fi
             ;;
         http://*|https://*)
-            if command -v curl >/dev/null 2>&1; then
-                content=$(curl -s -f "$url" 2>/dev/null || true)
+            if command -v _cccp_http >/dev/null 2>&1 || command -v sv >/dev/null 2>&1 || command -v svyaz >/dev/null 2>&1 || command -v curl >/dev/null 2>&1; then
+                content=$(_agents_http -s -f "$url" 2>/dev/null || true)
                 if [ -z "$content" ]; then
                     echo "Warning: Received empty response from '$url'." >&2
                     return 1
@@ -59,7 +93,7 @@ fetch_agents_template() {
                 printf '%s\n' "$content"
                 return 0
             else
-                echo "Warning: 'curl' not available; cannot fetch remote template." >&2
+                echo "Warning: Neither 'sv' nor 'curl' is available; cannot fetch remote template." >&2
                 return 1
             fi
             ;;

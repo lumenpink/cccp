@@ -25,6 +25,37 @@ if ! command -v parse_remote_url >/dev/null 2>&1; then
     fi
 fi
 
+_tickets_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Helper: Resolve Git provider, owner, repo, and host dynamically
 # -----------------------------------------------------------------------------
@@ -133,9 +164,9 @@ _tickets_fetch_github() {
     [ -n "$token" ] && auth_header="Authorization: Bearer ${token}"
 
     if [ -n "$auth_header" ]; then
-        resp=$(curl -s -f -H "User-Agent: cccp" -H "$auth_header" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "User-Agent: cccp" -H "$auth_header" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -160,9 +191,9 @@ _tickets_fetch_forgejo() {
     api_url="https://${host}/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -188,9 +219,9 @@ _tickets_fetch_gitlab() {
     api_url="https://${host}/api/v4/projects/${url_encoded}/issues?state=opened&per_page=30"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "PRIVATE-TOKEN: ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "PRIVATE-TOKEN: ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -216,9 +247,9 @@ _tickets_fetch_sourcehut() {
     api_url="https://todo.sr.ht/api/user/~${owner_clean}/trackers/${repo}/tickets"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -357,12 +388,19 @@ cmd_tickets() {
     done
 
     # Check required tools
-    for tool in curl jq; do
-        if ! command -v "$tool" >/dev/null 2>&1; then
-            echo "Warning: Required tool '$tool' is not installed or not in PATH. Skipping tickets sync." >&2
-            return 0
+    if ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_ensure_comrade >/dev/null 2>&1; then
+            _cccp_ensure_comrade "sv" 1 >/dev/null 2>&1 || true
         fi
-    done
+    fi
+    if ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+        echo "Warning: Required tool 'sv' or 'curl' is not installed or not in PATH. Skipping tickets sync." >&2
+        return 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "Warning: Required tool 'jq' is not installed or not in PATH. Skipping tickets sync." >&2
+        return 0
+    fi
 
     # Resolve Provider, Owner, Repo, and Host
     provider="$cli_provider"

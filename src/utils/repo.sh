@@ -51,6 +51,40 @@ parse_remote_url() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Dispatch HTTP probe via sv / svyaz / curl
+# -----------------------------------------------------------------------------
+_repo_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Detect Forge Provider from hostname
 # Returns normalized provider identifier:
 #   github | codeberg | forgejo | tildegit | gitlab | sourcehut | unknown
@@ -111,8 +145,8 @@ detect_forge_provider() {
     fi
 
     # 4. Active Probing (Strict detection without false assumptions)
-    if command -v curl >/dev/null 2>&1; then
-        _probe_gitea=$(curl -s -f -m 3 "https://${_fhost}/api/v1/version" 2>/dev/null || true)
+    if command -v _cccp_http >/dev/null 2>&1 || command -v sv >/dev/null 2>&1 || command -v svyaz >/dev/null 2>&1 || command -v curl >/dev/null 2>&1; then
+        _probe_gitea=$(_repo_http -s -f -m 3 "https://${_fhost}/api/v1/version" 2>/dev/null || true)
         if [ -n "$_probe_gitea" ]; then
             if command -v jq >/dev/null 2>&1; then
                 if printf '%s\n' "$_probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
@@ -131,7 +165,7 @@ detect_forge_provider() {
             fi
         fi
 
-        _probe_gl=$(curl -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
+        _probe_gl=$(_repo_http -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || _repo_http -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
         case "$_probe_gl" in
             *gitlab*|*GitLab*)
                 [ -n "$_cache_file" ] && printf '%s:gitlab\n' "$_fhost" >> "$_cache_file"

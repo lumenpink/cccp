@@ -101,6 +101,37 @@ _diva_resolve_forge_token() {
     return 1
 }
 
+_diva_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 # -----------------------------------------------------------------------------
 # Helper: Resolve Text Editor for Ticket Body Editing
 # Priority: DIVA_EDITOR -> .cccprc diva_editor -> VISUAL/EDITOR -> kv -> kvant -> vi
@@ -144,6 +175,14 @@ _diva_resolve_editor() {
     if command -v kvant >/dev/null 2>&1; then
         printf 'kvant\n'
         return 0
+    fi
+    if command -v _cccp_ensure_comrade >/dev/null 2>&1; then
+        if _cccp_ensure_comrade "kv" 0 >&2; then
+            if command -v kv >/dev/null 2>&1; then
+                printf 'kv\n'
+                return 0
+            fi
+        fi
     fi
 
     # 5. Fallback to standard POSIX editor
@@ -452,7 +491,7 @@ EOF
 
     _url="https://generativelanguage.googleapis.com/v1beta/models/${_model}:generateContent?key=${_api_key}"
 
-    _res=$(curl -s -f -X POST \
+    _res=$(_diva_http -s -f -X POST \
         -H "Content-Type: application/json" \
         -d "$_req_body" \
         "$_url" 2>/dev/null || true)
@@ -714,7 +753,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -745,7 +784,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -783,7 +822,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -815,7 +854,7 @@ _diva_present_and_dispatch() {
                                 if [ -n "$_token" ]; then
                                     _esc_t=$(_diva_escape_json "$_title")
                                     _esc_b=$(_diva_escape_json "$_body")
-                                    _post_res=$(curl -s -X POST \
+                                    _post_res=$(_diva_http -s -X POST \
                                         -H "Authorization: token ${_token}" \
                                         -H "Content-Type: application/json" \
                                         -H "Accept: application/vnd.github+json" \

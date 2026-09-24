@@ -199,6 +199,11 @@ main() {
             cmd_diva "$@"
             exit 0
             ;;
+        "comrades"|"camaradas"|"comrade")
+            shift || true
+            cmd_comrades "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -208,7 +213,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

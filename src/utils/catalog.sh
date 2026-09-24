@@ -41,6 +41,40 @@ _catalog_resolve_token() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Dispatch HTTP request via sv / svyaz / curl
+# -----------------------------------------------------------------------------
+_catalog_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Parse Remote URL to extract Forge, Slug, and default is_upstream
 # -----------------------------------------------------------------------------
 _catalog_detect_forge_and_slug() {
@@ -517,7 +551,7 @@ _catalog_sync_remote() {
                 fi
                 _payload="${_payload}}"
 
-                _res=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+                _res=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PATCH \
                     -H "Authorization: token ${_token}" \
                     -H "Content-Type: application/json" \
                     -H "Accept: application/json" \
@@ -535,7 +569,7 @@ _catalog_sync_remote() {
                 done
                 _top_payload="{\"topics\":[${_topics_arr}]}"
 
-                _res_top=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+                _res_top=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PUT \
                     -H "Authorization: token ${_token}" \
                     -H "Content-Type: application/json" \
                     -H "Accept: application/json" \
@@ -582,7 +616,7 @@ _catalog_sync_remote() {
                     [ -n "$_esc_web" ] && _payload="${_payload},\"homepage\":\"${_esc_web}\""
                     _payload="${_payload}}"
 
-                    _res=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+                    _res=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PATCH \
                         -H "Authorization: token ${_token}" \
                         -H "Accept: application/vnd.github+json" \
                         -H "User-Agent: CCCP-Catalog/1.0" \

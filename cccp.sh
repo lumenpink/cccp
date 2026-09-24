@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.5+20260924.13fd5f2"
+CCCP_VERSION="2.4.0-dev.6+20260924.e52edeb"
 export CCCP_VERSION
 
 # Verify required tools
@@ -831,6 +831,37 @@ parse_remote_url() {
     return 0
 }
 
+_repo_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 detect_forge_provider() {
     _fhost="$1"
     [ -z "$_fhost" ] && return 1
@@ -887,8 +918,8 @@ detect_forge_provider() {
     fi
 
     # 4. Active Probing (Strict detection without false assumptions)
-    if command -v curl >/dev/null 2>&1; then
-        _probe_gitea=$(curl -s -f -m 3 "https://${_fhost}/api/v1/version" 2>/dev/null || true)
+    if command -v _cccp_http >/dev/null 2>&1 || command -v sv >/dev/null 2>&1 || command -v svyaz >/dev/null 2>&1 || command -v curl >/dev/null 2>&1; then
+        _probe_gitea=$(_repo_http -s -f -m 3 "https://${_fhost}/api/v1/version" 2>/dev/null || true)
         if [ -n "$_probe_gitea" ]; then
             if command -v jq >/dev/null 2>&1; then
                 if printf '%s\n' "$_probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
@@ -907,7 +938,7 @@ detect_forge_provider() {
             fi
         fi
 
-        _probe_gl=$(curl -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || curl -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
+        _probe_gl=$(_repo_http -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || _repo_http -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
         case "$_probe_gl" in
             *gitlab*|*GitLab*)
                 [ -n "$_cache_file" ] && printf '%s:gitlab\n' "$_fhost" >> "$_cache_file"
@@ -1230,8 +1261,526 @@ escape_json_string() {
 
 
 # =============================================================================
+# Comrades & Unified HTTP Dispatcher Functions
+# =============================================================================
+_cccp_get_bin_dir() {
+    if [ -n "${COMRADES_BIN_DIR:-}" ]; then
+        _bdir="$COMRADES_BIN_DIR"
+    elif [ -n "${XDG_BIN_HOME:-}" ]; then
+        _bdir="$XDG_BIN_HOME"
+    elif [ -d "${HOME}/.local/bin" ] || mkdir -p "${HOME}/.local/bin" 2>/dev/null; then
+        _bdir="${HOME}/.local/bin"
+    else
+        _bdir="${HOME}/.cccp/bin"
+    fi
+    mkdir -p "$_bdir" 2>/dev/null || true
+
+    # Ensure target directory is in PATH for active shell execution
+    case ":${PATH:-}:" in
+        *":${_bdir}:"*) ;;
+        *) export PATH="${_bdir}:${PATH:-}" ;;
+    esac
+
+    printf '%s\n' "$_bdir"
+}
+
+_cccp_detect_arch() {
+    _raw_os=$(uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
+    _raw_arch=$(uname -m 2>/dev/null | tr '[:upper:]' '[:lower:]' || echo "unknown")
+
+    _os="unknown"
+    case "$_raw_os" in
+        linux*) _os="linux" ;;
+        darwin*) _os="macos" ;;
+        freebsd*|openbsd*|netbsd*) _os="bsd" ;;
+    esac
+
+    _arch="unknown"
+    case "$_raw_arch" in
+        x86_64|amd64) _arch="x86_64" ;;
+        aarch64|arm64) _arch="aarch64" ;;
+        armv7*|armv6*|armhf|armv5*|arm|arm32) _arch="armv7" ;;
+        i386|i486|i586|i686|x86) _arch="i686" ;;
+        riscv64*) _arch="riscv64" ;;
+        riscv32*) _arch="riscv32" ;;
+    esac
+
+    # If architecture is still unknown, check bitness and CPU hints
+    if [ "$_arch" = "unknown" ]; then
+        case "$_raw_arch" in
+            *arm*) _arch="armv7" ;;
+            *)
+                if [ "$(getconf LONG_BIT 2>/dev/null || echo 64)" = "32" ]; then
+                    _arch="i686"
+                else
+                    _arch="x86_64"
+                fi
+                ;;
+        esac
+    fi
+
+    printf '%s-%s\n' "$_os" "$_arch"
+}
+
+_cccp_download_raw() {
+    _url="$1"
+    _dest="$2"
+
+    [ -z "$_url" ] || [ -z "$_dest" ] && return 1
+
+    # Tier 1: Modern toolchain
+    if command -v sv >/dev/null 2>&1; then
+        sv -fsSL "$_url" -o "$_dest" 2>/dev/null && [ -s "$_dest" ] && return 0
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz -fsSL "$_url" -o "$_dest" 2>/dev/null && [ -s "$_dest" ] && return 0
+    elif command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$_url" -o "$_dest" 2>/dev/null && [ -s "$_dest" ] && return 0
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q "$_url" -O "$_dest" 2>/dev/null && [ -s "$_dest" ] && return 0
+    elif command -v busybox >/dev/null 2>&1 && busybox wget --help >/dev/null 2>&1; then
+        busybox wget -q "$_url" -O "$_dest" 2>/dev/null && [ -s "$_dest" ] && return 0
+    fi
+
+    # Tier 2: 1960/1970 retro fallbacks for constrained routers (OpenWrt without SSL)
+    case "$_url" in
+        ftp://*)
+            _raw_ftp="${_url#ftp://}"
+            _ftp_host="${_raw_ftp%%/*}"
+            _ftp_path="/${_raw_ftp#*/}"
+
+            if command -v ftpget >/dev/null 2>&1; then
+                ftpget "$_ftp_host" "$_dest" "$_ftp_path" 2>/dev/null && [ -s "$_dest" ] && return 0
+            elif command -v busybox >/dev/null 2>&1 && busybox ftpget --help >/dev/null 2>&1; then
+                busybox ftpget "$_ftp_host" "$_dest" "$_ftp_path" 2>/dev/null && [ -s "$_dest" ] && return 0
+            elif command -v ftp >/dev/null 2>&1; then
+                printf "open %s\nuser anonymous cccp@gosplan.su\nbinary\nget %s %s\nquit\n" "$_ftp_host" "$_ftp_path" "$_dest" | ftp -n 2>/dev/null
+                [ -s "$_dest" ] && return 0
+            fi
+            ;;
+
+        http://*)
+            _raw_http="${_url#http://}"
+            _http_host_port="${_raw_http%%/*}"
+            _http_path="/${_raw_http#*/}"
+            case "$_http_host_port" in
+                *:*)
+                    _http_host="${_http_host_port%%:*}"
+                    _http_port="${_http_host_port##*:}"
+                    ;;
+                *)
+                    _http_host="$_http_host_port"
+                    _http_port="80"
+                    ;;
+            esac
+
+            # Netcat (nc / busybox nc) HTTP/1.0
+            if command -v nc >/dev/null 2>&1; then
+                if printf "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: CCCP-1960\r\nConnection: close\r\n\r\n" "$_http_path" "$_http_host" | \
+                    nc "$_http_host" "$_http_port" 2>/dev/null | \
+                    sed '1,/^[\r]*$/d' > "$_dest"; then
+                    [ -s "$_dest" ] && return 0
+                fi
+                rm -f "$_dest"
+            elif command -v busybox >/dev/null 2>&1 && busybox nc --help >/dev/null 2>&1; then
+                if printf "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: CCCP-1960\r\nConnection: close\r\n\r\n" "$_http_path" "$_http_host" | \
+                    busybox nc "$_http_host" "$_http_port" 2>/dev/null | \
+                    sed '1,/^[\r]*$/d' > "$_dest"; then
+                    [ -s "$_dest" ] && return 0
+                fi
+                rm -f "$_dest"
+            fi
+
+            # Telnet (1960s style TCP handshake)
+            if command -v telnet >/dev/null 2>&1; then
+                if (printf "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: CCCP-1960\r\nConnection: close\r\n\r\n" "$_http_path" "$_http_host"; sleep 2) | \
+                    telnet "$_http_host" "$_http_port" 2>/dev/null | \
+                    sed '1,/^[\r]*$/d' > "$_dest"; then
+                    [ -s "$_dest" ] && return 0
+                fi
+                rm -f "$_dest"
+            elif command -v busybox >/dev/null 2>&1 && busybox telnet --help >/dev/null 2>&1; then
+                if (printf "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: CCCP-1960\r\nConnection: close\r\n\r\n" "$_http_path" "$_http_host"; sleep 2) | \
+                    busybox telnet "$_http_host" "$_http_port" 2>/dev/null | \
+                    sed '1,/^[\r]*$/d' > "$_dest"; then
+                    [ -s "$_dest" ] && return 0
+                fi
+                rm -f "$_dest"
+            fi
+
+            # Raw TCP socket via shell builtin /dev/tcp (if supported)
+            if (printf '' > "/dev/tcp/${_http_host}/${_http_port}") 2>/dev/null; then
+                (
+                    exec 3<>/dev/tcp/"${_http_host}"/"${_http_port}"
+                    printf "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: CCCP-1960\r\nConnection: close\r\n\r\n" "$_http_path" "$_http_host" >&3
+                    sed '1,/^[\r]*$/d' <&3 > "$_dest"
+                    exec 3>&-
+                ) 2>/dev/null
+                [ -s "$_dest" ] && return 0
+                rm -f "$_dest"
+            fi
+            ;;
+
+        https://*)
+            # Low-level HTTPS bootstrap via OpenSSL s_client
+            if command -v openssl >/dev/null 2>&1; then
+                _host=$(printf '%s' "$_url" | sed -e 's|^https://||' -e 's|/.*$||')
+                _path="/$(printf '%s' "$_url" | sed -e 's|^https://[^/]*/*||')"
+                if printf "GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: CCCP-Bootstrap/1.0\r\nConnection: close\r\n\r\n" "$_path" "$_host" | \
+                    openssl s_client -quiet -connect "${_host}:443" -servername "$_host" 2>/dev/null | \
+                    sed '1,/^[\r]*$/d' > "$_dest"; then
+                    if [ -s "$_dest" ]; then
+                        return 0
+                    fi
+                fi
+                rm -f "$_dest"
+            fi
+            ;;
+    esac
+
+    return 1
+}
+
+_cccp_ensure_comrade() {
+    _name="${1:-}"
+    _silent="${2:-0}"
+
+    [ -z "$_name" ] && return 1
+
+    # Check if target binary is already in PATH
+    _target_bin="$_name"
+    case "$_name" in
+        kv|kvant) _target_bin="kv" ;;
+        sv|svyaz) _target_bin="sv" ;;
+    esac
+
+    if command -v "$_target_bin" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    _bdir=$(_cccp_get_bin_dir)
+    if [ -x "${_bdir}/${_target_bin}" ]; then
+        case ":${PATH:-}:" in
+            *":${_bdir}:"*) ;;
+            *) export PATH="${_bdir}:${PATH:-}" ;;
+        esac
+        return 0
+    fi
+
+    # Map comrade to repo and archive name
+    _repo=""
+    _prefix=""
+    case "$_name" in
+        kv|kvant)
+            _repo="kvant"
+            _prefix="kv"
+            ;;
+        sv|svyaz)
+            _repo="svyaz"
+            _prefix="sv"
+            ;;
+        *)
+            [ "$_silent" -eq 0 ] && echo "Erro: Camarada desconhecido '$_name'." >&2
+            return 1
+            ;;
+    esac
+
+    _arch=$(_cccp_detect_arch)
+    _asset="${_prefix}-${_arch}.tar.gz"
+
+    # Default fallback if unknown architecture
+    case "$_arch" in
+        unknown*|*-unknown)
+            case "${_raw_arch:-}" in
+                *arm*) _asset="${_prefix}-linux-armv7.tar.gz" ;;
+                *)
+                    if [ "$(getconf LONG_BIT 2>/dev/null || echo 64)" = "32" ]; then
+                        _asset="${_prefix}-linux-i686.tar.gz"
+                    else
+                        _asset="${_prefix}-linux-x86_64.tar.gz"
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+
+    # Allow custom mirror via CCCP_COMRADES_MIRROR or comrades_mirror config
+    _mirror="${CCCP_COMRADES_MIRROR:-${COMRADES_MIRROR:-}}"
+    if [ -z "$_mirror" ] && command -v cmd_config >/dev/null 2>&1; then
+        _mirror=$(cmd_config comrades_mirror 2>/dev/null || true)
+    fi
+
+    _primary_url="https://codeberg.org/lumenpink/${_repo}/releases/download/nightly/${_asset}"
+
+    _urls=""
+    if [ -n "$_mirror" ]; then
+        _urls="${_mirror%/}/${_asset} ${_primary_url}"
+    else
+        _urls="${_primary_url}"
+    fi
+
+    if [ "$_silent" -eq 0 ]; then
+        echo "★ [ГОСПЛАН] Convocando camarada '${_name}' (${_asset})... ★"
+    fi
+
+    _tmp_tar=$(mktemp 2>/dev/null || printf '/tmp/cccp_comrade_%s_%s.tar.gz' "$_name" "$$")
+    _download_ok=0
+    for _try_url in $_urls; do
+        if _cccp_download_raw "$_try_url" "$_tmp_tar"; then
+            _download_ok=1
+            break
+        fi
+    done
+
+    if [ "$_download_ok" -eq 0 ]; then
+        rm -f "$_tmp_tar"
+        if [ "$_silent" -eq 0 ]; then
+            echo "Aviso: Falha ao baixar camarada '${_name}' das fontes disponíveis." >&2
+            echo "Dica: Em sistemas minimalistas sem SSL (OpenWrt/BusyBox), configure um mirror HTTP ou FTP:" >&2
+            echo "      export CCCP_COMRADES_MIRROR=\"http://seu-servidor/cccp\"" >&2
+        fi
+        return 1
+    fi
+
+    if ! tar -xzf "$_tmp_tar" -C "$_bdir" 2>/dev/null; then
+        rm -f "$_tmp_tar"
+        if [ "$_silent" -eq 0 ]; then
+            echo "Aviso: Falha ao descompactar ${_asset} em ${_bdir}." >&2
+        fi
+        return 1
+    fi
+
+    rm -f "$_tmp_tar"
+    chmod +x "${_bdir}"/* 2>/dev/null || true
+
+    if [ "$_silent" -eq 0 ]; then
+        echo "★ [ГОСПЛАН] Camarada '${_name}' recrutado e instalado com sucesso em ${_bdir} ★"
+    fi
+
+    return 0
+}
+
+_cccp_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v sv >/dev/null 2>&1; then
+        sv "$@"
+        return $?
+    fi
+
+    if command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+        return $?
+    fi
+
+    # Check local bin dir
+    _bdir=$(_cccp_get_bin_dir)
+    if [ -x "${_bdir}/sv" ]; then
+        "${_bdir}/sv" "$@"
+        return $?
+    fi
+
+    # Attempt silent bootstrap of sv
+    if _cccp_ensure_comrade "sv" 1 >/dev/null 2>&1; then
+        if command -v sv >/dev/null 2>&1; then
+            sv "$@"
+            return $?
+        fi
+        if [ -x "${_bdir}/sv" ]; then
+            "${_bdir}/sv" "$@"
+            return $?
+        fi
+    fi
+
+    # Fallback to curl
+    if command -v curl >/dev/null 2>&1; then
+        curl "$@"
+        return $?
+    fi
+
+    echo "Error: Nenhum cliente HTTP disponível ('sv', 'svyaz' ou 'curl' necessários)." >&2
+    return 127
+}
+
+cmd_comrades() {
+    _sub="${1:-status}"
+
+    case "$_sub" in
+        status)
+            echo "★ [ГОСПЛАН] Registro Central dos Camaradas do Ecossistema ★"
+            echo "==========================================================="
+            _bdir=$(_cccp_get_bin_dir)
+            echo "Diretório de Binários: ${_bdir}"
+            echo ""
+            printf "%-10s %-12s %-16s %s\n" "CAMARADA" "PAPEL" "ESTADO" "LOCALIZAÇÃO"
+            printf "%-10s %-12s %-16s %s\n" "--------" "-----" "------" "-----------"
+
+            for _c in "kv" "sv"; do
+                _role=""
+                case "$_c" in
+                    kv) _role="Editor (kvant)" ;;
+                    sv) _role="HTTP (svyaz)" ;;
+                esac
+
+                _p=$(command -v "$_c" 2>/dev/null || true)
+                if [ -n "$_p" ]; then
+                    _ver=$("$_c" --version 2>/dev/null | head -n 1 || echo "presente")
+                    printf "%-10s %-12s %-16s %s\n" "$_c" "$_role" "PRONTO ($_ver)" "$_p"
+                elif [ -x "${_bdir}/${_c}" ]; then
+                    _ver=$("${_bdir}/${_c}" --version 2>/dev/null | head -n 1 || echo "presente")
+                    printf "%-10s %-12s %-16s %s\n" "$_c" "$_role" "PRONTO ($_ver)" "${_bdir}/${_c}"
+                else
+                    printf "%-10s %-12s %-16s %s\n" "$_c" "$_role" "NÃO INSTALADO" "(disponível via 'cccp comrades install')"
+                fi
+            done
+            echo ""
+            ;;
+
+        install|recrutar)
+            _target="${2:-all}"
+            echo "★ [ГОСПЛАН] Recrutando camaradas para o posto de trabalho... ★"
+            case "$_target" in
+                kv|kvant)
+                    _cccp_ensure_comrade "kv" 0
+                    ;;
+                sv|svyaz)
+                    _cccp_ensure_comrade "sv" 0
+                    ;;
+                all|*)
+                    _cccp_ensure_comrade "kv" 0
+                    _cccp_ensure_comrade "sv" 0
+                    ;;
+            esac
+            ;;
+
+        update|atualizar)
+            echo "★ [ГОСПЛАН] Atualizando camaradas para as últimas compilações nightly... ★"
+            _bdir=$(_cccp_get_bin_dir)
+            _arch=$(_cccp_detect_arch)
+            case "$_arch" in
+                unknown*|*-unknown)
+                    case "${_raw_arch:-}" in
+                        *arm*) _arch="linux-armv7" ;;
+                        *)
+                            if [ "$(getconf LONG_BIT 2>/dev/null || echo 64)" = "32" ]; then
+                                _arch="linux-i686"
+                            else
+                                _arch="linux-x86_64"
+                            fi
+                            ;;
+                    esac
+                    ;;
+            esac
+
+            _mirror="${CCCP_COMRADES_MIRROR:-${COMRADES_MIRROR:-}}"
+            if [ -z "$_mirror" ] && command -v cmd_config >/dev/null 2>&1; then
+                _mirror=$(cmd_config comrades_mirror 2>/dev/null || true)
+            fi
+
+            for _pair in "kv:kvant" "sv:svyaz"; do
+                _bin=$(printf '%s' "$_pair" | cut -d: -f1)
+                _repo=$(printf '%s' "$_pair" | cut -d: -f2)
+                _asset="${_bin}-${_arch}.tar.gz"
+                _primary_url="https://codeberg.org/lumenpink/${_repo}/releases/download/nightly/${_asset}"
+
+                _urls=""
+                if [ -n "$_mirror" ]; then
+                    _urls="${_mirror%/}/${_asset} ${_primary_url}"
+                else
+                    _urls="${_primary_url}"
+                fi
+
+                echo "  -> Baixando ${_bin} (${_asset})..."
+                _tmp_tar=$(mktemp 2>/dev/null || printf '/tmp/cccp_up_%s.tar.gz' "$_bin")
+                _up_ok=0
+                for _try_url in $_urls; do
+                    if _cccp_download_raw "$_try_url" "$_tmp_tar"; then
+                        _up_ok=1
+                        break
+                    fi
+                done
+
+                if [ "$_up_ok" -eq 1 ]; then
+                    tar -xzf "$_tmp_tar" -C "$_bdir" 2>/dev/null || true
+                    rm -f "$_tmp_tar"
+                    chmod +x "${_bdir}/${_bin}"* 2>/dev/null || true
+                    echo "  [OK] ${_bin} atualizado em ${_bdir}."
+                else
+                    rm -f "$_tmp_tar"
+                    echo "  [ERRO] Falha ao atualizar ${_bin}." >&2
+                fi
+            done
+            echo "★ Atualização concluída com sucesso! ★"
+            ;;
+
+        help|--help|-h)
+            echo "★ CCCP - Gestão de Camaradas (Kvant e Svyaz) ★"
+            echo ""
+            echo "Uso:"
+            echo "  cccp comrades [status]          Exibe o status dos binários kv e sv"
+            echo "  cccp comrades install [all|kv|sv] Baixa e instala os comrades no sistema"
+            echo "  cccp comrades update            Atualiza kv e sv para o último nightly"
+            echo ""
+            ;;
+
+        *)
+            echo "Uso: cccp comrades [status|install|update|help]" >&2
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+
+# =============================================================================
 # Tickets Functions
 # =============================================================================
+_tickets_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 resolve_tickets_info() {
     resolved_provider="${TICKETS_PROVIDER:-}"
     resolved_owner="${TICKETS_OWNER:-${CODEBERG_OWNER:-${CODEBERG_USER:-${GITHUB_OWNER:-${GITHUB_USER:-}}}}}"
@@ -1333,9 +1882,9 @@ _tickets_fetch_github() {
     [ -n "$token" ] && auth_header="Authorization: Bearer ${token}"
 
     if [ -n "$auth_header" ]; then
-        resp=$(curl -s -f -H "User-Agent: cccp" -H "$auth_header" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "User-Agent: cccp" -H "$auth_header" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "User-Agent: cccp" "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -1360,9 +1909,9 @@ _tickets_fetch_forgejo() {
     api_url="https://${host}/api/v1/repos/${owner}/${repo}/issues?state=open&type=issues&limit=30"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "Authorization: token ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -1388,9 +1937,9 @@ _tickets_fetch_gitlab() {
     api_url="https://${host}/api/v4/projects/${url_encoded}/issues?state=opened&per_page=30"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "PRIVATE-TOKEN: ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "PRIVATE-TOKEN: ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -1416,9 +1965,9 @@ _tickets_fetch_sourcehut() {
     api_url="https://todo.sr.ht/api/user/~${owner_clean}/trackers/${repo}/tickets"
 
     if [ -n "$token" ]; then
-        resp=$(curl -s -f -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f -H "Authorization: Bearer ${token}" "$api_url" 2>/dev/null || true)
     else
-        resp=$(curl -s -f "$api_url" 2>/dev/null || true)
+        resp=$(_tickets_http -s -f "$api_url" 2>/dev/null || true)
     fi
 
     [ -z "$resp" ] && return 1
@@ -1548,12 +2097,19 @@ cmd_tickets() {
     done
 
     # Check required tools
-    for tool in curl jq; do
-        if ! command -v "$tool" >/dev/null 2>&1; then
-            echo "Warning: Required tool '$tool' is not installed or not in PATH. Skipping tickets sync." >&2
-            return 0
+    if ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_ensure_comrade >/dev/null 2>&1; then
+            _cccp_ensure_comrade "sv" 1 >/dev/null 2>&1 || true
         fi
-    done
+    fi
+    if ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+        echo "Warning: Required tool 'sv' or 'curl' is not installed or not in PATH. Skipping tickets sync." >&2
+        return 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "Warning: Required tool 'jq' is not installed or not in PATH. Skipping tickets sync." >&2
+        return 0
+    fi
 
     # Resolve Provider, Owner, Repo, and Host
     provider="$cli_provider"
@@ -1749,6 +2305,37 @@ EOF
 # =============================================================================
 # Agents Functions
 # =============================================================================
+_agents_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 fetch_agents_template() {
     url="$1"
 
@@ -1767,8 +2354,8 @@ fetch_agents_template() {
             fi
             ;;
         http://*|https://*)
-            if command -v curl >/dev/null 2>&1; then
-                content=$(curl -s -f "$url" 2>/dev/null || true)
+            if command -v _cccp_http >/dev/null 2>&1 || command -v sv >/dev/null 2>&1 || command -v svyaz >/dev/null 2>&1 || command -v curl >/dev/null 2>&1; then
+                content=$(_agents_http -s -f "$url" 2>/dev/null || true)
                 if [ -z "$content" ]; then
                     echo "Warning: Received empty response from '$url'." >&2
                     return 1
@@ -1783,7 +2370,7 @@ fetch_agents_template() {
                 printf '%s\n' "$content"
                 return 0
             else
-                echo "Warning: 'curl' not available; cannot fetch remote template." >&2
+                echo "Warning: Neither 'sv' nor 'curl' is available; cannot fetch remote template." >&2
                 return 1
             fi
             ;;
@@ -2451,6 +3038,37 @@ _catalog_resolve_token() {
     return 1
 }
 
+_catalog_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 _catalog_detect_forge_and_slug() {
     _url="$1"
     if [ -z "$_url" ]; then
@@ -2911,7 +3529,7 @@ _catalog_sync_remote() {
                 fi
                 _payload="${_payload}}"
 
-                _res=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+                _res=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PATCH \
                     -H "Authorization: token ${_token}" \
                     -H "Content-Type: application/json" \
                     -H "Accept: application/json" \
@@ -2929,7 +3547,7 @@ _catalog_sync_remote() {
                 done
                 _top_payload="{\"topics\":[${_topics_arr}]}"
 
-                _res_top=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
+                _res_top=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PUT \
                     -H "Authorization: token ${_token}" \
                     -H "Content-Type: application/json" \
                     -H "Accept: application/json" \
@@ -2976,7 +3594,7 @@ _catalog_sync_remote() {
                     [ -n "$_esc_web" ] && _payload="${_payload},\"homepage\":\"${_esc_web}\""
                     _payload="${_payload}}"
 
-                    _res=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH \
+                    _res=$(_catalog_http -s -o /dev/null -w "%{http_code}" -X PATCH \
                         -H "Authorization: token ${_token}" \
                         -H "Accept: application/vnd.github+json" \
                         -H "User-Agent: CCCP-Catalog/1.0" \
@@ -3240,6 +3858,37 @@ _diva_resolve_forge_token() {
     return 1
 }
 
+_diva_http() {
+    if [ -n "${CCCP_HTTP_CLIENT:-}" ]; then
+        "$CCCP_HTTP_CLIENT" "$@"
+        return $?
+    fi
+    case "$(type sv 2>/dev/null)" in
+        *function*)
+            sv "$@"
+            return $?
+            ;;
+    esac
+    case "$(type curl 2>/dev/null)" in
+        *function*)
+            curl "$@"
+            return $?
+            ;;
+    esac
+
+    if command -v _cccp_http >/dev/null 2>&1; then
+        _cccp_http "$@"
+    elif command -v sv >/dev/null 2>&1; then
+        sv "$@"
+    elif command -v svyaz >/dev/null 2>&1; then
+        svyaz "$@"
+    elif command -v curl >/dev/null 2>&1; then
+        curl "$@"
+    else
+        return 127
+    fi
+}
+
 _diva_resolve_editor() {
     [ -n "${DIVA_EDITOR:-}" ] && { printf '%s\n' "$DIVA_EDITOR"; return 0; }
 
@@ -3279,6 +3928,14 @@ _diva_resolve_editor() {
     if command -v kvant >/dev/null 2>&1; then
         printf 'kvant\n'
         return 0
+    fi
+    if command -v _cccp_ensure_comrade >/dev/null 2>&1; then
+        if _cccp_ensure_comrade "kv" 0 >&2; then
+            if command -v kv >/dev/null 2>&1; then
+                printf 'kv\n'
+                return 0
+            fi
+        fi
     fi
 
     # 5. Fallback to standard POSIX editor
@@ -3572,7 +4229,7 @@ EOF
 
     _url="https://generativelanguage.googleapis.com/v1beta/models/${_model}:generateContent?key=${_api_key}"
 
-    _res=$(curl -s -f -X POST \
+    _res=$(_diva_http -s -f -X POST \
         -H "Content-Type: application/json" \
         -d "$_req_body" \
         "$_url" 2>/dev/null || true)
@@ -3818,7 +4475,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -3849,7 +4506,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -3887,7 +4544,7 @@ _diva_present_and_dispatch() {
                             _esc_b=$(_diva_escape_json "$_body")
                             _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                            _post_res=$(curl -s -X POST \
+                            _post_res=$(_diva_http -s -X POST \
                                 -H "Authorization: token ${_token}" \
                                 -H "Content-Type: application/json" \
                                 -H "Accept: application/json" \
@@ -3919,7 +4576,7 @@ _diva_present_and_dispatch() {
                                 if [ -n "$_token" ]; then
                                     _esc_t=$(_diva_escape_json "$_title")
                                     _esc_b=$(_diva_escape_json "$_body")
-                                    _post_res=$(curl -s -X POST \
+                                    _post_res=$(_diva_http -s -X POST \
                                         -H "Authorization: token ${_token}" \
                                         -H "Content-Type: application/json" \
                                         -H "Accept: application/vnd.github+json" \
@@ -4318,7 +4975,13 @@ install_global_binary() {
     if [ -z "$source_bin" ] || [ ! -f "$source_bin" ]; then
         tmp_download="$(mktemp)"
         update_url="${UPDATE_URL:-https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh}"
-        if command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_http >/dev/null 2>&1; then
+            _cccp_http -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v sv >/dev/null 2>&1; then
+            sv -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v svyaz >/dev/null 2>&1; then
+            svyaz -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v curl >/dev/null 2>&1; then
             curl -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
         elif command -v wget >/dev/null 2>&1; then
             wget -q "$update_url" -O "$tmp_download" 2>/dev/null || true
@@ -5699,6 +6362,27 @@ show_help() {
             echo "  $0 diva --dry-run 'Various bug reports from support inbox...'"
             echo "  $0 diva config AIzaSy..."
             ;;
+        "comrades"|"camaradas"|"comrade")
+            echo "cccp.sh comrades - Gosplan Micro Tools Manager (Kvant & Svyaz)"
+            echo "=============================================================="
+            echo ""
+            echo "Manages, auto-recruits, and updates the dedicated minimalist micro-stack:"
+            echo "  - kv (Kvant): Pure Rust micro terminal text editor with full keyboard navigation"
+            echo "  - sv (Svyaz): Pure Rust micro HTTP/HTTPS client with built-in Rustls"
+            echo ""
+            echo "Usage:"
+            echo "  $0 comrades [subcommand]"
+            echo ""
+            echo "Subcommands:"
+            echo "  status               Inspect presence, location, and version of kv and sv"
+            echo "  install [all|kv|sv]  Download and install comrade binaries to ~/.local/bin"
+            echo "  update               Update installed comrades to the latest nightly release"
+            echo ""
+            echo "Examples:"
+            echo "  $0 comrades status"
+            echo "  $0 comrades install"
+            echo "  $0 comrades update"
+            ;;
         *)
             echo "Git Conventional Commits Helper Script"
             echo "====================================="
@@ -5727,6 +6411,7 @@ show_help() {
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  catalog [options]  Inventory workspaces, update .git/description and sync forges"
             echo "  diva, divan        Gemini-powered issue triage bot with multi-forge dispatch"
+            echo "  comrades [status]  Manage micro ecosystem tools (kvant editor and svyaz HTTP client)"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
             echo "  check-update       Inspect remote version, release channel, and pin status"
@@ -6711,8 +7396,8 @@ check_auto_update() {
         return 0
     fi
 
-    # Require curl or wget
-    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    # Require HTTP client (sv, svyaz, curl or wget)
+    if ! command -v _cccp_http >/dev/null 2>&1 && ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
         return 0
     fi
 
@@ -6746,7 +7431,13 @@ check_auto_update() {
         fi
 
         response=""
-        if command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_http >/dev/null 2>&1; then
+            response=$(_cccp_http -s "$ver_url" 2>/dev/null || true)
+        elif command -v sv >/dev/null 2>&1; then
+            response=$(sv -s "$ver_url" 2>/dev/null || true)
+        elif command -v svyaz >/dev/null 2>&1; then
+            response=$(svyaz -s "$ver_url" 2>/dev/null || true)
+        elif command -v curl >/dev/null 2>&1; then
             response=$(curl -s --max-time 2 "$ver_url" 2>/dev/null || true)
         elif command -v wget >/dev/null 2>&1; then
             response=$(wget -q -T 2 -O- "$ver_url" 2>/dev/null || true)
@@ -6822,7 +7513,13 @@ cmd_check_update() {
     fi
 
     response=""
-    if command -v curl >/dev/null 2>&1; then
+    if command -v _cccp_http >/dev/null 2>&1; then
+        response=$(_cccp_http -s "$ver_url" 2>/dev/null || true)
+    elif command -v sv >/dev/null 2>&1; then
+        response=$(sv -s "$ver_url" 2>/dev/null || true)
+    elif command -v svyaz >/dev/null 2>&1; then
+        response=$(svyaz -s "$ver_url" 2>/dev/null || true)
+    elif command -v curl >/dev/null 2>&1; then
         response=$(curl -s --max-time 3 "$ver_url" 2>/dev/null || true)
     elif command -v wget >/dev/null 2>&1; then
         response=$(wget -q -T 3 -O- "$ver_url" 2>/dev/null || true)
@@ -6893,6 +7590,14 @@ update_script() {
             --unpin|-u)
                 do_unpin=1
                 shift 1
+                ;;
+            --comrades)
+                if command -v cmd_comrades >/dev/null 2>&1; then
+                    cmd_comrades "update"
+                    return $?
+                fi
+                echo "Error: Comrades module not available." >&2
+                return 1
                 ;;
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
@@ -6979,7 +7684,28 @@ update_script() {
 
     tmp_file="$(mktemp)"
     downloaded=0
-    if command -v curl >/dev/null 2>&1; then
+    if command -v _cccp_http >/dev/null 2>&1; then
+        if _cccp_http -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && _cccp_http -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v sv >/dev/null 2>&1; then
+        if sv -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && sv -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v svyaz >/dev/null 2>&1; then
+        if svyaz -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && svyaz -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v curl >/dev/null 2>&1; then
         if curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
             downloaded=1
         elif [ -n "$fallback_url" ] && curl -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
@@ -6994,7 +7720,7 @@ update_script() {
             downloaded=1
         fi
     else
-        echo "Error: Neither curl nor wget is available." >&2
+        echo "Error: Neither svyaz, curl nor wget is available." >&2
         rm -f "$tmp_file"
         return 1
     fi
@@ -7030,6 +7756,15 @@ EOF
     fi
 
     echo "Successfully updated cccp at: $target"
+
+    if command -v cmd_comrades >/dev/null 2>&1; then
+        _bdir=$(_cccp_get_bin_dir 2>/dev/null || true)
+        if [ -n "$_bdir" ] && { [ -x "${_bdir}/kv" ] || [ -x "${_bdir}/sv" ]; }; then
+            echo ""
+            cmd_comrades "update" || true
+        fi
+    fi
+
     return 0
 }
 
@@ -8040,6 +8775,11 @@ main() {
             cmd_diva "$@"
             exit 0
             ;;
+        "comrades"|"camaradas"|"comrade")
+            shift || true
+            cmd_comrades "$@"
+            exit 0
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0
@@ -8049,7 +8789,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

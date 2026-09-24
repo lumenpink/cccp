@@ -88,8 +88,8 @@ check_auto_update() {
         return 0
     fi
 
-    # Require curl or wget
-    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    # Require HTTP client (sv, svyaz, curl or wget)
+    if ! command -v _cccp_http >/dev/null 2>&1 && ! command -v sv >/dev/null 2>&1 && ! command -v svyaz >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
         return 0
     fi
 
@@ -123,7 +123,13 @@ check_auto_update() {
         fi
 
         response=""
-        if command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_http >/dev/null 2>&1; then
+            response=$(_cccp_http -s "$ver_url" 2>/dev/null || true)
+        elif command -v sv >/dev/null 2>&1; then
+            response=$(sv -s "$ver_url" 2>/dev/null || true)
+        elif command -v svyaz >/dev/null 2>&1; then
+            response=$(svyaz -s "$ver_url" 2>/dev/null || true)
+        elif command -v curl >/dev/null 2>&1; then
             response=$(curl -s --max-time 2 "$ver_url" 2>/dev/null || true)
         elif command -v wget >/dev/null 2>&1; then
             response=$(wget -q -T 2 -O- "$ver_url" 2>/dev/null || true)
@@ -202,7 +208,13 @@ cmd_check_update() {
     fi
 
     response=""
-    if command -v curl >/dev/null 2>&1; then
+    if command -v _cccp_http >/dev/null 2>&1; then
+        response=$(_cccp_http -s "$ver_url" 2>/dev/null || true)
+    elif command -v sv >/dev/null 2>&1; then
+        response=$(sv -s "$ver_url" 2>/dev/null || true)
+    elif command -v svyaz >/dev/null 2>&1; then
+        response=$(svyaz -s "$ver_url" 2>/dev/null || true)
+    elif command -v curl >/dev/null 2>&1; then
         response=$(curl -s --max-time 3 "$ver_url" 2>/dev/null || true)
     elif command -v wget >/dev/null 2>&1; then
         response=$(wget -q -T 3 -O- "$ver_url" 2>/dev/null || true)
@@ -276,6 +288,14 @@ update_script() {
             --unpin|-u)
                 do_unpin=1
                 shift 1
+                ;;
+            --comrades)
+                if command -v cmd_comrades >/dev/null 2>&1; then
+                    cmd_comrades "update"
+                    return $?
+                fi
+                echo "Error: Comrades module not available." >&2
+                return 1
                 ;;
             -h|--help)
                 if command -v show_help >/dev/null 2>&1; then
@@ -362,7 +382,28 @@ update_script() {
 
     tmp_file="$(mktemp)"
     downloaded=0
-    if command -v curl >/dev/null 2>&1; then
+    if command -v _cccp_http >/dev/null 2>&1; then
+        if _cccp_http -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && _cccp_http -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v sv >/dev/null 2>&1; then
+        if sv -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && sv -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v svyaz >/dev/null 2>&1; then
+        if svyaz -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
+            downloaded=1
+        elif [ -n "$fallback_url" ] && svyaz -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
+            echo "Notice: Downloaded from fallback mirror."
+            downloaded=1
+        fi
+    elif command -v curl >/dev/null 2>&1; then
         if curl -fsSL "$download_url" -o "$tmp_file" 2>/dev/null; then
             downloaded=1
         elif [ -n "$fallback_url" ] && curl -fsSL "$fallback_url" -o "$tmp_file" 2>/dev/null; then
@@ -377,7 +418,7 @@ update_script() {
             downloaded=1
         fi
     else
-        echo "Error: Neither curl nor wget is available." >&2
+        echo "Error: Neither svyaz, curl nor wget is available." >&2
         rm -f "$tmp_file"
         return 1
     fi
@@ -413,5 +454,14 @@ EOF
     fi
 
     echo "Successfully updated cccp at: $target"
+
+    if command -v cmd_comrades >/dev/null 2>&1; then
+        _bdir=$(_cccp_get_bin_dir 2>/dev/null || true)
+        if [ -n "$_bdir" ] && { [ -x "${_bdir}/kv" ] || [ -x "${_bdir}/sv" ]; }; then
+            echo ""
+            cmd_comrades "update" || true
+        fi
+    fi
+
     return 0
 }

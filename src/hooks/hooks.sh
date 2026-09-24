@@ -58,7 +58,13 @@ install_global_binary() {
     if [ -z "$source_bin" ] || [ ! -f "$source_bin" ]; then
         tmp_download="$(mktemp)"
         update_url="${UPDATE_URL:-https://github.com/lumenpink/cccp.sh/raw/refs/heads/main/cccp.sh}"
-        if command -v curl >/dev/null 2>&1; then
+        if command -v _cccp_http >/dev/null 2>&1; then
+            _cccp_http -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v sv >/dev/null 2>&1; then
+            sv -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v svyaz >/dev/null 2>&1; then
+            svyaz -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
+        elif command -v curl >/dev/null 2>&1; then
             curl -fsSL "$update_url" -o "$tmp_download" 2>/dev/null || true
         elif command -v wget >/dev/null 2>&1; then
             wget -q "$update_url" -O "$tmp_download" 2>/dev/null || true

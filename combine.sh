@@ -128,6 +128,12 @@ printf "# Repository & Forge Resolver Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/repo.sh" >> "$OUTPUT_FILE"
 
+# Add comrades function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Comrades & Unified HTTP Dispatcher Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/comrades.sh" >> "$OUTPUT_FILE"
+
 # Add tickets function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Tickets Functions\n" >> "$OUTPUT_FILE"

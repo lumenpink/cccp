@@ -18,6 +18,14 @@ This document tracks all external (non-POSIX) binary requirements, their usage s
 | `jq` | **Optional** | Performance accelerator for JSON payload extraction in `diva` | Automatic fallback to 100% pure POSIX `sed` / `grep` / parameter expansion |
 | `kv` | **Optional** | Micro terminal text editor in pure Rust with full keyboard navigation (Kvant) for ticket editing in `diva` | Falls back to `kvant`, `$VISUAL`, `$EDITOR`, or POSIX `vi` |
 | `kvant` | **Optional** | Micro terminal text editor in pure Rust with full keyboard navigation for ticket editing in `diva` | Falls back to `$VISUAL`, `$EDITOR`, or POSIX `vi` |
+| `sv` | **Optional** | Micro HTTP/HTTPS client in pure Rust (Svyaz) with built-in Rustls for minimalist environments | Falls back to `svyaz`, `curl`, `wget`, or graceful warning |
+| `svyaz` | **Optional** | Micro HTTP/HTTPS client in pure Rust with built-in Rustls for minimalist environments | Falls back to `sv`, `curl`, `wget`, or graceful warning |
+| `openssl` | **Optional** | Low-level HTTPS TLS bootstrap client (`s_client`) to break downloader loop when curl/wget are missing | Used as ultra-low-level fallback to recruit `sv` |
+| `busybox` | **Optional** | Minimalist multi-call binary containing built-in `wget`, `nc`, `telnet`, `ftpget` applets for embedded/Alpine/OpenWrt environments | Used as fallback downloader if standalone curl/wget are missing |
+| `nc` | **Optional** | Netcat utility for raw HTTP/1.0 socket retrieval in minimalist environments lacking SSL/TLS (e.g. OpenWrt) | Used as 1960s-style bootstrap fallback over HTTP |
+| `telnet` | **Optional** | Telnet client for raw TCP connection and HTTP stream extraction on ultra-retro systems | Used as 1960s ARPANET-style fallback over HTTP |
+| `ftp` | **Optional** | Standard FTP client for legacy unencrypted file transfer | Used as 1970s fallback to retrieve archives from FTP mirrors |
+| `ftpget` | **Optional** | BusyBox FTP retrieval applet for embedded routers and constrained environments | Used as lightweight FTP fallback when mirror is on FTP |
 
 ## 2. Banned Utilities (Gosplan Directives)
 
