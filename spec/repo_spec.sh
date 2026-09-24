@@ -251,6 +251,23 @@ Describe 'repo.sh repository and remote resolver'
       The output should eq "env-token-12345"
     End
 
+    It 'resolves forgejo token from FORGEJO_TOKEN environment variable'
+      export FORGEJO_TOKEN="forgejo-env-token-777"
+      When call resolve_forge_token "forgejo"
+      unset FORGEJO_TOKEN
+      The status should be success
+      The output should eq "forgejo-env-token-777"
+    End
+
+    It 'resolves forgejo token with codeberg fallback when FORGEJO_TOKEN unset'
+      export CODEBERG_TOKEN="codeberg-fallback-token-888"
+      unset FORGEJO_TOKEN || true
+      When call resolve_forge_token "forgejo"
+      unset CODEBERG_TOKEN
+      The status should be success
+      The output should eq "codeberg-fallback-token-888"
+    End
+
     It 'resolves token from .env file'
       echo "CODEBERG_TOKEN=from-dotenv-999" > "$TEST_DIR/.env"
       When call resolve_forge_token "codeberg"
@@ -268,7 +285,7 @@ Describe 'repo.sh repository and remote resolver'
     End
 
     It 'returns failure for unknown forge or missing token'
-      unset CODEBERG_TOKEN GITHUB_TOKEN GITLAB_TOKEN SOURCEHUT_TOKEN TILDEGIT_TOKEN || true
+      unset CODEBERG_TOKEN FORGEJO_TOKEN GITHUB_TOKEN GITLAB_TOKEN SOURCEHUT_TOKEN TILDEGIT_TOKEN || true
       When call resolve_forge_token "unknown-forge"
       The status should be failure
     End

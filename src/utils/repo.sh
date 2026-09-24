@@ -325,35 +325,35 @@ get_tea_token() {
 # -----------------------------------------------------------------------------
 resolve_forge_token() {
     _forge="$1"
-    _env_var=""
-    _cfg_k=""
+    _keys=""
 
     case "$_forge" in
-        codeberg|forgejo)
+        forgejo)
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
             [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            _env_var="CODEBERG_TOKEN"
-            _cfg_k="codeberg_token"
+            _keys="forgejo_token FORGEJO_TOKEN codeberg_token CODEBERG_TOKEN"
+            ;;
+        codeberg)
+            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+            _keys="codeberg_token CODEBERG_TOKEN forgejo_token FORGEJO_TOKEN"
             ;;
         tildegit)
             [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _env_var="TILDEGIT_TOKEN"
-            _cfg_k="tildegit_token"
+            _keys="tildegit_token TILDEGIT_TOKEN"
             ;;
         github)
             [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
             [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            _env_var="GITHUB_TOKEN"
-            _cfg_k="github_token"
+            _keys="github_token GITHUB_TOKEN GH_TOKEN"
             ;;
         gitlab)
             [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
-            _env_var="GITLAB_TOKEN"
-            _cfg_k="gitlab_token"
+            _keys="gitlab_token GITLAB_TOKEN"
             ;;
         sourcehut)
             [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
-            _env_var="SOURCEHUT_TOKEN"
-            _cfg_k="sourcehut_token"
+            _keys="sourcehut_token SOURCEHUT_TOKEN"
             ;;
         *)
             return 1
@@ -362,19 +362,13 @@ resolve_forge_token() {
 
     # 1. Check local and home .env files
     for _env_f in ".env" "${HOME}/.env"; do
-        if [ -f "$_env_f" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                if _tok=$(read_file_key "$_env_f" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+        if [ -f "$_env_f" ] && command -v read_file_key >/dev/null 2>&1; then
+            for _k in $_keys; do
+                if _tok=$(read_file_key "$_env_f" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
                     printf '%s\n' "$_tok"
                     return 0
                 fi
-                if [ -n "$_env_var" ]; then
-                    if _tok=$(read_file_key "$_env_f" "$_env_var" 2>/dev/null) && [ -n "$_tok" ]; then
-                        printf '%s\n' "$_tok"
-                        return 0
-                    fi
-                fi
-            fi
+            done
         fi
     done
 
@@ -386,10 +380,12 @@ resolve_forge_token() {
     [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
 
     if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-        if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-            printf '%s\n' "$_tok"
-            return 0
-        fi
+        for _k in $_keys; do
+            if _tok=$(read_file_key "$_local_cfg" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        done
     fi
 
     # 3. Check global config
@@ -400,15 +396,21 @@ resolve_forge_token() {
     [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-        if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-            printf '%s\n' "$_tok"
-            return 0
-        fi
+        for _k in $_keys; do
+            if _tok=$(read_file_key "$_global_cfg" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        done
     fi
 
     # 4. Check tea config
     case "$_forge" in
-        codeberg|forgejo|tildegit)
+        forgejo)
+            get_tea_token "forgejo" && return 0
+            get_tea_token "codeberg" && return 0
+            ;;
+        codeberg|tildegit)
             get_tea_token "$_forge" && return 0
             ;;
     esac

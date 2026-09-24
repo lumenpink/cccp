@@ -198,6 +198,49 @@ Line 2: second line"
     End
   End
 
+  Describe '_diva_save_draft'
+    It 'saves draft JSON file in .antigravity/diva_drafts/ and ensures gitignore'
+      When call _diva_save_draft "forgejo" "lumenpink" "cccp" "fix(core): critical bug" "Line 1\nLine 2" "bug, core"
+      The status should be success
+      The error should include "Draft salvo em:"
+      The path "$TEST_DIR/.antigravity/diva_drafts" should be directory
+      The contents of file "$TEST_DIR/.gitignore" should include ".antigravity/"
+    End
+  End
+
+  Describe '_diva_present_and_dispatch failure and draft preservation'
+    It 'fails loudly to stderr and saves draft when forge is unsupported'
+      sample_tickets='{"tickets":[{"title":"fix: unhandled forge","body":"body text","labels":["bug"]}]}'
+      test_unsupported_forge() {
+        _diva_present_and_dispatch "$sample_tickets" "unsupported_forge" "org" "repo" 0 "example.com" <<EOF
+y
+EOF
+      }
+      When call test_unsupported_forge
+      The status should be success
+      The output should include "Sessão concluída. 0 ticket(s) publicado(s)."
+      The error should include "não suportada para publicação automática"
+      The error should include "Draft salvo em:"
+      The path "$TEST_DIR/.antigravity/diva_drafts" should be directory
+    End
+
+    It 'fails loudly to stderr and saves draft when forgejo token is missing'
+      unset FORGEJO_TOKEN CODEBERG_TOKEN || true
+      sample_tickets='{"tickets":[{"title":"fix: forgejo test","body":"body text","labels":["bug"]}]}'
+      test_forgejo_no_token() {
+        _diva_present_and_dispatch "$sample_tickets" "forgejo" "lumenpink" "cccp" 0 "git.lumenpink.com" <<EOF
+y
+EOF
+      }
+      When call test_forgejo_no_token
+      The status should be success
+      The output should include "Sessão concluída. 0 ticket(s) publicado(s)."
+      The error should include "Token para Forgejo (git.lumenpink.com) não encontrado"
+      The error should include "Draft salvo em:"
+      The path "$TEST_DIR/.antigravity/diva_drafts" should be directory
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/diva.sh'
       test_awk() {

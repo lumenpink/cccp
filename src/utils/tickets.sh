@@ -38,11 +38,14 @@ resolve_tickets_info() {
     if [ -n "$resolved_provider" ] && [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
         case "$resolved_provider" in
             github) resolved_host="github.com" ;;
-            codeberg|forgejo) resolved_host="codeberg.org" ;;
+            forgejo|codeberg) resolved_host="${resolved_host:-}" ;;
             gitlab) resolved_host="framagit.org" ;;
             sourcehut) resolved_host="git.sr.ht" ;;
-            *) resolved_host="codeberg.org" ;;
+            *) resolved_host="" ;;
         esac
+        if [ -z "$resolved_host" ] && [ "$resolved_provider" = "forgejo" ]; then
+            printf 'Warning: forgejo provider requires --host or a git remote to detect the instance URL.\n' >&2
+        fi
         echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
         return 0
     fi
@@ -69,14 +72,21 @@ resolve_tickets_info() {
             if [ -n "${GITHUB_OWNER:-}" ] || [ -n "${GITHUB_REPO:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
                 resolved_provider="github"
                 resolved_host="github.com"
-            else
+            elif [ -n "${CODEBERG_OWNER:-}" ] || [ -n "${CODEBERG_REPO:-}" ] || [ -n "${CODEBERG_TOKEN:-}" ]; then
                 resolved_provider="forgejo"
                 resolved_host="codeberg.org"
+            elif [ -n "${FORGEJO_OWNER:-}" ] || [ -n "${FORGEJO_REPO:-}" ] || [ -n "${FORGEJO_TOKEN:-}" ] || [ -n "${FORGEJO_HOST:-}" ]; then
+                resolved_provider="forgejo"
+                resolved_host="${FORGEJO_HOST:-}"
+            else
+                resolved_provider="forgejo"
+                resolved_host="${resolved_host:-}"
             fi
         else
             case "$resolved_provider" in
                 github) resolved_host="${resolved_host:-github.com}" ;;
-                codeberg|forgejo) resolved_host="${resolved_host:-codeberg.org}" ;;
+                codeberg) resolved_host="${resolved_host:-codeberg.org}" ;;
+                forgejo) resolved_host="${resolved_host:-${FORGEJO_HOST:-}}" ;;
                 gitlab) resolved_host="${resolved_host:-framagit.org}" ;;
                 sourcehut) resolved_host="${resolved_host:-git.sr.ht}" ;;
             esac
@@ -381,10 +391,21 @@ cmd_tickets() {
     if [ -z "$host" ]; then
         case "$provider" in
             github) host="github.com" ;;
-            forgejo) host="codeberg.org" ;;
+            forgejo)
+                if [ -n "${FORGEJO_HOST:-}" ]; then
+                    host="$FORGEJO_HOST"
+                elif [ -n "${CODEBERG_OWNER:-}" ] || [ -n "${CODEBERG_REPO:-}" ] || [ -n "${CODEBERG_TOKEN:-}" ]; then
+                    host="codeberg.org"
+                else
+                    echo "Warning: Forgejo instance host not specified. Please provide --host or configure git remote." >&2
+                fi
+                ;;
             gitlab) host="framagit.org" ;;
             sourcehut) host="git.sr.ht" ;;
-            *) host="codeberg.org" ;;
+            *)
+                echo "Warning: Unsupported provider '${provider}'." >&2
+                return 0
+                ;;
         esac
     fi
 
@@ -431,8 +452,13 @@ cmd_tickets() {
                 echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
             fi
             _cur_token="${cli_token:-}"
-            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
-            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
+            if [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1; then
+                _cur_token=$(resolve_forge_token "forgejo" 2>/dev/null || true)
+                if [ -z "$_cur_token" ] && [ "$host" = "codeberg.org" ]; then
+                    _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
+                fi
+            fi
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${FORGEJO_TOKEN:-${CODEBERG_TOKEN:-}}}") || fetch_status=$?
             ;;
         gitlab)
             if [ "$host" = "framagit.org" ]; then

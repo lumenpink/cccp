@@ -1079,35 +1079,35 @@ get_tea_token() {
 
 resolve_forge_token() {
     _forge="$1"
-    _env_var=""
-    _cfg_k=""
+    _keys=""
 
     case "$_forge" in
-        codeberg|forgejo)
+        forgejo)
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
             [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            _env_var="CODEBERG_TOKEN"
-            _cfg_k="codeberg_token"
+            _keys="forgejo_token FORGEJO_TOKEN codeberg_token CODEBERG_TOKEN"
+            ;;
+        codeberg)
+            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+            _keys="codeberg_token CODEBERG_TOKEN forgejo_token FORGEJO_TOKEN"
             ;;
         tildegit)
             [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _env_var="TILDEGIT_TOKEN"
-            _cfg_k="tildegit_token"
+            _keys="tildegit_token TILDEGIT_TOKEN"
             ;;
         github)
             [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
             [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
-            _env_var="GITHUB_TOKEN"
-            _cfg_k="github_token"
+            _keys="github_token GITHUB_TOKEN GH_TOKEN"
             ;;
         gitlab)
             [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
-            _env_var="GITLAB_TOKEN"
-            _cfg_k="gitlab_token"
+            _keys="gitlab_token GITLAB_TOKEN"
             ;;
         sourcehut)
             [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
-            _env_var="SOURCEHUT_TOKEN"
-            _cfg_k="sourcehut_token"
+            _keys="sourcehut_token SOURCEHUT_TOKEN"
             ;;
         *)
             return 1
@@ -1116,19 +1116,13 @@ resolve_forge_token() {
 
     # 1. Check local and home .env files
     for _env_f in ".env" "${HOME}/.env"; do
-        if [ -f "$_env_f" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                if _tok=$(read_file_key "$_env_f" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
+        if [ -f "$_env_f" ] && command -v read_file_key >/dev/null 2>&1; then
+            for _k in $_keys; do
+                if _tok=$(read_file_key "$_env_f" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
                     printf '%s\n' "$_tok"
                     return 0
                 fi
-                if [ -n "$_env_var" ]; then
-                    if _tok=$(read_file_key "$_env_f" "$_env_var" 2>/dev/null) && [ -n "$_tok" ]; then
-                        printf '%s\n' "$_tok"
-                        return 0
-                    fi
-                fi
-            fi
+            done
         fi
     done
 
@@ -1140,10 +1134,12 @@ resolve_forge_token() {
     [ -z "$_local_cfg" ] && [ -f ".cccprc" ] && _local_cfg=".cccprc"
 
     if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-        if _tok=$(read_file_key "$_local_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-            printf '%s\n' "$_tok"
-            return 0
-        fi
+        for _k in $_keys; do
+            if _tok=$(read_file_key "$_local_cfg" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        done
     fi
 
     # 3. Check global config
@@ -1154,15 +1150,21 @@ resolve_forge_token() {
     [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
-        if _tok=$(read_file_key "$_global_cfg" "$_cfg_k" 2>/dev/null) && [ -n "$_tok" ]; then
-            printf '%s\n' "$_tok"
-            return 0
-        fi
+        for _k in $_keys; do
+            if _tok=$(read_file_key "$_global_cfg" "$_k" 2>/dev/null) && [ -n "$_tok" ]; then
+                printf '%s\n' "$_tok"
+                return 0
+            fi
+        done
     fi
 
     # 4. Check tea config
     case "$_forge" in
-        codeberg|forgejo|tildegit)
+        forgejo)
+            get_tea_token "forgejo" && return 0
+            get_tea_token "codeberg" && return 0
+            ;;
+        codeberg|tildegit)
             get_tea_token "$_forge" && return 0
             ;;
     esac
@@ -1189,11 +1191,14 @@ resolve_tickets_info() {
     if [ -n "$resolved_provider" ] && [ -n "$resolved_owner" ] && [ -n "$resolved_repo" ]; then
         case "$resolved_provider" in
             github) resolved_host="github.com" ;;
-            codeberg|forgejo) resolved_host="codeberg.org" ;;
+            forgejo|codeberg) resolved_host="${resolved_host:-}" ;;
             gitlab) resolved_host="framagit.org" ;;
             sourcehut) resolved_host="git.sr.ht" ;;
-            *) resolved_host="codeberg.org" ;;
+            *) resolved_host="" ;;
         esac
+        if [ -z "$resolved_host" ] && [ "$resolved_provider" = "forgejo" ]; then
+            printf 'Warning: forgejo provider requires --host or a git remote to detect the instance URL.\n' >&2
+        fi
         echo "$resolved_provider $resolved_owner $resolved_repo $resolved_host"
         return 0
     fi
@@ -1220,14 +1225,21 @@ resolve_tickets_info() {
             if [ -n "${GITHUB_OWNER:-}" ] || [ -n "${GITHUB_REPO:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
                 resolved_provider="github"
                 resolved_host="github.com"
-            else
+            elif [ -n "${CODEBERG_OWNER:-}" ] || [ -n "${CODEBERG_REPO:-}" ] || [ -n "${CODEBERG_TOKEN:-}" ]; then
                 resolved_provider="forgejo"
                 resolved_host="codeberg.org"
+            elif [ -n "${FORGEJO_OWNER:-}" ] || [ -n "${FORGEJO_REPO:-}" ] || [ -n "${FORGEJO_TOKEN:-}" ] || [ -n "${FORGEJO_HOST:-}" ]; then
+                resolved_provider="forgejo"
+                resolved_host="${FORGEJO_HOST:-}"
+            else
+                resolved_provider="forgejo"
+                resolved_host="${resolved_host:-}"
             fi
         else
             case "$resolved_provider" in
                 github) resolved_host="${resolved_host:-github.com}" ;;
-                codeberg|forgejo) resolved_host="${resolved_host:-codeberg.org}" ;;
+                codeberg) resolved_host="${resolved_host:-codeberg.org}" ;;
+                forgejo) resolved_host="${resolved_host:-${FORGEJO_HOST:-}}" ;;
                 gitlab) resolved_host="${resolved_host:-framagit.org}" ;;
                 sourcehut) resolved_host="${resolved_host:-git.sr.ht}" ;;
             esac
@@ -1519,10 +1531,21 @@ cmd_tickets() {
     if [ -z "$host" ]; then
         case "$provider" in
             github) host="github.com" ;;
-            forgejo) host="codeberg.org" ;;
+            forgejo)
+                if [ -n "${FORGEJO_HOST:-}" ]; then
+                    host="$FORGEJO_HOST"
+                elif [ -n "${CODEBERG_OWNER:-}" ] || [ -n "${CODEBERG_REPO:-}" ] || [ -n "${CODEBERG_TOKEN:-}" ]; then
+                    host="codeberg.org"
+                else
+                    echo "Warning: Forgejo instance host not specified. Please provide --host or configure git remote." >&2
+                fi
+                ;;
             gitlab) host="framagit.org" ;;
             sourcehut) host="git.sr.ht" ;;
-            *) host="codeberg.org" ;;
+            *)
+                echo "Warning: Unsupported provider '${provider}'." >&2
+                return 0
+                ;;
         esac
     fi
 
@@ -1569,8 +1592,13 @@ cmd_tickets() {
                 echo "Fetching open issues from Forgejo/Gitea (${owner}/${repo} on ${host})..."
             fi
             _cur_token="${cli_token:-}"
-            [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1 && _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
-            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${CODEBERG_TOKEN:-}}") || fetch_status=$?
+            if [ -z "$_cur_token" ] && command -v resolve_forge_token >/dev/null 2>&1; then
+                _cur_token=$(resolve_forge_token "forgejo" 2>/dev/null || true)
+                if [ -z "$_cur_token" ] && [ "$host" = "codeberg.org" ]; then
+                    _cur_token=$(resolve_forge_token "codeberg" 2>/dev/null || true)
+                fi
+            fi
+            issues_json=$(_tickets_fetch_forgejo "$host" "$owner" "$repo" "${_cur_token:-${FORGEJO_TOKEN:-${CODEBERG_TOKEN:-}}}") || fetch_status=$?
             ;;
         gitlab)
             if [ "$host" = "framagit.org" ]; then
@@ -2812,9 +2840,10 @@ _catalog_sync_remote() {
         fi
 
         case "$_forge" in
-            codeberg|tildegit)
+            codeberg|tildegit|forgejo)
                 _base_url="https://codeberg.org"
                 [ "$_forge" = "tildegit" ] && _base_url="https://tildegit.org"
+                [ "$_forge" = "forgejo" ] && _base_url="https://${FORGEJO_HOST:-codeberg.org}"
 
                 _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                 if [ -z "$_token" ]; then
@@ -3182,6 +3211,42 @@ EOF
     printf '%s' "$_out"
 }
 
+_diva_save_draft() {
+    _d_forge="${1:-unknown}"
+    _d_owner="${2:-}"
+    _d_repo="${3:-}"
+    _d_title="${4:-}"
+    _d_body="${5:-}"
+    _d_labels="${6:-}"
+
+    _d_git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -z "$_d_git_root" ]; then
+        printf '[ERRO] Impossível determinar git root para salvar draft.\n' >&2
+        return 1
+    fi
+
+    _d_dir="${_d_git_root}/.antigravity/diva_drafts"
+    mkdir -p "$_d_dir"
+    if command -v ensure_gitignored >/dev/null 2>&1; then
+        ensure_gitignored ".antigravity/"
+    fi
+
+    _d_ts=$(date +%Y%m%d_%H%M%S 2>/dev/null || printf 'unknown')
+    _d_slug=$(printf '%s_%s_%s' "$_d_forge" "$_d_owner" "$_d_repo" | tr '/' '_')
+    _d_file="${_d_dir}/${_d_ts}_${_d_slug}.json"
+
+    _d_esc_title=$(_diva_escape_json "$_d_title")
+    _d_esc_body=$(_diva_escape_json "$_d_body")
+    _d_esc_labels=$(_diva_escape_json "$_d_labels")
+
+    printf '{"forge":"%s","owner":"%s","repo":"%s","title":"%s","body":"%s","labels":"%s","saved_at":"%s"}\n' \
+        "$_d_forge" "$_d_owner" "$_d_repo" \
+        "$_d_esc_title" "$_d_esc_body" "$_d_esc_labels" \
+        "$_d_ts" > "$_d_file"
+
+    printf '  ⚠️  Draft salvo em: %s\n' "$_d_file" >&2
+}
+
 _diva_call_gemini() {
     _api_key="$1"
     _model="$2"
@@ -3317,6 +3382,7 @@ _diva_present_and_dispatch() {
     _owner="$3"
     _repo="$4"
     _dry_run="${5:-0}"
+    _host="${6:-}"
 
     _count=0
     if command -v jq >/dev/null 2>&1; then
@@ -3401,19 +3467,19 @@ _diva_present_and_dispatch() {
                 _issue_url=""
 
                 case "$_forge" in
-                    codeberg|tildegit)
+                    codeberg)
                         _base_url="https://codeberg.org"
-                        [ "$_forge" = "tildegit" ] && _base_url="https://tildegit.org"
 
                         _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
                         if [ -z "$_token" ]; then
-                            echo "  [ERRO] Token da forja ${_forge} não encontrado. Não foi possível publicar."
+                            printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             _idx=$((_idx + 1))
                             continue
                         fi
 
-                        _esc_t=$(printf '%s' "$_title" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                        _esc_b=$(printf '%s' "$_body" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' ')
+                        _esc_t=$(_diva_escape_json "$_title")
+                        _esc_b=$(_diva_escape_json "$_body")
                         _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
                         _post_res=$(curl -s -X POST \
@@ -3430,8 +3496,84 @@ _diva_present_and_dispatch() {
                             echo "  ✅ Criado: ${_issue_url}"
                             _created_count=$((_created_count + 1))
                         else
-                            echo "  ✅ Issue enviada para ${_forge}."
+                            printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                        fi
+                        ;;
+
+                    tildegit)
+                        _base_url="https://tildegit.org"
+
+                        _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                        if [ -z "$_token" ]; then
+                            printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            _idx=$((_idx + 1))
+                            continue
+                        fi
+
+                        _esc_t=$(_diva_escape_json "$_title")
+                        _esc_b=$(_diva_escape_json "$_body")
+                        _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
+
+                        _post_res=$(curl -s -X POST \
+                            -H "Authorization: token ${_token}" \
+                            -H "Content-Type: application/json" \
+                            -H "Accept: application/json" \
+                            -d "$_issue_payload" \
+                            "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+
+                        if command -v jq >/dev/null 2>&1; then
+                            _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                        fi
+                        if [ -n "$_issue_url" ]; then
+                            echo "  ✅ Criado: ${_issue_url}"
                             _created_count=$((_created_count + 1))
+                        else
+                            printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                        fi
+                        ;;
+
+                    forgejo)
+                        # Generic Forgejo/Gitea instance — API identical to Codeberg.
+                        # Use the host detected from the git remote.
+                        if [ -z "$_host" ]; then
+                            printf '  [ERRO] Host da instância Forgejo não detectado. Não é possível publicar.\n' >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            _idx=$((_idx + 1))
+                            continue
+                        fi
+                        _base_url="https://${_host}"
+
+                        _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                        if [ -z "$_token" ]; then
+                            printf '  [ERRO] Token para Forgejo (%s) não encontrado. Configure FORGEJO_TOKEN ou forgejo_token no .cccprc.\n' "$_host" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            _idx=$((_idx + 1))
+                            continue
+                        fi
+
+                        _esc_t=$(_diva_escape_json "$_title")
+                        _esc_b=$(_diva_escape_json "$_body")
+                        _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
+
+                        _post_res=$(curl -s -X POST \
+                            -H "Authorization: token ${_token}" \
+                            -H "Content-Type: application/json" \
+                            -H "Accept: application/json" \
+                            -d "$_issue_payload" \
+                            "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+
+                        if command -v jq >/dev/null 2>&1; then
+                            _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                        fi
+                        if [ -n "$_issue_url" ]; then
+                            echo "  ✅ Criado: ${_issue_url}"
+                            _created_count=$((_created_count + 1))
+                        else
+                            printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                         fi
                         ;;
 
@@ -3441,27 +3583,41 @@ _diva_present_and_dispatch() {
                             if [ -n "$_gh_url" ]; then
                                 echo "  ✅ Criado: ${_gh_url}"
                                 _created_count=$((_created_count + 1))
+                            else
+                                printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             fi
                         else
                             _token=$(_diva_resolve_forge_token "github" 2>/dev/null || true)
                             if [ -n "$_token" ]; then
-                                _esc_t=$(printf '%s' "$_title" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                                _esc_b=$(printf '%s' "$_body" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' ')
+                                _esc_t=$(_diva_escape_json "$_title")
+                                _esc_b=$(_diva_escape_json "$_body")
                                 _post_res=$(curl -s -X POST \
                                     -H "Authorization: token ${_token}" \
                                     -H "Content-Type: application/json" \
                                     -H "Accept: application/vnd.github+json" \
                                     -d "{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}" \
                                     "https://api.github.com/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-                                echo "  ✅ Issue enviada para GitHub."
-                                _created_count=$((_created_count + 1))
+                                if command -v jq >/dev/null 2>&1; then
+                                    _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                                fi
+                                if [ -n "$_issue_url" ]; then
+                                    echo "  ✅ Criado: ${_issue_url}"
+                                    _created_count=$((_created_count + 1))
+                                else
+                                    printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
+                                    _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                fi
                             else
-                                echo "  [ERRO] nem 'gh' nem GITHUB_TOKEN disponíveis para publicação."
+                                printf '  [ERRO] Nem "gh" CLI nem GITHUB_TOKEN disponíveis para publicação no GitHub.\n' >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             fi
                         fi
                         ;;
+
                     *)
-                        echo "  [INFO] Publicação automática não suportada para ${_forge}."
+                        printf '  [ERRO] Forja "%s" não suportada para publicação automática.\n' "$_forge" >&2
+                        _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                         ;;
                 esac
                 ;;
@@ -3589,7 +3745,7 @@ cmd_diva() {
     if [ -n "$_custom_repo" ]; then
         _owner=$(printf '%s' "$_custom_repo" | cut -d'/' -f1)
         _repo=$(printf '%s' "$_custom_repo" | cut -d'/' -f2)
-        _forge="codeberg"
+        _forge="forgejo"
     else
         if _finfo=$(_diva_resolve_forge 2>/dev/null); then
             _forge=$(printf '%s' "$_finfo" | cut -d' ' -f1)
@@ -3639,7 +3795,7 @@ cmd_diva() {
         return 1
     fi
 
-    _diva_present_and_dispatch "$_tickets_json" "$_forge" "$_owner" "$_repo" "$_dry_run"
+    _diva_present_and_dispatch "$_tickets_json" "$_forge" "$_owner" "$_repo" "$_dry_run" "$_host"
 }
 
 cmd_divan() {

@@ -2,7 +2,8 @@
 
 ## [Unreleased]
 
-- Routine maintenance, documentation updates, and operational improvements.
+### Bug Fixes
+  - (diva,tickets) suporte a forgejo, persistencia de drafts e correcao de hosts hardcoded
 
 ## Previous Releases
 

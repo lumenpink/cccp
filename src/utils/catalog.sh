@@ -497,9 +497,10 @@ _catalog_sync_remote() {
         fi
 
         case "$_forge" in
-            codeberg|tildegit)
+            codeberg|tildegit|forgejo)
                 _base_url="https://codeberg.org"
                 [ "$_forge" = "tildegit" ] && _base_url="https://tildegit.org"
+                [ "$_forge" = "forgejo" ] && _base_url="https://${FORGEJO_HOST:-codeberg.org}"
 
                 _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                 if [ -z "$_token" ]; then
