@@ -298,6 +298,61 @@ EOF
       The output should include "edited body via mock editor"
       The output should include "Criado: https://codeberg.org/lumenpink/cccp/issues/100"
     End
+
+    It 'allows editing ticket body using kv when present in PATH'
+      sample_tickets='{"tickets":[{"title":"fix: kv test","body":"original body","labels":["bug"]}]}'
+      export CODEBERG_TOKEN="fake-token"
+      unset VISUAL EDITOR DIVA_EDITOR || true
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/kv" << 'EOF'
+#!/bin/sh
+echo "edited body via kv editor" > "$1"
+EOF
+      chmod +x "$TEST_DIR/bin/kv"
+      export PATH="$TEST_DIR/bin:$PATH"
+
+      curl() {
+        printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/101"}\n'
+      }
+      test_edit_kv() {
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" <<'EOF'
+b
+y
+EOF
+      }
+      When call test_edit_kv
+      The status should be success
+      The output should include "Abrindo editor (kv)"
+      The output should include "Corpo atualizado."
+      The output should include "edited body via kv editor"
+      The output should include "Criado: https://codeberg.org/lumenpink/cccp/issues/101"
+    End
+  End
+
+  Describe '_diva_resolve_editor'
+    It 'prioritizes DIVA_EDITOR environment variable'
+      export DIVA_EDITOR="custom_editor"
+      When call _diva_resolve_editor
+      The status should be success
+      The output should eq "custom_editor"
+    End
+
+    It 'reads diva_editor from .cccprc when DIVA_EDITOR is unset'
+      unset DIVA_EDITOR || true
+      echo "diva_editor = my_preferred_editor" > "$TEST_DIR/.cccprc"
+      When call _diva_resolve_editor
+      The status should be success
+      The output should eq "my_preferred_editor"
+    End
+
+    It 'falls back to VISUAL or EDITOR when no diva config exists'
+      unset DIVA_EDITOR || true
+      rm -f "$TEST_DIR/.cccprc"
+      export VISUAL="my_visual_editor"
+      When call _diva_resolve_editor
+      The status should be success
+      The output should eq "my_visual_editor"
+    End
   End
 
   Describe '_diva_resolve_custom_repo'

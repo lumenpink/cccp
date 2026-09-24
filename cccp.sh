@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.3+20260923.4f9c0b0"
+CCCP_VERSION="2.4.0-dev.4+20260923.f8c7ea6"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3189,6 +3189,56 @@ _diva_resolve_forge_token() {
     return 1
 }
 
+_diva_resolve_editor() {
+    [ -n "${DIVA_EDITOR:-}" ] && { printf '%s\n' "$DIVA_EDITOR"; return 0; }
+
+    # 1. Check local .cccprc
+    if command -v get_local_config_file >/dev/null 2>&1; then
+        _lcfg=$(get_local_config_file 2>/dev/null || true)
+        if [ -n "$_lcfg" ] && [ -f "$_lcfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            _e=$(read_file_key "$_lcfg" "diva_editor" 2>/dev/null || true)
+            [ -n "$_e" ] && { printf '%s\n' "$_e"; return 0; }
+        fi
+    fi
+
+    # 2. Check global .cccprc
+    if command -v get_global_config_file >/dev/null 2>&1; then
+        _gcfg=$(get_global_config_file 2>/dev/null || true)
+        if [ -n "$_gcfg" ] && [ -f "$_gcfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            _e=$(read_file_key "$_gcfg" "diva_editor" 2>/dev/null || true)
+            [ -n "$_e" ] && { printf '%s\n' "$_e"; return 0; }
+        fi
+    fi
+
+    # 3. Check VISUAL / EDITOR
+    if [ -n "${VISUAL:-}" ]; then
+        printf '%s\n' "$VISUAL"
+        return 0
+    fi
+    if [ -n "${EDITOR:-}" ]; then
+        printf '%s\n' "$EDITOR"
+        return 0
+    fi
+
+    # 4. Probe dedicated micro-editor with full keyboard navigation: kv / kvant
+    if command -v kv >/dev/null 2>&1; then
+        printf 'kv\n'
+        return 0
+    fi
+    if command -v kvant >/dev/null 2>&1; then
+        printf 'kvant\n'
+        return 0
+    fi
+
+    # 5. Fallback to standard POSIX editor
+    if command -v vi >/dev/null 2>&1; then
+        printf 'vi\n'
+        return 0
+    fi
+
+    return 1
+}
+
 _diva_resolve_custom_repo() {
     _input_repo="$1"
     [ -n "$_input_repo" ] || return 1
@@ -3860,13 +3910,12 @@ _diva_present_and_dispatch() {
                     ;;
 
                 b|body)
-                    _editor="${VISUAL:-${EDITOR:-}}"
-                    [ -z "$_editor" ] && command -v vi >/dev/null 2>&1 && _editor="vi"
+                    _editor=$(_diva_resolve_editor 2>/dev/null || true)
 
                     _tmp_body=$(mktemp 2>/dev/null || printf '/tmp/diva_body_%s_%s.md' "$$" "$_idx")
                     printf '%s\n' "$_body" > "$_tmp_body"
 
-                    if [ -n "$_editor" ] && { [ -t 0 ] || [ -n "${VISUAL:-${EDITOR:-}}" ]; }; then
+                    if [ -n "$_editor" ] && { [ -t 0 ] || [ "$_editor" != "vi" ]; }; then
                         echo "  -> Abrindo editor ($_editor) para editar o corpo do ticket..."
                         if [ -t 0 ] && [ -e /dev/tty ]; then
                             $_editor "$_tmp_body" < /dev/tty > /dev/tty 2>&1 || true

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (diva) integrar editor kvant (kv) para edicao de tickets com navegacao por teclado
   - (llm) permitir rediscutir parametros e refinar triagem com a Gemini no diva
   - (ui) permitir edicao manual de titulo e corpo dos tickets no diva
   - (cli) suportar nome parcial de repositorio na opcao -r do diva

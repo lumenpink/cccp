@@ -16,6 +16,8 @@ This document tracks all external (non-POSIX) binary requirements, their usage s
 | `tea` | **Optional** | Gitea/Codeberg CLI integration and token discovery | Falls back to environment variables (`CODEBERG_TOKEN`), `.cccprc`, or direct config parsing |
 | `gh` | **Optional** | GitHub CLI integration for issue dispatch and token discovery | Falls back to environment variables (`GITHUB_TOKEN`), `.cccprc`, or direct REST API |
 | `jq` | **Optional** | Performance accelerator for JSON payload extraction in `diva` | Automatic fallback to 100% pure POSIX `sed` / `grep` / parameter expansion |
+| `kv` | **Optional** | Micro terminal text editor in pure Rust with full keyboard navigation (Kvant) for ticket editing in `diva` | Falls back to `kvant`, `$VISUAL`, `$EDITOR`, or POSIX `vi` |
+| `kvant` | **Optional** | Micro terminal text editor in pure Rust with full keyboard navigation for ticket editing in `diva` | Falls back to `$VISUAL`, `$EDITOR`, or POSIX `vi` |
 
 ## 2. Banned Utilities (Gosplan Directives)
 
