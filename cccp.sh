@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.6+20260924.e52edeb"
+CCCP_VERSION="2.4.0-dev.11+20260924.eab760e"
 export CCCP_VERSION
 
 # Verify required tools
@@ -4792,6 +4792,16 @@ cmd_diva() {
                     return 1
                 fi
                 ;;
+            --web|-w)
+                shift
+                if command -v cmd_web >/dev/null 2>&1; then
+                    cmd_web "diva" "$@"
+                    return $?
+                else
+                    echo "Error: cccp web module is not loaded." >&2
+                    return 1
+                fi
+                ;;
             --dry-run)
                 _dry_run=1
                 shift
@@ -4925,6 +4935,506 @@ cmd_diva() {
 
 cmd_divan() {
     cmd_diva "$@"
+}
+
+
+# =============================================================================
+# Web Server & Bridge Functions
+# =============================================================================
+_web_generate_token() {
+    if [ -r /dev/urandom ]; then
+        od -vN 16 -An -tx1 /dev/urandom 2>/dev/null | tr -d ' \t\r\n'
+    else
+        printf '%s%s%s\n' "$(date +%s)" "$$" "$RANDOM" | tr -cd '0-9a-zA-Z'
+    fi
+}
+
+_web_export_assets() {
+    _out_dir="$1"
+    _session_token="$2"
+    _listen_port="$3"
+
+    mkdir -p "$_out_dir"
+    chmod 700 "$_out_dir" 2>/dev/null || true
+
+    cat > "$_out_dir/index.html" << EOF
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCCP Web Cockpit — Радиостанция «Маяк»</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☭</text></svg>">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-hover: #1f242c;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --text-bright: #f0f6fc;
+      --red: #da3633;
+      --red-hover: #b62324;
+      --gold: #f1e05a;
+      --green: #238636;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 4rem;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--text-bright);
+    }
+    .brand span.badge {
+      background: var(--red);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+    .session-info {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: var(--bg);
+      padding: 0.35rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    nav {
+      background: #11151c;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      padding: 0 1.5rem;
+      gap: 0.5rem;
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.85rem 1.25rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    nav button:hover {
+      color: var(--text-bright);
+    }
+    nav button.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+    main {
+      max-width: 1000px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 1.3rem;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+    p.desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+    }
+    textarea, input[type="text"], select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-bright);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+    textarea:focus, input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+    .btn {
+      background: var(--red);
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn:hover { background: var(--red-hover); }
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: #282e38;
+      color: var(--text-bright);
+    }
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    pre.terminal {
+      background: #05080c;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #3fb950;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .ticket-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--gold);
+      border-radius: 6px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .ticket-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .badge-type {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: bold;
+      background: #238636;
+      color: #fff;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+    }
+    .branch-hint {
+      background: #1c2128;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--gold);
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    .copy-btn:hover { color: var(--text-bright); border-color: var(--text-bright); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>☭ CCCP Web Cockpit</span>
+      <span class="badge">Маяк Bridge</span>
+    </div>
+    <div class="session-info">
+      Port: <strong>${_listen_port}</strong> | Token: <strong>${_session_token}</strong>
+    </div>
+  </header>
+
+  <nav>
+    <button id="nav-diva" class="active" onclick="switchTab('diva')">🛋️ O Divã (Triage IA)</button>
+    <button id="nav-status" onclick="switchTab('status')">📊 Inspeção do Repositório</button>
+    <button id="nav-tickets" onclick="switchTab('tickets')">📋 Tickets Ativos</button>
+  </nav>
+
+  <main>
+    <!-- TAB 1: O DIVÃ -->
+    <div id="tab-diva" class="tab-content active">
+      <div class="card">
+        <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
+        <p class="desc">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com sugestão de branch GOST.</p>
+        
+        <textarea id="diva-input" rows="4" placeholder="Ex: O botão de login congela quando o token JWT expira no meio de uma requisição assíncrona, exigindo reload da página..."></textarea>
+        
+        <div style="display:flex; gap:0.5rem;">
+          <button id="btn-diva-run" class="btn" onclick="runDiva()">
+            <span>✦ Consultar Divã (IA)</span>
+          </button>
+          <button class="btn btn-secondary" onclick="document.getElementById('diva-input').value = ''">Limpar</button>
+        </div>
+      </div>
+
+      <div id="diva-results"></div>
+    </div>
+
+    <!-- TAB 2: STATUS -->
+    <div id="tab-status" class="tab-content">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h2>📊 Inspeção Gosplan do Repositório</h2>
+          <button class="btn btn-secondary" onclick="loadStatus()">Atualizar Status</button>
+        </div>
+        <pre id="status-output" class="terminal">Carregando status do repositório...</pre>
+      </div>
+    </div>
+
+    <!-- TAB 3: TICKETS -->
+    <div id="tab-tickets" class="tab-content">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h2>📋 Tickets Ativos do Projeto</h2>
+          <button class="btn btn-secondary" onclick="loadTickets()">Sincronizar com Forge</button>
+        </div>
+        <pre id="tickets-output" class="terminal">Carregando tickets...</pre>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const SESSION_TOKEN = new URLSearchParams(window.location.search).get('token') || "${_session_token}";
+
+    async function apiExec(args, stdin = null) {
+      const res = await fetch('/api/exec', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + SESSION_TOKEN,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ args, stdin })
+      });
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status + ': ' + (await res.text()));
+      }
+      return await res.json();
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      document.getElementById('nav-' + name).classList.add('active');
+
+      if (name === 'status') loadStatus();
+      if (name === 'tickets') loadTickets();
+    }
+
+    async function runDiva() {
+      const text = document.getElementById('diva-input').value.trim();
+      if (!text) return alert('Por favor, informe a descrição do problema.');
+
+      const btn = document.getElementById('btn-diva-run');
+      const container = document.getElementById('diva-results');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Analisando com o Divã...';
+      container.innerHTML = '<p style="color:var(--gold);">✦ Consultando o Gosplan & IA...</p>';
+
+      try {
+        const resp = await apiExec(['diva', '--dry-run', text]);
+        if (!resp.ok && resp.exit_code !== 0) {
+          container.innerHTML = '<pre class="terminal" style="color:var(--red);">' + (resp.stderr || resp.stdout) + '</pre>';
+          return;
+        }
+
+        container.innerHTML = '<div class="card"><h2>Resultado da Triagem</h2><pre class="terminal">' + (resp.stdout || 'Nenhum ticket retornado.') + '</pre></div>';
+      } catch (err) {
+        container.innerHTML = '<pre class="terminal" style="color:var(--red);">Erro: ' + err.message + '</pre>';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>✦ Consultar Divã (IA)</span>';
+      }
+    }
+
+    async function loadStatus() {
+      const el = document.getElementById('status-output');
+      el.textContent = 'Carregando status do repositório...';
+      try {
+        const resp = await apiExec(['status']);
+        el.textContent = resp.stdout || resp.stderr || 'Nenhum retorno recebido.';
+      } catch (err) {
+        el.textContent = 'Erro ao consultar status: ' + err.message;
+      }
+    }
+
+    async function loadTickets() {
+      const el = document.getElementById('tickets-output');
+      el.textContent = 'Consultando tickets sincronizados...';
+      try {
+        const resp = await apiExec(['tickets']);
+        el.textContent = resp.stdout || resp.stderr || 'Nenhum ticket encontrado.';
+      } catch (err) {
+        el.textContent = 'Erro ao consultar tickets: ' + err.message;
+      }
+    }
+
+    // Auto-load initial tab from query parameter if present
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab && document.getElementById('tab-' + urlTab)) {
+      switchTab(urlTab);
+    }
+  </script>
+</body>
+</html>
+EOF
+}
+
+cmd_web() {
+    _port=8080
+    _host="127.0.0.1"
+    _open_browser=1
+    _quiet=0
+    _initial_tab="diva"
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -h|--help)
+                echo "cccp web - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
+                echo "================================================================="
+                echo ""
+                echo "Usage:"
+                echo "  cccp web [options] [tab]"
+                echo "  cccp diva --web"
+                echo ""
+                echo "Options:"
+                echo "  -p, --port <port>   Port to listen on (default: 8080, auto-increments if busy)"
+                echo "  --host <ip>         Host address to bind to (default: 127.0.0.1)"
+                echo "  --no-open           Do not automatically open default web browser"
+                echo "  -q, --quiet         Quiet mode (suppress verbose logs)"
+                echo "  -h, --help          Show this help message"
+                echo ""
+                echo "Tabs:"
+                echo "  diva                Open directly on Diva ticket triage cockpit (default)"
+                echo "  status              Open directly on repository inspection"
+                echo "  tickets             Open directly on active tickets list"
+                return 0
+                ;;
+            -p|--port)
+                shift
+                [ $# -gt 0 ] || { echo "Error: --port requires a port argument" >&2; return 1; }
+                _port="$1"
+                ;;
+            --host)
+                shift
+                [ $# -gt 0 ] || { echo "Error: --host requires an IP address argument" >&2; return 1; }
+                _host="$1"
+                ;;
+            --no-open)
+                _open_browser=0
+                ;;
+            -q|--quiet)
+                _quiet=1
+                ;;
+            diva|status|tickets)
+                _initial_tab="$1"
+                ;;
+            *)
+                echo "Error: Unknown option or argument '$1'. Use --help for usage." >&2
+                return 1
+                ;;
+        esac
+        shift
+    done
+
+    # 1. Resolve Mayak comrade binary
+    _mk_bin=$(command -v mk 2>/dev/null || command -v mayak 2>/dev/null || true)
+    if [ -z "$_mk_bin" ]; then
+        if command -v _cccp_ensure_comrade >/dev/null 2>&1; then
+            _cccp_ensure_comrade "mk" "mayak" || {
+                echo "Error: Failed to obtain Comrade Mayak (mk). Install it or place in PATH." >&2
+                return 1
+            }
+            _mk_bin=$(command -v mk 2>/dev/null || command -v mayak 2>/dev/null || true)
+        fi
+    fi
+
+    if [ -z "$_mk_bin" ]; then
+        echo "Error: Comrade Mayak (mk) is required to run the Web Cockpit." >&2
+        echo "Install it via 'cccp comrades' or compile from https://codeberg.org/lumenpink/mayak." >&2
+        return 1
+    fi
+
+    # 2. Resolve CCCP executable for bridge
+    _cccp_bin=$(command -v cccp 2>/dev/null || true)
+    if [ -z "$_cccp_bin" ]; then
+        _cccp_bin="$0"
+    fi
+
+    # 3. Generate session token
+    _token=$(_web_generate_token)
+
+    # 4. Prepare temporary assets
+    _uid=$(id -u 2>/dev/null || echo 1000)
+    _web_dir="${TMPDIR:-/tmp}/cccp-web-${_uid}-$$"
+    _web_export_assets "$_web_dir" "$_token" "$_port"
+
+    trap 'rm -rf "$_web_dir" 2>/dev/null || true' EXIT INT TERM
+
+    # 5. Build Mayak arguments
+    set -- "$_web_dir" -p "$_port" --host "$_host" --bridge "$_cccp_bin" --auth "$_token" --cors
+    if [ "$_open_browser" -eq 1 ]; then
+        set -- "$@" --open
+    fi
+    if [ "$_quiet" -eq 1 ]; then
+        set -- "$@" --quiet
+    fi
+
+    if [ "$_quiet" -eq 0 ]; then
+        echo "★ Iniciando CCCP Web Cockpit via Comrade Mayak (mk) ★"
+        echo "  🔑 Token: $_token"
+        echo "  🌐 URL:   http://${_host}:${_port}/?tab=${_initial_tab}&token=${_token}"
+    fi
+
+    "$_mk_bin" "$@"
 }
 
 
@@ -6349,6 +6859,7 @@ show_help() {
             echo "  echo 'description' | $0 diva"
             echo ""
             echo "Options:"
+            echo "  --web, -w                 Open interactive triage cockpit in web browser"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
             echo "  --model, -m <model>       Gemini model name (default: gemini-3.6-flash)"
             echo "  --temp, -t <val>          Sampling temperature (default: 0.2)"
@@ -6358,9 +6869,38 @@ show_help() {
             echo ""
             echo "Examples:"
             echo "  $0 diva"
+            echo "  $0 diva --web"
             echo "  $0 diva 'Token expiration leads to UI lock and crash on refresh'"
             echo "  $0 diva --dry-run 'Various bug reports from support inbox...'"
             echo "  $0 diva config AIzaSy..."
+            ;;
+        "web")
+            echo "cccp.sh web - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
+            echo "================================================================="
+            echo ""
+            echo "Launches an interactive, zero-overhead web interface powered by Mayak (mk)"
+            echo "acting as a local authenticated Command Bridge for Diva ticket triage and status."
+            echo ""
+            echo "Usage:"
+            echo "  $0 web [options] [tab]"
+            echo "  $0 diva --web"
+            echo ""
+            echo "Options:"
+            echo "  -p, --port <port>   Port to listen on (default: 8080, auto-increments if busy)"
+            echo "  --host <ip>         Host address to bind to (default: 127.0.0.1)"
+            echo "  --no-open           Do not automatically open default web browser"
+            echo "  -q, --quiet         Quiet mode (suppress verbose logs)"
+            echo "  -h, --help          Show this help message"
+            echo ""
+            echo "Tabs:"
+            echo "  diva                Open directly on Diva ticket triage cockpit (default)"
+            echo "  status              Open directly on repository inspection"
+            echo "  tickets             Open directly on active tickets list"
+            echo ""
+            echo "Examples:"
+            echo "  $0 web"
+            echo "  $0 web -p 3000 --no-open"
+            echo "  $0 diva --web"
             ;;
         "comrades"|"camaradas"|"comrade")
             echo "cccp.sh comrades - Gosplan Micro Tools Manager (Kvant & Svyaz)"
@@ -6411,6 +6951,7 @@ show_help() {
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  catalog [options]  Inventory workspaces, update .git/description and sync forges"
             echo "  diva, divan        Gemini-powered issue triage bot with multi-forge dispatch"
+            echo "  web                Interactive Gosplan Web Cockpit via Mayak Command Bridge"
             echo "  comrades [status]  Manage micro ecosystem tools (kvant editor and svyaz HTTP client)"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
@@ -8208,7 +8749,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -8218,6 +8759,20 @@ _cccp_completions() {
 
     local cmd="${COMP_WORDS[1]}"
     case "$cmd" in
+        diva|divan)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--web -w --dry-run --model -m --temp -t --repo -r -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "config" -- "$cur"))
+            fi
+            ;;
+        web)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-p --port --host --no-open -q --quiet -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "diva status tickets" -- "$cur"))
+            fi
+            ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
             case "$prev" in
                 -u|--url|-f|--file)
@@ -8328,6 +8883,11 @@ _cccp() {
         'sync-agents:Generate and synchronize AGENTS.md directives'
         'set-av:Fast shortcut to configure local agent variable'
         'codeberg:Configure Codeberg integration and AGENTS template wizard'
+        'catalog:Inventory workspaces, update .git/description and sync forges'
+        'diva:Gemini-powered issue triage bot with multi-forge dispatch'
+        'divan:Gemini-powered issue triage bot with multi-forge dispatch'
+        'web:Interactive Gosplan Web Cockpit via Mayak Command Bridge'
+        'comrades:Manage micro ecosystem tools (kvant and svyaz)'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -8516,6 +9076,21 @@ complete -c cccp -n "__fish_seen_subcommand_from config" -l local -d "Target loc
 complete -c cccp -n "__fish_seen_subcommand_from config" -s l -l list -d "List configuration key/value pairs"
 complete -c cccp -n "__fish_seen_subcommand_from config" -l unset -d "Remove a configuration key"
 
+# Options for diva
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s w -l web -d "Open interactive triage cockpit in web browser"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -l dry-run -d "Simulate triage without forge publication"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s m -l model -d "Gemini model name"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s t -l temp -d "Sampling temperature"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -s r -l repo -d "Target repository slug"
+complete -c cccp -n "__fish_seen_subcommand_from diva divan" -a "config" -d "Persist GEMINI_API_KEY in .cccprc"
+
+# Options for web
+complete -c cccp -n "__fish_seen_subcommand_from web" -s p -l port -d "Port to listen on"
+complete -c cccp -n "__fish_seen_subcommand_from web" -l host -d "Host address to bind to"
+complete -c cccp -n "__fish_seen_subcommand_from web" -l no-open -d "Do not open browser"
+complete -c cccp -n "__fish_seen_subcommand_from web" -s q -l quiet -d "Quiet mode"
+complete -c cccp -n "__fish_seen_subcommand_from web" -a "diva status tickets"
+
 # Options for completion
 complete -c cccp -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
 EOF
@@ -8629,7 +9204,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"web")
                 check_auto_update || true
                 ;;
         esac
@@ -8775,6 +9350,11 @@ main() {
             cmd_diva "$@"
             exit 0
             ;;
+        "web")
+            shift || true
+            cmd_web "$@"
+            exit 0
+            ;;
         "comrades"|"camaradas"|"comrade")
             shift || true
             cmd_comrades "$@"
@@ -8789,7 +9369,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
