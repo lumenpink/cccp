@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.3.0"
+CCCP_VERSION="2.3.1-dev.1+20260923.f390f24"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3189,6 +3189,178 @@ _diva_resolve_forge_token() {
     return 1
 }
 
+_diva_resolve_custom_repo() {
+    _input_repo="$1"
+    [ -n "$_input_repo" ] || return 1
+
+    # 1. If already in owner/repo format, extract and return
+    case "$_input_repo" in
+        */*)
+            _r_owner=$(printf '%s' "$_input_repo" | cut -d'/' -f1)
+            _r_repo=$(printf '%s' "$_input_repo" | cut -d'/' -f2)
+            _r_forge="forgejo"
+            _r_host=""
+
+            # Check if matching entry exists in catalog to infer forge/host
+            _cat_files=""
+            _d_root=""
+            if command -v get_git_root >/dev/null 2>&1; then
+                _d_root=$(get_git_root 2>/dev/null || true)
+            fi
+            [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+            [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
+            _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+
+            for _cf in $_cat_files; do
+                if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
+                    while IFS="$(printf '\t')" read -r _cn _cf_forge _c_slug _c_lic _c_up _c_web _c_top _c_desc || [ -n "$_cn" ]; do
+                        if [ "$_c_slug" = "$_input_repo" ]; then
+                            _r_forge="$_cf_forge"
+                            break 2
+                        fi
+                    done <<EOF
+$(_catalog_read_existing_json "$_cf" 2>/dev/null || true)
+EOF
+                fi
+            done
+
+            if [ "$_r_forge" = "codeberg" ]; then
+                _r_host="codeberg.org"
+            elif [ "$_r_forge" = "tildegit" ]; then
+                _r_host="tildegit.org"
+            elif [ "$_r_forge" = "github" ]; then
+                _r_host="github.com"
+            fi
+
+            printf '%s %s %s %s\n' "$_r_forge" "$_r_owner" "$_r_repo" "$_r_host"
+            return 0
+            ;;
+    esac
+
+    # 2. Partial name resolution
+    _candidates=""
+
+    # 2a. Search catalog.json
+    _cat_files=""
+    _d_root=""
+    if command -v get_git_root >/dev/null 2>&1; then
+        _d_root=$(get_git_root 2>/dev/null || true)
+    fi
+    [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
+    _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+
+    for _cf in $_cat_files; do
+        if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
+            while IFS="$(printf '\t')" read -r _cn _cf_forge _c_slug _c_lic _c_up _c_web _c_top _c_desc || [ -n "$_cn" ]; do
+                [ -n "$_c_slug" ] || continue
+                _c_r=$(printf '%s' "$_c_slug" | cut -d'/' -f2)
+                if [ "$_cn" = "$_input_repo" ] || [ "$_c_r" = "$_input_repo" ]; then
+                    _c_host_def=""
+                    case "$_cf_forge" in
+                        github) _c_host_def="github.com" ;;
+                        codeberg) _c_host_def="codeberg.org" ;;
+                        tildegit) _c_host_def="tildegit.org" ;;
+                    esac
+                    _cand="${_c_slug}:${_cf_forge}:${_c_host_def}"
+                    case " ${_candidates} " in
+                        *" ${_cand} "*) ;;
+                        *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+                    esac
+                fi
+            done <<EOF
+$(_catalog_read_existing_json "$_cf" 2>/dev/null || true)
+EOF
+        fi
+    done
+
+    # 2b. Search sibling directories
+    if [ -n "$_d_root" ]; then
+        _parent=$(dirname "$_d_root")
+        if [ -d "${_parent}/${_input_repo}/.git" ]; then
+            if _sib_info=$(detect_repo_info "${_parent}/${_input_repo}" 2>/dev/null); then
+                _s_forge=$(printf '%s' "$_sib_info" | cut -d' ' -f1)
+                _s_owner=$(printf '%s' "$_sib_info" | cut -d' ' -f2)
+                _s_repo=$(printf '%s' "$_sib_info" | cut -d' ' -f3)
+                _s_host=$(printf '%s' "$_sib_info" | cut -d' ' -f4)
+                if [ -n "$_s_owner" ] && [ -n "$_s_repo" ]; then
+                    _cand="${_s_owner}/${_s_repo}:${_s_forge}:${_s_host}"
+                    case " ${_candidates} " in
+                        *" ${_cand} "*) ;;
+                        *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+                    esac
+                fi
+            fi
+        fi
+    fi
+
+    # 2c. Check current repo if it matches
+    _cur_owner=""
+    _cur_forge=""
+    _cur_host=""
+    if _cur_info=$(detect_repo_info 2>/dev/null); then
+        _cur_forge=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
+        _cur_owner=$(printf '%s' "$_cur_info" | cut -d' ' -f2)
+        _cur_repo=$(printf '%s' "$_cur_info" | cut -d' ' -f3)
+        _cur_host=$(printf '%s' "$_cur_info" | cut -d' ' -f4)
+        if [ "$_cur_repo" = "$_input_repo" ] && [ -n "$_cur_owner" ]; then
+            _cand="${_cur_owner}/${_cur_repo}:${_cur_forge}:${_cur_host}"
+            case " ${_candidates} " in
+                *" ${_cand} "*) ;;
+                *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+            esac
+        fi
+    fi
+
+    # Count unique candidates
+    _count=0
+    for _c in $_candidates; do
+        _count=$((_count + 1))
+    done
+
+    if [ "$_count" -eq 1 ]; then
+        _c_slug=$(printf '%s' "$_candidates" | cut -d':' -f1)
+        _c_forge=$(printf '%s' "$_candidates" | cut -d':' -f2)
+        _c_host=$(printf '%s' "$_candidates" | cut -d':' -f3)
+        _r_owner=$(printf '%s' "$_c_slug" | cut -d'/' -f1)
+        _r_repo=$(printf '%s' "$_c_slug" | cut -d'/' -f2)
+        [ -z "$_c_forge" ] && _c_forge="forgejo"
+        printf '%s %s %s %s\n' "$_c_forge" "$_r_owner" "$_r_repo" "$_c_host"
+        return 0
+    elif [ "$_count" -gt 1 ]; then
+        printf 'Error: O nome de repositório "%s" é ambíguo. Encontrados múltiplos correspondentes:\n' "$_input_repo" >&2
+        for _c in $_candidates; do
+            _c_slug=$(printf '%s' "$_c" | cut -d':' -f1)
+            _c_forge=$(printf '%s' "$_c" | cut -d':' -f2)
+            printf '  - %s (%s)\n' "$_c_slug" "${_c_forge:-desconhecida}" >&2
+        done
+        printf 'Por favor, informe o nome completo no formato "proprietario/repositorio".\n' >&2
+        return 1
+    fi
+
+    # Fallback: if no candidates found in catalog or siblings, try active owner
+    _fallback_owner=""
+    if [ -n "$_cur_owner" ]; then
+        _fallback_owner="$_cur_owner"
+    elif [ -n "${FORGEJO_OWNER:-}" ]; then
+        _fallback_owner="$FORGEJO_OWNER"
+    elif [ -n "${CODEBERG_OWNER:-}" ]; then
+        _fallback_owner="$CODEBERG_OWNER"
+    elif [ -n "${GITHUB_OWNER:-}" ]; then
+        _fallback_owner="$GITHUB_OWNER"
+    fi
+
+    if [ -n "$_fallback_owner" ]; then
+        _fb_forge="${_cur_forge:-forgejo}"
+        _fb_host="${_cur_host:-}"
+        printf '%s %s %s %s\n' "$_fb_forge" "$_fallback_owner" "$_input_repo" "$_fb_host"
+        return 0
+    fi
+
+    printf 'Error: Repositório "%s" não encontrado. Especifique no formato "proprietario/repositorio".\n' "$_input_repo" >&2
+    return 1
+}
+
 _diva_escape_json() {
     _input="$1"
     _out=""
@@ -3743,9 +3915,14 @@ cmd_diva() {
     _repo=""
     _host=""
     if [ -n "$_custom_repo" ]; then
-        _owner=$(printf '%s' "$_custom_repo" | cut -d'/' -f1)
-        _repo=$(printf '%s' "$_custom_repo" | cut -d'/' -f2)
-        _forge="forgejo"
+        if _cinfo=$(_diva_resolve_custom_repo "$_custom_repo"); then
+            _forge=$(printf '%s' "$_cinfo" | cut -d' ' -f1)
+            _owner=$(printf '%s' "$_cinfo" | cut -d' ' -f2)
+            _repo=$(printf '%s' "$_cinfo" | cut -d' ' -f3)
+            _host=$(printf '%s' "$_cinfo" | cut -d' ' -f4)
+        else
+            return 1
+        fi
     else
         if _finfo=$(_diva_resolve_forge 2>/dev/null); then
             _forge=$(printf '%s' "$_finfo" | cut -d' ' -f1)

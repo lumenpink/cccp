@@ -5,6 +5,7 @@ Describe 'diva'
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/help.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/config_manager.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/repo.sh}"
+  Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/catalog.sh}"
   Include "${CCCP_BUNDLE:-$SHELLSPEC_PROJECT_ROOT/src/utils/diva.sh}"
 
   setup() {
@@ -196,6 +197,15 @@ Line 2: second line"
       The error should include "GEMINI_API_KEY não configurada"
       The error should include "export GEMINI_API_KEY="
     End
+
+    It 'fails when -r specifies an unresolvable repo'
+      export GEMINI_API_KEY="AIzaSyTestKey123"
+      rm -rf "$TEST_DIR/.git"
+      unset FORGEJO_OWNER CODEBERG_OWNER GITHUB_OWNER || true
+      When call cmd_diva -r "unresolvable_repo" "Some issue text"
+      The status should be failure
+      The error should include "Repositório \"unresolvable_repo\" não encontrado"
+    End
   End
 
   Describe '_diva_save_draft'
@@ -238,6 +248,68 @@ EOF
       The error should include "Token para Forgejo (git.lumenpink.com) não encontrado"
       The error should include "Draft salvo em:"
       The path "$TEST_DIR/.antigravity/diva_drafts" should be directory
+    End
+  End
+
+  Describe '_diva_resolve_custom_repo'
+    It 'resolves full owner/repo slug directly'
+      When call _diva_resolve_custom_repo "lumenpink/myproject"
+      The status should be success
+      The output should eq "forgejo lumenpink myproject "
+    End
+
+    It 'resolves partial repo name from catalog.json'
+      cat > "$TEST_DIR/catalog.json" << 'CATJSON'
+[
+  {
+    "name": "supertool",
+    "forge": "github",
+    "slug": "acme/supertool"
+  }
+]
+CATJSON
+      When call _diva_resolve_custom_repo "supertool"
+      The status should be success
+      The output should eq "github acme supertool github.com"
+    End
+
+    It 'resolves partial repo name using active repository owner fallback'
+      When call _diva_resolve_custom_repo "otherproj"
+      The status should be success
+      The output should eq "forgejo lumenpink otherproj codeberg.org"
+    End
+
+    It 'detects ambiguity and fails when multiple catalog entries match the partial name'
+      cat > "$TEST_DIR/catalog.json" << 'CATJSON'
+[
+  {
+    "name": "sharedlib",
+    "forge": "github",
+    "slug": "alpha/sharedlib"
+  },
+  {
+    "name": "sharedlib",
+    "forge": "codeberg",
+    "slug": "beta/sharedlib"
+  }
+]
+CATJSON
+      When call _diva_resolve_custom_repo "sharedlib"
+      The status should be failure
+      The error should include "O nome de repositório \"sharedlib\" é ambíguo"
+      The error should include "alpha/sharedlib (github)"
+      The error should include "beta/sharedlib (codeberg)"
+    End
+
+    It 'fails when repo cannot be resolved and no owner exists'
+      rm -rf "$TEST_DIR/.git"
+      unset FORGEJO_OWNER CODEBERG_OWNER GITHUB_OWNER || true
+      test_unresolvable() {
+        _diva_resolve_custom_repo "completely_unknown_repo"
+      }
+      When call test_unresolvable
+      The status should be failure
+      The error should include "Repositório \"completely_unknown_repo\" não encontrado"
     End
   End
 

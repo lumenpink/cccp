@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Features
+  - (cli) suportar nome parcial de repositorio na opcao -r do diva
+
 ### Bug Fixes
   - (diva,tickets) suporte a forgejo, persistencia de drafts e correcao de hosts hardcoded
 
