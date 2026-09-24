@@ -251,6 +251,55 @@ EOF
     End
   End
 
+  Describe '_diva_present_and_dispatch manual title and body editing'
+    It 'allows editing ticket title interactively before publishing'
+      sample_tickets='{"tickets":[{"title":"fix: initial title","body":"ticket body","labels":["bug"]}]}'
+      export CODEBERG_TOKEN="fake-token"
+      curl() {
+        printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/99"}\n'
+      }
+      test_edit_title() {
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" <<'EOF'
+t
+fix: edited title
+y
+EOF
+      }
+      When call test_edit_title
+      The status should be success
+      The output should include "Título atualizado."
+      The output should include "fix: edited title"
+      The output should include "Criado: https://codeberg.org/lumenpink/cccp/issues/99"
+    End
+
+    It 'allows editing ticket body interactively via EDITOR before publishing'
+      sample_tickets='{"tickets":[{"title":"fix: test ticket","body":"original body","labels":["bug"]}]}'
+      export CODEBERG_TOKEN="fake-token"
+      mock_editor="$TEST_DIR/mock_editor.sh"
+      cat > "$mock_editor" << 'EOF'
+#!/bin/sh
+echo "edited body via mock editor" > "$1"
+EOF
+      chmod +x "$mock_editor"
+      export EDITOR="$mock_editor"
+
+      curl() {
+        printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/100"}\n'
+      }
+      test_edit_body() {
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" <<'EOF'
+b
+y
+EOF
+      }
+      When call test_edit_body
+      The status should be success
+      The output should include "Corpo atualizado."
+      The output should include "edited body via mock editor"
+      The output should include "Criado: https://codeberg.org/lumenpink/cccp/issues/100"
+    End
+  End
+
   Describe '_diva_resolve_custom_repo'
     It 'resolves full owner/repo slug directly'
       When call _diva_resolve_custom_repo "lumenpink/myproject"

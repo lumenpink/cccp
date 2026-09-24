@@ -533,229 +533,292 @@ _diva_present_and_dispatch() {
         fi
 
         _num=$((_idx + 1))
-        echo "┌─────────────────────────────────────────────────────────────────────────────┐"
-        _hdr=$(printf "[ДИВАН] Ticket %d/%d" "$_num" "$_count")
-        _hlen=$(printf '%s' "$_hdr" | wc -m | tr -d ' ')
-        _hpad=$((75 - _hlen))
-        [ "$_hpad" -lt 0 ] && _hpad=0
-        _hspaces=""
-        [ "$_hpad" -gt 0 ] && _hspaces=$(printf "%*s" "$_hpad" "")
-        printf "│ %s%s │\n" "$_hdr" "$_hspaces"
-        echo "├─────────────────────────────────────────────────────────────────────────────┤"
-        if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-            _diva_box_field "🎯 Destino  : " "${_owner}/${_repo} (${_forge})"
-        fi
-        _diva_box_field "📌 Título   : " "$_title"
-        if [ -n "$_rationale" ]; then
-            _diva_box_field "💡 Racional : " "$_rationale"
-        fi
-        if [ -n "$_labels" ]; then
-            _diva_box_field "🏷️ Labels   : " "$_labels"
-        fi
-        _diva_box_body "$_body"
-        echo "└─────────────────────────────────────────────────────────────────────────────┘"
 
         if [ "$_dry_run" -eq 1 ]; then
+            echo "┌─────────────────────────────────────────────────────────────────────────────┐"
+            _hdr=$(printf "[ДИВАН] Ticket %d/%d" "$_num" "$_count")
+            _hlen=$(printf '%s' "$_hdr" | wc -m | tr -d ' ')
+            _hpad=$((75 - _hlen))
+            [ "$_hpad" -lt 0 ] && _hpad=0
+            _hspaces=""
+            [ "$_hpad" -gt 0 ] && _hspaces=$(printf "%*s" "$_hpad" "")
+            printf "│ %s%s │\n" "$_hdr" "$_hspaces"
+            echo "├─────────────────────────────────────────────────────────────────────────────┤"
+            if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+                _diva_box_field "🎯 Destino  : " "${_owner}/${_repo} (${_forge})"
+            fi
+            _diva_box_field "📌 Título   : " "$_title"
+            if [ -n "$_rationale" ]; then
+                _diva_box_field "💡 Racional : " "$_rationale"
+            fi
+            if [ -n "$_labels" ]; then
+                _diva_box_field "🏷️ Labels   : " "$_labels"
+            fi
+            _diva_box_body "$_body"
+            echo "└─────────────────────────────────────────────────────────────────────────────┘"
             echo "  [DRY-RUN] Simulação ativa. Ticket não publicado."
             _idx=$((_idx + 1))
             continue
         fi
 
-        # Interactive confirmation
-        _choice="y"
-        if [ -t 0 ]; then
+        while true; do
+            echo "┌─────────────────────────────────────────────────────────────────────────────┐"
+            _hdr=$(printf "[ДИВАН] Ticket %d/%d" "$_num" "$_count")
+            _hlen=$(printf '%s' "$_hdr" | wc -m | tr -d ' ')
+            _hpad=$((75 - _hlen))
+            [ "$_hpad" -lt 0 ] && _hpad=0
+            _hspaces=""
+            [ "$_hpad" -gt 0 ] && _hspaces=$(printf "%*s" "$_hpad" "")
+            printf "│ %s%s │\n" "$_hdr" "$_hspaces"
+            echo "├─────────────────────────────────────────────────────────────────────────────┤"
             if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-                printf "  [y] Criar em %s/%s (%s)  [n] Pular  [e] Editar título  [f] Ver corpo completo → " "$_owner" "$_repo" "$_forge"
-            else
-                printf "  [y] Criar  [n] Pular  [e] Editar título  [f] Ver corpo completo → "
+                _diva_box_field "🎯 Destino  : " "${_owner}/${_repo} (${_forge})"
             fi
-            read -r _user_choice || _user_choice="n"
-            _choice=$(printf '%s' "$_user_choice" | tr '[:upper:]' '[:lower:]')
-        fi
+            _diva_box_field "📌 Título   : " "$_title"
+            if [ -n "$_rationale" ]; then
+                _diva_box_field "💡 Racional : " "$_rationale"
+            fi
+            if [ -n "$_labels" ]; then
+                _diva_box_field "🏷️ Labels   : " "$_labels"
+            fi
+            _diva_box_body "$_body"
+            echo "└─────────────────────────────────────────────────────────────────────────────┘"
 
-        case "$_choice" in
-            y|yes|"")
-                echo "  -> Publicando ticket na forja ${_forge} (${_owner}/${_repo})..."
-                _issue_url=""
+            # Interactive confirmation
+            _choice="y"
+            if [ -t 0 ]; then
+                if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+                    printf "  [y] Criar em %s/%s (%s)  [n] Pular  [t] Editar título  [b] Editar corpo  [f] Ver corpo completo → " "$_owner" "$_repo" "$_forge"
+                else
+                    printf "  [y] Criar  [n] Pular  [t] Editar título  [b] Editar corpo  [f] Ver corpo completo → "
+                fi
+                read -r _user_choice || _user_choice="n"
+                _choice=$(printf '%s' "$_user_choice" | tr '[:upper:]' '[:lower:]')
+            else
+                if read -r _user_choice; then
+                    _choice=$(printf '%s' "$_user_choice" | tr '[:upper:]' '[:lower:]')
+                else
+                    _choice="y"
+                fi
+            fi
 
-                case "$_forge" in
-                    codeberg)
-                        _base_url="https://codeberg.org"
+            case "$_choice" in
+                y|yes|"")
+                    echo "  -> Publicando ticket na forja ${_forge} (${_owner}/${_repo})..."
+                    _issue_url=""
 
-                        _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
-                        if [ -z "$_token" ]; then
-                            printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            _idx=$((_idx + 1))
-                            continue
-                        fi
+                    case "$_forge" in
+                        codeberg)
+                            _base_url="https://codeberg.org"
 
-                        _esc_t=$(_diva_escape_json "$_title")
-                        _esc_b=$(_diva_escape_json "$_body")
-                        _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
+                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                            if [ -z "$_token" ]; then
+                                printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                break
+                            fi
 
-                        _post_res=$(curl -s -X POST \
-                            -H "Authorization: token ${_token}" \
-                            -H "Content-Type: application/json" \
-                            -H "Accept: application/json" \
-                            -d "$_issue_payload" \
-                            "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+                            _esc_t=$(_diva_escape_json "$_title")
+                            _esc_b=$(_diva_escape_json "$_body")
+                            _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
 
-                        if command -v jq >/dev/null 2>&1; then
-                            _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                        fi
-                        if [ -n "$_issue_url" ]; then
-                            echo "  ✅ Criado: ${_issue_url}"
-                            _created_count=$((_created_count + 1))
-                        else
-                            printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                        fi
-                        ;;
+                            _post_res=$(curl -s -X POST \
+                                -H "Authorization: token ${_token}" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "$_issue_payload" \
+                                "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
 
-                    tildegit)
-                        _base_url="https://tildegit.org"
-
-                        _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
-                        if [ -z "$_token" ]; then
-                            printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            _idx=$((_idx + 1))
-                            continue
-                        fi
-
-                        _esc_t=$(_diva_escape_json "$_title")
-                        _esc_b=$(_diva_escape_json "$_body")
-                        _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
-
-                        _post_res=$(curl -s -X POST \
-                            -H "Authorization: token ${_token}" \
-                            -H "Content-Type: application/json" \
-                            -H "Accept: application/json" \
-                            -d "$_issue_payload" \
-                            "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-
-                        if command -v jq >/dev/null 2>&1; then
-                            _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                        fi
-                        if [ -n "$_issue_url" ]; then
-                            echo "  ✅ Criado: ${_issue_url}"
-                            _created_count=$((_created_count + 1))
-                        else
-                            printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                        fi
-                        ;;
-
-                    forgejo)
-                        # Generic Forgejo/Gitea instance — API identical to Codeberg.
-                        # Use the host detected from the git remote.
-                        if [ -z "$_host" ]; then
-                            printf '  [ERRO] Host da instância Forgejo não detectado. Não é possível publicar.\n' >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            _idx=$((_idx + 1))
-                            continue
-                        fi
-                        _base_url="https://${_host}"
-
-                        _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
-                        if [ -z "$_token" ]; then
-                            printf '  [ERRO] Token para Forgejo (%s) não encontrado. Configure FORGEJO_TOKEN ou forgejo_token no .cccprc.\n' "$_host" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            _idx=$((_idx + 1))
-                            continue
-                        fi
-
-                        _esc_t=$(_diva_escape_json "$_title")
-                        _esc_b=$(_diva_escape_json "$_body")
-                        _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
-
-                        _post_res=$(curl -s -X POST \
-                            -H "Authorization: token ${_token}" \
-                            -H "Content-Type: application/json" \
-                            -H "Accept: application/json" \
-                            -d "$_issue_payload" \
-                            "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-
-                        if command -v jq >/dev/null 2>&1; then
-                            _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                        fi
-                        if [ -n "$_issue_url" ]; then
-                            echo "  ✅ Criado: ${_issue_url}"
-                            _created_count=$((_created_count + 1))
-                        else
-                            printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                        fi
-                        ;;
-
-                    github)
-                        if command -v gh >/dev/null 2>&1; then
-                            _gh_url=$(gh issue create --repo "${_owner}/${_repo}" --title "$_title" --body "$_body" 2>/dev/null || true)
-                            if [ -n "$_gh_url" ]; then
-                                echo "  ✅ Criado: ${_gh_url}"
+                            if command -v jq >/dev/null 2>&1; then
+                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                            fi
+                            if [ -n "$_issue_url" ]; then
+                                echo "  ✅ Criado: ${_issue_url}"
                                 _created_count=$((_created_count + 1))
                             else
-                                printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
+                                printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
                                 _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             fi
-                        else
-                            _token=$(_diva_resolve_forge_token "github" 2>/dev/null || true)
-                            if [ -n "$_token" ]; then
-                                _esc_t=$(_diva_escape_json "$_title")
-                                _esc_b=$(_diva_escape_json "$_body")
-                                _post_res=$(curl -s -X POST \
-                                    -H "Authorization: token ${_token}" \
-                                    -H "Content-Type: application/json" \
-                                    -H "Accept: application/vnd.github+json" \
-                                    -d "{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}" \
-                                    "https://api.github.com/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-                                if command -v jq >/dev/null 2>&1; then
-                                    _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
-                                fi
-                                if [ -n "$_issue_url" ]; then
-                                    echo "  ✅ Criado: ${_issue_url}"
+                            ;;
+
+                        tildegit)
+                            _base_url="https://tildegit.org"
+
+                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                            if [ -z "$_token" ]; then
+                                printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                break
+                            fi
+
+                            _esc_t=$(_diva_escape_json "$_title")
+                            _esc_b=$(_diva_escape_json "$_body")
+                            _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
+
+                            _post_res=$(curl -s -X POST \
+                                -H "Authorization: token ${_token}" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "$_issue_payload" \
+                                "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+
+                            if command -v jq >/dev/null 2>&1; then
+                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                            fi
+                            if [ -n "$_issue_url" ]; then
+                                echo "  ✅ Criado: ${_issue_url}"
+                                _created_count=$((_created_count + 1))
+                            else
+                                printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            fi
+                            ;;
+
+                        forgejo)
+                            # Generic Forgejo/Gitea instance — API identical to Codeberg.
+                            # Use the host detected from the git remote.
+                            if [ -z "$_host" ]; then
+                                printf '  [ERRO] Host da instância Forgejo não detectado. Não é possível publicar.\n' >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                break
+                            fi
+                            _base_url="https://${_host}"
+
+                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                            if [ -z "$_token" ]; then
+                                printf '  [ERRO] Token para Forgejo (%s) não encontrado. Configure FORGEJO_TOKEN ou forgejo_token no .cccprc.\n' "$_host" >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                break
+                            fi
+
+                            _esc_t=$(_diva_escape_json "$_title")
+                            _esc_b=$(_diva_escape_json "$_body")
+                            _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
+
+                            _post_res=$(curl -s -X POST \
+                                -H "Authorization: token ${_token}" \
+                                -H "Content-Type: application/json" \
+                                -H "Accept: application/json" \
+                                -d "$_issue_payload" \
+                                "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+
+                            if command -v jq >/dev/null 2>&1; then
+                                _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                            fi
+                            if [ -n "$_issue_url" ]; then
+                                echo "  ✅ Criado: ${_issue_url}"
+                                _created_count=$((_created_count + 1))
+                            else
+                                printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
+                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            fi
+                            ;;
+
+                        github)
+                            if command -v gh >/dev/null 2>&1; then
+                                _gh_url=$(gh issue create --repo "${_owner}/${_repo}" --title "$_title" --body "$_body" 2>/dev/null || true)
+                                if [ -n "$_gh_url" ]; then
+                                    echo "  ✅ Criado: ${_gh_url}"
                                     _created_count=$((_created_count + 1))
                                 else
-                                    printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
+                                    printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
                                     _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                                 fi
                             else
-                                printf '  [ERRO] Nem "gh" CLI nem GITHUB_TOKEN disponíveis para publicação no GitHub.\n' >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                _token=$(_diva_resolve_forge_token "github" 2>/dev/null || true)
+                                if [ -n "$_token" ]; then
+                                    _esc_t=$(_diva_escape_json "$_title")
+                                    _esc_b=$(_diva_escape_json "$_body")
+                                    _post_res=$(curl -s -X POST \
+                                        -H "Authorization: token ${_token}" \
+                                        -H "Content-Type: application/json" \
+                                        -H "Accept: application/vnd.github+json" \
+                                        -d "{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}" \
+                                        "https://api.github.com/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
+                                    if command -v jq >/dev/null 2>&1; then
+                                        _issue_url=$(printf '%s' "$_post_res" | jq -r '.html_url // empty')
+                                    fi
+                                    if [ -n "$_issue_url" ]; then
+                                        echo "  ✅ Criado: ${_issue_url}"
+                                        _created_count=$((_created_count + 1))
+                                    else
+                                        printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
+                                        _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                    fi
+                                else
+                                    printf '  [ERRO] Nem "gh" CLI nem GITHUB_TOKEN disponíveis para publicação no GitHub.\n' >&2
+                                    _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                fi
                             fi
+                            ;;
+
+                        *)
+                            printf '  [ERRO] Forja "%s" não suportada para publicação automática.\n' "$_forge" >&2
+                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            ;;
+                    esac
+                    break
+                    ;;
+
+                f|full)
+                    echo ""
+                    echo "--- CORPO COMPLETO ---"
+                    printf '%s\n' "$_body"
+                    echo "-----------------------"
+                    ;;
+
+                t|title|e|edit)
+                    printf "  Novo título [%s]: " "$_title"
+                    if [ -t 0 ] && [ -e /dev/tty ]; then
+                        read -r _new_title < /dev/tty || _new_title=""
+                    else
+                        read -r _new_title || _new_title=""
+                    fi
+                    if [ -n "$_new_title" ]; then
+                        _title="$_new_title"
+                        echo "  ✓ Título atualizado."
+                    fi
+                    ;;
+
+                b|body)
+                    _editor="${VISUAL:-${EDITOR:-}}"
+                    [ -z "$_editor" ] && command -v vi >/dev/null 2>&1 && _editor="vi"
+
+                    _tmp_body=$(mktemp 2>/dev/null || printf '/tmp/diva_body_%s_%s.md' "$$" "$_idx")
+                    printf '%s\n' "$_body" > "$_tmp_body"
+
+                    if [ -n "$_editor" ] && { [ -t 0 ] || [ -n "${VISUAL:-${EDITOR:-}}" ]; }; then
+                        echo "  -> Abrindo editor ($_editor) para editar o corpo do ticket..."
+                        if [ -t 0 ] && [ -e /dev/tty ]; then
+                            $_editor "$_tmp_body" < /dev/tty > /dev/tty 2>&1 || true
+                        else
+                            $_editor "$_tmp_body" || true
                         fi
-                        ;;
+                        if [ -f "$_tmp_body" ]; then
+                            _body=$(cat "$_tmp_body")
+                            echo "  ✓ Corpo atualizado."
+                        fi
+                    else
+                        printf "  Digite o novo corpo (ou deixe vazio para manter atual): "
+                        if [ -t 0 ] && [ -e /dev/tty ]; then
+                            read -r _inline_body < /dev/tty || _inline_body=""
+                        else
+                            read -r _inline_body || _inline_body=""
+                        fi
+                        if [ -n "$_inline_body" ]; then
+                            _body="$_inline_body"
+                            echo "  ✓ Corpo atualizado."
+                        fi
+                    fi
+                    rm -f "$_tmp_body" 2>/dev/null || true
+                    ;;
 
-                    *)
-                        printf '  [ERRO] Forja "%s" não suportada para publicação automática.\n' "$_forge" >&2
-                        _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                        ;;
-                esac
-                ;;
-
-            f|full)
-                echo ""
-                echo "--- CORPO COMPLETO ---"
-                printf '%s\n' "$_body"
-                echo "-----------------------"
-                # Ask again without advancing index
-                continue
-                ;;
-
-            e|edit)
-                printf "  Novo título [%s]: " "$_title"
-                read -r _new_title < /dev/tty || _new_title=""
-                if [ -n "$_new_title" ]; then
-                    _title="$_new_title"
-                fi
-                continue
-                ;;
-
-            n|no|*)
-                echo "  ⏭️  Pulado."
-                ;;
-        esac
+                n|no|*)
+                    echo "  ⏭️  Pulado."
+                    break
+                    ;;
+            esac
+        done
 
         _idx=$((_idx + 1))
     done

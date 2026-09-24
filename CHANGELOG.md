@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (ui) permitir edicao manual de titulo e corpo dos tickets no diva
   - (cli) suportar nome parcial de repositorio na opcao -r do diva
 
 ### Bug Fixes
