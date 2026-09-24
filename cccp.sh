@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.2+20260923.0741b78"
+CCCP_VERSION="2.4.0-dev.3+20260923.4f9c0b0"
 export CCCP_VERSION
 
 # Verify required tools
@@ -3424,6 +3424,14 @@ _diva_call_gemini() {
     _model="$2"
     _user_text="$3"
     _repo_context="${4:-}"
+    _temperature="${5:-0.2}"
+    _refinement="${6:-}"
+    _prev_tickets="${7:-}"
+
+    case "$_temperature" in
+        [0-9]*.[0-9]*|[0-9]*) ;;
+        *) _temperature="0.2" ;;
+    esac
 
     _esc_text=$(_diva_escape_json "$_user_text")
     _esc_ctx=$(_diva_escape_json "$_repo_context")
@@ -3435,7 +3443,13 @@ Return ONLY a valid JSON object matching this schema: \
 {\\\"tickets\\\": [{\\\"title\\\": \\\"Conventional Commit title\\\", \\\"rationale\\\": \\\"Why this is a distinct issue\\\", \\\"labels\\\": [\\\"bug\\\"], \\\"body\\\": \\\"## Description\\\\n\\\\n## Steps to Reproduce\\\\n\\\\n## Expected vs Actual\\\\n\\\"}]} \
 Write the ticket body and descriptions in the language used by the user report."
 
-    _prompt="Repository context: ${_esc_ctx}\n\nUser input to triage:\n${_esc_text}"
+    if [ -n "$_refinement" ] || [ -n "$_prev_tickets" ]; then
+        _esc_ref=$(_diva_escape_json "$_refinement")
+        _esc_prev=$(_diva_escape_json "$_prev_tickets")
+        _prompt="Repository context: ${_esc_ctx}\n\nInitial user input:\n${_esc_text}\n\nPrevious proposed tickets JSON:\n${_esc_prev}\n\nUser refinement and parameter adjustment request:\n${_esc_ref}\n\nPlease update and refine the ticket decomposition according to the user's feedback. Return ONLY valid JSON matching the schema."
+    else
+        _prompt="Repository context: ${_esc_ctx}\n\nUser input to triage:\n${_esc_text}"
+    fi
 
     _req_body=$(cat <<EOF
 {
@@ -3449,7 +3463,7 @@ Write the ticket body and descriptions in the language used by the user report."
   ],
   "generationConfig": {
     "responseMimeType": "application/json",
-    "temperature": 0.2
+    "temperature": ${_temperature}
   }
 }
 EOF
@@ -3555,6 +3569,10 @@ _diva_present_and_dispatch() {
     _repo="$4"
     _dry_run="${5:-0}"
     _host="${6:-}"
+    _api_key="${7:-}"
+    _model="${8:-gemini-3.6-flash}"
+    _user_text="${9:-}"
+    _temp="${10:-0.2}"
 
     _count=0
     if command -v jq >/dev/null 2>&1; then
@@ -3575,6 +3593,7 @@ _diva_present_and_dispatch() {
     _created_count=0
 
     _idx=0
+    _should_restart=0
     while [ "$_idx" -lt "$_count" ]; do
         _title=""
         _rationale=""
@@ -3648,9 +3667,9 @@ _diva_present_and_dispatch() {
             _choice="y"
             if [ -t 0 ]; then
                 if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-                    printf "  [y] Criar em %s/%s (%s)  [n] Pular  [t] Editar título  [b] Editar corpo  [f] Ver corpo completo → " "$_owner" "$_repo" "$_forge"
+                    printf "  [y] Criar em %s/%s (%s)  [n] Pular  [t] Editar título  [b] Editar corpo  [r] Rediscutir com IA  [f] Ver corpo completo → " "$_owner" "$_repo" "$_forge"
                 else
-                    printf "  [y] Criar  [n] Pular  [t] Editar título  [b] Editar corpo  [f] Ver corpo completo → "
+                    printf "  [y] Criar  [n] Pular  [t] Editar título  [b] Editar corpo  [r] Rediscutir com IA  [f] Ver corpo completo → "
                 fi
                 read -r _user_choice || _user_choice="n"
                 _choice=$(printf '%s' "$_user_choice" | tr '[:upper:]' '[:lower:]')
@@ -3873,12 +3892,100 @@ _diva_present_and_dispatch() {
                     rm -f "$_tmp_body" 2>/dev/null || true
                     ;;
 
+                r|refine|rediscutir)
+                    if [ -z "$_api_key" ]; then
+                        _api_key=$(_diva_resolve_api_key 2>/dev/null || true)
+                    fi
+                    if [ -z "$_api_key" ]; then
+                        printf '  [ERRO] GEMINI_API_KEY não configurada. Não é possível rediscutir com a IA.\n' >&2
+                        continue
+                    fi
+
+                    printf "  💬 Instruções para a Gemini (ou ':temp <val>', ':model <val>'): "
+                    if [ -t 0 ] && [ -e /dev/tty ]; then
+                        read -r _refinement_raw < /dev/tty || _refinement_raw=""
+                    else
+                        read -r _refinement_raw || _refinement_raw=""
+                    fi
+
+                    if [ -z "$_refinement_raw" ]; then
+                        echo "  Aviso: Nenhuma instrução informada. Mantendo proposta atual."
+                        continue
+                    fi
+
+                    # Parse inline directives like :temp <val> or :model <val>
+                    _clean_instructions=""
+                    _next_arg=""
+                    for _tok in $_refinement_raw; do
+                        if [ "$_next_arg" = "temp" ]; then
+                            _temp="$_tok"
+                            _next_arg=""
+                        elif [ "$_next_arg" = "model" ]; then
+                            _model="$_tok"
+                            _next_arg=""
+                        elif [ "$_tok" = ":temp" ]; then
+                            _next_arg="temp"
+                        elif [ "$_tok" = ":model" ]; then
+                            _next_arg="model"
+                        elif [ "${_tok#*:temp=}" != "$_tok" ]; then
+                            _temp="${_tok#:temp=}"
+                        elif [ "${_tok#*:model=}" != "$_tok" ]; then
+                            _model="${_tok#:model=}"
+                        else
+                            if [ -z "$_clean_instructions" ]; then
+                                _clean_instructions="$_tok"
+                            else
+                                _clean_instructions="${_clean_instructions} ${_tok}"
+                            fi
+                        fi
+                    done
+
+                    case "$_temp" in
+                        [0-9]*.[0-9]*|[0-9]*) ;;
+                        *) _temp="0.2" ;;
+                    esac
+
+                    echo "  -> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) com refinamento..."
+                    _repo_ctx=""
+                    if [ -n "$_owner" ] && [ -n "$_repo" ]; then
+                        _repo_ctx="${_owner}/${_repo} (${_forge})"
+                    fi
+
+                    _raw_resp=$(_diva_call_gemini "$_api_key" "$_model" "$_user_text" "$_repo_ctx" "$_temp" "$_clean_instructions" "$_tickets_json" 2>/dev/null || true)
+                    _new_tickets=$(_diva_extract_tickets "$_raw_resp" 2>/dev/null || true)
+
+                    _new_count=0
+                    if [ -n "$_new_tickets" ]; then
+                        if command -v jq >/dev/null 2>&1; then
+                            _new_count=$(printf '%s' "$_new_tickets" | jq '.tickets | length' 2>/dev/null || echo 0)
+                        else
+                            _new_count=$(printf '%s' "$_new_tickets" | grep -c '"title":' || echo 0)
+                        fi
+                    fi
+
+                    if [ "$_new_count" -gt 0 ]; then
+                        echo "  ✓ Proposta refinada com sucesso pela Gemini ($_new_count ticket(s))!"
+                        _tickets_json="$_new_tickets"
+                        _count="$_new_count"
+                        _idx=0
+                        _should_restart=1
+                        break
+                    else
+                        printf '  [ERRO] Falha ao rediscutir com a Gemini ou resposta inválida. Mantendo proposta atual.\n' >&2
+                    fi
+                    ;;
+
                 n|no|*)
                     echo "  ⏭️  Pulado."
                     break
                     ;;
             esac
         done
+
+        if [ "$_should_restart" -eq 1 ]; then
+            _should_restart=0
+            continue
+        fi
 
         _idx=$((_idx + 1))
     done
@@ -3899,6 +4006,7 @@ _diva_present_and_dispatch() {
 
 cmd_diva() {
     _model="${GEMINI_MODEL:-gemini-3.6-flash}"
+    _temp="${GEMINI_TEMPERATURE:-0.2}"
     _dry_run=0
     _user_text=""
     _custom_repo=""
@@ -3929,6 +4037,12 @@ cmd_diva() {
                 _model="$1"
                 shift
                 ;;
+            --temp|-t|--temperature)
+                shift
+                [ $# -gt 0 ] || { echo "Error: Missing argument for $1" >&2; return 1; }
+                _temp="$1"
+                shift
+                ;;
             --repo|-r)
                 shift
                 [ $# -gt 0 ] || { echo "Error: Missing argument for $1" >&2; return 1; }
@@ -3942,6 +4056,7 @@ cmd_diva() {
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
                     echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
+                    echo "  --temp <val>       Temperatura de amostragem (padrão: 0.2)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
                     echo "  config <api-key>   Salva GEMINI_API_KEY no .cccprc"
                 fi
@@ -4015,14 +4130,19 @@ cmd_diva() {
         return 0
     fi
 
+    case "$_temp" in
+        [0-9]*.[0-9]*|[0-9]*) ;;
+        *) _temp="0.2" ;;
+    esac
+
     if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-        echo "-> [ГОСПЛАН] Consultando Gemini ($_model) para ${_owner}/${_repo} (${_forge})..."
+        echo "-> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) para ${_owner}/${_repo} (${_forge})..."
     else
-        echo "-> [ГОСПЛАН] Consultando Gemini ($_model) para decomposição de tickets..."
+        echo "-> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) para decomposição de tickets..."
     fi
 
     _repo_ctx="${_owner}/${_repo} (${_forge})"
-    _raw_resp=$(_diva_call_gemini "$_api_key" "$_model" "$_user_text" "$_repo_ctx" 2>/dev/null || true)
+    _raw_resp=$(_diva_call_gemini "$_api_key" "$_model" "$_user_text" "$_repo_ctx" "$_temp" 2>/dev/null || true)
 
     if [ -z "$_raw_resp" ]; then
         echo "Error: Falha na comunicação com a API do Google Gemini." >&2
@@ -4035,7 +4155,7 @@ cmd_diva() {
         return 1
     fi
 
-    _diva_present_and_dispatch "$_tickets_json" "$_forge" "$_owner" "$_repo" "$_dry_run" "$_host"
+    _diva_present_and_dispatch "$_tickets_json" "$_forge" "$_owner" "$_repo" "$_dry_run" "$_host" "$_api_key" "$_model" "$_user_text" "$_temp"
 }
 
 cmd_divan() {
@@ -5460,6 +5580,7 @@ show_help() {
             echo "Options:"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
             echo "  --model, -m <model>       Gemini model name (default: gemini-3.6-flash)"
+            echo "  --temp, -t <val>          Sampling temperature (default: 0.2)"
             echo "  --repo, -r <owner/repo>   Target repository slug (default: detected from git origin)"
             echo "  config <api-key>          Persist GEMINI_API_KEY in .cccprc"
             echo "  -h, --help                Show this help message"

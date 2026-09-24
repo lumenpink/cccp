@@ -530,6 +530,7 @@ show_help() {
             echo "Options:"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
             echo "  --model, -m <model>       Gemini model name (default: gemini-3.6-flash)"
+            echo "  --temp, -t <val>          Sampling temperature (default: 0.2)"
             echo "  --repo, -r <owner/repo>   Target repository slug (default: detected from git origin)"
             echo "  config <api-key>          Persist GEMINI_API_KEY in .cccprc"
             echo "  -h, --help                Show this help message"

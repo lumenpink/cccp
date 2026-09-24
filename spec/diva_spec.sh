@@ -362,6 +362,77 @@ CATJSON
     End
   End
 
+  Describe '_diva_call_gemini parameter and refinement'
+    It 'passes custom temperature and refinement instructions in the request payload'
+      test_gemini_call() {
+        curl() {
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              -d)
+                shift
+                printf '%s' "$1" > "$TEST_DIR/curl_captured.json"
+                shift
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+          printf '{"candidates":[{"content":{"parts":[{"text":"{\"tickets\":[]}"}]}}]}'
+        }
+        _diva_call_gemini "fake_key" "gemini-3.6-flash" "problema no form" "lumenpink/cccp (codeberg)" "0.8" "divida em dois tickets" '{"tickets":[{"title":"old"}]}' >/dev/null
+        grep -q '"temperature": 0.8' "$TEST_DIR/curl_captured.json" || return 1
+        grep -q 'divida em dois tickets' "$TEST_DIR/curl_captured.json" || return 1
+        grep -q 'problema no form' "$TEST_DIR/curl_captured.json" || return 1
+        return 0
+      }
+      When call test_gemini_call
+      The status should be success
+    End
+  End
+
+  Describe '_diva_present_and_dispatch interactive refinement'
+    It 'allows rediscutir with IA using option r, updates temperature and restarts triage presentation'
+      test_rediscutir() {
+        export CODEBERG_TOKEN="mock_codeberg_token"
+        _diva_call_gemini() {
+          printf '{"candidates":[{"content":{"parts":[{"text":"{\"tickets\":[{\"title\":\"feat(refined): new atomic ticket\",\"body\":\"Refined body\"}]}"}]}}]}'
+        }
+        curl() {
+          printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/99"}'
+        }
+        sample_tickets='{"tickets":[{"title":"fix: old initial ticket","body":"Old body"}]}'
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" "fake_api_key" "gemini-3.6-flash" "relato inicial" 0.2 <<'EOF'
+r
+:temp 0.9 refazer com mais detalhes
+y
+EOF
+      }
+      When call test_rediscutir
+      The status should be success
+      The output should include "Consultando Gemini (gemini-3.6-flash, temp=0.9) com refinamento..."
+      The output should include "Proposta refinada com sucesso pela Gemini (1 ticket(s))"
+      The output should include "feat(refined): new atomic ticket"
+      The output should include "✅ Criado: https://codeberg.org/lumenpink/cccp/issues/99"
+    End
+  End
+
+  Describe 'cmd_diva CLI option parsing'
+    It 'accepts --temp argument in cmd_diva'
+      test_diva_temp() {
+        _diva_resolve_api_key() { echo "fake_key"; }
+        _diva_resolve_forge() { echo "forgejo lumenpink cccp codeberg.org"; }
+        _diva_call_gemini() {
+          echo "TEMP_CALLED_WITH:$5" >&2
+          printf '{"candidates":[{"content":{"parts":[{"text":"{\"tickets\":[]}"}]}}]}'
+        }
+        cmd_diva --dry-run --temp 0.7 "some report" 2>&1 || true
+      }
+      When call test_diva_temp
+      The output should include "temp=0.7"
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/diva.sh'
       test_awk() {
