@@ -35,6 +35,12 @@ Calculates next SemVer based on commit signals, finalizes changelog, and creates
 ### `cccp push [<args>...]`
 Runs standard `git push`, triggers the `pre-push` verification, and automatically launches the configured post-push lifecycle.
 
+### `cccp web` (or `cccp diva --web`)
+Launches the interactive Gosplan Web Cockpit powered by Comrade Mayak (`mk`) command bridge:
+- Visual interactive ticket triage with Diva.
+- Repository inspectorate and active tickets table.
+- Local authenticated bridge with token protection.
+
 ---
 
 ## 2. Shell Autocompletion (`cccp completion`)
