@@ -148,12 +148,44 @@ Describe 'repo.sh repository and remote resolver'
     End
   End
 
+  Describe 'detect_forgeapp'
+    It 'identifies forgeapp_github from github.com'
+      When call detect_forgeapp "github.com"
+      The status should be success
+      The output should eq "forgeapp_github"
+    End
+
+    It 'identifies forgeapp_forgejo from codeberg.org'
+      When call detect_forgeapp "codeberg.org"
+      The status should be success
+      The output should eq "forgeapp_forgejo"
+    End
+
+    It 'identifies forgeapp_forgejo from tildegit.org'
+      When call detect_forgeapp "tildegit.org"
+      The status should be success
+      The output should eq "forgeapp_forgejo"
+    End
+
+    It 'identifies forgeapp_gitlab from gitlab.com and framagit.org'
+      When call detect_forgeapp "gitlab.com"
+      The status should be success
+      The output should eq "forgeapp_gitlab"
+    End
+
+    It 'identifies forgeapp_sourcehut from git.sr.ht'
+      When call detect_forgeapp "git.sr.ht"
+      The status should be success
+      The output should eq "forgeapp_sourcehut"
+    End
+  End
+
   Describe 'detect_repo_info and accessors'
     It 'detects repository info from origin remote'
       git remote add origin "ssh://git@codeberg.org/lumenpink/cccp.git"
       When call detect_repo_info
       The status should be success
-      The output should eq "forgejo lumenpink cccp codeberg.org"
+      The output should eq "codeberg.org lumenpink cccp forgeapp_forgejo"
     End
 
     It 'detects repository info from a specific path via argument'
@@ -163,7 +195,7 @@ Describe 'repo.sh repository and remote resolver'
       When call detect_repo_info "$other_dir"
       rm -rf "$other_dir"
       The status should be success
-      The output should eq "github torvalds linux github.com"
+      The output should eq "github.com torvalds linux forgeapp_github"
     End
 
     It 'returns failure when not a git repo or no remote configured'
@@ -192,11 +224,18 @@ Describe 'repo.sh repository and remote resolver'
       The output should eq "linux"
     End
 
-    It 'extracts forge via get_repo_forge'
+    It 'extracts domain via get_repo_domain and get_repo_forge'
       git remote add origin "https://github.com/torvalds/linux.git"
-      When call get_repo_forge
+      When call get_repo_domain
       The status should be success
-      The output should eq "github"
+      The output should eq "github.com"
+    End
+
+    It 'extracts forgeapp via get_repo_forgeapp'
+      git remote add origin "https://github.com/torvalds/linux.git"
+      When call get_repo_forgeapp
+      The status should be success
+      The output should eq "forgeapp_github"
     End
   End
 

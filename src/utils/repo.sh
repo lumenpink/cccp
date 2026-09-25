@@ -85,56 +85,58 @@ _repo_http() {
 }
 
 # -----------------------------------------------------------------------------
-# Helper: Detect Forge Provider from hostname
-# Returns normalized provider identifier:
-#   github | codeberg | forgejo | tildegit | gitlab | sourcehut | unknown
+# Helper: Detect ForgeApp (Software Engine / Protocol Driver) from domain or provider
+# Returns normalized engine identifier:
+#   forgeapp_forgejo | forgeapp_github | forgeapp_gitlab | forgeapp_sourcehut | unknown
 # -----------------------------------------------------------------------------
-detect_forge_provider() {
+detect_forgeapp() {
     _fhost="$1"
     [ -z "$_fhost" ] && return 1
 
     # 1. Check local config override if set
-    _cfg_provider="${TICKETS_PROVIDER:-}"
+    _cfg_provider="${FORGEAPP:-${TICKETS_PROVIDER:-}}"
     if [ -z "$_cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
         _git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
         if [ -n "$_git_root" ] && [ -f "$_git_root/.cccprc" ]; then
-            _cfg_provider="$(read_file_key "$_git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
+            _cfg_provider="$(read_file_key "$_git_root/.cccprc" "forgeapp" 2>/dev/null || true)"
+            [ -z "$_cfg_provider" ] && _cfg_provider="$(read_file_key "$_git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
         fi
     fi
     if [ -n "$_cfg_provider" ]; then
-        printf '%s\n' "$_cfg_provider"
-        return 0
+        case "$_cfg_provider" in
+            forgeapp_forgejo|forgejo|codeberg|tildegit|gitea) printf 'forgeapp_forgejo\n'; return 0 ;;
+            forgeapp_github|github) printf 'forgeapp_github\n'; return 0 ;;
+            forgeapp_gitlab|gitlab) printf 'forgeapp_gitlab\n'; return 0 ;;
+            forgeapp_sourcehut|sourcehut) printf 'forgeapp_sourcehut\n'; return 0 ;;
+            forgeapp_*) printf '%s\n' "$_cfg_provider"; return 0 ;;
+        esac
     fi
 
     # 2. Fast-path: Deterministic domain lookup
     case "$_fhost" in
-        *github.com*)
-            printf 'github\n'
+        *github.com*|forgeapp_github|github)
+            printf 'forgeapp_github\n'
             return 0
             ;;
-        *codeberg.org*|*gitea.com*)
-            printf 'forgejo\n'
+        *codeberg.org*|*gitea.com*|*tildegit.org*|*disroot.org*|forgeapp_forgejo|forgejo|codeberg|tildegit)
+            printf 'forgeapp_forgejo\n'
             return 0
             ;;
-        *tildegit.org*)
-            printf 'tildegit\n'
+        *gitlab.com*|*framagit.org*|forgeapp_gitlab|gitlab)
+            printf 'forgeapp_gitlab\n'
             return 0
             ;;
-        *gitlab.com*|*framagit.org*)
-            printf 'gitlab\n'
-            return 0
-            ;;
-        *.sr.ht*|git.sr.ht|todo.sr.ht)
-            printf 'sourcehut\n'
+        *.sr.ht*|git.sr.ht|todo.sr.ht|forgeapp_sourcehut|sourcehut)
+            printf 'forgeapp_sourcehut\n'
             return 0
             ;;
     esac
 
-    # 3. Cache lookup (in .git/cccp_provider_cache)
+    # 3. Cache lookup (in .git/cccp_forgeapp_cache)
     _git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
     _cache_file=""
     if [ -n "$_git_dir" ] && [ -d "$_git_dir" ]; then
-        _cache_file="$_git_dir/cccp_provider_cache"
+        _cache_file="$_git_dir/cccp_forgeapp_cache"
         if [ -f "$_cache_file" ]; then
             _cached=$(grep -E "^${_fhost}:" "$_cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
             if [ -n "$_cached" ]; then
@@ -150,15 +152,15 @@ detect_forge_provider() {
         if [ -n "$_probe_gitea" ]; then
             if command -v jq >/dev/null 2>&1; then
                 if printf '%s\n' "$_probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
-                    [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
-                    printf 'forgejo\n'
+                    [ -n "$_cache_file" ] && printf '%s:forgeapp_forgejo\n' "$_fhost" >> "$_cache_file"
+                    printf 'forgeapp_forgejo\n'
                     return 0
                 fi
             else
                 case "$_probe_gitea" in
                     *\"version\"*)
-                        [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
-                        printf 'forgejo\n'
+                        [ -n "$_cache_file" ] && printf '%s:forgeapp_forgejo\n' "$_fhost" >> "$_cache_file"
+                        printf 'forgeapp_forgejo\n'
                         return 0
                         ;;
                 esac
@@ -168,14 +170,39 @@ detect_forge_provider() {
         _probe_gl=$(_repo_http -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || _repo_http -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
         case "$_probe_gl" in
             *gitlab*|*GitLab*)
-                [ -n "$_cache_file" ] && printf '%s:gitlab\n' "$_fhost" >> "$_cache_file"
-                printf 'gitlab\n'
+                [ -n "$_cache_file" ] && printf '%s:forgeapp_gitlab\n' "$_fhost" >> "$_cache_file"
+                printf 'forgeapp_gitlab\n'
                 return 0
                 ;;
         esac
     fi
 
+    printf 'unknown\n'
     return 1
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Detect Forge Provider from hostname (Backward Compatibility)
+# Returns normalized provider identifier:
+#   github | codeberg | forgejo | tildegit | gitlab | sourcehut | unknown
+# -----------------------------------------------------------------------------
+detect_forge_provider() {
+    _fhost="$1"
+    [ -z "$_fhost" ] && return 1
+
+    case "$_fhost" in
+        *codeberg.org*|codeberg) printf 'forgejo\n'; return 0 ;;
+        *tildegit.org*|tildegit) printf 'tildegit\n'; return 0 ;;
+    esac
+
+    _app=$(detect_forgeapp "$_fhost" 2>/dev/null || true)
+    case "$_app" in
+        forgeapp_forgejo) printf 'forgejo\n'; return 0 ;;
+        forgeapp_github) printf 'github\n'; return 0 ;;
+        forgeapp_gitlab) printf 'gitlab\n'; return 0 ;;
+        forgeapp_sourcehut) printf 'sourcehut\n'; return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # -----------------------------------------------------------------------------
@@ -247,12 +274,12 @@ detect_repo_info() {
     _rowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
     _rname=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
 
-    if ! _rforge=$(detect_forge_provider "$_rhost" 2>/dev/null); then
+    if ! _rforgeapp=$(detect_forgeapp "$_rhost" 2>/dev/null); then
         return 1
     fi
-    [ "$_rforge" = "unknown" ] && return 1
+    [ "$_rforgeapp" = "unknown" ] && return 1
 
-    printf '%s %s %s %s\n' "$_rforge" "$_rowner" "$_rname" "$_rhost"
+    printf '%s %s %s %s\n' "$_rhost" "$_rowner" "$_rname" "$_rforgeapp"
     return 0
 }
 
@@ -283,9 +310,21 @@ get_repo_name() {
     return 0
 }
 
+get_repo_domain() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f1
+    return 0
+}
+
 get_repo_forge() {
     _info=$(detect_repo_info "${1:-.}") || return 1
     printf '%s\n' "$_info" | cut -d' ' -f1
+    return 0
+}
+
+get_repo_forgeapp() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f4
     return 0
 }
 
@@ -413,35 +452,53 @@ resolve_forge_token() {
     _keys=""
 
     case "$_forge" in
-        forgejo)
+        *codeberg.org*|codeberg|forgejo|forgeapp_forgejo)
             [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
             [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
             _keys="forgejo_token FORGEJO_TOKEN codeberg_token CODEBERG_TOKEN"
             ;;
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
-            _keys="codeberg_token CODEBERG_TOKEN forgejo_token FORGEJO_TOKEN"
-            ;;
-        tildegit)
+        *tildegit.org*|tildegit)
             [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _keys="tildegit_token TILDEGIT_TOKEN"
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+            _keys="tildegit_token TILDEGIT_TOKEN forgejo_token FORGEJO_TOKEN"
             ;;
-        github)
+        *github.com*|github|forgeapp_github)
             [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
             [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
             _keys="github_token GITHUB_TOKEN GH_TOKEN"
             ;;
-        gitlab)
+        *gitlab.com*|*framagit.org*|gitlab|forgeapp_gitlab)
             [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
-            _keys="gitlab_token GITLAB_TOKEN"
+            [ -n "${FRAMAGIT_TOKEN:-}" ] && { printf '%s\n' "$FRAMAGIT_TOKEN"; return 0; }
+            _keys="gitlab_token GITLAB_TOKEN framagit_token FRAMAGIT_TOKEN"
             ;;
-        sourcehut)
+        *.sr.ht*|git.sr.ht|todo.sr.ht|sourcehut|forgeapp_sourcehut)
             [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
             _keys="sourcehut_token SOURCEHUT_TOKEN"
             ;;
         *)
-            return 1
+            _inferred_app=$(detect_forgeapp "$_forge" 2>/dev/null || true)
+            case "$_inferred_app" in
+                forgeapp_forgejo)
+                    [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+                    _keys="forgejo_token FORGEJO_TOKEN"
+                    ;;
+                forgeapp_github)
+                    [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
+                    _keys="github_token GITHUB_TOKEN"
+                    ;;
+                forgeapp_gitlab)
+                    [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
+                    _keys="gitlab_token GITLAB_TOKEN"
+                    ;;
+                forgeapp_sourcehut)
+                    [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
+                    _keys="sourcehut_token SOURCEHUT_TOKEN"
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
             ;;
     esac
 
@@ -492,14 +549,12 @@ resolve_forge_token() {
 
     # 4. Check tea/gh config
     case "$_forge" in
-        forgejo)
-            get_tea_token "forgejo" && return 0
-            get_tea_token "codeberg" && return 0
-            ;;
-        codeberg|tildegit)
+        *codeberg.org*|*tildegit.org*|*gitea.com*|forgejo|codeberg|tildegit|forgeapp_forgejo)
             get_tea_token "$_forge" && return 0
+            get_tea_token "codeberg" && return 0
+            get_tea_token "forgejo" && return 0
             ;;
-        github)
+        *github.com*|github|forgeapp_github)
             get_gh_token "github.com" && return 0
             ;;
     esac

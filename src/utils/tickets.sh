@@ -84,14 +84,22 @@ resolve_tickets_info() {
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         if _dinfo=$(detect_repo_info 2>/dev/null); then
-            p_prov=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
+            _domain=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
             p_owner=$(printf '%s' "$_dinfo" | cut -d' ' -f2)
             p_repo=$(printf '%s' "$_dinfo" | cut -d' ' -f3)
-            p_host=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            _forgeapp=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            p_prov=""
+            case "$_forgeapp" in
+                forgeapp_github) p_prov="github" ;;
+                forgeapp_forgejo) p_prov="forgejo" ;;
+                forgeapp_gitlab) p_prov="gitlab" ;;
+                forgeapp_sourcehut) p_prov="sourcehut" ;;
+                *) p_prov="$_forgeapp" ;;
+            esac
             resolved_provider="${resolved_provider:-$p_prov}"
             resolved_owner="${resolved_owner:-$p_owner}"
             resolved_repo="${resolved_repo:-$p_repo}"
-            resolved_host="$p_host"
+            resolved_host="${resolved_host:-$_domain}"
             printf '%s %s %s %s\n' "$resolved_provider" "$resolved_owner" "$resolved_repo" "$resolved_host"
             return 0
         fi
@@ -425,6 +433,12 @@ cmd_tickets() {
 
     provider="${provider:-forgejo}"
     [ "$provider" = "codeberg" ] && provider="forgejo"
+    case "$provider" in
+        forgeapp_github|*github.com*) provider="github" ;;
+        forgeapp_forgejo|*codeberg.org*|*tildegit.org*|*gitea*) provider="forgejo" ;;
+        forgeapp_gitlab|*gitlab.com*|*framagit.org*) provider="gitlab" ;;
+        forgeapp_sourcehut|*sr.ht*) provider="sourcehut" ;;
+    esac
 
     if [ -z "$host" ]; then
         case "$provider" in

@@ -93,17 +93,7 @@ _catalog_detect_forge_and_slug() {
     _cowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
     _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
     _cslug="${_cowner}/${_crepo}"
-
-    _cforge=$(detect_forge_provider "$_chost" 2>/dev/null || echo "unknown")
-    case "$_cforge" in
-        forgejo)
-            case "$_chost" in
-                *codeberg.org*) _cforge="codeberg" ;;
-            esac
-            ;;
-    esac
-
-    printf '%s %s false\n' "$_cforge" "$_cslug"
+    printf '%s %s false\n' "$_chost" "$_cslug"
 }
 
 # -----------------------------------------------------------------------------
@@ -462,11 +452,11 @@ EOF
         # Append to README.md
         _forge_icon="$_rforge"
         case "$_rforge" in
-            github)   _forge_icon="🐙 GitHub" ;;
-            codeberg) _forge_icon="🏔️ Codeberg" ;;
-            tildegit) _forge_icon="🟣 TildeGit" ;;
-            gitlab)   _forge_icon="🦊 GitLab" ;;
-            sourcehut) _forge_icon="🛖 SourceHut" ;;
+            *github.com*|github)   _forge_icon="🐙 GitHub" ;;
+            *codeberg.org*|codeberg) _forge_icon="🏔️ Codeberg" ;;
+            *tildegit.org*|tildegit) _forge_icon="🟣 TildeGit" ;;
+            *gitlab.com*|*framagit.org*|gitlab)   _forge_icon="🦊 GitLab" ;;
+            *sr.ht*|sourcehut) _forge_icon="🛖 SourceHut" ;;
         esac
 
         _bt=$(printf '\140')
@@ -530,13 +520,23 @@ _catalog_sync_remote() {
             continue
         fi
 
-        case "$_forge" in
-            codeberg|tildegit|forgejo)
-                _base_url="https://codeberg.org"
-                [ "$_forge" = "tildegit" ] && _base_url="https://tildegit.org"
-                [ "$_forge" = "forgejo" ] && _base_url="https://${FORGEJO_HOST:-codeberg.org}"
+        _forgeapp=""
+        if command -v detect_forgeapp >/dev/null 2>&1; then
+            _forgeapp=$(detect_forgeapp "$_forge" 2>/dev/null || true)
+        fi
 
-                _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
+        case "$_forgeapp" in
+            forgeapp_forgejo)
+                _domain="$_forge"
+                case "$_domain" in
+                    codeberg) _domain="codeberg.org" ;;
+                    tildegit) _domain="tildegit.org" ;;
+                    forgejo) _domain="${FORGEJO_HOST:-codeberg.org}" ;;
+                esac
+                _base_url="https://${_domain}"
+
+                _token=$(_catalog_resolve_token "$_domain" 2>/dev/null || true)
+                [ -z "$_token" ] && _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                 if [ -z "$_token" ]; then
                     echo "  [AVISO] ${_name} (${_forge}): Token de autenticação não configurado para ${_forge}. Pulando."
                     continue
@@ -587,7 +587,7 @@ _catalog_sync_remote() {
                 esac
                 ;;
 
-            github)
+            forgeapp_github|github)
                 if command -v gh >/dev/null 2>&1; then
                     _gh_args="repo edit ${_slug} --description \"${_desc}\""
                     if [ -n "$_website" ]; then
@@ -604,7 +604,8 @@ _catalog_sync_remote() {
                         echo "  [ERRO] GitHub: ${_slug} (falha ao executar gh repo edit)"
                     fi
                 else
-                    _token=$(_catalog_resolve_token "github" 2>/dev/null || true)
+                    _token=$(_catalog_resolve_token "github.com" 2>/dev/null || true)
+                    [ -z "$_token" ] && _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                     if [ -z "$_token" ]; then
                         echo "  [AVISO] ${_name} (github): nem 'gh' nem GITHUB_TOKEN configurados. Pulando."
                         continue

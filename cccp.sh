@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.19+20260925.c46a66a"
+CCCP_VERSION="2.4.0-dev.21+20260925.af2bce8"
 export CCCP_VERSION
 
 # Verify required tools
@@ -862,52 +862,54 @@ _repo_http() {
     fi
 }
 
-detect_forge_provider() {
+detect_forgeapp() {
     _fhost="$1"
     [ -z "$_fhost" ] && return 1
 
     # 1. Check local config override if set
-    _cfg_provider="${TICKETS_PROVIDER:-}"
+    _cfg_provider="${FORGEAPP:-${TICKETS_PROVIDER:-}}"
     if [ -z "$_cfg_provider" ] && command -v read_file_key >/dev/null 2>&1; then
         _git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
         if [ -n "$_git_root" ] && [ -f "$_git_root/.cccprc" ]; then
-            _cfg_provider="$(read_file_key "$_git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
+            _cfg_provider="$(read_file_key "$_git_root/.cccprc" "forgeapp" 2>/dev/null || true)"
+            [ -z "$_cfg_provider" ] && _cfg_provider="$(read_file_key "$_git_root/.cccprc" "tickets_provider" 2>/dev/null || true)"
         fi
     fi
     if [ -n "$_cfg_provider" ]; then
-        printf '%s\n' "$_cfg_provider"
-        return 0
+        case "$_cfg_provider" in
+            forgeapp_forgejo|forgejo|codeberg|tildegit|gitea) printf 'forgeapp_forgejo\n'; return 0 ;;
+            forgeapp_github|github) printf 'forgeapp_github\n'; return 0 ;;
+            forgeapp_gitlab|gitlab) printf 'forgeapp_gitlab\n'; return 0 ;;
+            forgeapp_sourcehut|sourcehut) printf 'forgeapp_sourcehut\n'; return 0 ;;
+            forgeapp_*) printf '%s\n' "$_cfg_provider"; return 0 ;;
+        esac
     fi
 
     # 2. Fast-path: Deterministic domain lookup
     case "$_fhost" in
-        *github.com*)
-            printf 'github\n'
+        *github.com*|forgeapp_github|github)
+            printf 'forgeapp_github\n'
             return 0
             ;;
-        *codeberg.org*|*gitea.com*)
-            printf 'forgejo\n'
+        *codeberg.org*|*gitea.com*|*tildegit.org*|*disroot.org*|forgeapp_forgejo|forgejo|codeberg|tildegit)
+            printf 'forgeapp_forgejo\n'
             return 0
             ;;
-        *tildegit.org*)
-            printf 'tildegit\n'
+        *gitlab.com*|*framagit.org*|forgeapp_gitlab|gitlab)
+            printf 'forgeapp_gitlab\n'
             return 0
             ;;
-        *gitlab.com*|*framagit.org*)
-            printf 'gitlab\n'
-            return 0
-            ;;
-        *.sr.ht*|git.sr.ht|todo.sr.ht)
-            printf 'sourcehut\n'
+        *.sr.ht*|git.sr.ht|todo.sr.ht|forgeapp_sourcehut|sourcehut)
+            printf 'forgeapp_sourcehut\n'
             return 0
             ;;
     esac
 
-    # 3. Cache lookup (in .git/cccp_provider_cache)
+    # 3. Cache lookup (in .git/cccp_forgeapp_cache)
     _git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
     _cache_file=""
     if [ -n "$_git_dir" ] && [ -d "$_git_dir" ]; then
-        _cache_file="$_git_dir/cccp_provider_cache"
+        _cache_file="$_git_dir/cccp_forgeapp_cache"
         if [ -f "$_cache_file" ]; then
             _cached=$(grep -E "^${_fhost}:" "$_cache_file" 2>/dev/null | head -n 1 | cut -d':' -f2 || true)
             if [ -n "$_cached" ]; then
@@ -923,15 +925,15 @@ detect_forge_provider() {
         if [ -n "$_probe_gitea" ]; then
             if command -v jq >/dev/null 2>&1; then
                 if printf '%s\n' "$_probe_gitea" | jq -e '.version' >/dev/null 2>&1; then
-                    [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
-                    printf 'forgejo\n'
+                    [ -n "$_cache_file" ] && printf '%s:forgeapp_forgejo\n' "$_fhost" >> "$_cache_file"
+                    printf 'forgeapp_forgejo\n'
                     return 0
                 fi
             else
                 case "$_probe_gitea" in
                     *\"version\"*)
-                        [ -n "$_cache_file" ] && printf '%s:forgejo\n' "$_fhost" >> "$_cache_file"
-                        printf 'forgejo\n'
+                        [ -n "$_cache_file" ] && printf '%s:forgeapp_forgejo\n' "$_fhost" >> "$_cache_file"
+                        printf 'forgeapp_forgejo\n'
                         return 0
                         ;;
                 esac
@@ -941,14 +943,34 @@ detect_forge_provider() {
         _probe_gl=$(_repo_http -s -f -I -m 3 "https://${_fhost}/api/v4/version" 2>/dev/null || _repo_http -s -f -I -m 3 "https://${_fhost}/" 2>/dev/null || true)
         case "$_probe_gl" in
             *gitlab*|*GitLab*)
-                [ -n "$_cache_file" ] && printf '%s:gitlab\n' "$_fhost" >> "$_cache_file"
-                printf 'gitlab\n'
+                [ -n "$_cache_file" ] && printf '%s:forgeapp_gitlab\n' "$_fhost" >> "$_cache_file"
+                printf 'forgeapp_gitlab\n'
                 return 0
                 ;;
         esac
     fi
 
+    printf 'unknown\n'
     return 1
+}
+
+detect_forge_provider() {
+    _fhost="$1"
+    [ -z "$_fhost" ] && return 1
+
+    case "$_fhost" in
+        *codeberg.org*|codeberg) printf 'forgejo\n'; return 0 ;;
+        *tildegit.org*|tildegit) printf 'tildegit\n'; return 0 ;;
+    esac
+
+    _app=$(detect_forgeapp "$_fhost" 2>/dev/null || true)
+    case "$_app" in
+        forgeapp_forgejo) printf 'forgejo\n'; return 0 ;;
+        forgeapp_github) printf 'github\n'; return 0 ;;
+        forgeapp_gitlab) printf 'gitlab\n'; return 0 ;;
+        forgeapp_sourcehut) printf 'sourcehut\n'; return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 parse_codeberg_url() { _parse_forge_remote "$1" "codeberg"; }
@@ -1010,12 +1032,12 @@ detect_repo_info() {
     _rowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
     _rname=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
 
-    if ! _rforge=$(detect_forge_provider "$_rhost" 2>/dev/null); then
+    if ! _rforgeapp=$(detect_forgeapp "$_rhost" 2>/dev/null); then
         return 1
     fi
-    [ "$_rforge" = "unknown" ] && return 1
+    [ "$_rforgeapp" = "unknown" ] && return 1
 
-    printf '%s %s %s %s\n' "$_rforge" "$_rowner" "$_rname" "$_rhost"
+    printf '%s %s %s %s\n' "$_rhost" "$_rowner" "$_rname" "$_rforgeapp"
     return 0
 }
 
@@ -1043,9 +1065,21 @@ get_repo_name() {
     return 0
 }
 
+get_repo_domain() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f1
+    return 0
+}
+
 get_repo_forge() {
     _info=$(detect_repo_info "${1:-.}") || return 1
     printf '%s\n' "$_info" | cut -d' ' -f1
+    return 0
+}
+
+get_repo_forgeapp() {
+    _info=$(detect_repo_info "${1:-.}") || return 1
+    printf '%s\n' "$_info" | cut -d' ' -f4
     return 0
 }
 
@@ -1161,35 +1195,53 @@ resolve_forge_token() {
     _keys=""
 
     case "$_forge" in
-        forgejo)
+        *codeberg.org*|codeberg|forgejo|forgeapp_forgejo)
             [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
             [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
             _keys="forgejo_token FORGEJO_TOKEN codeberg_token CODEBERG_TOKEN"
             ;;
-        codeberg)
-            [ -n "${CODEBERG_TOKEN:-}" ] && { printf '%s\n' "$CODEBERG_TOKEN"; return 0; }
-            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
-            _keys="codeberg_token CODEBERG_TOKEN forgejo_token FORGEJO_TOKEN"
-            ;;
-        tildegit)
+        *tildegit.org*|tildegit)
             [ -n "${TILDEGIT_TOKEN:-}" ] && { printf '%s\n' "$TILDEGIT_TOKEN"; return 0; }
-            _keys="tildegit_token TILDEGIT_TOKEN"
+            [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+            _keys="tildegit_token TILDEGIT_TOKEN forgejo_token FORGEJO_TOKEN"
             ;;
-        github)
+        *github.com*|github|forgeapp_github)
             [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
             [ -n "${GH_TOKEN:-}" ] && { printf '%s\n' "$GH_TOKEN"; return 0; }
             _keys="github_token GITHUB_TOKEN GH_TOKEN"
             ;;
-        gitlab)
+        *gitlab.com*|*framagit.org*|gitlab|forgeapp_gitlab)
             [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
-            _keys="gitlab_token GITLAB_TOKEN"
+            [ -n "${FRAMAGIT_TOKEN:-}" ] && { printf '%s\n' "$FRAMAGIT_TOKEN"; return 0; }
+            _keys="gitlab_token GITLAB_TOKEN framagit_token FRAMAGIT_TOKEN"
             ;;
-        sourcehut)
+        *.sr.ht*|git.sr.ht|todo.sr.ht|sourcehut|forgeapp_sourcehut)
             [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
             _keys="sourcehut_token SOURCEHUT_TOKEN"
             ;;
         *)
-            return 1
+            _inferred_app=$(detect_forgeapp "$_forge" 2>/dev/null || true)
+            case "$_inferred_app" in
+                forgeapp_forgejo)
+                    [ -n "${FORGEJO_TOKEN:-}" ] && { printf '%s\n' "$FORGEJO_TOKEN"; return 0; }
+                    _keys="forgejo_token FORGEJO_TOKEN"
+                    ;;
+                forgeapp_github)
+                    [ -n "${GITHUB_TOKEN:-}" ] && { printf '%s\n' "$GITHUB_TOKEN"; return 0; }
+                    _keys="github_token GITHUB_TOKEN"
+                    ;;
+                forgeapp_gitlab)
+                    [ -n "${GITLAB_TOKEN:-}" ] && { printf '%s\n' "$GITLAB_TOKEN"; return 0; }
+                    _keys="gitlab_token GITLAB_TOKEN"
+                    ;;
+                forgeapp_sourcehut)
+                    [ -n "${SOURCEHUT_TOKEN:-}" ] && { printf '%s\n' "$SOURCEHUT_TOKEN"; return 0; }
+                    _keys="sourcehut_token SOURCEHUT_TOKEN"
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
             ;;
     esac
 
@@ -1240,14 +1292,12 @@ resolve_forge_token() {
 
     # 4. Check tea/gh config
     case "$_forge" in
-        forgejo)
-            get_tea_token "forgejo" && return 0
-            get_tea_token "codeberg" && return 0
-            ;;
-        codeberg|tildegit)
+        *codeberg.org*|*tildegit.org*|*gitea.com*|forgejo|codeberg|tildegit|forgeapp_forgejo)
             get_tea_token "$_forge" && return 0
+            get_tea_token "codeberg" && return 0
+            get_tea_token "forgejo" && return 0
             ;;
-        github)
+        *github.com*|github|forgeapp_github)
             get_gh_token "github.com" && return 0
             ;;
     esac
@@ -1817,14 +1867,22 @@ resolve_tickets_info() {
     # Inspect git remotes if inside a git repository
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         if _dinfo=$(detect_repo_info 2>/dev/null); then
-            p_prov=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
+            _domain=$(printf '%s' "$_dinfo" | cut -d' ' -f1)
             p_owner=$(printf '%s' "$_dinfo" | cut -d' ' -f2)
             p_repo=$(printf '%s' "$_dinfo" | cut -d' ' -f3)
-            p_host=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            _forgeapp=$(printf '%s' "$_dinfo" | cut -d' ' -f4)
+            p_prov=""
+            case "$_forgeapp" in
+                forgeapp_github) p_prov="github" ;;
+                forgeapp_forgejo) p_prov="forgejo" ;;
+                forgeapp_gitlab) p_prov="gitlab" ;;
+                forgeapp_sourcehut) p_prov="sourcehut" ;;
+                *) p_prov="$_forgeapp" ;;
+            esac
             resolved_provider="${resolved_provider:-$p_prov}"
             resolved_owner="${resolved_owner:-$p_owner}"
             resolved_repo="${resolved_repo:-$p_repo}"
-            resolved_host="$p_host"
+            resolved_host="${resolved_host:-$_domain}"
             printf '%s %s %s %s\n' "$resolved_provider" "$resolved_owner" "$resolved_repo" "$resolved_host"
             return 0
         fi
@@ -2145,6 +2203,12 @@ cmd_tickets() {
 
     provider="${provider:-forgejo}"
     [ "$provider" = "codeberg" ] && provider="forgejo"
+    case "$provider" in
+        forgeapp_github|*github.com*) provider="github" ;;
+        forgeapp_forgejo|*codeberg.org*|*tildegit.org*|*gitea*) provider="forgejo" ;;
+        forgeapp_gitlab|*gitlab.com*|*framagit.org*) provider="gitlab" ;;
+        forgeapp_sourcehut|*sr.ht*) provider="sourcehut" ;;
+    esac
 
     if [ -z "$host" ]; then
         case "$provider" in
@@ -3096,17 +3160,7 @@ _catalog_detect_forge_and_slug() {
     _cowner=$(printf '%s\n' "$_parsed" | cut -d' ' -f2)
     _crepo=$(printf '%s\n' "$_parsed" | cut -d' ' -f3)
     _cslug="${_cowner}/${_crepo}"
-
-    _cforge=$(detect_forge_provider "$_chost" 2>/dev/null || echo "unknown")
-    case "$_cforge" in
-        forgejo)
-            case "$_chost" in
-                *codeberg.org*) _cforge="codeberg" ;;
-            esac
-            ;;
-    esac
-
-    printf '%s %s false\n' "$_cforge" "$_cslug"
+    printf '%s %s false\n' "$_chost" "$_cslug"
 }
 
 _catalog_extract_description() {
@@ -3455,11 +3509,11 @@ EOF
         # Append to README.md
         _forge_icon="$_rforge"
         case "$_rforge" in
-            github)   _forge_icon="🐙 GitHub" ;;
-            codeberg) _forge_icon="🏔️ Codeberg" ;;
-            tildegit) _forge_icon="🟣 TildeGit" ;;
-            gitlab)   _forge_icon="🦊 GitLab" ;;
-            sourcehut) _forge_icon="🛖 SourceHut" ;;
+            *github.com*|github)   _forge_icon="🐙 GitHub" ;;
+            *codeberg.org*|codeberg) _forge_icon="🏔️ Codeberg" ;;
+            *tildegit.org*|tildegit) _forge_icon="🟣 TildeGit" ;;
+            *gitlab.com*|*framagit.org*|gitlab)   _forge_icon="🦊 GitLab" ;;
+            *sr.ht*|sourcehut) _forge_icon="🛖 SourceHut" ;;
         esac
 
         _bt=$(printf '\140')
@@ -3519,13 +3573,23 @@ _catalog_sync_remote() {
             continue
         fi
 
-        case "$_forge" in
-            codeberg|tildegit|forgejo)
-                _base_url="https://codeberg.org"
-                [ "$_forge" = "tildegit" ] && _base_url="https://tildegit.org"
-                [ "$_forge" = "forgejo" ] && _base_url="https://${FORGEJO_HOST:-codeberg.org}"
+        _forgeapp=""
+        if command -v detect_forgeapp >/dev/null 2>&1; then
+            _forgeapp=$(detect_forgeapp "$_forge" 2>/dev/null || true)
+        fi
 
-                _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
+        case "$_forgeapp" in
+            forgeapp_forgejo)
+                _domain="$_forge"
+                case "$_domain" in
+                    codeberg) _domain="codeberg.org" ;;
+                    tildegit) _domain="tildegit.org" ;;
+                    forgejo) _domain="${FORGEJO_HOST:-codeberg.org}" ;;
+                esac
+                _base_url="https://${_domain}"
+
+                _token=$(_catalog_resolve_token "$_domain" 2>/dev/null || true)
+                [ -z "$_token" ] && _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                 if [ -z "$_token" ]; then
                     echo "  [AVISO] ${_name} (${_forge}): Token de autenticação não configurado para ${_forge}. Pulando."
                     continue
@@ -3576,7 +3640,7 @@ _catalog_sync_remote() {
                 esac
                 ;;
 
-            github)
+            forgeapp_github|github)
                 if command -v gh >/dev/null 2>&1; then
                     _gh_args="repo edit ${_slug} --description \"${_desc}\""
                     if [ -n "$_website" ]; then
@@ -3593,7 +3657,8 @@ _catalog_sync_remote() {
                         echo "  [ERRO] GitHub: ${_slug} (falha ao executar gh repo edit)"
                     fi
                 else
-                    _token=$(_catalog_resolve_token "github" 2>/dev/null || true)
+                    _token=$(_catalog_resolve_token "github.com" 2>/dev/null || true)
+                    [ -z "$_token" ] && _token=$(_catalog_resolve_token "$_forge" 2>/dev/null || true)
                     if [ -z "$_token" ]; then
                         echo "  [AVISO] ${_name} (github): nem 'gh' nem GITHUB_TOKEN configurados. Pulando."
                         continue
@@ -3961,10 +4026,10 @@ _diva_resolve_custom_repo() {
         */*)
             _r_owner=$(printf '%s' "$_input_repo" | cut -d'/' -f1)
             _r_repo=$(printf '%s' "$_input_repo" | cut -d'/' -f2)
-            _r_forge="forgejo"
-            _r_host=""
+            _r_domain=""
+            _r_forgeapp=""
 
-            # Check if matching entry exists in catalog to infer forge/host
+            # Check if matching entry exists in catalog to infer domain
             _cat_files=""
             _d_root=""
             if command -v get_git_root >/dev/null 2>&1; then
@@ -3978,7 +4043,7 @@ _diva_resolve_custom_repo() {
                 if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
                     while IFS="$(printf '\t')" read -r _cn _cf_forge _c_slug _c_lic _c_up _c_web _c_top _c_desc || [ -n "$_cn" ]; do
                         if [ "$_c_slug" = "$_input_repo" ]; then
-                            _r_forge="$_cf_forge"
+                            _r_domain="$_cf_forge"
                             break 2
                         fi
                     done <<EOF
@@ -3987,21 +4052,45 @@ EOF
                 fi
             done
 
-            if [ "$_r_forge" = "codeberg" ]; then
-                _r_host="codeberg.org"
-            elif [ "$_r_forge" = "tildegit" ]; then
-                _r_host="tildegit.org"
-            elif [ "$_r_forge" = "github" ]; then
-                _r_host="github.com"
+            case "$_r_domain" in
+                codeberg) _r_domain="codeberg.org" ;;
+                tildegit) _r_domain="tildegit.org" ;;
+                github) _r_domain="github.com" ;;
+                gitlab) _r_domain="gitlab.com" ;;
+            esac
+
+            # Check sibling directory if domain not found in catalog
+            if [ -z "$_r_domain" ] && [ -n "$_d_root" ]; then
+                _parent=$(dirname "$_d_root")
+                if [ -d "${_parent}/${_r_repo}/.git" ]; then
+                    if _sib_info=$(detect_repo_info "${_parent}/${_r_repo}" 2>/dev/null); then
+                        _s_dom=$(printf '%s' "$_sib_info" | cut -d' ' -f1)
+                        _s_own=$(printf '%s' "$_sib_info" | cut -d' ' -f2)
+                        if [ "$_s_own" = "$_r_owner" ]; then
+                            _r_domain="$_s_dom"
+                        fi
+                    fi
+                fi
             fi
 
-            printf '%s %s %s %s\n' "$_r_forge" "$_r_owner" "$_r_repo" "$_r_host"
+            # Check active repo if domain still unset
+            if [ -z "$_r_domain" ]; then
+                if _cur_info=$(detect_repo_info 2>/dev/null); then
+                    _r_domain=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
+                fi
+            fi
+
+            [ -z "$_r_domain" ] && _r_domain="codeberg.org"
+            _r_forgeapp=$(detect_forgeapp "$_r_domain" 2>/dev/null || echo "forgeapp_forgejo")
+
+            printf '%s %s %s %s\n' "$_r_domain" "$_r_owner" "$_r_repo" "$_r_forgeapp"
             return 0
             ;;
     esac
 
     # 2. Partial name resolution
     _candidates=""
+    _candidate_keys=""
 
     # 2a. Search catalog.json
     _cat_files=""
@@ -4019,16 +4108,21 @@ EOF
                 [ -n "$_c_slug" ] || continue
                 _c_r=$(printf '%s' "$_c_slug" | cut -d'/' -f2)
                 if [ "$_cn" = "$_input_repo" ] || [ "$_c_r" = "$_input_repo" ]; then
-                    _c_host_def=""
-                    case "$_cf_forge" in
-                        github) _c_host_def="github.com" ;;
-                        codeberg) _c_host_def="codeberg.org" ;;
-                        tildegit) _c_host_def="tildegit.org" ;;
+                    _c_domain="$_cf_forge"
+                    case "$_c_domain" in
+                        github) _c_domain="github.com" ;;
+                        codeberg) _c_domain="codeberg.org" ;;
+                        tildegit) _c_domain="tildegit.org" ;;
+                        gitlab) _c_domain="gitlab.com" ;;
                     esac
-                    _cand="${_c_slug}:${_cf_forge}:${_c_host_def}"
-                    case " ${_candidates} " in
-                        *" ${_cand} "*) ;;
-                        *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+                    _c_forgeapp=$(detect_forgeapp "$_c_domain" 2>/dev/null || echo "forgeapp_forgejo")
+                    _cand="${_c_slug}:${_c_domain}:${_c_forgeapp}"
+                    case " ${_candidate_keys} " in
+                        *" ${_c_slug}@${_c_domain} "*) ;;
+                        *)
+                            _candidate_keys="${_candidate_keys}${_candidate_keys:+ }${_c_slug}@${_c_domain}"
+                            _candidates="${_candidates}${_candidates:+ }${_cand}"
+                            ;;
                     esac
                 fi
             done <<EOF
@@ -4042,15 +4136,19 @@ EOF
         _parent=$(dirname "$_d_root")
         if [ -d "${_parent}/${_input_repo}/.git" ]; then
             if _sib_info=$(detect_repo_info "${_parent}/${_input_repo}" 2>/dev/null); then
-                _s_forge=$(printf '%s' "$_sib_info" | cut -d' ' -f1)
+                _s_domain=$(printf '%s' "$_sib_info" | cut -d' ' -f1)
                 _s_owner=$(printf '%s' "$_sib_info" | cut -d' ' -f2)
                 _s_repo=$(printf '%s' "$_sib_info" | cut -d' ' -f3)
-                _s_host=$(printf '%s' "$_sib_info" | cut -d' ' -f4)
+                _s_forgeapp=$(printf '%s' "$_sib_info" | cut -d' ' -f4)
                 if [ -n "$_s_owner" ] && [ -n "$_s_repo" ]; then
-                    _cand="${_s_owner}/${_s_repo}:${_s_forge}:${_s_host}"
-                    case " ${_candidates} " in
-                        *" ${_cand} "*) ;;
-                        *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+                    _s_slug="${_s_owner}/${_s_repo}"
+                    _cand="${_s_slug}:${_s_domain}:${_s_forgeapp}"
+                    case " ${_candidate_keys} " in
+                        *" ${_s_slug}@${_s_domain} "*) ;;
+                        *)
+                            _candidate_keys="${_candidate_keys}${_candidate_keys:+ }${_s_slug}@${_s_domain}"
+                            _candidates="${_candidates}${_candidates:+ }${_cand}"
+                            ;;
                     esac
                 fi
             fi
@@ -4059,18 +4157,22 @@ EOF
 
     # 2c. Check current repo if it matches
     _cur_owner=""
-    _cur_forge=""
-    _cur_host=""
+    _cur_domain=""
+    _cur_forgeapp=""
     if _cur_info=$(detect_repo_info 2>/dev/null); then
-        _cur_forge=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
+        _cur_domain=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
         _cur_owner=$(printf '%s' "$_cur_info" | cut -d' ' -f2)
         _cur_repo=$(printf '%s' "$_cur_info" | cut -d' ' -f3)
-        _cur_host=$(printf '%s' "$_cur_info" | cut -d' ' -f4)
+        _cur_forgeapp=$(printf '%s' "$_cur_info" | cut -d' ' -f4)
         if [ "$_cur_repo" = "$_input_repo" ] && [ -n "$_cur_owner" ]; then
-            _cand="${_cur_owner}/${_cur_repo}:${_cur_forge}:${_cur_host}"
-            case " ${_candidates} " in
-                *" ${_cand} "*) ;;
-                *) _candidates="${_candidates}${_candidates:+ }${_cand}" ;;
+            _cur_slug="${_cur_owner}/${_cur_repo}"
+            _cand="${_cur_slug}:${_cur_domain}:${_cur_forgeapp}"
+            case " ${_candidate_keys} " in
+                *" ${_cur_slug}@${_cur_domain} "*) ;;
+                *)
+                    _candidate_keys="${_candidate_keys}${_candidate_keys:+ }${_cur_slug}@${_cur_domain}"
+                    _candidates="${_candidates}${_candidates:+ }${_cand}"
+                    ;;
             esac
         fi
     fi
@@ -4083,19 +4185,19 @@ EOF
 
     if [ "$_count" -eq 1 ]; then
         _c_slug=$(printf '%s' "$_candidates" | cut -d':' -f1)
-        _c_forge=$(printf '%s' "$_candidates" | cut -d':' -f2)
-        _c_host=$(printf '%s' "$_candidates" | cut -d':' -f3)
+        _c_domain=$(printf '%s' "$_candidates" | cut -d':' -f2)
+        _c_forgeapp=$(printf '%s' "$_candidates" | cut -d':' -f3)
         _r_owner=$(printf '%s' "$_c_slug" | cut -d'/' -f1)
         _r_repo=$(printf '%s' "$_c_slug" | cut -d'/' -f2)
-        [ -z "$_c_forge" ] && _c_forge="forgejo"
-        printf '%s %s %s %s\n' "$_c_forge" "$_r_owner" "$_r_repo" "$_c_host"
+        [ -z "$_c_forgeapp" ] && _c_forgeapp=$(detect_forgeapp "$_c_domain" 2>/dev/null || echo "forgeapp_forgejo")
+        printf '%s %s %s %s\n' "$_c_domain" "$_r_owner" "$_r_repo" "$_c_forgeapp"
         return 0
     elif [ "$_count" -gt 1 ]; then
         printf 'Error: O nome de repositório "%s" é ambíguo. Encontrados múltiplos correspondentes:\n' "$_input_repo" >&2
         for _c in $_candidates; do
             _c_slug=$(printf '%s' "$_c" | cut -d':' -f1)
-            _c_forge=$(printf '%s' "$_c" | cut -d':' -f2)
-            printf '  - %s (%s)\n' "$_c_slug" "${_c_forge:-desconhecida}" >&2
+            _c_domain=$(printf '%s' "$_c" | cut -d':' -f2)
+            printf '  - %s (%s)\n' "$_c_slug" "${_c_domain:-desconhecida}" >&2
         done
         printf 'Por favor, informe o nome completo no formato "proprietario/repositorio".\n' >&2
         return 1
@@ -4114,9 +4216,9 @@ EOF
     fi
 
     if [ -n "$_fallback_owner" ]; then
-        _fb_forge="${_cur_forge:-forgejo}"
-        _fb_host="${_cur_host:-}"
-        printf '%s %s %s %s\n' "$_fb_forge" "$_fallback_owner" "$_input_repo" "$_fb_host"
+        _fb_domain="${_cur_domain:-codeberg.org}"
+        _fb_forgeapp="${_cur_forgeapp:-$(detect_forgeapp "$_fb_domain" 2>/dev/null || echo "forgeapp_forgejo")}"
+        printf '%s %s %s %s\n' "$_fb_domain" "$_fallback_owner" "$_input_repo" "$_fb_forgeapp"
         return 0
     fi
 
@@ -4376,11 +4478,64 @@ _diva_present_and_dispatch() {
     _owner="$3"
     _repo="$4"
     _dry_run="${5:-0}"
-    _host="${6:-}"
+    _host_or_app="${6:-}"
     _api_key="${7:-}"
     _model="${8:-gemini-3.6-flash}"
     _user_text="${9:-}"
     _temp="${10:-0.2}"
+
+    _domain=""
+    _forgeapp=""
+    case "$_host_or_app" in
+        forgeapp_*)
+            _forgeapp="$_host_or_app"
+            _domain="$_forge"
+            ;;
+        *)
+            if [ -n "$_host_or_app" ]; then
+                case "$_forge" in
+                    forgeapp_*|forgejo|codeberg|tildegit|gitea|github|gitlab|sourcehut)
+                        _domain="$_host_or_app"
+                        _forgeapp="$_forge"
+                        ;;
+                    *)
+                        _domain="$_host_or_app"
+                        _forgeapp="$_forge"
+                        ;;
+                esac
+            else
+                _domain="$_forge"
+                _forgeapp=""
+            fi
+            ;;
+    esac
+
+    case "$_domain" in
+        codeberg) _domain="codeberg.org" ;;
+        tildegit) _domain="tildegit.org" ;;
+        github) _domain="github.com" ;;
+        gitlab) _domain="gitlab.com" ;;
+        sourcehut) _domain="git.sr.ht" ;;
+    esac
+
+    case "$_forgeapp" in
+        forgeapp_*) ;;
+        forgejo|codeberg|tildegit|gitea) _forgeapp="forgeapp_forgejo" ;;
+        github) _forgeapp="forgeapp_github" ;;
+        gitlab) _forgeapp="forgeapp_gitlab" ;;
+        sourcehut) _forgeapp="forgeapp_sourcehut" ;;
+        *)
+            _forgeapp=""
+            if command -v detect_forgeapp >/dev/null 2>&1; then
+                _forgeapp=$(detect_forgeapp "$_domain" 2>/dev/null || true)
+                case "$_forgeapp" in
+                    forgeapp_*) ;;
+                    *) _forgeapp="" ;;
+                esac
+            fi
+            [ -z "$_forgeapp" ] && _forgeapp="unknown"
+            ;;
+    esac
 
     _count=0
     if command -v jq >/dev/null 2>&1; then
@@ -4494,17 +4649,18 @@ _diva_present_and_dispatch() {
 
             case "$_choice" in
                 y|yes|"")
-                    echo "  -> Publicando ticket na forja ${_forge} (${_owner}/${_repo})..."
+                    echo "  -> Publicando ticket na forja ${_domain} (${_owner}/${_repo})..."
                     _issue_url=""
 
-                    case "$_forge" in
-                        codeberg)
-                            _base_url="https://codeberg.org"
+                    case "$_forgeapp" in
+                        forgeapp_forgejo)
+                            _base_url="https://${_domain}"
 
-                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
+                            _token=$(_diva_resolve_forge_token "$_domain" 2>/dev/null || true)
+                            [ -z "$_token" ] && _token=$(_diva_resolve_forge_token "$_forgeapp" 2>/dev/null || true)
                             if [ -z "$_token" ]; then
-                                printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_domain" >&2
+                                _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                                 break
                             fi
 
@@ -4525,83 +4681,12 @@ _diva_present_and_dispatch() {
                                 _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
-                                printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_domain" "$_post_res" >&2
+                                _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             fi
                             ;;
 
-                        tildegit)
-                            _base_url="https://tildegit.org"
-
-                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
-                            if [ -z "$_token" ]; then
-                                printf '  [ERRO] Token para %s não encontrado. Ticket não publicado.\n' "$_forge" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                                break
-                            fi
-
-                            _esc_t=$(_diva_escape_json "$_title")
-                            _esc_b=$(_diva_escape_json "$_body")
-                            _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
-
-                            _post_res=$(_diva_http -s -X POST \
-                                -H "Authorization: token ${_token}" \
-                                -H "Content-Type: application/json" \
-                                -H "Accept: application/json" \
-                                -d "$_issue_payload" \
-                                "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-
-                            _issue_url=$(_diva_extract_html_url "$_post_res")
-                            if [ -n "$_issue_url" ]; then
-                                echo "  ✅ Criado: ${_issue_url}"
-                                _diva_print_issue_and_branch "$_issue_url" "$_title"
-                                _created_count=$((_created_count + 1))
-                            else
-                                printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            fi
-                            ;;
-
-                        forgejo)
-                            # Generic Forgejo/Gitea instance — API identical to Codeberg.
-                            # Use the host detected from the git remote.
-                            if [ -z "$_host" ]; then
-                                printf '  [ERRO] Host da instância Forgejo não detectado. Não é possível publicar.\n' >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                                break
-                            fi
-                            _base_url="https://${_host}"
-
-                            _token=$(_diva_resolve_forge_token "$_forge" 2>/dev/null || true)
-                            if [ -z "$_token" ]; then
-                                printf '  [ERRO] Token para Forgejo (%s) não encontrado. Configure FORGEJO_TOKEN ou forgejo_token no .cccprc.\n' "$_host" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                                break
-                            fi
-
-                            _esc_t=$(_diva_escape_json "$_title")
-                            _esc_b=$(_diva_escape_json "$_body")
-                            _issue_payload="{\"title\":\"${_esc_t}\",\"body\":\"${_esc_b}\"}"
-
-                            _post_res=$(_diva_http -s -X POST \
-                                -H "Authorization: token ${_token}" \
-                                -H "Content-Type: application/json" \
-                                -H "Accept: application/json" \
-                                -d "$_issue_payload" \
-                                "${_base_url}/api/v1/repos/${_owner}/${_repo}/issues" 2>/dev/null || true)
-
-                            _issue_url=$(_diva_extract_html_url "$_post_res")
-                            if [ -n "$_issue_url" ]; then
-                                echo "  ✅ Criado: ${_issue_url}"
-                                _diva_print_issue_and_branch "$_issue_url" "$_title"
-                                _created_count=$((_created_count + 1))
-                            else
-                                printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
-                                _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
-                            fi
-                            ;;
-
-                        github)
+                        forgeapp_github)
                             if command -v gh >/dev/null 2>&1; then
                                 _gh_url=$(gh issue create --repo "${_owner}/${_repo}" --title "$_title" --body "$_body" 2>/dev/null || true)
                                 if [ -n "$_gh_url" ]; then
@@ -4610,10 +4695,11 @@ _diva_present_and_dispatch() {
                                     _created_count=$((_created_count + 1))
                                 else
                                     printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
-                                    _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                    _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                                 fi
                             else
-                                _token=$(_diva_resolve_forge_token "github" 2>/dev/null || true)
+                                _token=$(_diva_resolve_forge_token "github.com" 2>/dev/null || true)
+                                [ -z "$_token" ] && _token=$(_diva_resolve_forge_token "$_forgeapp" 2>/dev/null || true)
                                 if [ -n "$_token" ]; then
                                     _esc_t=$(_diva_escape_json "$_title")
                                     _esc_b=$(_diva_escape_json "$_body")
@@ -4630,18 +4716,18 @@ _diva_present_and_dispatch() {
                                         _created_count=$((_created_count + 1))
                                     else
                                         printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
-                                        _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                        _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                                     fi
                                 else
                                     printf '  [ERRO] Nem "gh" CLI nem GITHUB_TOKEN disponíveis para publicação no GitHub.\n' >&2
-                                    _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                                    _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                                 fi
                             fi
                             ;;
 
                         *)
-                            printf '  [ERRO] Forja "%s" não suportada para publicação automática.\n' "$_forge" >&2
-                            _diva_save_draft "$_forge" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
+                            printf '  [ERRO] Forja "%s" (motor "%s") não suportada para publicação automática.\n' "$_domain" "$_forgeapp" >&2
+                            _diva_save_draft "$_domain" "$_owner" "$_repo" "$_title" "$_body" "$_labels"
                             ;;
                     esac
                     break
@@ -4912,27 +4998,29 @@ cmd_diva() {
     fi
 
     # 2. Resolve Forge Info
-    _forge="unknown"
+    _domain="unknown"
     _owner=""
     _repo=""
-    _host=""
+    _forgeapp="unknown"
     if [ -n "$_custom_repo" ]; then
         if _cinfo=$(_diva_resolve_custom_repo "$_custom_repo"); then
-            _forge=$(printf '%s' "$_cinfo" | cut -d' ' -f1)
+            _domain=$(printf '%s' "$_cinfo" | cut -d' ' -f1)
             _owner=$(printf '%s' "$_cinfo" | cut -d' ' -f2)
             _repo=$(printf '%s' "$_cinfo" | cut -d' ' -f3)
-            _host=$(printf '%s' "$_cinfo" | cut -d' ' -f4)
+            _forgeapp=$(printf '%s' "$_cinfo" | cut -d' ' -f4)
         else
             return 1
         fi
     else
         if _finfo=$(_diva_resolve_forge 2>/dev/null); then
-            _forge=$(printf '%s' "$_finfo" | cut -d' ' -f1)
+            _domain=$(printf '%s' "$_finfo" | cut -d' ' -f1)
             _owner=$(printf '%s' "$_finfo" | cut -d' ' -f2)
             _repo=$(printf '%s' "$_finfo" | cut -d' ' -f3)
-            _host=$(printf '%s' "$_finfo" | cut -d' ' -f4)
+            _forgeapp=$(printf '%s' "$_finfo" | cut -d' ' -f4)
         fi
     fi
+    _forge="$_domain"
+    _host="$_domain"
 
     # 3. Read input from stdin if not provided as argument
     if [ -z "$_user_text" ]; then
@@ -4941,7 +5029,7 @@ cmd_diva() {
         else
             echo "★ [ГОСПЛАН] O Divã — Triagem Interativa de Tickets ★"
             if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-                echo "🎯 Repositório Alvo: ${_owner}/${_repo} (${_forge})"
+                echo "🎯 Repositório Alvo: ${_owner}/${_repo} (${_domain})"
             fi
             echo "Descreva seu problema, bug ou funcionalidade (digite seu relato e pressione Enter):"
             printf "> "
@@ -4960,12 +5048,12 @@ cmd_diva() {
     esac
 
     if [ -n "$_owner" ] && [ -n "$_repo" ]; then
-        echo "-> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) para ${_owner}/${_repo} (${_forge})..."
+        echo "-> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) para ${_owner}/${_repo} (${_domain})..."
     else
         echo "-> [ГОСПЛАН] Consultando Gemini ($_model, temp=$_temp) para decomposição de tickets..."
     fi
 
-    _repo_ctx="${_owner}/${_repo} (${_forge})"
+    _repo_ctx="${_owner}/${_repo} (${_domain})"
     _raw_resp=$(_diva_call_gemini "$_api_key" "$_model" "$_user_text" "$_repo_ctx" "$_temp" 2>/dev/null || true)
 
     if [ -z "$_raw_resp" ]; then
@@ -4979,7 +5067,7 @@ cmd_diva() {
         return 1
     fi
 
-    _diva_present_and_dispatch "$_tickets_json" "$_forge" "$_owner" "$_repo" "$_dry_run" "$_host" "$_api_key" "$_model" "$_user_text" "$_temp"
+    _diva_present_and_dispatch "$_tickets_json" "$_domain" "$_owner" "$_repo" "$_dry_run" "$_forgeapp" "$_api_key" "$_model" "$_user_text" "$_temp"
 }
 
 cmd_divan() {

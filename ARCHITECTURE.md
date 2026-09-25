@@ -120,6 +120,18 @@ CCCP bridges the local Git environment with remote forge databases:
 1. **Local State:** Writes directly to standard `.git/description` and `.antigravity/tickets.md`.
 2. **Remote State:** Communicates over HTTPS REST using `curl` with bearer/personal access tokens to update descriptions, topics, and issues in the forge's platform database.
 
+### 4.3. Unified Domain Identity & ForgeApp Architecture (Ticket #46 / #34)
+CCCP strictly separates forge identity and software engine into two orthogonal concepts:
+
+1. **Domain (FQDN / Host):** The canonical, unambiguous identifier of any forge instance. No arbitrary nicknames or synonyms are used (`codeberg.org`, `github.com`, `tildegit.org`, `gitlab.com`, `framagit.org`, `git.sr.ht`, or custom self-hosted domains like `git.example.com`).
+2. **Software Engine (`forgeapp_*`):** Standardized protocol and API dialect drivers:
+   - `forgeapp_forgejo`: Forgejo, Gitea, Codeberg, TildeGit instances (`/api/v1/...`).
+   - `forgeapp_github`: GitHub.com and GitHub Enterprise instances (`/api/v3/...`).
+   - `forgeapp_gitlab`: GitLab.com, Framagit, and self-hosted GitLab (`/api/v4/...`).
+   - `forgeapp_sourcehut`: SourceHut / sr.ht instances (`todo.sr.ht`, etc.).
+
+This architecture guarantees zero ambiguity between repository storage in catalogs, sibling discovery, and API dispatch.
+
 ---
 
 ## 5. Upcoming Subsystems

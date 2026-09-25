@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (repo,diva,catalog) unify forge identity by domain and software engine by forgeapp (closes #46) (closes #34)
   - (web) adotar opt-in --open, resolucao de chave via env/flag e autenticacao no cockpit (closes #44) (closes #45)
   - (web) merge web interface and mayak command bridge (closes #41)
   - (diva) add cccp ticket/issue command with branch suggestion (closes #36)

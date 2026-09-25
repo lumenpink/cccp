@@ -21,25 +21,25 @@ Describe 'catalog'
     It 'detects Codeberg HTTPS URL'
       When call _catalog_detect_forge_and_slug "https://codeberg.org/lumenpink/cccp.git"
       The status should be success
-      The output should eq "codeberg lumenpink/cccp false"
+      The output should eq "codeberg.org lumenpink/cccp false"
     End
 
     It 'detects Codeberg SSH URL'
       When call _catalog_detect_forge_and_slug "git@codeberg.org:lumenpink/cccp.git"
       The status should be success
-      The output should eq "codeberg lumenpink/cccp false"
+      The output should eq "codeberg.org lumenpink/cccp false"
     End
 
     It 'detects TildeGit HTTPS URL'
       When call _catalog_detect_forge_and_slug "https://tildegit.org/lumen/cartoes.git"
       The status should be success
-      The output should eq "tildegit lumen/cartoes false"
+      The output should eq "tildegit.org lumen/cartoes false"
     End
 
     It 'detects GitHub HTTPS URL'
       When call _catalog_detect_forge_and_slug "https://github.com/KokoroSim/KokoroSim.git"
       The status should be success
-      The output should eq "github KokoroSim/KokoroSim false"
+      The output should eq "github.com KokoroSim/KokoroSim false"
     End
 
     It 'handles unknown or local URLs gracefully'
@@ -154,9 +154,9 @@ EOF
       The contents of file "$repo1/.git/description" should eq "Alpha Rust project"
       The contents of file "$repo2/.git/description" should eq "Beta Node module"
       The contents of file "$TEST_WORKSPACE/catalog.json" should include '"name": "alpha"'
-      The contents of file "$TEST_WORKSPACE/catalog.json" should include '"forge": "codeberg"'
+      The contents of file "$TEST_WORKSPACE/catalog.json" should include '"forge": "codeberg.org"'
       The contents of file "$TEST_WORKSPACE/catalog.json" should include '"name": "beta"'
-      The contents of file "$TEST_WORKSPACE/catalog.json" should include '"forge": "tildegit"'
+      The contents of file "$TEST_WORKSPACE/catalog.json" should include '"forge": "tildegit.org"'
       The contents of file "$TEST_WORKSPACE/README.md" should include '| **[alpha](./alpha)** | 🏔️ Codeberg | `MIT` | Alpha Rust project |'
       The contents of file "$TEST_WORKSPACE/README.md" should include '| **[beta](./beta)** | 🟣 TildeGit | `CC0-1.0` | Beta Node module |'
     End

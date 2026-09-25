@@ -262,14 +262,14 @@ EOF
       unset FORGEJO_TOKEN CODEBERG_TOKEN || true
       sample_tickets='{"tickets":[{"title":"fix: forgejo test","body":"body text","labels":["bug"]}]}'
       test_forgejo_no_token() {
-        _diva_present_and_dispatch "$sample_tickets" "forgejo" "lumenpink" "cccp" 0 "git.lumenpink.com" <<EOF
+        _diva_present_and_dispatch "$sample_tickets" "git.lumenpink.com" "lumenpink" "cccp" 0 "forgeapp_forgejo" <<EOF
 y
 EOF
       }
       When call test_forgejo_no_token
       The status should be success
       The output should include "Sessão concluída. 0 ticket(s) publicado(s)."
-      The error should include "Token para Forgejo (git.lumenpink.com) não encontrado"
+      The error should include "Token para git.lumenpink.com não encontrado"
       The error should include "Draft salvo em:"
       The path "$TEST_DIR/.antigravity/diva_drafts" should be directory
     End
@@ -383,7 +383,7 @@ EOF
     It 'resolves full owner/repo slug directly'
       When call _diva_resolve_custom_repo "lumenpink/myproject"
       The status should be success
-      The output should eq "forgejo lumenpink myproject "
+      The output should eq "codeberg.org lumenpink myproject forgeapp_forgejo"
     End
 
     It 'resolves partial repo name from catalog.json'
@@ -391,20 +391,40 @@ EOF
 [
   {
     "name": "supertool",
-    "forge": "github",
+    "forge": "github.com",
     "slug": "acme/supertool"
   }
 ]
 CATJSON
       When call _diva_resolve_custom_repo "supertool"
       The status should be success
-      The output should eq "github acme supertool github.com"
+      The output should eq "github.com acme supertool forgeapp_github"
     End
 
     It 'resolves partial repo name using active repository owner fallback'
       When call _diva_resolve_custom_repo "otherproj"
       The status should be success
-      The output should eq "forgejo lumenpink otherproj codeberg.org"
+      The output should eq "codeberg.org lumenpink otherproj forgeapp_forgejo"
+    End
+
+    It 'does not trigger ambiguity when repo is present in both catalog and sibling directory for same domain'
+      cat > "$TEST_DIR/catalog.json" << 'CATJSON'
+[
+  {
+    "name": "navalha",
+    "forge": "codeberg.org",
+    "slug": "lumenpink/navalha"
+  }
+]
+CATJSON
+      parent_dir="$(dirname "$TEST_DIR")"
+      sibling_dir="$parent_dir/navalha"
+      mkdir -p "$sibling_dir/.git"
+      (cd "$sibling_dir" && git init -q && git remote add origin "ssh://git@codeberg.org/lumenpink/navalha.git")
+      When call _diva_resolve_custom_repo "navalha"
+      The status should be success
+      The output should eq "codeberg.org lumenpink navalha forgeapp_forgejo"
+      rm -rf "$sibling_dir"
     End
 
     It 'detects ambiguity and fails when multiple catalog entries match the partial name'
@@ -412,12 +432,12 @@ CATJSON
 [
   {
     "name": "sharedlib",
-    "forge": "github",
+    "forge": "github.com",
     "slug": "alpha/sharedlib"
   },
   {
     "name": "sharedlib",
-    "forge": "codeberg",
+    "forge": "codeberg.org",
     "slug": "beta/sharedlib"
   }
 ]
@@ -425,8 +445,8 @@ CATJSON
       When call _diva_resolve_custom_repo "sharedlib"
       The status should be failure
       The error should include "O nome de repositório \"sharedlib\" é ambíguo"
-      The error should include "alpha/sharedlib (github)"
-      The error should include "beta/sharedlib (codeberg)"
+      The error should include "alpha/sharedlib (github.com)"
+      The error should include "beta/sharedlib (codeberg.org)"
     End
 
     It 'fails when repo cannot be resolved and no owner exists'
