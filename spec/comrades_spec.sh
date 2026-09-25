@@ -168,6 +168,29 @@ Describe 'comrades'
       The status should be success
       The contents of file "$TEST_DIR/attempted_url" should include "http://router.local/packages/kv-"
     End
+
+    It 'maps mk/mayak to mayak repo'
+      export HOME="$TEST_DIR"
+      export XDG_BIN_HOME="$TEST_DIR/bin"
+      export PATH="$TEST_DIR/bin:/bin:/usr/bin"
+      mkdir -p "$TEST_DIR/bin"
+
+      _cccp_download_raw() {
+        echo "URL: $1" > "$TEST_DIR/attempted_url"
+        _dest="$2"
+        _mock_src="$(mktemp -d)"
+        echo '#!/bin/sh' > "$_mock_src/mk"
+        chmod +x "$_mock_src/mk"
+        tar -czf "$_dest" -C "$_mock_src" mk
+        rm -rf "$_mock_src"
+        return 0
+      }
+
+      When call _cccp_ensure_comrade "mk" 1
+      The status should be success
+      The contents of file "$TEST_DIR/attempted_url" should include "/mayak/releases/download/nightly/mk-"
+      The path "$TEST_DIR/bin/mk" should be executable
+    End
   End
 
   Describe '_cccp_download_raw'

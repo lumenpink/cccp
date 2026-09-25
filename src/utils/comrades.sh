@@ -210,6 +210,7 @@ _cccp_ensure_comrade() {
     case "$_name" in
         kv|kvant) _target_bin="kv" ;;
         sv|svyaz) _target_bin="sv" ;;
+        mk|mayak) _target_bin="mk" ;;
     esac
 
     if command -v "$_target_bin" >/dev/null 2>&1; then
@@ -236,6 +237,10 @@ _cccp_ensure_comrade() {
         sv|svyaz)
             _repo="svyaz"
             _prefix="sv"
+            ;;
+        mk|mayak)
+            _repo="mayak"
+            _prefix="mk"
             ;;
         *)
             [ "$_silent" -eq 0 ] && echo "Erro: Camarada desconhecido '$_name'." >&2
@@ -396,11 +401,12 @@ cmd_comrades() {
             printf "%-10s %-12s %-16s %s\n" "CAMARADA" "PAPEL" "ESTADO" "LOCALIZAÇÃO"
             printf "%-10s %-12s %-16s %s\n" "--------" "-----" "------" "-----------"
 
-            for _c in "kv" "sv"; do
+            for _c in "kv" "sv" "mk"; do
                 _role=""
                 case "$_c" in
                     kv) _role="Editor (kvant)" ;;
                     sv) _role="HTTP (svyaz)" ;;
+                    mk) _role="Static (mayak)" ;;
                 esac
 
                 _p=$(command -v "$_c" 2>/dev/null || true)
@@ -427,9 +433,13 @@ cmd_comrades() {
                 sv|svyaz)
                     _cccp_ensure_comrade "sv" 0
                     ;;
+                mk|mayak)
+                    _cccp_ensure_comrade "mk" 0
+                    ;;
                 all|*)
                     _cccp_ensure_comrade "kv" 0
                     _cccp_ensure_comrade "sv" 0
+                    _cccp_ensure_comrade "mk" 0
                     ;;
             esac
             ;;
@@ -458,7 +468,7 @@ cmd_comrades() {
                 _mirror=$(cmd_config comrades_mirror 2>/dev/null || true)
             fi
 
-            for _pair in "kv:kvant" "sv:svyaz"; do
+            for _pair in "kv:kvant" "sv:svyaz" "mk:mayak"; do
                 _bin=$(printf '%s' "$_pair" | cut -d: -f1)
                 _repo=$(printf '%s' "$_pair" | cut -d: -f2)
                 _asset="${_bin}-${_arch}.tar.gz"
