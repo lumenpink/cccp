@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -36,6 +36,18 @@ _cccp_completions() {
                 COMPREPLY=($(compgen -W "-p --port --host -o --open -t --token --key --api-key --no-open -q --quiet -h --help" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "diva status tickets" -- "$cur"))
+            fi
+            ;;
+        check)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--strict -C --dir -h --help" -- "$cur"))
+            fi
+            ;;
+        gost)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-C --dir -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "sync check audit upgrade init info status help" -- "$cur"))
             fi
             ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
@@ -171,6 +183,8 @@ _cccp() {
         'divan:Gemini-powered issue triage bot with multi-forge dispatch'
         'web:Interactive Gosplan Web Cockpit via Mayak Command Bridge'
         'comrades:Manage micro ecosystem tools (kvant and svyaz)'
+        'check:Audit project compliance against GOST standard'
+        'gost:Manage GOST synchronization, audit and upgrades'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -328,6 +342,8 @@ complete -c cccp -n "__fish_use_subcommand" -a diva -d "Gemini-powered issue tri
 complete -c cccp -n "__fish_use_subcommand" -a divan -d "Gemini-powered issue triage bot with multi-forge dispatch"
 complete -c cccp -n "__fish_use_subcommand" -a catalog -d "Inventory workspaces, update description and sync forges"
 complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosystem tools (kvant, svyaz, mayak)"
+complete -c cccp -n "__fish_use_subcommand" -a check -d "Audit project compliance against GOST standard"
+complete -c cccp -n "__fish_use_subcommand" -a gost -d "Manage GOST synchronization, audit and upgrades"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"

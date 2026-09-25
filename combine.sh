@@ -224,6 +224,12 @@ printf "# Lint Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/lint.sh" >> "$OUTPUT_FILE"
 
+# Add gost function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# GOST Compliance & Audit Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/gost.sh" >> "$OUTPUT_FILE"
+
 # Add interactive commit function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Interactive Commit Wizard\n" >> "$OUTPUT_FILE"

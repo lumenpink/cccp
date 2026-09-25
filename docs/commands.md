@@ -41,6 +41,19 @@ Launches the interactive Gosplan Web Cockpit powered by Comrade Mayak (`mk`) com
 - Repository inspectorate and active tickets table.
 - Local authenticated bridge with token protection.
 
+### `cccp check` (or `cccp gost check`)
+Executes canonical GOST compliance check against the active repository:
+- Validates declared `GOSTVER`, license, SemVer in `VERSION`, root file anatomy, ticket commits traceability, dedicated branch names, and security headers.
+- Supports `--strict` to treat advisory checks (`SHOULD`) as failures.
+- Colorized Gosplan audit report with `NO_COLOR` support.
+
+### `cccp gost <subcommand>`
+Full lifecycle management for GOST technical software standards:
+- `cccp gost sync`: Downloads canonical `GOST.md`, `PROFILE.md`, `rules.json`, and selectively language specs listed in `GOST_LANGUAGES` to `.gost/`.
+- `cccp gost check`: Audits project conformity against GOST rules.
+- `cccp gost upgrade <version>`: Displays migration guide, updates `GOSTVER`, and synchronizes cache.
+- `cccp gost init`: Initializes a standard `GOSTVER` file in the project root.
+
 ---
 
 ## 2. Shell Autocompletion (`cccp completion`)
