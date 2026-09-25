@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.13+20260924.merge41"
+CCCP_VERSION="2.4.0-dev.18+20260925.8c1e3d8"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1225,8 +1225,9 @@ resolve_forge_token() {
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    else
+        _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
     fi
-    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
         for _k in $_keys; do
@@ -1271,7 +1272,7 @@ _cccp_get_bin_dir() {
     elif [ -d "${HOME}/.local/bin" ] || mkdir -p "${HOME}/.local/bin" 2>/dev/null; then
         _bdir="${HOME}/.local/bin"
     else
-        _bdir="${HOME}/.cccp/bin"
+        _bdir="${XDG_DATA_HOME:-$HOME/.local/share}/cccp/bin"
     fi
     mkdir -p "$_bdir" 2>/dev/null || true
 
@@ -3683,29 +3684,22 @@ _catalog_resolve_target_dir() {
     # 3. Global CCCP configuration
     else
         _cfg_dir=""
-        _global_cfg=""
-        if command -v get_global_config_file >/dev/null 2>&1; then
-            _global_cfg=$(get_global_config_file 2>/dev/null || true)
+        _local_cfg=""
+        if command -v get_local_config_file >/dev/null 2>&1; then
+            _local_cfg=$(get_local_config_file 2>/dev/null || true)
         fi
-        if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
-            fi
-        fi
-        if [ -z "$_cfg_dir" ] && [ -f "${HOME}/.cccprc" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                _cfg_dir=$(read_file_key "${HOME}/.cccprc" "catalog_dir" 2>/dev/null || true)
-            fi
+        if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            _cfg_dir=$(read_file_key "$_local_cfg" "catalog_dir" 2>/dev/null || true)
         fi
         if [ -z "$_cfg_dir" ]; then
-            _local_cfg=""
-            if command -v get_local_config_file >/dev/null 2>&1; then
-                _local_cfg=$(get_local_config_file 2>/dev/null || true)
+            _global_cfg=""
+            if command -v get_global_config_file >/dev/null 2>&1; then
+                _global_cfg=$(get_global_config_file 2>/dev/null || true)
+            else
+                _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
             fi
-            if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
-                if command -v read_file_key >/dev/null 2>&1; then
-                    _cfg_dir=$(read_file_key "$_local_cfg" "catalog_dir" 2>/dev/null || true)
-                fi
+            if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+                _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
             fi
         fi
 
@@ -3830,12 +3824,13 @@ _diva_resolve_api_key() {
         fi
     fi
 
-    # 4. Check global config (~/.config/cccp/config or ~/.cccprc)
+    # 4. Check global config (~/.config/cccp/config)
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    else
+        _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
     fi
-    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
         if command -v read_file_key >/dev/null 2>&1; then
@@ -3977,7 +3972,7 @@ _diva_resolve_custom_repo() {
             fi
             [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
             [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
-            _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+            _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${XDG_DATA_HOME:-${HOME}/.local/share}/cccp/catalog.json ${HOME}/.config/cccp/catalog.json"
 
             for _cf in $_cat_files; do
                 if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
@@ -4016,7 +4011,7 @@ EOF
     fi
     [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
     [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
-    _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+    _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${XDG_DATA_HOME:-${HOME}/.local/share}/cccp/catalog.json ${HOME}/.config/cccp/catalog.json"
 
     for _cf in $_cat_files; do
         if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
@@ -4830,7 +4825,14 @@ cmd_diva() {
                 if [ $# -gt 0 ]; then
                     _key="$1"
                     _local_cfg=$(get_local_config_file 2>/dev/null || true)
-                    [ -z "$_local_cfg" ] && _local_cfg="${HOME}/.cccprc"
+                    if [ -z "$_local_cfg" ]; then
+                        if command -v get_global_config_file >/dev/null 2>&1; then
+                            _local_cfg=$(get_global_config_file 2>/dev/null || true)
+                        else
+                            _local_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
+                        fi
+                        mkdir -p "$(dirname "$_local_cfg")" 2>/dev/null || true
+                    fi
                     write_file_key "$_local_cfg" "gemini_api_key" "$_key"
                     echo "Chave gemini_api_key salva com sucesso em $_local_cfg"
                     return 0
@@ -5506,8 +5508,10 @@ install_global_binary() {
         user_id=$(id -u 2>/dev/null || echo "1000")
         if [ "$user_id" -eq 0 ]; then
             target_dir="/usr/local/bin"
-        else
+        elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
             target_dir="$HOME/.local/bin"
+        else
+            target_dir="${XDG_DATA_HOME:-$HOME/.local/share}/cccp/bin"
         fi
     fi
 
@@ -7195,6 +7199,14 @@ get_global_config_file() {
     echo "$(get_global_config_dir)/config"
 }
 
+get_global_data_dir() {
+    echo "${XDG_DATA_HOME:-$HOME/.local/share}/cccp"
+}
+
+get_global_cache_dir() {
+    echo "${XDG_CACHE_HOME:-$HOME/.cache}/cccp"
+}
+
 get_local_config_file() {
     git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
     if [ -n "$git_root" ]; then
@@ -7928,10 +7940,10 @@ get_current_version() {
 }
 
 get_update_cache_file() {
-    if command -v get_global_config_dir >/dev/null 2>&1; then
-        echo "$(get_global_config_dir)/update_cache"
+    if command -v get_global_cache_dir >/dev/null 2>&1; then
+        echo "$(get_global_cache_dir)/update_cache"
     else
-        echo "${XDG_CONFIG_HOME:-$HOME/.config}/cccp/update_cache"
+        echo "${XDG_CACHE_HOME:-$HOME/.cache}/cccp/update_cache"
     fi
 }
 

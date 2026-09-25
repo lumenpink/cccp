@@ -269,13 +269,22 @@ EOF
     setup_env() {
       TEST_DIR="$(mktemp -d)"
       ORIG_HOME="$HOME"
+      ORIG_XDG_CONFIG="${XDG_CONFIG_HOME:-}"
+      ORIG_XDG_DATA="${XDG_DATA_HOME:-}"
+      ORIG_XDG_CACHE="${XDG_CACHE_HOME:-}"
       export HOME="$TEST_DIR"
+      unset XDG_CONFIG_HOME || true
+      unset XDG_DATA_HOME || true
+      unset XDG_CACHE_HOME || true
       unset CATALOG_DIR || true
       unset CCCP_CATALOG_DIR || true
     }
 
     cleanup_env() {
       export HOME="$ORIG_HOME"
+      if [ -n "$ORIG_XDG_CONFIG" ]; then export XDG_CONFIG_HOME="$ORIG_XDG_CONFIG"; else unset XDG_CONFIG_HOME || true; fi
+      if [ -n "$ORIG_XDG_DATA" ]; then export XDG_DATA_HOME="$ORIG_XDG_DATA"; else unset XDG_DATA_HOME || true; fi
+      if [ -n "$ORIG_XDG_CACHE" ]; then export XDG_CACHE_HOME="$ORIG_XDG_CACHE"; else unset XDG_CACHE_HOME || true; fi
       unset CATALOG_DIR || true
       unset CCCP_CATALOG_DIR || true
       rm -rf "$TEST_DIR"
@@ -321,14 +330,22 @@ EOF
     End
 
     It 'resolves target directory from local .cccprc'
-      echo "catalog_dir = /from/home/cccprc" > "$TEST_DIR/.cccprc"
-      When call _catalog_resolve_target_dir ""
+      local_repo="$(mktemp -d)"
+      (cd "$local_repo" && git init -q && echo "catalog_dir = /from/local/cccprc" > .cccprc)
+      test_local_dir() {
+        cd "$local_repo"
+        _catalog_resolve_target_dir ""
+      }
+      When call test_local_dir
       The status should be success
-      The output should eq "/from/home/cccprc"
+      The output should eq "/from/local/cccprc"
+      rm -rf "$local_repo"
     End
 
     It 'prioritizes environment variable over global config'
-      echo "catalog_dir = /from/config" > "$TEST_DIR/.cccprc"
+      cfg_dir="$TEST_DIR/.config/cccp"
+      mkdir -p "$cfg_dir"
+      echo "catalog_dir = /from/config" > "$cfg_dir/config"
       export CATALOG_DIR="/from/env"
       When call _catalog_resolve_target_dir ""
       The status should be success

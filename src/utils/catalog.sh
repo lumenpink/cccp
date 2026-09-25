@@ -706,24 +706,22 @@ _catalog_resolve_target_dir() {
     # 3. Global CCCP configuration
     else
         _cfg_dir=""
-        _global_cfg=""
-        if command -v get_global_config_file >/dev/null 2>&1; then
-            _global_cfg=$(get_global_config_file 2>/dev/null || true)
+        _local_cfg=""
+        if command -v get_local_config_file >/dev/null 2>&1; then
+            _local_cfg=$(get_local_config_file 2>/dev/null || true)
         fi
-        if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
-            fi
+        if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+            _cfg_dir=$(read_file_key "$_local_cfg" "catalog_dir" 2>/dev/null || true)
         fi
         if [ -z "$_cfg_dir" ]; then
-            _local_cfg=""
-            if command -v get_local_config_file >/dev/null 2>&1; then
-                _local_cfg=$(get_local_config_file 2>/dev/null || true)
+            _global_cfg=""
+            if command -v get_global_config_file >/dev/null 2>&1; then
+                _global_cfg=$(get_global_config_file 2>/dev/null || true)
+            else
+                _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
             fi
-            if [ -n "$_local_cfg" ] && [ -f "$_local_cfg" ]; then
-                if command -v read_file_key >/dev/null 2>&1; then
-                    _cfg_dir=$(read_file_key "$_local_cfg" "catalog_dir" 2>/dev/null || true)
-                fi
+            if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
+                _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
             fi
         fi
 
