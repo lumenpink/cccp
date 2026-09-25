@@ -28,6 +28,14 @@ This document tracks all external (non-POSIX) binary requirements, their usage s
 | `telnet` | **Optional** | Telnet client for raw TCP connection and HTTP stream extraction on ultra-retro systems | Used as 1960s ARPANET-style fallback over HTTP |
 | `ftp` | **Optional** | Standard FTP client for legacy unencrypted file transfer | Used as 1970s fallback to retrieve archives from FTP mirrors |
 | `ftpget` | **Optional** | BusyBox FTP retrieval applet for embedded routers and constrained environments | Used as lightweight FTP fallback when mirror is on FTP |
+| `hostname` | **Optional** | Discovery of local LAN IP address in `serve` | Falls back to `ip` or loopback address |
+| `inotifywait` | **Optional** | Linux inotify file watcher for real-time build reloading in `serve --dev` | Falls back to POSIX `stat`/polling loop |
+| `ip` | **Optional** | Linux network routing tool for LAN/Tailscale IP discovery in `serve` | Falls back to `hostname` or loopback address |
+| `lsof` | **Optional** | Port inspection tool for HTTP server auto-increment in `serve` and `web` | Falls back to `ss`, `nc`, or default port |
+| `open` | **Optional** | macOS system utility to launch web browser in `serve` and `web` | Falls back to `xdg-open` or manual URL access |
+| `ss` | **Optional** | Linux socket statistics tool for port listening verification in `serve` | Falls back to `lsof` or `nc` |
+| `tailscale` | **Optional** | VPN interface inspector for Tailscale IP display in `serve` | Falls back to `ip` interface check or graceful omission |
+| `xdg-open` | **Optional** | FreeDesktop/Linux system utility to launch web browser in `serve` and `web` | Falls back to `open` or manual URL access |
 
 ## 2. Banned Utilities (Gosplan Directives)
 

@@ -54,6 +54,13 @@ Full lifecycle management for GOST technical software standards:
 - `cccp gost upgrade <version>`: Displays migration guide, updates `GOSTVER`, and synchronizes cache.
 - `cccp gost init`: Initializes a standard `GOSTVER` file in the project root.
 
+### `cccp serve [dir] [options]`
+Unified HTTP server for static sites, dev watcher, and VDNKh demonstration:
+- Static mode: autodetects `./site`, `./dist`, `./public` or `./`; prioritizes comrade Mayak (`mk`) with fallback to `python3` and `busybox`.
+- Dev mode (`--dev`): hot-reloads builders (`combine.sh`, `cargo build`, `make`), serves dynamic PHP (`php -S`), or launches Node development scripts.
+- Demo mode (`--demo`): executes setup/fixtures (`scripts/demo.sh`), healthcheck polling, VDNKh exhibition banner, and auto-launches the browser.
+- Network: binds to `0.0.0.0` by default (accessible via LAN/Tailscale) or `--localhost`/`-l` for 127.0.0.1; port auto-increments if occupied.
+
 ---
 
 ## 2. Shell Autocompletion (`cccp completion`)

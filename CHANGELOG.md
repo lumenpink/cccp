@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (serve) implementar comando unificado cccp serve (estático, dev e demo) (closes #39)
   - (gost,check) suporte a conformidade GOST (leitura de GOSTVER, cccp gost sync, check e upgrade) (closes #47) (closes #42)
   - (cockpit) adicionar seletor de repositorio ativo e suporte global a -C (closes #43)
   - (repo,diva,catalog) unify forge identity by domain and software engine by forgeapp (closes #46) (closes #34)

@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -48,6 +48,11 @@ _cccp_completions() {
                 COMPREPLY=($(compgen -W "-C --dir -h --help" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "sync check audit upgrade init info status help" -- "$cur"))
+            fi
+            ;;
+        serve)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--dev --demo -l --localhost --host -p --port -o --open -q --quiet -h --help" -- "$cur"))
             fi
             ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
@@ -185,6 +190,7 @@ _cccp() {
         'comrades:Manage micro ecosystem tools (kvant and svyaz)'
         'check:Audit project compliance against GOST standard'
         'gost:Manage GOST synchronization, audit and upgrades'
+        'serve:Unified HTTP server (static, dev with watcher, VDNKh demo)'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -344,6 +350,7 @@ complete -c cccp -n "__fish_use_subcommand" -a catalog -d "Inventory workspaces,
 complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosystem tools (kvant, svyaz, mayak)"
 complete -c cccp -n "__fish_use_subcommand" -a check -d "Audit project compliance against GOST standard"
 complete -c cccp -n "__fish_use_subcommand" -a gost -d "Manage GOST synchronization, audit and upgrades"
+complete -c cccp -n "__fish_use_subcommand" -a serve -d "Unified HTTP server (static, dev with watcher, VDNKh demo)"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"

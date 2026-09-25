@@ -230,6 +230,12 @@ printf "# GOST Compliance & Audit Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/gost.sh" >> "$OUTPUT_FILE"
 
+# Add serve function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Unified Server Functions (Static, Dev & Demo)\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/serve.sh" >> "$OUTPUT_FILE"
+
 # Add interactive commit function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Interactive Commit Wizard\n" >> "$OUTPUT_FILE"
