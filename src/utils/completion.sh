@@ -33,7 +33,7 @@ _cccp_completions() {
             ;;
         web)
             if [ "${cur#*-}" != "$cur" ]; then
-                COMPREPLY=($(compgen -W "-p --port --host --no-open -q --quiet -h --help" -- "$cur"))
+                COMPREPLY=($(compgen -W "-p --port --host -o --open -t --token --key --api-key --no-open -q --quiet -h --help" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "diva status tickets" -- "$cur"))
             fi
@@ -391,6 +391,8 @@ complete -c cccp -n "__fish_seen_subcommand_from diva divan" -a "config" -d "Per
 # Options for web
 complete -c cccp -n "__fish_seen_subcommand_from web" -s p -l port -d "Port to listen on"
 complete -c cccp -n "__fish_seen_subcommand_from web" -l host -d "Host address to bind to"
+complete -c cccp -n "__fish_seen_subcommand_from web" -s o -l open -d "Open browser automatically"
+complete -c cccp -n "__fish_seen_subcommand_from web" -s t -l token -d "API authentication token"
 complete -c cccp -n "__fish_seen_subcommand_from web" -l no-open -d "Do not open browser"
 complete -c cccp -n "__fish_seen_subcommand_from web" -s q -l quiet -d "Quiet mode"
 complete -c cccp -n "__fish_seen_subcommand_from web" -a "diva status tickets"

@@ -50,22 +50,30 @@ Em vez de exigir daemons persistentes pesados ou runtimes adicionais (Node.js, P
 
 ### 3.1 Inicialização Direta
 ```bash
-# Inicia a interface web na primeira porta livre (padrão 8080) e abre o navegador
+# Inicia a interface web (padrão 8080) sem abrir o navegador
 cccp web
 
-# Inicia em porta específica
-cccp web --port 3000
+# Inicia e abre o navegador automaticamente (opt-in)
+cccp web --open
 
-# Inicia direto na aba do Divã
-cccp diva --web
+# Inicia com token fixo via flag
+cccp web --token meu-segredo
+
+# Inicia com token fixo via variável de ambiente
+CCCP_TOKEN="meu-segredo" cccp web
+
+# Inicia em porta específica direto na aba do Divã
+cccp diva --web --open
 # ou
-cccp ticket --web
+cccp ticket --web --open
 ```
 
 ### 3.2 Opções do `cccp web`
 - `-p, --port <N>`: Porta inicial para escuta (padrão: 8080).
 - `--host <IP>`: Endereço de bind (padrão: 127.0.0.1).
-- `--no-open`: Não abre automaticamente o navegador padrão.
+- `-o, --open`: Abre automaticamente o navegador padrão (opt-in explícito).
+- `-t, --token <KEY>`: Define a chave de autenticação da API (também via `$CCCP_TOKEN` ou `$CCCP_API_KEY`).
+- `--no-open`: Não abre o navegador (comportamento padrão mantido para retrocompatibilidade).
 - `-q, --quiet`: Modo silencioso (suprime logs no terminal).
 
 ---

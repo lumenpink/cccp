@@ -39,7 +39,7 @@ Describe 'web'
   End
 
   Describe '_web_export_assets'
-    It 'creates target directory and writes self-contained index.html'
+    It 'creates target directory, writes self-contained index.html without token leak, and includes auth modal'
       target_dir="$TEST_DIR/web_assets"
       token="gosplan-token-1922"
       When call _web_export_assets "$target_dir" "$token" 8080
@@ -47,7 +47,8 @@ Describe 'web'
       The path "$target_dir/index.html" should be exist
       The file "$target_dir/index.html" should be file
       The contents of file "$target_dir/index.html" should include "CCCP"
-      The contents of file "$target_dir/index.html" should include "gosplan-token-1922"
+      The contents of file "$target_dir/index.html" should include "auth-modal"
+      The contents of file "$target_dir/index.html" should not include "gosplan-token-1922"
       The contents of file "$target_dir/index.html" should include "8080"
     End
   End
@@ -59,10 +60,11 @@ Describe 'web'
       The output should include "cccp web"
       The output should include "--port"
       The output should include "--host"
-      The output should include "--no-open"
+      The output should include "--open"
+      The output should include "--token"
     End
 
-    It 'launches mk with bridge and auth parameters'
+    It 'launches mk with bridge and auth parameters without opening browser by default'
       # Mock mk in PATH
       mkdir -p "$TEST_DIR/bin"
       cat > "$TEST_DIR/bin/mk" << 'EOF'
@@ -73,13 +75,63 @@ EOF
       chmod +x "$TEST_DIR/bin/mk"
       PATH="$TEST_DIR/bin:$PATH"
 
-      When call cmd_web --no-open --port 8088 --host 127.0.0.1
+      When call cmd_web --port 8088 --host 127.0.0.1
       The status should be success
       The output should include "MOCK_MK_ARGS:"
       The output should include "--bridge"
       The output should include "--auth"
       The output should include "-p 8088"
       The output should include "--host 127.0.0.1"
+      The output should not include "--open"
+    End
+
+    It 'passes --open to mk when explicitly requested'
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/mk" << 'EOF'
+#!/bin/sh
+echo "MOCK_MK_ARGS: $@"
+exit 0
+EOF
+      chmod +x "$TEST_DIR/bin/mk"
+      PATH="$TEST_DIR/bin:$PATH"
+
+      When call cmd_web --open --port 8088 --host 127.0.0.1
+      The status should be success
+      The output should include "MOCK_MK_ARGS:"
+      The output should include "--open"
+    End
+
+    It 'uses token provided via --token flag'
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/mk" << 'EOF'
+#!/bin/sh
+echo "MOCK_MK_ARGS: $@"
+exit 0
+EOF
+      chmod +x "$TEST_DIR/bin/mk"
+      PATH="$TEST_DIR/bin:$PATH"
+
+      When call cmd_web --token "super-secret-key-123" --port 8088
+      The status should be success
+      The output should include "--auth super-secret-key-123"
+    End
+
+    It 'uses token provided via CCCP_TOKEN environment variable'
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/mk" << 'EOF'
+#!/bin/sh
+echo "MOCK_MK_ARGS: $@"
+exit 0
+EOF
+      chmod +x "$TEST_DIR/bin/mk"
+      PATH="$TEST_DIR/bin:$PATH"
+
+      CCCP_TOKEN="env-secret-token-456"
+      export CCCP_TOKEN
+      When call cmd_web --port 8088
+      The status should be success
+      The output should include "--auth env-secret-token-456"
+      unset CCCP_TOKEN
     End
   End
 

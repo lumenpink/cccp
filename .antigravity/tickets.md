@@ -1,7 +1,78 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-24 23:14:07 UTC
+> Synced at: 2026-09-25 08:43:01 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#46] Continuamos com o problema de confundir o nome do software com o nome da forge
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/46
+
+### Description
+ lumen@baquara:~/src/gost$ cccp diva -r navalha
+Error: O nome de repositório "navalha" é ambíguo. Encontrados múltiplos correspondentes:
+  - lumenpink/navalha (codeberg)
+  - lumenpink/navalha (forgejo)
+Por favor, informe o nome completo no formato "proprietario/repositorio".
+
+
+creio que precisamos deixar muito claro no software essa questão. Talvez, internamente, criar um prefixo pra quando for o software? 
+Tipo: forgeapp_fojgejo, forgeapp_github, forgeapp_gitlab e forgeapp_sourcehut?
+
+Assim a gente mapeia rápido e fácil onde tá a treta. Que tal?
+
+---
+## [#45] feat(auth): suporte a chave de API via env/flag/auto e autenticação explícita na interface web
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/45
+
+### Description
+## Contexto & Problema
+Atualmente, o token de sessão é injetado diretamente no HTML gerado pelo cccp web, fazendo com que qualquer navegador abra já logado sem nunca exigir a chave de API. Além disso, o usuário não consegue definir sua própria chave via ambiente ou flag.
+
+## Requisitos & Solução
+- Permitir configuração da chave de API através de:
+  1. Variável de ambiente (CCCP_TOKEN ou CCCP_API_KEY).
+  2. Flag de linha de comando (--token, -t).
+  3. Geração automática criptográfica aleatória quando não fornecida.
+- A interface web não deve abrir logada de forma implícita se o token não for fornecido na URL ou sessão.
+- Apresentar tela ou diálogo de autenticação na UI para inserção da chave de API caso não esteja autenticado.
+
+---
+## [#44] refactor(web): padronizar flag --open (opt-in) ao invés de --no-open em comandos com interface web
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/44
+
+### Description
+## Contexto & Objetivos
+Atualmente comandos com servidor web (como 'cccp web' e 'cccp diva --web') abrem o navegador automaticamente por padrão, disponibilizando a flag '--no-open' para evitar a abertura.
+
+## Mudanças Solicitadas
+- Inverter o comportamento padrão: por padrão, não abrir o navegador automaticamente.
+- Substituir a flag '--no-open' por '--open' / '-o' (opt-in explícito).
+- Alinhar com convenções de ferramentas de terminal e documentação.
+
+---
+## [#43] feat(cockpit): adicionar seletor de repositório ativo
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/43
+
+### Description
+## Descrição
+Adicionar uma caixa de seleção (dropdown/select) na interface do cockpit para permitir que o usuário defina qual repositório está sendo trabalhado no momento.
+
+## Passos para Reproduzir / Cenário de Uso
+1. Acessar a interface do cockpit.
+2. Localizar a barra de ferramentas/painel do cockpit.
+3. Selecionar um repositório na caixa de seleção para alterar o contexto ativo.
+
+## Esperado vs Atual
+- **Esperado:** O cockpit exibe um componente de seleção de repositório que atualiza o contexto da aplicação para o repositório selecionado.
+- **Atual:** Não existe um seletor de repositório no cockpit para gerenciar o repositório ativo.
+
+---
 ## [#42] feat(check): implementar comando padrão cccp check conforme a gost spec
 - **Status**: `open`
 - **Labels**: none
@@ -22,42 +93,6 @@ Implementar o comando padrão `cccp check` no projeto `cccp` para garantir confo
 
 - **Esperado:** O comando `cccp check` executa as validações padrão alinhadas à Gost spec.
 - **Atual:** O comando não possui o comportamento padrão implementado de acordo com a especificação.
-
----
-## [#41] acesso web
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/41
-
-### Description
-Implementar acesso web
-Para os comandos que fazem sentido, claro
-Tipo diva
-
----
-## [#40] refactor(paths): adequar armazenamento de arquivos e binários à especificação XDG
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/40
-
-### Description
-## Descrição
-
-Atualmente, o `cccp` armazena tanto seus arquivos de configuração quanto seus binários diretamente no diretório `~/.cccp`. Isso não segue a especificação XDG Base Directory.
-
-É necessário reavaliar e refatorar os locais de armazenamento para utilizar os caminhos padrão do sistema:
-- **Configurações:** `$XDG_CONFIG_HOME/cccp` (fallback: `~/.config/cccp`)
-- **Binários/Dados:** `$XDG_DATA_HOME/cccp` ou `~/.local/bin` / `~/.local/share/cccp`
-
-## Passos para Reproduzir
-
-1. Executar o `cccp` em um ambiente sem pré-configuração.
-2. Verificar a criação do diretório `~/.cccp` no diretório home do usuário contendo configurações e binários mesclados.
-
-## Comportamento Esperado vs Atual
-
-- **Esperado:** Respeitar as variáveis de ambiente `$XDG_CONFIG_HOME` e `$XDG_DATA_HOME`, salvando configurações em `~/.config/cccp` e binários/executáveis em locais apropriados (ex: `~/.local/bin` ou `~/.local/share/cccp`).
-- **Atual:** Todos os artefatos (configuração e binários) são salvos de forma centralizada em `~/.cccp`.
 
 ---
 ## [#39] feat(serve): implementar comando unificado cccp serve (estático, dev e demo)
@@ -181,53 +216,5 @@ Shortcut to open/tail the most recent act log file.
 - [ ] `cccp act log` opens/tails the latest log
 - [ ] Graceful degradation if `act` or Docker is not running (warn, don't block)
 - [ ] Documented in `cccp help`
-
----
-## [#36] Add 'cccp ticket' command as a first-class alias for issue creation via diva
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/36
-
-### Description
-## Problem
-
-Currently opening a ticket requires using external tools (`tea`, `gh`, Codeberg web UI) even though `cccp diva` already handles AI-powered issue generation internally. This is inconsistent with the GOST standard that mandates every commit have a ticket — the friction of switching tools discourages the practice.
-
-## Expected Behavior
-
-A first-class `cccp ticket` command (or `cccp issue`) that:
-- Wraps `cccp diva` flow for the current repository
-- Opens an issue interactively via Gemini AI (natural language description → structured ticket)
-- Optionally accepts a short description as argument: `cccp ticket "broken login redirect"`
-- Confirms before publishing (existing diva UX)
-- Returns the issue number so it can immediately be used in branch naming (`feat/<id>-slug`)
-- Works with the forge configured in `.cccprc` (Codeberg/Forgejo as primary)
-
-## Acceptance Criteria
-- [ ] `cccp ticket` with no args opens interactive diva chat
-- [ ] `cccp ticket "<description>"` pre-populates diva with the description
-- [ ] After creation, prints the issue number and suggested branch name
-- [ ] Documented in `cccp help`
-
----
-## [#35] fix(cli): validar existência local do repositório informado via flag -r
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/35
-
-### Description
-## Description
-
-Se um repositório desconhecido/inexistente for passado através do parâmetro `-r`, a CLI aceita o valor sem realizar a verificação de existência local.
-
-## Steps to Reproduce
-
-1. Executar o comando informando um repositório inexistente: `-r repo_inexistente`.
-2. Observar que o argumento é aceito sem erro de validação.
-
-## Expected vs Actual
-
-**Expected:** O sistema deve aceitar apenas repositórios que existam localmente, retornando erro caso contrário.
-**Actual:** O repositório desconhecido é aceito silenciosamente.
 
 ---

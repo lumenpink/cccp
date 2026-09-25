@@ -16,8 +16,13 @@ _web_generate_token() {
 # Export embedded single-page Gosplan Web UI assets
 _web_export_assets() {
     _out_dir="$1"
-    _session_token="$2"
-    _listen_port="$3"
+    if [ $# -ge 3 ]; then
+        _listen_port="$3"
+    elif [ $# -ge 2 ]; then
+        _listen_port="$2"
+    else
+        _listen_port="8080"
+    fi
 
     mkdir -p "$_out_dir"
     chmod 700 "$_out_dir" 2>/dev/null || true
@@ -137,7 +142,7 @@ _web_export_assets() {
       font-size: 0.9rem;
       margin-bottom: 1.25rem;
     }
-    textarea, input[type="text"], select {
+    textarea, input[type="text"], input[type="password"], select {
       width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
@@ -148,7 +153,7 @@ _web_export_assets() {
       font-family: inherit;
       margin-bottom: 1rem;
     }
-    textarea:focus, input[type="text"]:focus, select:focus {
+    textarea:focus, input[type="text"]:focus, input[type="password"]:focus, select:focus {
       outline: none;
       border-color: var(--gold);
     }
@@ -247,13 +252,36 @@ _web_export_assets() {
 </head>
 <body>
 
+  <!-- MODAL DE AUTENTICAÇÃO -->
+  <div id="auth-modal" style="display:none; position:fixed; inset:0; background:rgba(13,17,23,0.85); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+    <div class="card" style="width:100%; max-width:440px; margin:1rem; box-shadow:0 8px 24px rgba(0,0,0,0.6); border-color:var(--border);">
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <span style="font-size:2.5rem;">🔐</span>
+        <h2 style="margin-top:0.5rem; font-size:1.3rem;">Autenticação Requerida</h2>
+        <p class="desc" style="margin-bottom:0;">Informe a chave de API ou token do Gosplan para desbloquear o Cockpit.</p>
+      </div>
+      <form onsubmit="handleAuthSubmit(event)">
+        <input type="password" id="auth-token-input" placeholder="Cole seu token aqui..." autocomplete="off" required style="font-family:var(--font-mono); letter-spacing:1px; margin-bottom:0.75rem;" />
+        <div id="auth-error" style="display:none; color:var(--red); font-size:0.85rem; margin-bottom:0.75rem;"></div>
+        <button type="submit" id="btn-auth-submit" class="btn" style="width:100%; justify-content:center;">
+          <span>✦ Autenticar</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <header>
     <div class="brand">
       <span>☭ CCCP Web Cockpit</span>
       <span class="badge">Маяк Bridge</span>
     </div>
-    <div class="session-info">
-      Port: <strong>${_listen_port}</strong> | Token: <strong>${_session_token}</strong>
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <div class="session-info">
+        Port: <strong>${_listen_port}</strong>
+      </div>
+      <button id="btn-auth-lock" class="btn btn-secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem; display:none;" onclick="logout()">
+        🔒 Bloquear
+      </button>
     </div>
   </header>
 
@@ -307,17 +335,108 @@ _web_export_assets() {
   </main>
 
   <script>
-    const SESSION_TOKEN = new URLSearchParams(window.location.search).get('token') || "${_session_token}";
+    let sessionToken = sessionStorage.getItem('cccp_token') || new URLSearchParams(window.location.search).get('token') || '';
+
+    function showAuthModal(errMsg = '') {
+      const modal = document.getElementById('auth-modal');
+      const errEl = document.getElementById('auth-error');
+      if (errMsg) {
+        errEl.textContent = errMsg;
+        errEl.style.display = 'block';
+      } else {
+        errEl.style.display = 'none';
+      }
+      modal.style.display = 'flex';
+      const lockBtn = document.getElementById('btn-auth-lock');
+      if (lockBtn) lockBtn.style.display = 'none';
+      setTimeout(() => {
+        const inp = document.getElementById('auth-token-input');
+        if (inp) inp.focus();
+      }, 50);
+    }
+
+    function hideAuthModal() {
+      const modal = document.getElementById('auth-modal');
+      const errEl = document.getElementById('auth-error');
+      if (modal) modal.style.display = 'none';
+      if (errEl) errEl.style.display = 'none';
+      const lockBtn = document.getElementById('btn-auth-lock');
+      if (lockBtn) lockBtn.style.display = 'inline-flex';
+    }
+
+    function logout() {
+      sessionStorage.removeItem('cccp_token');
+      sessionToken = '';
+      const url = new URL(window.location);
+      if (url.searchParams.has('token')) {
+        url.searchParams.delete('token');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      }
+      showAuthModal('Sessão bloqueada.');
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('auth-token-input');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const btn = document.getElementById('btn-auth-submit');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Validando...';
+
+      try {
+        const res = await fetch('/api/exec', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + val,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ args: ['status'] })
+        });
+
+        if (res.status === 401) {
+          showAuthModal('Chave ou token inválido. Tente novamente.');
+          input.value = '';
+          input.focus();
+          return;
+        }
+
+        sessionToken = val;
+        sessionStorage.setItem('cccp_token', sessionToken);
+        hideAuthModal();
+        const activeTab = document.querySelector('nav button.active');
+        const tabName = activeTab ? activeTab.id.replace('nav-', '') : 'diva';
+        switchTab(tabName);
+      } catch (err) {
+        showAuthModal('Erro ao conectar ao Mayak: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>✦ Autenticar</span>';
+      }
+    }
 
     async function apiExec(args, stdin = null) {
+      if (!sessionToken) {
+        showAuthModal('Informe a chave de API para continuar.');
+        throw new Error('Não autenticado');
+      }
+
       const res = await fetch('/api/exec', {
         method: 'POST',
         headers: {
-          'Authorization': 'Bearer ' + SESSION_TOKEN,
+          'Authorization': 'Bearer ' + sessionToken,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ args, stdin })
       });
+
+      if (res.status === 401) {
+        logout();
+        showAuthModal('Sessão expirada ou chave inválida.');
+        throw new Error('401 Unauthorized');
+      }
+
       if (!res.ok) {
         throw new Error('HTTP ' + res.status + ': ' + (await res.text()));
       }
@@ -327,8 +446,10 @@ _web_export_assets() {
     function switchTab(name) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
-      document.getElementById('tab-' + name).classList.add('active');
-      document.getElementById('nav-' + name).classList.add('active');
+      const targetTab = document.getElementById('tab-' + name);
+      const targetNav = document.getElementById('nav-' + name);
+      if (targetTab) targetTab.classList.add('active');
+      if (targetNav) targetNav.classList.add('active');
 
       if (name === 'status') loadStatus();
       if (name === 'tickets') loadTickets();
@@ -382,10 +503,39 @@ _web_export_assets() {
       }
     }
 
-    // Auto-load initial tab from query parameter if present
-    const urlTab = new URLSearchParams(window.location.search).get('tab');
-    if (urlTab && document.getElementById('tab-' + urlTab)) {
-      switchTab(urlTab);
+    async function initCockpit() {
+      if (!sessionToken) {
+        showAuthModal();
+        return;
+      }
+      try {
+        const res = await fetch('/api/exec', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + sessionToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ args: ['status'] })
+        });
+        if (res.status === 401) {
+          logout();
+          return;
+        }
+        sessionStorage.setItem('cccp_token', sessionToken);
+        hideAuthModal();
+        const urlTab = new URLSearchParams(window.location.search).get('tab');
+        if (urlTab && document.getElementById('tab-' + urlTab)) {
+          switchTab(urlTab);
+        }
+      } catch (err) {
+        hideAuthModal();
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initCockpit);
+    } else {
+      initCockpit();
     }
   </script>
 </body>
@@ -397,9 +547,10 @@ EOF
 cmd_web() {
     _port=8080
     _host="127.0.0.1"
-    _open_browser=1
+    _open_browser=0
     _quiet=0
     _initial_tab="diva"
+    _cli_token=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -409,19 +560,22 @@ cmd_web() {
                 echo ""
                 echo "Usage:"
                 echo "  cccp web [options] [tab]"
-                echo "  cccp diva --web"
+                echo "  cccp diva --web [options]"
                 echo ""
                 echo "Options:"
-                echo "  -p, --port <port>   Port to listen on (default: 8080, auto-increments if busy)"
-                echo "  --host <ip>         Host address to bind to (default: 127.0.0.1)"
-                echo "  --no-open           Do not automatically open default web browser"
-                echo "  -q, --quiet         Quiet mode (suppress verbose logs)"
-                echo "  -h, --help          Show this help message"
+                echo "  -p, --port <port>       Port to listen on (default: 8080, auto-increments if busy)"
+                echo "  --host <ip>             Host address to bind to (default: 127.0.0.1)"
+                echo "  -o, --open              Open default web browser automatically (opt-in)"
+                echo "  -t, --token <token>     API token for authentication (or via CCCP_TOKEN/CCCP_API_KEY)"
+                echo "  --key, --api-key <k>    Alias for --token"
+                echo "  --no-open               Do not open web browser (default behavior)"
+                echo "  -q, --quiet             Quiet mode (suppress verbose logs)"
+                echo "  -h, --help              Show this help message"
                 echo ""
                 echo "Tabs:"
-                echo "  diva                Open directly on Diva ticket triage cockpit (default)"
-                echo "  status              Open directly on repository inspection"
-                echo "  tickets             Open directly on active tickets list"
+                echo "  diva                    Open directly on Diva ticket triage cockpit (default)"
+                echo "  status                  Open directly on repository inspection"
+                echo "  tickets                 Open directly on active tickets list"
                 return 0
                 ;;
             -p|--port)
@@ -434,8 +588,16 @@ cmd_web() {
                 [ $# -gt 0 ] || { echo "Error: --host requires an IP address argument" >&2; return 1; }
                 _host="$1"
                 ;;
+            -o|--open)
+                _open_browser=1
+                ;;
             --no-open)
                 _open_browser=0
+                ;;
+            -t|--token|--key|--api-key)
+                shift
+                [ $# -gt 0 ] || { echo "Error: $1 requires a token argument" >&2; return 1; }
+                _cli_token="$1"
                 ;;
             -q|--quiet)
                 _quiet=1
@@ -475,8 +637,11 @@ cmd_web() {
         _cccp_bin="$0"
     fi
 
-    # 3. Generate session token
-    _token=$(_web_generate_token)
+    # 3. Resolve session token
+    _token="${_cli_token:-${CCCP_TOKEN:-${CCCP_API_KEY:-}}}"
+    if [ -z "$_token" ]; then
+        _token=$(_web_generate_token)
+    fi
 
     # 4. Prepare temporary assets
     _uid=$(id -u 2>/dev/null || echo 1000)
@@ -496,8 +661,11 @@ cmd_web() {
 
     if [ "$_quiet" -eq 0 ]; then
         echo "★ Iniciando CCCP Web Cockpit via Comrade Mayak (mk) ★"
-        echo "  🔑 Token: $_token"
-        echo "  🌐 URL:   http://${_host}:${_port}/?tab=${_initial_tab}&token=${_token}"
+        echo "  🔑 Chave / Token: $_token"
+        echo "  🌐 URL:           http://${_host}:${_port}/?tab=${_initial_tab}"
+        if [ "$_open_browser" -eq 1 ]; then
+            echo "  🚀 Navegador:     abertura automática acionada (--open)"
+        fi
     fi
 
     "$_mk_bin" "$@"
