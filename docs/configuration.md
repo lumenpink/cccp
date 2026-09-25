@@ -8,7 +8,7 @@ CCCP features a 4-tier hierarchical configuration cascade modeled after the prec
 ```text
 Priority 1: Environment Variables (highest - temporary overrides)
 Priority 2: Local Repository Config (.cccprc in repository root)
-Priority 3: Global User Config (~/.cccprc in user home directory)
+Priority 3: Global User Config ($XDG_CONFIG_HOME/cccp/config, default: ~/.config/cccp/config)
 Priority 4: Built-in Gosplan Defaults (deterministic fallback)
 ```
 
@@ -24,7 +24,7 @@ You can inspect and update your settings directly through the command line.
 # View active resolved configuration across all tiers
 cccp config
 
-# Show values from global config (~/.cccprc)
+# Show values from global config (~/.config/cccp/config)
 cccp config --global
 
 # Show values from local repository config (.cccprc)
@@ -74,3 +74,16 @@ cccp config --global --unset cz_prompt_breaking
 | `tickets_limit` | Hourly sync request limit ceiling | `55` | Integer up to 60 |
 | `post_push_hook` | Path to custom script run after push | Empty | `.cccp/hooks/post-push`, etc. |
 | `post_push_sync` | Built-in automated post-push sync actions | Empty | `tickets`, `agent`, or `tickets,agent` |
+
+---
+
+## XDG Base Directory Compliance
+
+CCCP complies strictly with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html):
+
+| Category | Environment Variable | Fallback Path | Contents |
+| :--- | :--- | :--- | :--- |
+| **Configuration** | `$XDG_CONFIG_HOME` | `~/.config/cccp/config` | Global configuration file |
+| **Data** | `$XDG_DATA_HOME` | `~/.local/share/cccp` | Application data (catalog metadata, downloaded templates) |
+| **Cache** | `$XDG_CACHE_HOME` | `~/.cache/cccp` | Non-essential cached data (e.g. `update_cache`) |
+| **Binaries** | `$XDG_BIN_HOME` | `~/.local/bin` | Installed executable binaries (`cccp`, `kv`, `sv`, `mk`) |

@@ -83,6 +83,14 @@ src/
 * Distribution is delivered as a zero-install single file (`curl -fsSL https://cccp.2lp.in | sh`).
 * **Post-Commit Lifecycle Directive:** At the end of every commit, developers and agents must compile with `./combine.sh` and reinstall locally with `cccp install -g` to keep the environment synchronized.
 
+### 3.2. XDG Base Directory Storage Standards
+CCCP adheres strictly to the XDG Base Directory specification:
+* **Configuration:** `$XDG_CONFIG_HOME/cccp/config` (fallback: `~/.config/cccp/config`).
+* **Data:** `$XDG_DATA_HOME/cccp` (fallback: `~/.local/share/cccp`).
+* **Cache:** `$XDG_CACHE_HOME/cccp` (fallback: `~/.cache/cccp`).
+* **Binaries:** `$XDG_BIN_HOME` or `~/.local/bin` (fallback: `$XDG_DATA_HOME/cccp/bin`).
+* **Local Repo Config:** `<git-root>/.cccprc`.
+
 ---
 
 ## 4. Multi-Forge Integration & Wire Protocol Boundary

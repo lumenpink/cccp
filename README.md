@@ -7,7 +7,7 @@
 **«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»**  
 *(Into a bright future with clean Git!)*
 
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](UNLICENSE)
+[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![POSIX Compatible](https://img.shields.io/badge/POSIX-100%25%20Compliant-gold.svg)](https://pubs.opengroup.org/onlinepubs/9699919799/)
 [![Forges](https://img.shields.io/badge/Forges-Codeberg%20%7C%20GitHub%20%7C%20GitLab%20%7C%20SourceHut-crimson.svg)](docs/forges.md)
 [![Documentation](https://img.shields.io/badge/Documentation-cccp.2lp.in-b81d1d.svg)](https://cccp.2lp.in)
@@ -39,7 +39,7 @@ cccp cz
 - **Zero Heavy Dependencies**: Pure POSIX shell script (`sed`, `grep`, `cut`, `tr`, no `awk` required). Runs on Linux, macOS, BSD, and Git Bash for Windows.
 - **Predictive Semantic Versioning**: Automatically calculates release and pre-release versions based on commit signals (`feat`, `fix`, `BREAKING CHANGE`).
 - **Hook Inspectorate & Safety**: Portable wrappers for `commit-msg`, `post-commit`, `pre-push`, and `reference-transaction` with version diffing and backups.
-- **Hierarchical Configuration**: 4-tier Gosplan cascade (`Defaults < Global ~/.cccprc < Local .cccprc < ENV < CLI flags`).
+- **Hierarchical Configuration**: 4-tier Gosplan cascade (`Defaults < Global $XDG_CONFIG_HOME/cccp/config < Local .cccprc < ENV < CLI flags`).
 - **Multi-Forge Ticket Sync**: Sinks issues from Codeberg/Forgejo, GitHub, GitLab/Framagit, and SourceHut into `.antigravity/tickets.md` with sliding hourly rate limiting.
 - **Centralized AI Agent Directives**: Synchronize standardized prompts and workflows into `AGENTS.md`.
 
