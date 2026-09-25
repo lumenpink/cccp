@@ -542,6 +542,18 @@ EOF
     End
   End
 
+  Describe 'cmd_diva web option'
+    It 'dispatches to cmd_web on --web flag'
+      cmd_web() {
+        echo "MOCK_CMD_WEB_CALLED: $@"
+        return 0
+      }
+      When call cmd_diva --web --no-open
+      The status should be success
+      The output should include "MOCK_CMD_WEB_CALLED: diva --no-open"
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/diva.sh'
       test_awk() {

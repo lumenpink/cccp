@@ -164,6 +164,12 @@ printf "# Diva Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/diva.sh" >> "$OUTPUT_FILE"
 
+# Add web function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Web Server & Bridge Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/web.sh" >> "$OUTPUT_FILE"
+
 # Add hooks function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Hooks Functions\n" >> "$OUTPUT_FILE"

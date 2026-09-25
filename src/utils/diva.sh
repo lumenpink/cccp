@@ -1113,6 +1113,16 @@ cmd_diva() {
                     return 1
                 fi
                 ;;
+            --web|-w)
+                shift
+                if command -v cmd_web >/dev/null 2>&1; then
+                    cmd_web "diva" "$@"
+                    return $?
+                else
+                    echo "Error: cccp web module is not loaded." >&2
+                    return 1
+                fi
+                ;;
             --dry-run)
                 _dry_run=1
                 shift
