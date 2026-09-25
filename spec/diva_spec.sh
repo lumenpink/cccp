@@ -508,6 +508,40 @@ EOF
     End
   End
 
+  Describe 'cmd_ticket and cmd_issue'
+    It 'delegates cmd_ticket to cmd_diva'
+      cmd_diva() { echo "DIVA_CALLED_WITH:$*"; }
+      When call cmd_ticket "my problem description"
+      The status should be success
+      The output should eq "DIVA_CALLED_WITH:my problem description"
+    End
+
+    It 'delegates cmd_issue to cmd_diva'
+      cmd_diva() { echo "DIVA_CALLED_WITH:$*"; }
+      When call cmd_issue --dry-run "bug report"
+      The status should be success
+      The output should eq "DIVA_CALLED_WITH:--dry-run bug report"
+    End
+
+    It 'prints issue number and suggested branch name on successful dispatch'
+      test_branch_suggestion() {
+        export CODEBERG_TOKEN="mock_token"
+        _diva_http() {
+          printf '{"html_url":"https://codeberg.org/lumenpink/gost/issues/42","number":42}'
+        }
+        sample_tickets='{"tickets":[{"title":"feat(auth): token bucket rate limiter","body":"Details"}]}'
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "gost" 0 "codeberg.org" "fake_key" "gemini-3.6-flash" "report" 0.2 <<'EOF'
+y
+EOF
+      }
+      When call test_branch_suggestion
+      The status should be success
+      The output should include "✅ Criado: https://codeberg.org/lumenpink/gost/issues/42"
+      The output should include "🎯 Issue: #42"
+      The output should include "🌿 Branch sugerido: git checkout -b feat/42-token-bucket-rate-limiter"
+    End
+  End
+
   Describe 'strict zero-awk compliance'
     It 'verifies zero executable awk invocations in src/utils/diva.sh'
       test_awk() {

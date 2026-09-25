@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.6+20260924.e52edeb"
+CCCP_VERSION="2.4.0-dev.9+20260924.c6c1d03"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1451,6 +1451,7 @@ _cccp_ensure_comrade() {
     case "$_name" in
         kv|kvant) _target_bin="kv" ;;
         sv|svyaz) _target_bin="sv" ;;
+        mk|mayak) _target_bin="mk" ;;
     esac
 
     if command -v "$_target_bin" >/dev/null 2>&1; then
@@ -1477,6 +1478,10 @@ _cccp_ensure_comrade() {
         sv|svyaz)
             _repo="svyaz"
             _prefix="sv"
+            ;;
+        mk|mayak)
+            _repo="mayak"
+            _prefix="mk"
             ;;
         *)
             [ "$_silent" -eq 0 ] && echo "Erro: Camarada desconhecido '$_name'." >&2
@@ -1630,11 +1635,12 @@ cmd_comrades() {
             printf "%-10s %-12s %-16s %s\n" "CAMARADA" "PAPEL" "ESTADO" "LOCALIZAÇÃO"
             printf "%-10s %-12s %-16s %s\n" "--------" "-----" "------" "-----------"
 
-            for _c in "kv" "sv"; do
+            for _c in "kv" "sv" "mk"; do
                 _role=""
                 case "$_c" in
                     kv) _role="Editor (kvant)" ;;
                     sv) _role="HTTP (svyaz)" ;;
+                    mk) _role="Static (mayak)" ;;
                 esac
 
                 _p=$(command -v "$_c" 2>/dev/null || true)
@@ -1661,9 +1667,13 @@ cmd_comrades() {
                 sv|svyaz)
                     _cccp_ensure_comrade "sv" 0
                     ;;
+                mk|mayak)
+                    _cccp_ensure_comrade "mk" 0
+                    ;;
                 all|*)
                     _cccp_ensure_comrade "kv" 0
                     _cccp_ensure_comrade "sv" 0
+                    _cccp_ensure_comrade "mk" 0
                     ;;
             esac
             ;;
@@ -1692,7 +1702,7 @@ cmd_comrades() {
                 _mirror=$(cmd_config comrades_mirror 2>/dev/null || true)
             fi
 
-            for _pair in "kv:kvant" "sv:svyaz"; do
+            for _pair in "kv:kvant" "sv:svyaz" "mk:mayak"; do
                 _bin=$(printf '%s' "$_pair" | cut -d: -f1)
                 _repo=$(printf '%s' "$_pair" | cut -d: -f2)
                 _asset="${_bin}-${_arch}.tar.gz"
@@ -4333,6 +4343,38 @@ _diva_box_body() {
     done
 }
 
+_diva_print_issue_and_branch() {
+    _i_url="$1"
+    _i_title="$2"
+
+    [ -z "$_i_url" ] && return 0
+
+    _i_num=$(printf '%s\n' "$_i_url" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p')
+    [ -z "$_i_num" ] && _i_num=$(printf '%s\n' "$_i_url" | sed -n 's|.*/\([0-9]*\)$|\1|p')
+
+    if [ -n "$_i_num" ]; then
+        echo "  🎯 Issue: #${_i_num}"
+
+        _b_type="feat"
+        case "$_i_title" in
+            fix*|bug*|hotfix*) _b_type="fix" ;;
+            docs*) _b_type="docs" ;;
+            refactor*) _b_type="refactor" ;;
+            test*) _b_type="test" ;;
+            chore*) _b_type="chore" ;;
+            ci*) _b_type="ci" ;;
+            perf*) _b_type="perf" ;;
+            build*) _b_type="build" ;;
+        esac
+
+        _b_subj=$(printf '%s\n' "$_i_title" | sed -e 's/^[^:]*:[[:space:]]*//' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//')
+        _b_slug=$(printf '%.35s' "$_b_subj" | sed 's/-$//')
+        [ -z "$_b_slug" ] && _b_slug="ticket"
+
+        echo "  🌿 Branch sugerido: git checkout -b ${_b_type}/${_i_num}-${_b_slug}"
+    fi
+}
+
 _diva_present_and_dispatch() {
     _tickets_json="$1"
     _forge="$2"
@@ -4485,6 +4527,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
@@ -4516,6 +4559,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
@@ -4554,6 +4598,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
@@ -4566,6 +4611,7 @@ _diva_present_and_dispatch() {
                                 _gh_url=$(gh issue create --repo "${_owner}/${_repo}" --title "$_title" --body "$_body" 2>/dev/null || true)
                                 if [ -n "$_gh_url" ]; then
                                     echo "  ✅ Criado: ${_gh_url}"
+                                    _diva_print_issue_and_branch "$_gh_url" "$_title"
                                     _created_count=$((_created_count + 1))
                                 else
                                     printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
@@ -4585,6 +4631,7 @@ _diva_present_and_dispatch() {
                                     _issue_url=$(_diva_extract_html_url "$_post_res")
                                     if [ -n "$_issue_url" ]; then
                                         echo "  ✅ Criado: ${_issue_url}"
+                                        _diva_print_issue_and_branch "$_issue_url" "$_title"
                                         _created_count=$((_created_count + 1))
                                     else
                                         printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
@@ -4924,6 +4971,14 @@ cmd_diva() {
 }
 
 cmd_divan() {
+    cmd_diva "$@"
+}
+
+cmd_ticket() {
+    cmd_diva "$@"
+}
+
+cmd_issue() {
     cmd_diva "$@"
 }
 
@@ -6337,16 +6392,18 @@ show_help() {
             echo "  $0 catalog sync-local"
             echo "  $0 catalog sync-remote"
             ;;
-        "diva"|"divan")
-            echo "cccp.sh diva - Gemini-Powered Interactive Ticket Triage Bot (O Divã)"
-            echo "==================================================================="
+        "diva"|"divan"|"ticket"|"issue")
+            echo "cccp.sh diva/ticket - Gemini-Powered Interactive Ticket Triage Bot (O Divã)"
+            echo "=========================================================================="
             echo ""
             echo "Decomposes freeform problem reports, bug descriptions, and feature ideas"
-            echo "into discrete Conventional Commits issues via Google Gemini REST API."
+            echo "into discrete Conventional Commits issues via Google Gemini REST API,"
+            echo "creating tickets on forge with automated GOST git branch suggestions."
             echo ""
             echo "Usage:"
+            echo "  $0 ticket [options] [problem-description]"
             echo "  $0 diva [options] [problem-description]"
-            echo "  echo 'description' | $0 diva"
+            echo "  echo 'description' | $0 ticket"
             echo ""
             echo "Options:"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
@@ -6357,8 +6414,8 @@ show_help() {
             echo "  -h, --help                Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0 diva"
-            echo "  $0 diva 'Token expiration leads to UI lock and crash on refresh'"
+            echo "  $0 ticket"
+            echo "  $0 ticket 'Token expiration leads to UI lock and crash on refresh'"
             echo "  $0 diva --dry-run 'Various bug reports from support inbox...'"
             echo "  $0 diva config AIzaSy..."
             ;;
@@ -6410,6 +6467,7 @@ show_help() {
             echo "  codeberg setup     Interactive wizard to configure Codeberg integration and AGENTS template"
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
             echo "  catalog [options]  Inventory workspaces, update .git/description and sync forges"
+            echo "  ticket, issue      Interactive issue creation via Diva with GOST branch suggestion"
             echo "  diva, divan        Gemini-powered issue triage bot with multi-forge dispatch"
             echo "  comrades [status]  Manage micro ecosystem tools (kvant editor and svyaz HTTP client)"
             echo "  changelog          Generate or update CHANGELOG.md"
@@ -8208,7 +8266,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog diva divan comrades changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -8242,6 +8300,18 @@ _cccp_completions() {
         tickets|sync-tickets)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -p --provider -m --max-bytes -t --token -h --help" -- "$cur"))
+            fi
+            ;;
+        ticket|issue|diva|divan)
+            case "$prev" in
+                -m|--model|-t|--temp|-r|--repo)
+                    return 0
+                    ;;
+            esac
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--dry-run --model -m --temp -t --repo -r -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "config" -- "$cur"))
             fi
             ;;
         config)
@@ -8320,6 +8390,12 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'ticket:Interactive issue creation via Diva with GOST branch suggestion'
+        'issue:Interactive issue creation via Diva with GOST branch suggestion'
+        'diva:Gemini-powered issue triage bot with multi-forge dispatch'
+        'divan:Gemini-powered issue triage bot with multi-forge dispatch'
+        'catalog:Inventory workspaces, update description and sync forges'
+        'comrades:Manage micro ecosystem tools (kvant, svyaz, mayak)'
         'agent:Generate and synchronize AGENTS.md directives'
         'update-agent:Generate and synchronize AGENTS.md directives'
         'sync-agent:Generate and synchronize AGENTS.md directives'
@@ -8414,6 +8490,14 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
+                ticket|issue|diva|divan)
+                    _arguments \
+                        '--dry-run[Simulate triage and preview tickets without forge publication]' \
+                        '(-m --model)'{-m,--model}'[Gemini model name]:model:' \
+                        '(-t --temp)'{-t,--temp}'[Sampling temperature]:temperature:' \
+                        '(-r --repo)'{-r,--repo}'[Target repository slug]:repo:' \
+                        '1:problem description or config:'
+                    ;;
                 agent|update-agent|sync-agent|agents|update-agents|sync-agents)
                     _arguments \
                         '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
@@ -8471,6 +8555,12 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a ticket -d "Interactive issue creation via Diva with GOST branch suggestion"
+complete -c cccp -n "__fish_use_subcommand" -a issue -d "Interactive issue creation via Diva with GOST branch suggestion"
+complete -c cccp -n "__fish_use_subcommand" -a diva -d "Gemini-powered issue triage bot with multi-forge dispatch"
+complete -c cccp -n "__fish_use_subcommand" -a divan -d "Gemini-powered issue triage bot with multi-forge dispatch"
+complete -c cccp -n "__fish_use_subcommand" -a catalog -d "Inventory workspaces, update description and sync forges"
+complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosystem tools (kvant, svyaz, mayak)"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
@@ -8500,6 +8590,13 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l r
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider (github or codeberg)"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Personal access token"
+
+# Options for ticket and diva
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -l dry-run -d "Simulate triage without forge publication"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s m -l model -d "Gemini model name"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s t -l temp -d "Sampling temperature"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s r -l repo -d "Target repository slug"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -a "config" -d "Configure Gemini API key"
 
 # Options for agent
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"
@@ -8629,7 +8726,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"ticket"|"issue")
                 check_auto_update || true
                 ;;
         esac
@@ -8770,9 +8867,9 @@ main() {
             cmd_catalog "$@"
             exit 0
             ;;
-        "diva"|"divan")
+        "ticket"|"issue"|"diva"|"divan")
             shift || true
-            cmd_diva "$@"
+            cmd_ticket "$@"
             exit 0
             ;;
         "comrades"|"camaradas"|"comrade")
@@ -8789,7 +8886,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|agent|set-av|catalog|diva|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

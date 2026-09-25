@@ -48,5 +48,12 @@ Describe 'Help Function'
       The output should include "--local"
       The output should include "--unset"
     End
+
+    It 'displays help information for ticket and issue commands'
+      When call show_help "ticket"
+      The output should include "diva/ticket"
+      The output should include "Usage:"
+      The output should include "$0 ticket"
+    End
   End
 End 

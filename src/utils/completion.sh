@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets agent update-agent sync-agent agents update-agents sync-agents codeberg set-av changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog diva divan comrades changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -48,6 +48,18 @@ _cccp_completions() {
         tickets|sync-tickets)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "-f --file -o --owner -r --repo -p --provider -m --max-bytes -t --token -h --help" -- "$cur"))
+            fi
+            ;;
+        ticket|issue|diva|divan)
+            case "$prev" in
+                -m|--model|-t|--temp|-r|--repo)
+                    return 0
+                    ;;
+            esac
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--dry-run --model -m --temp -t --repo -r -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "config" -- "$cur"))
             fi
             ;;
         config)
@@ -126,6 +138,12 @@ _cccp() {
         'push:Execute git push and trigger optional post-push hook'
         'tickets:Sync Codeberg issues into markdown'
         'sync-tickets:Sync Codeberg issues into markdown'
+        'ticket:Interactive issue creation via Diva with GOST branch suggestion'
+        'issue:Interactive issue creation via Diva with GOST branch suggestion'
+        'diva:Gemini-powered issue triage bot with multi-forge dispatch'
+        'divan:Gemini-powered issue triage bot with multi-forge dispatch'
+        'catalog:Inventory workspaces, update description and sync forges'
+        'comrades:Manage micro ecosystem tools (kvant, svyaz, mayak)'
         'agent:Generate and synchronize AGENTS.md directives'
         'update-agent:Generate and synchronize AGENTS.md directives'
         'sync-agent:Generate and synchronize AGENTS.md directives'
@@ -220,6 +238,14 @@ _cccp() {
                         '(-m --max-bytes)'{-m,--max-bytes}'[Maximum budget in bytes]:bytes:' \
                         '(-t --token)'{-t,--token}'[Codeberg personal access token]:token:'
                     ;;
+                ticket|issue|diva|divan)
+                    _arguments \
+                        '--dry-run[Simulate triage and preview tickets without forge publication]' \
+                        '(-m --model)'{-m,--model}'[Gemini model name]:model:' \
+                        '(-t --temp)'{-t,--temp}'[Sampling temperature]:temperature:' \
+                        '(-r --repo)'{-r,--repo}'[Target repository slug]:repo:' \
+                        '1:problem description or config:'
+                    ;;
                 agent|update-agent|sync-agent|agents|update-agents|sync-agents)
                     _arguments \
                         '(-u --url)'{-u,--url}'[Template URL or local file path]:url:_files' \
@@ -277,6 +303,12 @@ complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, com
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
 complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a ticket -d "Interactive issue creation via Diva with GOST branch suggestion"
+complete -c cccp -n "__fish_use_subcommand" -a issue -d "Interactive issue creation via Diva with GOST branch suggestion"
+complete -c cccp -n "__fish_use_subcommand" -a diva -d "Gemini-powered issue triage bot with multi-forge dispatch"
+complete -c cccp -n "__fish_use_subcommand" -a divan -d "Gemini-powered issue triage bot with multi-forge dispatch"
+complete -c cccp -n "__fish_use_subcommand" -a catalog -d "Inventory workspaces, update description and sync forges"
+complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosystem tools (kvant, svyaz, mayak)"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
@@ -306,6 +338,13 @@ complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l r
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider (github or codeberg)"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Personal access token"
+
+# Options for ticket and diva
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -l dry-run -d "Simulate triage without forge publication"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s m -l model -d "Gemini model name"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s t -l temp -d "Sampling temperature"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -s r -l repo -d "Target repository slug"
+complete -c cccp -n "__fish_seen_subcommand_from ticket issue diva divan" -a "config" -d "Configure Gemini API key"
 
 # Options for agent
 complete -c cccp -n "__fish_seen_subcommand_from agent update-agent sync-agent agents update-agents sync-agents" -s u -l url -d "Template URL or local file path"

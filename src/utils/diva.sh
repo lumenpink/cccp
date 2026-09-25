@@ -609,6 +609,41 @@ _diva_box_body() {
 }
 
 # -----------------------------------------------------------------------------
+# Helper: Display Issue Number and Suggested GOST Branch Name
+# -----------------------------------------------------------------------------
+_diva_print_issue_and_branch() {
+    _i_url="$1"
+    _i_title="$2"
+
+    [ -z "$_i_url" ] && return 0
+
+    _i_num=$(printf '%s\n' "$_i_url" | sed -n 's|.*/issues/\([0-9]*\).*|\1|p')
+    [ -z "$_i_num" ] && _i_num=$(printf '%s\n' "$_i_url" | sed -n 's|.*/\([0-9]*\)$|\1|p')
+
+    if [ -n "$_i_num" ]; then
+        echo "  🎯 Issue: #${_i_num}"
+
+        _b_type="feat"
+        case "$_i_title" in
+            fix*|bug*|hotfix*) _b_type="fix" ;;
+            docs*) _b_type="docs" ;;
+            refactor*) _b_type="refactor" ;;
+            test*) _b_type="test" ;;
+            chore*) _b_type="chore" ;;
+            ci*) _b_type="ci" ;;
+            perf*) _b_type="perf" ;;
+            build*) _b_type="build" ;;
+        esac
+
+        _b_subj=$(printf '%s\n' "$_i_title" | sed -e 's/^[^:]*:[[:space:]]*//' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-//' -e 's/-$//')
+        _b_slug=$(printf '%.35s' "$_b_subj" | sed 's/-$//')
+        [ -z "$_b_slug" ] && _b_slug="ticket"
+
+        echo "  🌿 Branch sugerido: git checkout -b ${_b_type}/${_i_num}-${_b_slug}"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Helper: Display Soviet Ticket Box & Request Interactive Confirmation
 # -----------------------------------------------------------------------------
 _diva_present_and_dispatch() {
@@ -763,6 +798,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
@@ -794,6 +830,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em %s. Resposta: %s\n' "$_forge" "$_post_res" >&2
@@ -832,6 +869,7 @@ _diva_present_and_dispatch() {
                             _issue_url=$(_diva_extract_html_url "$_post_res")
                             if [ -n "$_issue_url" ]; then
                                 echo "  ✅ Criado: ${_issue_url}"
+                                _diva_print_issue_and_branch "$_issue_url" "$_title"
                                 _created_count=$((_created_count + 1))
                             else
                                 printf '  [ERRO] Falha ao publicar em Forgejo (%s). Resposta: %s\n' "$_host" "$_post_res" >&2
@@ -844,6 +882,7 @@ _diva_present_and_dispatch() {
                                 _gh_url=$(gh issue create --repo "${_owner}/${_repo}" --title "$_title" --body "$_body" 2>/dev/null || true)
                                 if [ -n "$_gh_url" ]; then
                                     echo "  ✅ Criado: ${_gh_url}"
+                                    _diva_print_issue_and_branch "$_gh_url" "$_title"
                                     _created_count=$((_created_count + 1))
                                 else
                                     printf '  [ERRO] gh cli falhou ao criar issue no GitHub.\n' >&2
@@ -863,6 +902,7 @@ _diva_present_and_dispatch() {
                                     _issue_url=$(_diva_extract_html_url "$_post_res")
                                     if [ -n "$_issue_url" ]; then
                                         echo "  ✅ Criado: ${_issue_url}"
+                                        _diva_print_issue_and_branch "$_issue_url" "$_title"
                                         _created_count=$((_created_count + 1))
                                     else
                                         printf '  [ERRO] Falha ao publicar no GitHub. Resposta: %s\n' "$_post_res" >&2
@@ -1207,3 +1247,12 @@ cmd_diva() {
 cmd_divan() {
     cmd_diva "$@"
 }
+
+cmd_ticket() {
+    cmd_diva "$@"
+}
+
+cmd_issue() {
+    cmd_diva "$@"
+}
+

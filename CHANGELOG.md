@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (diva) add cccp ticket/issue command with branch suggestion (closes #36)
   - (comrades) support mayak (mk) static micro-server in comrades manager
   - (comrades) support ARM32 architectures, 1960s-style raw bootstrap downloaders, and auto-recruitment
   - (deps) implement pure POSIX token reader for gh and issue url parser without jq (#33)

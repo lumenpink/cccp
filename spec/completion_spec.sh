@@ -65,6 +65,8 @@ Describe 'completion'
       The status should be success
       The output should include "_cccp_completions()"
       The output should include "complete -F _cccp_completions cccp cccp.sh"
+      The output should include "ticket"
+      The output should include "issue"
     End
   End
 
@@ -77,6 +79,8 @@ Describe 'completion'
       The output should include "cz:"
       The output should include "version:"
       The output should include "tickets:"
+      The output should include "ticket:"
+      The output should include "issue:"
     End
   End
 
@@ -89,6 +93,8 @@ Describe 'completion'
       The output should include "cz"
       The output should include "tag"
       The output should include "soviet"
+      The output should include "ticket"
+      The output should include "issue"
     End
   End
 End
