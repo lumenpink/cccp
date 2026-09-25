@@ -13,6 +13,41 @@ main() {
     fi
     export CCCP_RECURSION_DEPTH=$((depth + 1))
 
+    # Global directory override option (-C <path|repo>)
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -C|--dir)
+                shift
+                [ $# -gt 0 ] || { echo "Error: $1 requires directory path or repository name" >&2; return 1; }
+                _target_repo="$1"
+                _resolved_dir=""
+                if [ -d "$_target_repo" ]; then
+                    _resolved_dir="$_target_repo"
+                elif [ -d "${HOME}/src/${_target_repo}" ]; then
+                    _resolved_dir="${HOME}/src/${_target_repo}"
+                fi
+
+                if [ -z "$_resolved_dir" ] && command -v _catalog_resolve_target_dir >/dev/null 2>&1; then
+                    _base_cat=$(_catalog_resolve_target_dir "" 2>/dev/null || echo "")
+                    if [ -n "$_base_cat" ] && [ -d "${_base_cat}/${_target_repo}" ]; then
+                        _resolved_dir="${_base_cat}/${_target_repo}"
+                    fi
+                fi
+
+                if [ -n "$_resolved_dir" ]; then
+                    cd "$_resolved_dir" || { echo "Error: Failed to change directory to '$_resolved_dir'" >&2; return 1; }
+                else
+                    echo "Error: Repository directory '$_target_repo' not found" >&2
+                    return 1
+                fi
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
     # Load configuration hierarchy (Defaults < Global < Local < Environment)
     if command -v load_hierarchical_config >/dev/null 2>&1; then
         load_hierarchical_config

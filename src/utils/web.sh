@@ -275,7 +275,13 @@ _web_export_assets() {
       <span>☭ CCCP Web Cockpit</span>
       <span class="badge">Маяк Bridge</span>
     </div>
-    <div style="display:flex; align-items:center; gap:0.75rem;">
+    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <label for="repo-select" style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">📁 Repositório:</label>
+        <select id="repo-select" onchange="switchRepository(this.value)" style="margin-bottom:0; width:auto; min-width:180px; padding:0.35rem 0.6rem; font-size:0.85rem; height:32px;">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
       <div class="session-info">
         Port: <strong>${_listen_port}</strong>
       </div>
@@ -295,7 +301,10 @@ _web_export_assets() {
     <!-- TAB 1: O DIVÃ -->
     <div id="tab-diva" class="tab-content active">
       <div class="card">
-        <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;">
+          <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
+          <span id="diva-repo-hint" style="font-family:var(--font-mono); font-size:0.85rem; color:var(--gold); font-weight:bold;"></span>
+        </div>
         <p class="desc">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com sugestão de branch GOST.</p>
         
         <textarea id="diva-input" rows="4" placeholder="Ex: O botão de login congela quando o token JWT expira no meio de uma requisição assíncrona, exigindo reload da página..."></textarea>
@@ -336,6 +345,7 @@ _web_export_assets() {
 
   <script>
     let sessionToken = sessionStorage.getItem('cccp_token') || new URLSearchParams(window.location.search).get('token') || '';
+    let activeRepo = sessionStorage.getItem('cccp_active_repo') || '';
 
     function showAuthModal(errMsg = '') {
       const modal = document.getElementById('auth-modal');
@@ -405,6 +415,7 @@ _web_export_assets() {
         sessionToken = val;
         sessionStorage.setItem('cccp_token', sessionToken);
         hideAuthModal();
+        await loadRepositories();
         const activeTab = document.querySelector('nav button.active');
         const tabName = activeTab ? activeTab.id.replace('nav-', '') : 'diva';
         switchTab(tabName);
@@ -422,13 +433,18 @@ _web_export_assets() {
         throw new Error('Não autenticado');
       }
 
+      let finalArgs = args;
+      if (activeRepo && args.length > 0 && args[0] !== '-C' && args[0] !== 'catalog') {
+        finalArgs = ['-C', activeRepo, ...args];
+      }
+
       const res = await fetch('/api/exec', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + sessionToken,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ args, stdin })
+        body: JSON.stringify({ args: finalArgs, stdin })
       });
 
       if (res.status === 401) {
@@ -441,6 +457,109 @@ _web_export_assets() {
         throw new Error('HTTP ' + res.status + ': ' + (await res.text()));
       }
       return await res.json();
+    }
+
+    async function loadRepositories() {
+      const select = document.getElementById('repo-select');
+      if (!select) return;
+
+      let initialRepo = '';
+      try {
+        const statusResp = await fetch('/api/exec', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + sessionToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ args: ['status'] })
+        });
+        if (statusResp.ok) {
+          const data = await statusResp.json();
+          const match = (data.stdout || '').match(/Repository:\s+([^\r\n]+)/);
+          if (match && match[1]) {
+            initialRepo = match[1].trim().split('/').pop();
+          }
+        }
+      } catch (e) {}
+
+      let repos = [];
+      try {
+        const catRes = await fetch('/api/exec', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + sessionToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ args: ['catalog', 'list', '--json'] })
+        });
+        if (catRes.ok) {
+          const data = await catRes.json();
+          repos = JSON.parse(data.stdout || '[]');
+        }
+      } catch (e) {}
+
+      select.innerHTML = '';
+
+      if (!activeRepo) {
+        activeRepo = initialRepo;
+        if (activeRepo) {
+          sessionStorage.setItem('cccp_active_repo', activeRepo);
+        }
+      }
+
+      const seen = new Set();
+      let hasActiveInList = false;
+
+      if (repos && repos.length > 0) {
+        repos.forEach(r => {
+          if (r.name && !seen.has(r.name)) {
+            seen.add(r.name);
+            const opt = document.createElement('option');
+            opt.value = r.name;
+            opt.textContent = r.name + ' (' + (r.forge || 'local') + ')';
+            if (r.name === activeRepo) {
+              opt.selected = true;
+              hasActiveInList = true;
+            }
+            select.appendChild(opt);
+          }
+        });
+      }
+
+      if (activeRepo && !hasActiveInList) {
+        const opt = document.createElement('option');
+        opt.value = activeRepo;
+        opt.textContent = activeRepo + ' (ativo)';
+        opt.selected = true;
+        select.insertBefore(opt, select.firstChild);
+      } else if (!activeRepo && select.options.length > 0) {
+        activeRepo = select.options[0].value;
+        sessionStorage.setItem('cccp_active_repo', activeRepo);
+      }
+
+      updateDivaContext();
+    }
+
+    function switchRepository(repoName) {
+      activeRepo = repoName;
+      sessionStorage.setItem('cccp_active_repo', activeRepo);
+      updateDivaContext();
+
+      const activeTab = document.querySelector('nav button.active');
+      const tabName = activeTab ? activeTab.id.replace('nav-', '') : 'diva';
+
+      if (tabName === 'status') {
+        loadStatus();
+      } else if (tabName === 'tickets') {
+        loadTickets();
+      }
+    }
+
+    function updateDivaContext() {
+      const hint = document.getElementById('diva-repo-hint');
+      if (hint) {
+        hint.textContent = activeRepo ? '[Repo: ' + activeRepo + ']' : '';
+      }
     }
 
     function switchTab(name) {
@@ -523,6 +642,7 @@ _web_export_assets() {
         }
         sessionStorage.setItem('cccp_token', sessionToken);
         hideAuthModal();
+        await loadRepositories();
         const urlTab = new URLSearchParams(window.location.search).get('tab');
         if (urlTab && document.getElementById('tab-' + urlTab)) {
           switchTab(urlTab);

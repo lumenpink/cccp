@@ -48,6 +48,7 @@ Describe 'web'
       The file "$target_dir/index.html" should be file
       The contents of file "$target_dir/index.html" should include "CCCP"
       The contents of file "$target_dir/index.html" should include "auth-modal"
+      The contents of file "$target_dir/index.html" should include "repo-select"
       The contents of file "$target_dir/index.html" should not include "gosplan-token-1922"
       The contents of file "$target_dir/index.html" should include "8080"
     End
@@ -132,6 +133,26 @@ EOF
       The status should be success
       The output should include "--auth env-secret-token-456"
       unset CCCP_TOKEN
+    End
+  End
+
+  Describe 'global repository context (-C)'
+    It 'switches directory and executes in target repository'
+      mkdir -p "$TEST_DIR/sample_repo"
+      git -C "$TEST_DIR/sample_repo" init -q
+      printf '3.2.1\n' > "$TEST_DIR/sample_repo/VERSION"
+
+      When call "$SHELLSPEC_PROJECT_ROOT/cccp.sh" -C "$TEST_DIR/sample_repo" status
+      The status should be success
+      The output should include "Repository:"
+      The output should include "$TEST_DIR/sample_repo"
+      The output should include "Current Version:  3.2.1"
+    End
+
+    It 'fails when target directory does not exist'
+      When call "$SHELLSPEC_PROJECT_ROOT/cccp.sh" -C "$TEST_DIR/non_existent_folder_xyz" status
+      The status should be failure
+      The error should include "Error: Repository directory"
     End
   End
 

@@ -80,7 +80,12 @@ cccp ticket --web --open
 
 ## 4. Funcionalidades da Interface
 
-### 4.1 O Divã (Diva Triage Cockpit)
+### 4.1 Seletor de Repositório Ativo
+- Dropdown integrado no cabeçalho do Cockpit para selecionar e alternar o repositório em contexto de trabalho;
+- Descoberta automática através do catálogo de repositórios locais (`catalog.json`);
+- Atualização em tempo real das abas de Status, Tickets e Divã para o repositório selecionado.
+
+### 4.2 O Divã (Diva Triage Cockpit)
 - Campo de entrada livre para relatos de problemas, transcrições de reuniões ou ideias;
 - Análise semântica assistida via IA (Gemini);
 - Exibição de cards individuais com tipos convencionais (`feat`, `fix`, `refactor`, `docs`, etc.);
@@ -89,11 +94,11 @@ cccp ticket --web --open
 - Geração imediata do comando git para criação de branch GOST:
   `git checkout -b <tipo>/<id>-<slug>`.
 
-### 4.2 Inspeção & Status do Repositório
+### 4.3 Inspeção & Status do Repositório
 - Visualização do estado da árvore de trabalho (limpa / modificada);
 - Branch atual, upstream sincronizado e status dos hooks do CCCP;
 - Versão ativa do CCCP e ferramentas do ecossistema.
 
-### 4.3 Gestão de Tickets
+### 4.4 Gestão de Tickets
 - Leitura dos tickets sincronizados locais (`.antigravity/tickets.md`);
 - Filtros por estado e forge de origem.
