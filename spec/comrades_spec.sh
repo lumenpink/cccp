@@ -113,6 +113,32 @@ Describe 'comrades'
       The path "$TEST_DIR/bin" should be directory
       The variable PATH should include "$TEST_DIR/bin"
     End
+
+    It 'falls back to XDG_DATA_HOME/cccp/bin when local/bin cannot be used'
+      export HOME="$TEST_DIR"
+      unset XDG_BIN_HOME || true
+      export XDG_DATA_HOME="$TEST_DIR/data"
+      # Mock ~/.local/bin to be a file so mkdir fails
+      mkdir -p "$TEST_DIR/.local"
+      touch "$TEST_DIR/.local/bin"
+      When call _cccp_get_bin_dir
+      The status should be success
+      The output should eq "$TEST_DIR/data/cccp/bin"
+      The path "$TEST_DIR/.cccp" should not be exist
+      rm -f "$TEST_DIR/.local/bin"
+    End
+
+    It 'falls back to HOME/.local/share/cccp/bin when XDG_DATA_HOME is unset and local/bin cannot be used'
+      export HOME="$TEST_DIR"
+      unset XDG_BIN_HOME XDG_DATA_HOME || true
+      mkdir -p "$TEST_DIR/.local"
+      touch "$TEST_DIR/.local/bin"
+      When call _cccp_get_bin_dir
+      The status should be success
+      The output should eq "$TEST_DIR/.local/share/cccp/bin"
+      The path "$TEST_DIR/.cccp" should not be exist
+      rm -f "$TEST_DIR/.local/bin"
+    End
   End
 
   Describe '_cccp_ensure_comrade'

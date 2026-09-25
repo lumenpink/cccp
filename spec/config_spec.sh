@@ -321,6 +321,32 @@ Describe 'Configuration Manager'
       The output should eq "/tmp/my_xdg/cccp/config"
     End
 
+    It 'resolves global data dir using XDG_DATA_HOME'
+      export XDG_DATA_HOME="/tmp/my_xdg_data"
+      When call get_global_data_dir
+      The output should eq "/tmp/my_xdg_data/cccp"
+    End
+
+    It 'resolves global data dir using HOME fallback'
+      export XDG_DATA_HOME=""
+      export HOME="/tmp/my_home"
+      When call get_global_data_dir
+      The output should eq "/tmp/my_home/.local/share/cccp"
+    End
+
+    It 'resolves global cache dir using XDG_CACHE_HOME'
+      export XDG_CACHE_HOME="/tmp/my_xdg_cache"
+      When call get_global_cache_dir
+      The output should eq "/tmp/my_xdg_cache/cccp"
+    End
+
+    It 'resolves global cache dir using HOME fallback'
+      export XDG_CACHE_HOME=""
+      export HOME="/tmp/my_home"
+      When call get_global_cache_dir
+      The output should eq "/tmp/my_home/.cache/cccp"
+    End
+
     It 'resolves local config file inside git repository'
       cd "$TEST_DIR"
       When call get_local_config_file

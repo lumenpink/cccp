@@ -191,6 +191,30 @@ Line 2: second line"
       The contents of file "$TEST_DIR/.cccprc" should include "gemini_api_key = AIzaSyCustomKey789"
     End
 
+    It 'saves gemini_api_key to global XDG config when outside git repository'
+      test_global_diva_config() {
+        OUT_DIR="$(mktemp -d)"
+        cd "$OUT_DIR"
+        export HOME="$OUT_DIR/home"
+        export XDG_CONFIG_HOME="$OUT_DIR/config"
+        mkdir -p "$HOME" "$XDG_CONFIG_HOME"
+        cmd_diva config "AIzaSyGlobalKey"
+        _res=$?
+        if [ -f "$OUT_DIR/config/cccp/config" ] && grep -q "gemini_api_key = AIzaSyGlobalKey" "$OUT_DIR/config/cccp/config"; then
+          if [ ! -f "$HOME/.cccprc" ]; then
+            cd "$TEST_DIR"
+            rm -rf "$OUT_DIR"
+            return 0
+          fi
+        fi
+        cd "$TEST_DIR"
+        rm -rf "$OUT_DIR"
+        return 1
+      }
+      When call test_global_diva_config
+      The status should be success
+    End
+
     It 'fails with actionable error when GEMINI_API_KEY is missing'
       When call cmd_diva "Report text without API key"
       The status should be failure

@@ -260,17 +260,17 @@ EOF
   Describe 'get_update_cache_file'
     BeforeEach 'reset_env'
 
-    It 'respects custom XDG_CONFIG_HOME'
-      export XDG_CONFIG_HOME="/tmp/custom_config"
+    It 'respects custom XDG_CACHE_HOME'
+      export XDG_CACHE_HOME="/tmp/custom_cache"
       When call get_update_cache_file
-      The output should eq "/tmp/custom_config/cccp/update_cache"
+      The output should eq "/tmp/custom_cache/cccp/update_cache"
     End
 
-    It 'falls back to HOME/.config when XDG_CONFIG_HOME is empty'
-      export XDG_CONFIG_HOME=""
+    It 'falls back to HOME/.cache when XDG_CACHE_HOME is empty'
+      export XDG_CACHE_HOME=""
       export HOME="/tmp/custom_home"
       When call get_update_cache_file
-      The output should eq "/tmp/custom_home/.config/cccp/update_cache"
+      The output should eq "/tmp/custom_home/.cache/cccp/update_cache"
     End
   End
 End
