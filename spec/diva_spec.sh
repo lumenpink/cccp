@@ -198,7 +198,7 @@ Line 2: second line"
         export HOME="$OUT_DIR/home"
         export XDG_CONFIG_HOME="$OUT_DIR/config"
         mkdir -p "$HOME" "$XDG_CONFIG_HOME"
-        cmd_diva config "AIzaSyGlobalKey"
+        cmd_diva config "AIzaSyGlobalKey" >/dev/null
         _res=$?
         if [ -f "$OUT_DIR/config/cccp/config" ] && grep -q "gemini_api_key = AIzaSyGlobalKey" "$OUT_DIR/config/cccp/config"; then
           if [ ! -f "$HOME/.cccprc" ]; then

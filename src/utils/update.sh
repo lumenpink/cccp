@@ -14,10 +14,10 @@ get_current_version() {
 }
 
 get_update_cache_file() {
-    if command -v get_global_config_dir >/dev/null 2>&1; then
-        echo "$(get_global_config_dir)/update_cache"
+    if command -v get_global_cache_dir >/dev/null 2>&1; then
+        echo "$(get_global_cache_dir)/update_cache"
     else
-        echo "${XDG_CONFIG_HOME:-$HOME/.config}/cccp/update_cache"
+        echo "${XDG_CACHE_HOME:-$HOME/.cache}/cccp/update_cache"
     fi
 }
 

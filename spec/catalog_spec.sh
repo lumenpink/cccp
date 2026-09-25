@@ -320,7 +320,7 @@ EOF
       The output should eq "/from/global/config"
     End
 
-    It 'resolves target directory from ~/.cccprc'
+    It 'resolves target directory from local .cccprc'
       echo "catalog_dir = /from/home/cccprc" > "$TEST_DIR/.cccprc"
       When call _catalog_resolve_target_dir ""
       The status should be success

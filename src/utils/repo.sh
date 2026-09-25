@@ -477,8 +477,9 @@ resolve_forge_token() {
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    else
+        _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
     fi
-    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ] && command -v read_file_key >/dev/null 2>&1; then
         for _k in $_keys; do

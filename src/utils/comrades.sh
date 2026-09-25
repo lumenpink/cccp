@@ -8,7 +8,7 @@ set -eu
 
 # -----------------------------------------------------------------------------
 # Helper: Determine and ensure binary target directory (OpenDesktop / XDG)
-# Priority: COMRADES_BIN_DIR -> ~/.local/bin -> ~/.cccp/bin
+# Priority: COMRADES_BIN_DIR -> XDG_BIN_HOME -> ~/.local/bin -> $XDG_DATA_HOME/cccp/bin
 # -----------------------------------------------------------------------------
 _cccp_get_bin_dir() {
     if [ -n "${COMRADES_BIN_DIR:-}" ]; then
@@ -18,7 +18,7 @@ _cccp_get_bin_dir() {
     elif [ -d "${HOME}/.local/bin" ] || mkdir -p "${HOME}/.local/bin" 2>/dev/null; then
         _bdir="${HOME}/.local/bin"
     else
-        _bdir="${HOME}/.cccp/bin"
+        _bdir="${XDG_DATA_HOME:-$HOME/.local/share}/cccp/bin"
     fi
     mkdir -p "$_bdir" 2>/dev/null || true
 

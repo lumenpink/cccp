@@ -60,12 +60,13 @@ _diva_resolve_api_key() {
         fi
     fi
 
-    # 4. Check global config (~/.config/cccp/config or ~/.cccprc)
+    # 4. Check global config (~/.config/cccp/config)
     _global_cfg=""
     if command -v get_global_config_file >/dev/null 2>&1; then
         _global_cfg=$(get_global_config_file 2>/dev/null || true)
+    else
+        _global_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
     fi
-    [ -z "$_global_cfg" ] && [ -f "${HOME}/.cccprc" ] && _global_cfg="${HOME}/.cccprc"
 
     if [ -n "$_global_cfg" ] && [ -f "$_global_cfg" ]; then
         if command -v read_file_key >/dev/null 2>&1; then
@@ -219,7 +220,7 @@ _diva_resolve_custom_repo() {
             fi
             [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
             [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
-            _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+            _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${XDG_DATA_HOME:-${HOME}/.local/share}/cccp/catalog.json ${HOME}/.config/cccp/catalog.json"
 
             for _cf in $_cat_files; do
                 if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
@@ -258,7 +259,7 @@ EOF
     fi
     [ -z "$_d_root" ] && _d_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
     [ -n "$_d_root" ] && _cat_files="${_d_root}/catalog.json $(dirname "$_d_root")/catalog.json"
-    _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${HOME}/.config/cccp/catalog.json"
+    _cat_files="${_cat_files} catalog.json ${HOME}/src/catalog.json ${XDG_DATA_HOME:-${HOME}/.local/share}/cccp/catalog.json ${HOME}/.config/cccp/catalog.json"
 
     for _cf in $_cat_files; do
         if [ -f "$_cf" ] && command -v _catalog_read_existing_json >/dev/null 2>&1; then
@@ -1104,7 +1105,14 @@ cmd_diva() {
                 if [ $# -gt 0 ]; then
                     _key="$1"
                     _local_cfg=$(get_local_config_file 2>/dev/null || true)
-                    [ -z "$_local_cfg" ] && _local_cfg="${HOME}/.cccprc"
+                    if [ -z "$_local_cfg" ]; then
+                        if command -v get_global_config_file >/dev/null 2>&1; then
+                            _local_cfg=$(get_global_config_file 2>/dev/null || true)
+                        else
+                            _local_cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/cccp/config"
+                        fi
+                        mkdir -p "$(dirname "$_local_cfg")" 2>/dev/null || true
+                    fi
                     write_file_key "$_local_cfg" "gemini_api_key" "$_key"
                     echo "Chave gemini_api_key salva com sucesso em $_local_cfg"
                     return 0

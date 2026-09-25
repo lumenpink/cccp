@@ -24,8 +24,10 @@ install_global_binary() {
         user_id=$(id -u 2>/dev/null || echo "1000")
         if [ "$user_id" -eq 0 ]; then
             target_dir="/usr/local/bin"
-        else
+        elif [ -d "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
             target_dir="$HOME/.local/bin"
+        else
+            target_dir="${XDG_DATA_HOME:-$HOME/.local/share}/cccp/bin"
         fi
     fi
 

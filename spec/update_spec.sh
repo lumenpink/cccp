@@ -34,8 +34,9 @@ Describe 'Update and Hook Version Synchronization'
     cd "$TEST_DIR"
     export HOME="$TEST_HOME"
     export XDG_CONFIG_HOME="$TEST_HOME/.config"
+    export XDG_CACHE_HOME="$TEST_HOME/.cache"
     export CCCP_VERSION="1.5.0"
-    rm -rf "$TEST_HOME/.config"
+    rm -rf "$TEST_HOME/.config" "$TEST_HOME/.cache"
     rm -f "$GIT_HOOKS_DIR/commit-msg" "$GIT_HOOKS_DIR/post-commit"
   }
 
@@ -82,7 +83,7 @@ Describe 'Update and Hook Version Synchronization'
     End
 
     It 'notifies user when cached version is newer'
-      cache_file="$TEST_HOME/.config/cccp/update_cache"
+      cache_file=$(get_update_cache_file)
       mkdir -p "$(dirname "$cache_file")"
       now=$(date +%s)
       cat > "$cache_file" <<EOF
@@ -98,7 +99,7 @@ EOF
     End
 
     It 'does not notify when cached version equals current version'
-      cache_file="$TEST_HOME/.config/cccp/update_cache"
+      cache_file=$(get_update_cache_file)
       mkdir -p "$(dirname "$cache_file")"
       now=$(date +%s)
       cat > "$cache_file" <<EOF
@@ -113,7 +114,7 @@ EOF
     End
 
     It 'suppresses update notice when PINNED_VERSION is set'
-      cache_file="$TEST_HOME/.config/cccp/update_cache"
+      cache_file=$(get_update_cache_file)
       mkdir -p "$(dirname "$cache_file")"
       now=$(date +%s)
       cat > "$cache_file" <<EOF

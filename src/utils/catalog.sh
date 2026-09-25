@@ -715,11 +715,6 @@ _catalog_resolve_target_dir() {
                 _cfg_dir=$(read_file_key "$_global_cfg" "catalog_dir" 2>/dev/null || true)
             fi
         fi
-        if [ -z "$_cfg_dir" ] && [ -f "${HOME}/.cccprc" ]; then
-            if command -v read_file_key >/dev/null 2>&1; then
-                _cfg_dir=$(read_file_key "${HOME}/.cccprc" "catalog_dir" 2>/dev/null || true)
-            fi
-        fi
         if [ -z "$_cfg_dir" ]; then
             _local_cfg=""
             if command -v get_local_config_file >/dev/null 2>&1; then

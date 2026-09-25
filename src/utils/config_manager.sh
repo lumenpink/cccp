@@ -14,6 +14,14 @@ get_global_config_file() {
     echo "$(get_global_config_dir)/config"
 }
 
+get_global_data_dir() {
+    echo "${XDG_DATA_HOME:-$HOME/.local/share}/cccp"
+}
+
+get_global_cache_dir() {
+    echo "${XDG_CACHE_HOME:-$HOME/.cache}/cccp"
+}
+
 get_local_config_file() {
     git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
     if [ -n "$git_root" ]; then
