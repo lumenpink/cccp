@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.21+20260925.d92fd6d"
+CCCP_VERSION="2.4.0-dev.23+20260925.6c2f559"
 export CCCP_VERSION
 
 # Verify required tools
@@ -4028,6 +4028,7 @@ _diva_resolve_custom_repo() {
             _r_repo=$(printf '%s' "$_input_repo" | cut -d'/' -f2)
             _r_domain=""
             _r_forgeapp=""
+            _found_locally=0
 
             # Check if matching entry exists in catalog to infer domain
             _cat_files=""
@@ -4044,6 +4045,7 @@ _diva_resolve_custom_repo() {
                     while IFS="$(printf '\t')" read -r _cn _cf_forge _c_slug _c_lic _c_up _c_web _c_top _c_desc || [ -n "$_cn" ]; do
                         if [ "$_c_slug" = "$_input_repo" ]; then
                             _r_domain="$_cf_forge"
+                            _found_locally=1
                             break 2
                         fi
                     done <<EOF
@@ -4059,25 +4061,52 @@ EOF
                 gitlab) _r_domain="gitlab.com" ;;
             esac
 
-            # Check sibling directory if domain not found in catalog
-            if [ -z "$_r_domain" ] && [ -n "$_d_root" ]; then
+            # Check sibling directory
+            if [ -n "$_d_root" ]; then
                 _parent=$(dirname "$_d_root")
                 if [ -d "${_parent}/${_r_repo}/.git" ]; then
                     if _sib_info=$(detect_repo_info "${_parent}/${_r_repo}" 2>/dev/null); then
                         _s_dom=$(printf '%s' "$_sib_info" | cut -d' ' -f1)
                         _s_own=$(printf '%s' "$_sib_info" | cut -d' ' -f2)
                         if [ "$_s_own" = "$_r_owner" ]; then
-                            _r_domain="$_s_dom"
+                            [ -z "$_r_domain" ] && _r_domain="$_s_dom"
+                            _found_locally=1
                         fi
                     fi
                 fi
             fi
 
-            # Check active repo if domain still unset
-            if [ -z "$_r_domain" ]; then
-                if _cur_info=$(detect_repo_info 2>/dev/null); then
-                    _r_domain=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
+            # Check catalog base directory (e.g. ~/src)
+            _cat_base=""
+            if command -v _catalog_resolve_target_dir >/dev/null 2>&1; then
+                _cat_base=$(_catalog_resolve_target_dir "" 2>/dev/null || echo "")
+            fi
+            [ -z "$_cat_base" ] && _cat_base="${HOME}/src"
+            if [ -n "$_cat_base" ] && [ -d "${_cat_base}/${_r_repo}/.git" ]; then
+                if _base_info=$(detect_repo_info "${_cat_base}/${_r_repo}" 2>/dev/null); then
+                    _b_dom=$(printf '%s' "$_base_info" | cut -d' ' -f1)
+                    _b_own=$(printf '%s' "$_base_info" | cut -d' ' -f2)
+                    if [ "$_b_own" = "$_r_owner" ]; then
+                        [ -z "$_r_domain" ] && _r_domain="$_b_dom"
+                        _found_locally=1
+                    fi
                 fi
+            fi
+
+            # Check active repo
+            if _cur_info=$(detect_repo_info 2>/dev/null); then
+                _cur_dom=$(printf '%s' "$_cur_info" | cut -d' ' -f1)
+                _cur_own=$(printf '%s' "$_cur_info" | cut -d' ' -f2)
+                _cur_rep=$(printf '%s' "$_cur_info" | cut -d' ' -f3)
+                if [ "$_cur_own" = "$_r_owner" ] && [ "$_cur_rep" = "$_r_repo" ]; then
+                    [ -z "$_r_domain" ] && _r_domain="$_cur_dom"
+                    _found_locally=1
+                fi
+            fi
+
+            if [ "$_found_locally" -eq 0 ]; then
+                printf 'Error: Repositório "%s" não encontrado localmente.\n' "$_input_repo" >&2
+                return 1
             fi
 
             [ -z "$_r_domain" ] && _r_domain="codeberg.org"
@@ -4155,7 +4184,33 @@ EOF
         fi
     fi
 
-    # 2c. Check current repo if it matches
+    # 2c. Search catalog base directory (e.g. ~/src)
+    _cat_base=""
+    if command -v _catalog_resolve_target_dir >/dev/null 2>&1; then
+        _cat_base=$(_catalog_resolve_target_dir "" 2>/dev/null || echo "")
+    fi
+    [ -z "$_cat_base" ] && _cat_base="${HOME}/src"
+    if [ -n "$_cat_base" ] && [ -d "${_cat_base}/${_input_repo}/.git" ]; then
+        if _base_info=$(detect_repo_info "${_cat_base}/${_input_repo}" 2>/dev/null); then
+            _b_domain=$(printf '%s' "$_base_info" | cut -d' ' -f1)
+            _b_owner=$(printf '%s' "$_base_info" | cut -d' ' -f2)
+            _b_repo=$(printf '%s' "$_base_info" | cut -d' ' -f3)
+            _b_forgeapp=$(printf '%s' "$_base_info" | cut -d' ' -f4)
+            if [ -n "$_b_owner" ] && [ -n "$_b_repo" ]; then
+                _b_slug="${_b_owner}/${_b_repo}"
+                _cand="${_b_slug}:${_b_domain}:${_b_forgeapp}"
+                case " ${_candidate_keys} " in
+                    *" ${_b_slug}@${_b_domain} "*) ;;
+                    *)
+                        _candidate_keys="${_candidate_keys}${_candidate_keys:+ }${_b_slug}@${_b_domain}"
+                        _candidates="${_candidates}${_candidates:+ }${_cand}"
+                        ;;
+                esac
+            fi
+        fi
+    fi
+
+    # 2d. Check current repo if it matches
     _cur_owner=""
     _cur_domain=""
     _cur_forgeapp=""
@@ -4203,26 +4258,7 @@ EOF
         return 1
     fi
 
-    # Fallback: if no candidates found in catalog or siblings, try active owner
-    _fallback_owner=""
-    if [ -n "$_cur_owner" ]; then
-        _fallback_owner="$_cur_owner"
-    elif [ -n "${FORGEJO_OWNER:-}" ]; then
-        _fallback_owner="$FORGEJO_OWNER"
-    elif [ -n "${CODEBERG_OWNER:-}" ]; then
-        _fallback_owner="$CODEBERG_OWNER"
-    elif [ -n "${GITHUB_OWNER:-}" ]; then
-        _fallback_owner="$GITHUB_OWNER"
-    fi
-
-    if [ -n "$_fallback_owner" ]; then
-        _fb_domain="${_cur_domain:-codeberg.org}"
-        _fb_forgeapp="${_cur_forgeapp:-$(detect_forgeapp "$_fb_domain" 2>/dev/null || echo "forgeapp_forgejo")}"
-        printf '%s %s %s %s\n' "$_fb_domain" "$_fallback_owner" "$_input_repo" "$_fb_forgeapp"
-        return 0
-    fi
-
-    printf 'Error: Repositório "%s" não encontrado. Especifique no formato "proprietario/repositorio".\n' "$_input_repo" >&2
+    printf 'Error: Repositório "%s" não encontrado localmente.\n' "$_input_repo" >&2
     return 1
 }
 

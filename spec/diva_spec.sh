@@ -230,6 +230,13 @@ Line 2: second line"
       The status should be failure
       The error should include "Repositório \"unresolvable_repo\" não encontrado"
     End
+
+    It 'fails when -r specifies a non-existent repo even inside git repo (closes #35)'
+      export GEMINI_API_KEY="AIzaSyTestKey123"
+      When call cmd_diva -r "repo_inexistente" "Some issue text"
+      The status should be failure
+      The error should include "Repositório \"repo_inexistente\" não encontrado"
+    End
   End
 
   Describe '_diva_save_draft'
@@ -401,10 +408,16 @@ CATJSON
       The output should eq "github.com acme supertool forgeapp_github"
     End
 
-    It 'resolves partial repo name using active repository owner fallback'
+    It 'fails when partial repo name does not exist locally (closes #35)'
       When call _diva_resolve_custom_repo "otherproj"
-      The status should be success
-      The output should eq "codeberg.org lumenpink otherproj forgeapp_forgejo"
+      The status should be failure
+      The error should include "Repositório \"otherproj\" não encontrado"
+    End
+
+    It 'fails when full owner/repo slug does not exist locally (closes #35)'
+      When call _diva_resolve_custom_repo "lumenpink/nonexistent"
+      The status should be failure
+      The error should include "Repositório \"lumenpink/nonexistent\" não encontrado"
     End
 
     It 'does not trigger ambiguity when repo is present in both catalog and sibling directory for same domain'

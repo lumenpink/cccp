@@ -18,6 +18,7 @@
   - (cli) suportar nome parcial de repositorio na opcao -r do diva
 
 ### Bug Fixes
+  - (diva) validar existência local do repositório informado via flag -r (closes #35)
   - (diva,tickets) suporte a forgejo, persistencia de drafts e correcao de hosts hardcoded
 
 ## Previous Releases
