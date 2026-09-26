@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (repo) implementar visão geral e gestão unificada de múltiplos repositórios (closes #38)
   - (serve) implementar comando unificado cccp serve (estático, dev e demo) (closes #39)
   - (gost,check) suporte a conformidade GOST (leitura de GOSTVER, cccp gost sync, check e upgrade) (closes #47) (closes #42)
   - (cockpit) adicionar seletor de repositorio ativo e suporte global a -C (closes #43)

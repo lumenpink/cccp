@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve repo repos changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -53,6 +53,13 @@ _cccp_completions() {
         serve)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "--dev --demo -l --localhost --host -p --port -o --open -q --quiet -h --help" -- "$cur"))
+            fi
+            ;;
+        repo|repos)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--dirty --unpushed --issues --tickets --json -d --dir -c --catalog -f --fetch -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "status list overview help" -- "$cur"))
             fi
             ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
@@ -191,6 +198,7 @@ _cccp() {
         'check:Audit project compliance against GOST standard'
         'gost:Manage GOST synchronization, audit and upgrades'
         'serve:Unified HTTP server (static, dev with watcher, VDNKh demo)'
+        'repo:Gosplan multi-repository aggregated management and overview'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -307,6 +315,19 @@ _cccp() {
                         '(-g --global)'{-g,--global}'[Install globally to PATH]' \
                         '--profile[Update shell profile]'
                     ;;
+                repo|repos)
+                    _arguments \
+                        '--dirty[List only repositories with uncommitted/unstaged changes]' \
+                        '--unpushed[List only repositories with commits pending push]' \
+                        '--issues[List only repositories with open tickets/issues]' \
+                        '--tickets[List only repositories with open tickets/issues]' \
+                        '--json[Output aggregated status as structured JSON]' \
+                        '(-d --dir)'{-d,--dir}'[Target directory to scan for repositories]:directory:_directories' \
+                        '(-c --catalog)'{-c,--catalog}'[Catalog file to use]:catalog file:_files' \
+                        '(-f --fetch)'{-f,--fetch}'[Query remote forge for live issue counts]' \
+                        '(-h --help)'{-h,--help}'[Display help message]' \
+                        '1:subcommand:(status list overview help)'
+                    ;;
                 completion)
                     _arguments \
                         '1:shell:(bash zsh fish)'
@@ -351,6 +372,7 @@ complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosyst
 complete -c cccp -n "__fish_use_subcommand" -a check -d "Audit project compliance against GOST standard"
 complete -c cccp -n "__fish_use_subcommand" -a gost -d "Manage GOST synchronization, audit and upgrades"
 complete -c cccp -n "__fish_use_subcommand" -a serve -d "Unified HTTP server (static, dev with watcher, VDNKh demo)"
+complete -c cccp -n "__fish_use_subcommand" -a repo -d "Gosplan multi-repository management and overview"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
@@ -419,6 +441,16 @@ complete -c cccp -n "__fish_seen_subcommand_from web" -s t -l token -d "API auth
 complete -c cccp -n "__fish_seen_subcommand_from web" -l no-open -d "Do not open browser"
 complete -c cccp -n "__fish_seen_subcommand_from web" -s q -l quiet -d "Quiet mode"
 complete -c cccp -n "__fish_seen_subcommand_from web" -a "diva status tickets"
+
+# Options for repo
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l dirty -d "List only repositories with uncommitted/unstaged changes"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l unpushed -d "List only repositories with commits pending push"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l issues -d "List only repositories with open tickets"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l json -d "Output aggregated status as JSON"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s d -l dir -d "Target directory to scan for repositories"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s c -l catalog -d "Catalog file to use"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s f -l fetch -d "Query remote forge for live issue counts"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -a "status list overview help"
 
 # Options for completion
 complete -c cccp -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"

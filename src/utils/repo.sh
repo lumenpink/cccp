@@ -569,3 +569,403 @@ escape_json_string() {
     _raw="$1"
     printf '%s' "$_raw" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g'
 }
+
+# -----------------------------------------------------------------------------
+# Terminal Colors & NO_COLOR Support for Repo Management
+# -----------------------------------------------------------------------------
+_repo_colors() {
+    if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+        REPO_C_RED='\033[0;31m'
+        REPO_C_GREEN='\033[0;32m'
+        REPO_C_YELLOW='\033[0;33m'
+        REPO_C_CYAN='\033[0;36m'
+        REPO_C_BOLD='\033[1m'
+        REPO_C_RESET='\033[0m'
+    else
+        REPO_C_RED=''
+        REPO_C_GREEN=''
+        REPO_C_YELLOW=''
+        REPO_C_CYAN=''
+        REPO_C_BOLD=''
+        REPO_C_RESET=''
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Discover repositories to audit
+# -----------------------------------------------------------------------------
+_repo_discover_list() {
+    _d_dir="${1:-}"
+    _d_catalog="${2:-}"
+
+    # 1. If explicit catalog provided
+    if [ -n "$_d_catalog" ]; then
+        if [ ! -f "$_d_catalog" ]; then
+            echo "Error: Catalog file '$_d_catalog' not found" >&2
+            return 1
+        fi
+        _cat_dir=$(cd "$(dirname "$_d_catalog")" && pwd)
+        _cat_names=$(sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' "$_d_catalog" 2>/dev/null || true)
+        for _cn in $_cat_names; do
+            if [ -d "${_cat_dir}/${_cn}/.git" ]; then
+                printf '%s\n' "${_cat_dir}/${_cn}"
+            elif [ -d "${HOME}/src/${_cn}/.git" ]; then
+                printf '%s\n' "${HOME}/src/${_cn}"
+            elif [ -d "./${_cn}/.git" ]; then
+                printf '%s\n' "./${_cn}"
+            fi
+        done
+        return 0
+    fi
+
+    # 2. If explicit directory provided
+    if [ -n "$_d_dir" ]; then
+        if [ ! -d "$_d_dir" ]; then
+            echo "Error: Directory '$_d_dir' not found" >&2
+            return 1
+        fi
+        if [ -d "$_d_dir/.git" ]; then
+            printf '%s\n' "$_d_dir"
+            return 0
+        fi
+        for _sub in "$_d_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # 3. Default discovery:
+    # Check for catalog.json in ., .., or $HOME/src
+    _found_cat=""
+    if [ -f "./catalog.json" ]; then
+        _found_cat="./catalog.json"
+    elif [ -f "../catalog.json" ]; then
+        _found_cat="../catalog.json"
+    elif [ -f "${HOME}/src/catalog.json" ]; then
+        _found_cat="${HOME}/src/catalog.json"
+    fi
+
+    if [ -n "$_found_cat" ]; then
+        _cat_dir=$(cd "$(dirname "$_found_cat")" && pwd)
+        _cat_names=$(sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' "$_found_cat" 2>/dev/null || true)
+        for _cn in $_cat_names; do
+            if [ -d "${_cat_dir}/${_cn}/.git" ]; then
+                printf '%s\n' "${_cat_dir}/${_cn}"
+            elif [ -d "${HOME}/src/${_cn}/.git" ]; then
+                printf '%s\n' "${HOME}/src/${_cn}"
+            fi
+        done
+        for _sub in "$_cat_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # 4. Fallback: check sibling repos in parent dir or ~/src or current dir
+    _parent_dir=$(cd .. 2>/dev/null && pwd || true)
+    _has_siblings=0
+    if [ -n "$_parent_dir" ] && [ "$_parent_dir" != "/" ]; then
+        for _sub in "$_parent_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                _has_siblings=1
+                printf '%s\n' "$_sub"
+            fi
+        done
+    fi
+    [ "$_has_siblings" -eq 1 ] && return 0
+
+    if [ -d "${HOME}/src" ]; then
+        for _sub in "${HOME}/src"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # If current directory is a git repo
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git rev-parse --show-toplevel 2>/dev/null
+        return 0
+    fi
+
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+# Helper: Audit single git repository
+# Returns tab-separated values: name \t branch \t dirty \t unpushed \t issues \t path
+# -----------------------------------------------------------------------------
+_repo_audit_single() {
+    _rpath="$1"
+    _do_fetch="${2:-0}"
+
+    [ -d "$_rpath" ] || return 1
+
+    _rname=$(basename "$_rpath")
+    _rbranch=$(git -C "$_rpath" symbolic-ref --short HEAD 2>/dev/null || git -C "$_rpath" rev-parse --short HEAD 2>/dev/null || echo "detached")
+
+    # Dirty status: count unstaged, staged, or untracked files
+    _rdirty=$(git -C "$_rpath" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+
+    # Unpushed commits
+    _rupstream=$(git -C "$_rpath" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    _runpushed=0
+    if [ -n "$_rupstream" ]; then
+        _runpushed=$(git -C "$_rpath" rev-list --count "${_rupstream}..HEAD" 2>/dev/null || echo "0")
+    else
+        _has_remotes=$(git -C "$_rpath" remote 2>/dev/null || true)
+        if [ -n "$_has_remotes" ]; then
+            if git -C "$_rpath" rev-parse --verify "origin/${_rbranch}" >/dev/null 2>&1; then
+                _runpushed=$(git -C "$_rpath" rev-list --count "origin/${_rbranch}..HEAD" 2>/dev/null || echo "0")
+            else
+                _runpushed=$(git -C "$_rpath" rev-list --count HEAD 2>/dev/null || echo "0")
+            fi
+        fi
+    fi
+
+    # Tickets / issues count
+    _rissues=0
+    if [ -f "$_rpath/.antigravity/tickets.md" ]; then
+        _rissues=$(grep -c '^## \[#[0-9]' "$_rpath/.antigravity/tickets.md" 2>/dev/null || true)
+        _rissues=$(printf '%s' "$_rissues" | tr -cd '0-9')
+        [ -z "$_rissues" ] && _rissues=0
+    fi
+
+    if [ "$_do_fetch" -eq 1 ] && [ "$_rissues" -eq 0 ]; then
+        _rinfo=$(detect_repo_info "$_rpath" 2>/dev/null || true)
+        if [ -n "$_rinfo" ]; then
+            _rf_owner=$(printf '%s' "$_rinfo" | cut -d' ' -f2)
+            _rf_repo=$(printf '%s' "$_rinfo" | cut -d' ' -f3)
+            if command -v tea >/dev/null 2>&1; then
+                _tea_cnt=$(tea issues --repo "${_rf_owner}/${_rf_repo}" --state open --fields index 2>/dev/null | tr -cd '0-9\n' | grep -v '^$' | wc -l | tr -d ' ' || echo "0")
+                [ -n "$_tea_cnt" ] && [ "$_tea_cnt" -gt 0 ] && _rissues="$_tea_cnt"
+            fi
+        fi
+    fi
+
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$_rname" "$_rbranch" "$_rdirty" "$_runpushed" "$_rissues" "$_rpath"
+    return 0
+}
+
+# -----------------------------------------------------------------------------
+# Main Subcommand: cmd_repo
+# Aggregated multi-repository overview, status, and management (Ticket #38)
+# -----------------------------------------------------------------------------
+cmd_repo() {
+    _opt_dirty=0
+    _opt_unpushed=0
+    _opt_issues=0
+    _opt_json=0
+    _opt_fetch=0
+    _opt_dir=""
+    _opt_catalog=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            "status"|"list"|"overview")
+                shift
+                ;;
+            "-h"|"--help"|"help")
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "repo"
+                else
+                    echo "Usage: cccp repo [status|list] [--dirty] [--unpushed] [--issues] [--json] [-d <dir>] [-c <catalog>] [-f|--fetch]"
+                fi
+                return 0
+                ;;
+            "--dirty")
+                _opt_dirty=1
+                shift
+                ;;
+            "--unpushed")
+                _opt_unpushed=1
+                shift
+                ;;
+            "--issues"|"--tickets")
+                _opt_issues=1
+                shift
+                ;;
+            "--json")
+                _opt_json=1
+                shift
+                ;;
+            "-f"|"--fetch")
+                _opt_fetch=1
+                shift
+                ;;
+            "-d"|"--dir")
+                shift
+                [ $# -gt 0 ] || { echo "Error: --dir requires directory path" >&2; return 1; }
+                _opt_dir="$1"
+                shift
+                ;;
+            "-c"|"--catalog")
+                shift
+                [ $# -gt 0 ] || { echo "Error: --catalog requires file path" >&2; return 1; }
+                _opt_catalog="$1"
+                shift
+                ;;
+            *)
+                if [ -d "$1" ]; then
+                    _opt_dir="$1"
+                    shift
+                else
+                    echo "Error: Unknown option or subcommand: $1" >&2
+                    echo "Run 'cccp repo --help' for usage." >&2
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    _discovered=$(_repo_discover_list "$_opt_dir" "$_opt_catalog" 2>/dev/null | sort -u || true)
+
+    if [ -z "$_discovered" ]; then
+        if [ "$_opt_json" -eq 1 ]; then
+            printf '[\n]\n'
+        else
+            echo "Nenhum repositório Git encontrado no escopo especificado."
+        fi
+        return 0
+    fi
+
+    _repo_colors
+
+    _total_scanned=0
+    _total_matched=0
+    _total_dirty=0
+    _total_unpushed=0
+    _total_issues=0
+
+    _matching_rows=""
+    _first_json=1
+
+    if [ "$_opt_json" -eq 1 ]; then
+        printf '[\n'
+    fi
+
+    # Audit each discovered repository
+    while IFS= read -r _rpath || [ -n "$_rpath" ]; do
+        [ -n "$_rpath" ] || continue
+        _row=$(_repo_audit_single "$_rpath" "$_opt_fetch" 2>/dev/null || true)
+        [ -n "$_row" ] || continue
+
+        _name=$(printf '%s' "$_row" | cut -f1)
+        _branch=$(printf '%s' "$_row" | cut -f2)
+        _dirty=$(printf '%s' "$_row" | cut -f3)
+        _unpushed=$(printf '%s' "$_row" | cut -f4)
+        _issues=$(printf '%s' "$_row" | cut -f5)
+        _path=$(printf '%s' "$_row" | cut -f6)
+
+        _total_scanned=$((_total_scanned + 1))
+        [ "$_dirty" -gt 0 ] && _total_dirty=$((_total_dirty + 1))
+        [ "$_unpushed" -gt 0 ] && _total_unpushed=$((_total_unpushed + 1))
+        [ "$_issues" -gt 0 ] && _total_issues=$((_total_issues + 1))
+
+        # Filter check
+        if [ "$_opt_dirty" -eq 1 ] || [ "$_opt_unpushed" -eq 1 ] || [ "$_opt_issues" -eq 1 ]; then
+            _matches=0
+            [ "$_opt_dirty" -eq 1 ] && [ "$_dirty" -gt 0 ] && _matches=1
+            [ "$_opt_unpushed" -eq 1 ] && [ "$_unpushed" -gt 0 ] && _matches=1
+            [ "$_opt_issues" -eq 1 ] && [ "$_issues" -gt 0 ] && _matches=1
+            [ "$_matches" -eq 1 ] || continue
+        fi
+
+        _total_matched=$((_total_matched + 1))
+
+        # Determine textual status & Gosplan label
+        if [ "$_dirty" -gt 0 ] && [ "$_unpushed" -gt 0 ]; then
+            _status_txt="DIRTY/UNPUSHED"
+            _status_label="MODIFICADO / PENDENTE"
+            _status_color="$REPO_C_RED"
+        elif [ "$_dirty" -gt 0 ]; then
+            _status_txt="DIRTY"
+            _status_label="MODIFICADO"
+            _status_color="$REPO_C_YELLOW"
+        elif [ "$_unpushed" -gt 0 ]; then
+            _status_txt="UNPUSHED"
+            _status_label="PENDENTE DE ENVIO"
+            _status_color="$REPO_C_CYAN"
+        elif [ "$_issues" -gt 0 ]; then
+            _status_txt="ISSUES"
+            _status_label="COM TAREFAS"
+            _status_color="$REPO_C_CYAN"
+        else
+            _status_txt="CLEAN"
+            _status_label="EM CONFORMIDADE"
+            _status_color="$REPO_C_GREEN"
+        fi
+
+        if [ "$_opt_json" -eq 1 ]; then
+            [ "$_first_json" -eq 1 ] && _first_json=0 || printf ',\n'
+            cat <<EOF
+  {
+    "name": "$(escape_json_string "$_name")",
+    "path": "$(escape_json_string "$_path")",
+    "branch": "$(escape_json_string "$_branch")",
+    "dirty": $_dirty,
+    "unpushed": $_unpushed,
+    "issues": $_issues,
+    "status": "$(escape_json_string "$_status_txt")"
+  }
+EOF
+        else
+            # Truncate strings for neat Gosplan tabular formatting
+            _name_trunc=$(printf '%.22s' "$_name")
+            _branch_trunc=$(printf '%.20s' "$_branch")
+            
+            # Format row
+            _matching_rows="${_matching_rows}$(printf '%-22s %-20s %6s %9s %8s  %b[%s]%b\n' \
+                "$_name_trunc" "$_branch_trunc" "$_dirty" "$_unpushed" "$_issues" \
+                "$_status_color" "$_status_label" "$REPO_C_RESET")
+"
+        fi
+    done <<EOF
+$_discovered
+EOF
+
+    if [ "$_opt_json" -eq 1 ]; then
+        printf '\n]\n'
+        return 0
+    fi
+
+    # Display Gosplan Header
+    printf '%b╔══════════════════════════════════════════════════════════════════════════════════════╗%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+    printf '%b║             ГОСПЛАН — REGISTRO GERAL E STATUS DE COOPERATIVAS (REPOS)                ║%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+    printf '%b╚══════════════════════════════════════════════════════════════════════════════════════╝%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+
+    _filter_desc=""
+    [ "$_opt_dirty" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }modificados (dirty)"
+    [ "$_opt_unpushed" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }pendentes de envio (unpushed)"
+    [ "$_opt_issues" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }com tickets em aberto (issues)"
+
+    if [ -n "$_filter_desc" ]; then
+        printf 'Filtro ativo: apenas %s\n' "$_filter_desc"
+    fi
+    echo ""
+
+    if [ -z "$_matching_rows" ]; then
+        echo "Nenhum repositório correspondente aos filtros foi encontrado."
+        echo ""
+    else
+        printf '%b%-22s %-20s %6s %9s %8s  %s%b\n' "$REPO_C_BOLD" "REPOSITÓRIO" "RAMAL" "DIRTY" "UNPUSHED" "TICKETS" "ESTADO" "$REPO_C_RESET"
+        printf '%s\n' '----------------------------------------------------------------------------------------'
+        printf '%b' "$_matching_rows"
+        printf '%s\n' '----------------------------------------------------------------------------------------'
+    fi
+
+    # Display Gosplan Summary
+    echo "Resumo do Plano Geral:"
+    echo "  • Repositórios auditados: ${_total_scanned} (correspondentes: ${_total_matched})"
+    echo "  • Com alterações não salvas (dirty): ${_total_dirty}"
+    echo "  • Com commits pendentes de envio (unpushed): ${_total_unpushed}"
+    echo "  • Com tarefas/tickets em aberto: ${_total_issues}"
+    echo ""
+    return 0
+}
+

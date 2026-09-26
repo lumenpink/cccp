@@ -94,3 +94,33 @@ Displays the legendary Gosplan directive, Order No. 227 banner, and Stakhanovite
 ```bash
 cccp soviet
 ```
+
+---
+
+## 4. Multi-Repository Management (`cccp repo`)
+
+Provides unified status overview and inspection across multiple workspaces and repositories, identifying dirty working trees, unpushed commits, and open forge tickets.
+
+```bash
+# View general overview across repositories (auto-discovers ~/src or catalog.json)
+cccp repo
+
+# Filter only repositories with uncommitted/unstaged changes (dirty)
+cccp repo --dirty
+
+# Filter only repositories with unpushed commits
+cccp repo --unpushed
+
+# Filter only repositories with open tickets/issues
+cccp repo --issues
+
+# Combine filters (e.g. dirty or unpushed work)
+cccp repo --dirty --unpushed
+
+# Machine-readable structured JSON output
+cccp repo --json
+
+# Specify custom scan directory or catalog file
+cccp repo -d /path/to/workspaces
+cccp repo -c /path/to/catalog.json
+```

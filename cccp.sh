@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.25+20260925.7d2f76c"
+CCCP_VERSION="2.4.0-dev.26+20260926.2822044"
 export CCCP_VERSION
 
 # Verify required tools
@@ -1308,6 +1308,391 @@ resolve_forge_token() {
 escape_json_string() {
     _raw="$1"
     printf '%s' "$_raw" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' -e 's/\r//g'
+}
+
+_repo_colors() {
+    if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+        REPO_C_RED='\033[0;31m'
+        REPO_C_GREEN='\033[0;32m'
+        REPO_C_YELLOW='\033[0;33m'
+        REPO_C_CYAN='\033[0;36m'
+        REPO_C_BOLD='\033[1m'
+        REPO_C_RESET='\033[0m'
+    else
+        REPO_C_RED=''
+        REPO_C_GREEN=''
+        REPO_C_YELLOW=''
+        REPO_C_CYAN=''
+        REPO_C_BOLD=''
+        REPO_C_RESET=''
+    fi
+}
+
+_repo_discover_list() {
+    _d_dir="${1:-}"
+    _d_catalog="${2:-}"
+
+    # 1. If explicit catalog provided
+    if [ -n "$_d_catalog" ]; then
+        if [ ! -f "$_d_catalog" ]; then
+            echo "Error: Catalog file '$_d_catalog' not found" >&2
+            return 1
+        fi
+        _cat_dir=$(cd "$(dirname "$_d_catalog")" && pwd)
+        _cat_names=$(sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' "$_d_catalog" 2>/dev/null || true)
+        for _cn in $_cat_names; do
+            if [ -d "${_cat_dir}/${_cn}/.git" ]; then
+                printf '%s\n' "${_cat_dir}/${_cn}"
+            elif [ -d "${HOME}/src/${_cn}/.git" ]; then
+                printf '%s\n' "${HOME}/src/${_cn}"
+            elif [ -d "./${_cn}/.git" ]; then
+                printf '%s\n' "./${_cn}"
+            fi
+        done
+        return 0
+    fi
+
+    # 2. If explicit directory provided
+    if [ -n "$_d_dir" ]; then
+        if [ ! -d "$_d_dir" ]; then
+            echo "Error: Directory '$_d_dir' not found" >&2
+            return 1
+        fi
+        if [ -d "$_d_dir/.git" ]; then
+            printf '%s\n' "$_d_dir"
+            return 0
+        fi
+        for _sub in "$_d_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # 3. Default discovery:
+    # Check for catalog.json in ., .., or $HOME/src
+    _found_cat=""
+    if [ -f "./catalog.json" ]; then
+        _found_cat="./catalog.json"
+    elif [ -f "../catalog.json" ]; then
+        _found_cat="../catalog.json"
+    elif [ -f "${HOME}/src/catalog.json" ]; then
+        _found_cat="${HOME}/src/catalog.json"
+    fi
+
+    if [ -n "$_found_cat" ]; then
+        _cat_dir=$(cd "$(dirname "$_found_cat")" && pwd)
+        _cat_names=$(sed -n 's/^[[:space:]]*"name":[[:space:]]*"\([^"]*\)".*/\1/p' "$_found_cat" 2>/dev/null || true)
+        for _cn in $_cat_names; do
+            if [ -d "${_cat_dir}/${_cn}/.git" ]; then
+                printf '%s\n' "${_cat_dir}/${_cn}"
+            elif [ -d "${HOME}/src/${_cn}/.git" ]; then
+                printf '%s\n' "${HOME}/src/${_cn}"
+            fi
+        done
+        for _sub in "$_cat_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # 4. Fallback: check sibling repos in parent dir or ~/src or current dir
+    _parent_dir=$(cd .. 2>/dev/null && pwd || true)
+    _has_siblings=0
+    if [ -n "$_parent_dir" ] && [ "$_parent_dir" != "/" ]; then
+        for _sub in "$_parent_dir"/*; do
+            if [ -d "$_sub/.git" ]; then
+                _has_siblings=1
+                printf '%s\n' "$_sub"
+            fi
+        done
+    fi
+    [ "$_has_siblings" -eq 1 ] && return 0
+
+    if [ -d "${HOME}/src" ]; then
+        for _sub in "${HOME}/src"/*; do
+            if [ -d "$_sub/.git" ]; then
+                printf '%s\n' "$_sub"
+            fi
+        done
+        return 0
+    fi
+
+    # If current directory is a git repo
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        git rev-parse --show-toplevel 2>/dev/null
+        return 0
+    fi
+
+    return 0
+}
+
+_repo_audit_single() {
+    _rpath="$1"
+    _do_fetch="${2:-0}"
+
+    [ -d "$_rpath" ] || return 1
+
+    _rname=$(basename "$_rpath")
+    _rbranch=$(git -C "$_rpath" symbolic-ref --short HEAD 2>/dev/null || git -C "$_rpath" rev-parse --short HEAD 2>/dev/null || echo "detached")
+
+    # Dirty status: count unstaged, staged, or untracked files
+    _rdirty=$(git -C "$_rpath" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+
+    # Unpushed commits
+    _rupstream=$(git -C "$_rpath" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    _runpushed=0
+    if [ -n "$_rupstream" ]; then
+        _runpushed=$(git -C "$_rpath" rev-list --count "${_rupstream}..HEAD" 2>/dev/null || echo "0")
+    else
+        _has_remotes=$(git -C "$_rpath" remote 2>/dev/null || true)
+        if [ -n "$_has_remotes" ]; then
+            if git -C "$_rpath" rev-parse --verify "origin/${_rbranch}" >/dev/null 2>&1; then
+                _runpushed=$(git -C "$_rpath" rev-list --count "origin/${_rbranch}..HEAD" 2>/dev/null || echo "0")
+            else
+                _runpushed=$(git -C "$_rpath" rev-list --count HEAD 2>/dev/null || echo "0")
+            fi
+        fi
+    fi
+
+    # Tickets / issues count
+    _rissues=0
+    if [ -f "$_rpath/.antigravity/tickets.md" ]; then
+        _rissues=$(grep -c '^## \[#[0-9]' "$_rpath/.antigravity/tickets.md" 2>/dev/null || true)
+        _rissues=$(printf '%s' "$_rissues" | tr -cd '0-9')
+        [ -z "$_rissues" ] && _rissues=0
+    fi
+
+    if [ "$_do_fetch" -eq 1 ] && [ "$_rissues" -eq 0 ]; then
+        _rinfo=$(detect_repo_info "$_rpath" 2>/dev/null || true)
+        if [ -n "$_rinfo" ]; then
+            _rf_owner=$(printf '%s' "$_rinfo" | cut -d' ' -f2)
+            _rf_repo=$(printf '%s' "$_rinfo" | cut -d' ' -f3)
+            if command -v tea >/dev/null 2>&1; then
+                _tea_cnt=$(tea issues --repo "${_rf_owner}/${_rf_repo}" --state open --fields index 2>/dev/null | tr -cd '0-9\n' | grep -v '^$' | wc -l | tr -d ' ' || echo "0")
+                [ -n "$_tea_cnt" ] && [ "$_tea_cnt" -gt 0 ] && _rissues="$_tea_cnt"
+            fi
+        fi
+    fi
+
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$_rname" "$_rbranch" "$_rdirty" "$_runpushed" "$_rissues" "$_rpath"
+    return 0
+}
+
+cmd_repo() {
+    _opt_dirty=0
+    _opt_unpushed=0
+    _opt_issues=0
+    _opt_json=0
+    _opt_fetch=0
+    _opt_dir=""
+    _opt_catalog=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            "status"|"list"|"overview")
+                shift
+                ;;
+            "-h"|"--help"|"help")
+                if command -v show_help >/dev/null 2>&1; then
+                    show_help "repo"
+                else
+                    echo "Usage: cccp repo [status|list] [--dirty] [--unpushed] [--issues] [--json] [-d <dir>] [-c <catalog>] [-f|--fetch]"
+                fi
+                return 0
+                ;;
+            "--dirty")
+                _opt_dirty=1
+                shift
+                ;;
+            "--unpushed")
+                _opt_unpushed=1
+                shift
+                ;;
+            "--issues"|"--tickets")
+                _opt_issues=1
+                shift
+                ;;
+            "--json")
+                _opt_json=1
+                shift
+                ;;
+            "-f"|"--fetch")
+                _opt_fetch=1
+                shift
+                ;;
+            "-d"|"--dir")
+                shift
+                [ $# -gt 0 ] || { echo "Error: --dir requires directory path" >&2; return 1; }
+                _opt_dir="$1"
+                shift
+                ;;
+            "-c"|"--catalog")
+                shift
+                [ $# -gt 0 ] || { echo "Error: --catalog requires file path" >&2; return 1; }
+                _opt_catalog="$1"
+                shift
+                ;;
+            *)
+                if [ -d "$1" ]; then
+                    _opt_dir="$1"
+                    shift
+                else
+                    echo "Error: Unknown option or subcommand: $1" >&2
+                    echo "Run 'cccp repo --help' for usage." >&2
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    _discovered=$(_repo_discover_list "$_opt_dir" "$_opt_catalog" 2>/dev/null | sort -u || true)
+
+    if [ -z "$_discovered" ]; then
+        if [ "$_opt_json" -eq 1 ]; then
+            printf '[\n]\n'
+        else
+            echo "Nenhum repositório Git encontrado no escopo especificado."
+        fi
+        return 0
+    fi
+
+    _repo_colors
+
+    _total_scanned=0
+    _total_matched=0
+    _total_dirty=0
+    _total_unpushed=0
+    _total_issues=0
+
+    _matching_rows=""
+    _first_json=1
+
+    if [ "$_opt_json" -eq 1 ]; then
+        printf '[\n'
+    fi
+
+    # Audit each discovered repository
+    while IFS= read -r _rpath || [ -n "$_rpath" ]; do
+        [ -n "$_rpath" ] || continue
+        _row=$(_repo_audit_single "$_rpath" "$_opt_fetch" 2>/dev/null || true)
+        [ -n "$_row" ] || continue
+
+        _name=$(printf '%s' "$_row" | cut -f1)
+        _branch=$(printf '%s' "$_row" | cut -f2)
+        _dirty=$(printf '%s' "$_row" | cut -f3)
+        _unpushed=$(printf '%s' "$_row" | cut -f4)
+        _issues=$(printf '%s' "$_row" | cut -f5)
+        _path=$(printf '%s' "$_row" | cut -f6)
+
+        _total_scanned=$((_total_scanned + 1))
+        [ "$_dirty" -gt 0 ] && _total_dirty=$((_total_dirty + 1))
+        [ "$_unpushed" -gt 0 ] && _total_unpushed=$((_total_unpushed + 1))
+        [ "$_issues" -gt 0 ] && _total_issues=$((_total_issues + 1))
+
+        # Filter check
+        if [ "$_opt_dirty" -eq 1 ] || [ "$_opt_unpushed" -eq 1 ] || [ "$_opt_issues" -eq 1 ]; then
+            _matches=0
+            [ "$_opt_dirty" -eq 1 ] && [ "$_dirty" -gt 0 ] && _matches=1
+            [ "$_opt_unpushed" -eq 1 ] && [ "$_unpushed" -gt 0 ] && _matches=1
+            [ "$_opt_issues" -eq 1 ] && [ "$_issues" -gt 0 ] && _matches=1
+            [ "$_matches" -eq 1 ] || continue
+        fi
+
+        _total_matched=$((_total_matched + 1))
+
+        # Determine textual status & Gosplan label
+        if [ "$_dirty" -gt 0 ] && [ "$_unpushed" -gt 0 ]; then
+            _status_txt="DIRTY/UNPUSHED"
+            _status_label="MODIFICADO / PENDENTE"
+            _status_color="$REPO_C_RED"
+        elif [ "$_dirty" -gt 0 ]; then
+            _status_txt="DIRTY"
+            _status_label="MODIFICADO"
+            _status_color="$REPO_C_YELLOW"
+        elif [ "$_unpushed" -gt 0 ]; then
+            _status_txt="UNPUSHED"
+            _status_label="PENDENTE DE ENVIO"
+            _status_color="$REPO_C_CYAN"
+        elif [ "$_issues" -gt 0 ]; then
+            _status_txt="ISSUES"
+            _status_label="COM TAREFAS"
+            _status_color="$REPO_C_CYAN"
+        else
+            _status_txt="CLEAN"
+            _status_label="EM CONFORMIDADE"
+            _status_color="$REPO_C_GREEN"
+        fi
+
+        if [ "$_opt_json" -eq 1 ]; then
+            [ "$_first_json" -eq 1 ] && _first_json=0 || printf ',\n'
+            cat <<EOF
+  {
+    "name": "$(escape_json_string "$_name")",
+    "path": "$(escape_json_string "$_path")",
+    "branch": "$(escape_json_string "$_branch")",
+    "dirty": $_dirty,
+    "unpushed": $_unpushed,
+    "issues": $_issues,
+    "status": "$(escape_json_string "$_status_txt")"
+  }
+EOF
+        else
+            # Truncate strings for neat Gosplan tabular formatting
+            _name_trunc=$(printf '%.22s' "$_name")
+            _branch_trunc=$(printf '%.20s' "$_branch")
+            
+            # Format row
+            _matching_rows="${_matching_rows}$(printf '%-22s %-20s %6s %9s %8s  %b[%s]%b\n' \
+                "$_name_trunc" "$_branch_trunc" "$_dirty" "$_unpushed" "$_issues" \
+                "$_status_color" "$_status_label" "$REPO_C_RESET")
+"
+        fi
+    done <<EOF
+$_discovered
+EOF
+
+    if [ "$_opt_json" -eq 1 ]; then
+        printf '\n]\n'
+        return 0
+    fi
+
+    # Display Gosplan Header
+    printf '%b╔══════════════════════════════════════════════════════════════════════════════════════╗%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+    printf '%b║             ГОСПЛАН — REGISTRO GERAL E STATUS DE COOPERATIVAS (REPOS)                ║%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+    printf '%b╚══════════════════════════════════════════════════════════════════════════════════════╝%b\n' "$REPO_C_BOLD" "$REPO_C_RESET"
+
+    _filter_desc=""
+    [ "$_opt_dirty" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }modificados (dirty)"
+    [ "$_opt_unpushed" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }pendentes de envio (unpushed)"
+    [ "$_opt_issues" -eq 1 ] && _filter_desc="${_filter_desc:+${_filter_desc}, }com tickets em aberto (issues)"
+
+    if [ -n "$_filter_desc" ]; then
+        printf 'Filtro ativo: apenas %s\n' "$_filter_desc"
+    fi
+    echo ""
+
+    if [ -z "$_matching_rows" ]; then
+        echo "Nenhum repositório correspondente aos filtros foi encontrado."
+        echo ""
+    else
+        printf '%b%-22s %-20s %6s %9s %8s  %s%b\n' "$REPO_C_BOLD" "REPOSITÓRIO" "RAMAL" "DIRTY" "UNPUSHED" "TICKETS" "ESTADO" "$REPO_C_RESET"
+        printf '%s\n' '----------------------------------------------------------------------------------------'
+        printf '%b' "$_matching_rows"
+        printf '%s\n' '----------------------------------------------------------------------------------------'
+    fi
+
+    # Display Gosplan Summary
+    echo "Resumo do Plano Geral:"
+    echo "  • Repositórios auditados: ${_total_scanned} (correspondentes: ${_total_matched})"
+    echo "  • Com alterações não salvas (dirty): ${_total_dirty}"
+    echo "  • Com commits pendentes de envio (unpushed): ${_total_unpushed}"
+    echo "  • Com tarefas/tickets em aberto: ${_total_issues}"
+    echo ""
+    return 0
 }
 
 
@@ -7461,6 +7846,35 @@ show_help() {
             echo "  -q, --quiet      Suppress per-request access logs"
             echo "  -h, --help       Show this help message"
             ;;
+        "repo"|"repos")
+            echo "cccp.sh repo - Gosplan Multi-Repository Management & Overview"
+            echo "==========================================================="
+            echo ""
+            echo "Provides a unified status overview and audit across multiple repositories"
+            echo "in workspaces (such as ~/src or catalog.json), identifying dirty working trees,"
+            echo "unpushed commits, and open forge tickets in a single dashboard."
+            echo ""
+            echo "Usage:"
+            echo "  $0 repo [status|list] [options]"
+            echo ""
+            echo "Options:"
+            echo "  --dirty             List only repositories with uncommitted/unstaged changes"
+            echo "  --unpushed          List only repositories with commits pending push"
+            echo "  --issues, --tickets List only repositories with open tickets/issues"
+            echo "  --json              Output aggregated status as structured JSON"
+            echo "  -d, --dir <path>    Scan target directory for repositories (default: auto)"
+            echo "  -c, --catalog <cat> Use specific catalog.json file"
+            echo "  -f, --fetch         Query remote forge for live issue counts"
+            echo "  -h, --help          Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0 repo"
+            echo "  $0 repo --dirty"
+            echo "  $0 repo --unpushed"
+            echo "  $0 repo --issues"
+            echo "  $0 repo --json"
+            echo "  $0 repo -d ~/src"
+            ;;
         *)
             echo "Git Conventional Commits Helper Script"
             echo "====================================="
@@ -7495,6 +7909,7 @@ show_help() {
             echo "  check [options]    Audit project compliance against GOST standard"
             echo "  gost <subcommand>  Manage GOST synchronization, audit and upgrades"
             echo "  serve [options]    Unified HTTP server (static, dev with watcher, VDNKh demo)"
+            echo "  repo [options]     Multi-repository aggregated overview (dirty, unpushed, issues)"
             echo "  changelog          Generate or update CHANGELOG.md"
             echo "  update             Update the script to the latest version"
             echo "  check-update       Inspect remote version, release channel, and pin status"
@@ -10363,7 +10778,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve repo repos changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -10402,6 +10817,13 @@ _cccp_completions() {
         serve)
             if [ "${cur#*-}" != "$cur" ]; then
                 COMPREPLY=($(compgen -W "--dev --demo -l --localhost --host -p --port -o --open -q --quiet -h --help" -- "$cur"))
+            fi
+            ;;
+        repo|repos)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "--dirty --unpushed --issues --tickets --json -d --dir -c --catalog -f --fetch -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "status list overview help" -- "$cur"))
             fi
             ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
@@ -10540,6 +10962,7 @@ _cccp() {
         'check:Audit project compliance against GOST standard'
         'gost:Manage GOST synchronization, audit and upgrades'
         'serve:Unified HTTP server (static, dev with watcher, VDNKh demo)'
+        'repo:Gosplan multi-repository aggregated management and overview'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -10656,6 +11079,19 @@ _cccp() {
                         '(-g --global)'{-g,--global}'[Install globally to PATH]' \
                         '--profile[Update shell profile]'
                     ;;
+                repo|repos)
+                    _arguments \
+                        '--dirty[List only repositories with uncommitted/unstaged changes]' \
+                        '--unpushed[List only repositories with commits pending push]' \
+                        '--issues[List only repositories with open tickets/issues]' \
+                        '--tickets[List only repositories with open tickets/issues]' \
+                        '--json[Output aggregated status as structured JSON]' \
+                        '(-d --dir)'{-d,--dir}'[Target directory to scan for repositories]:directory:_directories' \
+                        '(-c --catalog)'{-c,--catalog}'[Catalog file to use]:catalog file:_files' \
+                        '(-f --fetch)'{-f,--fetch}'[Query remote forge for live issue counts]' \
+                        '(-h --help)'{-h,--help}'[Display help message]' \
+                        '1:subcommand:(status list overview help)'
+                    ;;
                 completion)
                     _arguments \
                         '1:shell:(bash zsh fish)'
@@ -10700,6 +11136,7 @@ complete -c cccp -n "__fish_use_subcommand" -a comrades -d "Manage micro ecosyst
 complete -c cccp -n "__fish_use_subcommand" -a check -d "Audit project compliance against GOST standard"
 complete -c cccp -n "__fish_use_subcommand" -a gost -d "Manage GOST synchronization, audit and upgrades"
 complete -c cccp -n "__fish_use_subcommand" -a serve -d "Unified HTTP server (static, dev with watcher, VDNKh demo)"
+complete -c cccp -n "__fish_use_subcommand" -a repo -d "Gosplan multi-repository management and overview"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
@@ -10768,6 +11205,16 @@ complete -c cccp -n "__fish_seen_subcommand_from web" -s t -l token -d "API auth
 complete -c cccp -n "__fish_seen_subcommand_from web" -l no-open -d "Do not open browser"
 complete -c cccp -n "__fish_seen_subcommand_from web" -s q -l quiet -d "Quiet mode"
 complete -c cccp -n "__fish_seen_subcommand_from web" -a "diva status tickets"
+
+# Options for repo
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l dirty -d "List only repositories with uncommitted/unstaged changes"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l unpushed -d "List only repositories with commits pending push"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l issues -d "List only repositories with open tickets"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -l json -d "Output aggregated status as JSON"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s d -l dir -d "Target directory to scan for repositories"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s c -l catalog -d "Catalog file to use"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -s f -l fetch -d "Query remote forge for live issue counts"
+complete -c cccp -n "__fish_seen_subcommand_from repo" -a "status list overview help"
 
 # Options for completion
 complete -c cccp -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
@@ -11092,12 +11539,17 @@ main() {
             cmd_serve "$@"
             exit $?
             ;;
+        "repo"|"repos")
+            shift || true
+            cmd_repo "$@"
+            exit $?
+            ;;
         "help"|"-h"|"--help")
             show_help "${2:-}"
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
