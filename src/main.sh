@@ -268,12 +268,17 @@ main() {
             cmd_repo "$@"
             exit $?
             ;;
+        "act")
+            shift || true
+            cmd_act "$@"
+            exit $?
+            ;;
         "help"|"-h"|"--help")
             show_help "${2:-}"
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|act|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

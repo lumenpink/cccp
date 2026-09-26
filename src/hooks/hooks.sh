@@ -510,6 +510,12 @@ cmd_pre_push() {
     if [ "$has_error" -eq 1 ]; then
         return 1
     fi
+
+    # Execute Act local CI gate if available
+    if command -v act_ci_gate >/dev/null 2>&1; then
+        act_ci_gate "${1:-origin}" "${2:-}" || return 1
+    fi
+
     return 0
 }
 

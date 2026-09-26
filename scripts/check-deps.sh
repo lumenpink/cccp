@@ -23,7 +23,7 @@ BANNED_UTILS="awk gawk mawk nawk"
 UNAUTHORIZED_WATCH="python python2 python3 node npm npx perl ruby php rustc cargo lua java"
 
 # Approved external dependencies baseline
-APPROVED_EXTERNAL="busybox curl ftp ftpget gh git hostname inotifywait ip jq kv kvant lsof mayak mk nc open openssl ss sv svyaz tailscale tea telnet wget xdg-open"
+APPROVED_EXTERNAL="act busybox curl docker ftp ftpget gh git hostname inotifywait ip jq kv kvant lsof mayak mk nc open openssl ss sv svyaz tailscale tea telnet wget xdg-open"
 
 # Mandatory tools always used directly (never probed via command -v)
 # Unconditionally included in the detected list

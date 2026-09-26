@@ -36,6 +36,8 @@ This document tracks all external (non-POSIX) binary requirements, their usage s
 | `ss` | **Optional** | Linux socket statistics tool for port listening verification in `serve` | Falls back to `lsof` or `nc` |
 | `tailscale` | **Optional** | VPN interface inspector for Tailscale IP display in `serve` | Falls back to `ip` interface check or graceful omission |
 | `xdg-open` | **Optional** | FreeDesktop/Linux system utility to launch web browser in `serve` and `web` | Falls back to `open` or manual URL access |
+| `act` | **Optional** | Local runner for Forgejo/GitHub Actions CI workflows in pre-push gate | Graceful degradation: warns and allows push if missing |
+| `docker` | **Optional** | Container runtime engine required by `act` | Graceful degradation: warns and allows push if daemon is stopped |
 
 ## 2. Banned Utilities (Gosplan Directives)
 

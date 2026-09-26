@@ -124,3 +124,37 @@ cccp repo --json
 cccp repo -d /path/to/workspaces
 cccp repo -c /path/to/catalog.json
 ```
+
+---
+
+## 5. Local CI Runner & Pre-Push Gate (`cccp act`)
+
+Prevents pushing commits with failing CI workflows by executing test jobs locally using `act` (Docker-based Actions runner), streaming structured logs to `.git/act-logs/`, and displaying a live terminal spinner.
+
+### Automatic Pre-Push Hook Gate
+Triggered automatically during `git push`:
+- Detects `.forgejo/workflows/` or `.github/workflows/`
+- Executes `act -j test --no-pull` using cached Docker images
+- Gracefully degrades (warns and proceeds without blocking) if `act` or Docker is unavailable
+- Displays live spinner, step name, and elapsed timer
+
+### CLI Inspection Commands
+```bash
+# View the most recent act CI gate log
+cccp act log
+
+# Tail the log in real time
+cccp act log -f
+
+# Manually execute local CI gate for test job (or custom job)
+cccp act run
+cccp act run -j test
+
+# Inspect runner binary, Docker daemon, and recorded logs
+cccp act status
+```
+
+### Conscious Bypasses
+- `git push --no-verify` (standard Git hook bypass)
+- `CCCP_ACT_SKIP=1 git push` (environment variable override)
+```

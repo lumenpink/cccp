@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (act,pre-push) implement pre-push hook with act: local CI gate, live spinner and structured logs (closes #37)
   - (repo) implementar visão geral e gestão unificada de múltiplos repositórios (closes #38)
   - (serve) implementar comando unificado cccp serve (estático, dev e demo) (closes #39)
   - (gost,check) suporte a conformidade GOST (leitura de GOSTVER, cccp gost sync, check e upgrade) (closes #47) (closes #42)

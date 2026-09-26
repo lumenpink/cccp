@@ -14,7 +14,7 @@ _cccp_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve repo repos changelog update install completion hooks soviet help"
+    local commands="status cz commit lint config version tag push tickets sync-tickets ticket issue agent update-agent sync-agent agents update-agents sync-agents codeberg set-av catalog sync-catalog diva divan web comrades camaradas comrade check gost serve repo repos act changelog update install completion hooks soviet help"
     local config_keys="types scopes subscopes strict_types strict_scopes strict_subscopes disable_subscopes disable_multiple_scopes default_base_version no_v update_channel update_interval_days check_updates post_push_hook post_push_sync post_push_sync_tickets post_push_sync_agent post_push_sync_agents tickets_file agent_md_url agents_md_url agent_md_file agents_md_file"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
@@ -60,6 +60,13 @@ _cccp_completions() {
                 COMPREPLY=($(compgen -W "--dirty --unpushed --issues --tickets --json -d --dir -c --catalog -f --fetch -h --help" -- "$cur"))
             else
                 COMPREPLY=($(compgen -W "status list overview help" -- "$cur"))
+            fi
+            ;;
+        act)
+            if [ "${cur#*-}" != "$cur" ]; then
+                COMPREPLY=($(compgen -W "-f --follow -j --job -h --help" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "log logs run status help" -- "$cur"))
             fi
             ;;
         agent|update-agent|sync-agent|agents|update-agents|sync-agents)
@@ -199,6 +206,7 @@ _cccp() {
         'gost:Manage GOST synchronization, audit and upgrades'
         'serve:Unified HTTP server (static, dev with watcher, VDNKh demo)'
         'repo:Gosplan multi-repository aggregated management and overview'
+        'act:Local CI runner, gate and structured log viewer'
         'changelog:Generate or update CHANGELOG.md'
         'update:Update cccp executable from GitHub releases'
         'install:Install to PATH or configure Git hooks'
@@ -328,6 +336,13 @@ _cccp() {
                         '(-h --help)'{-h,--help}'[Display help message]' \
                         '1:subcommand:(status list overview help)'
                     ;;
+                act)
+                    _arguments \
+                        '(-f --follow)'{-f,--follow}'[Follow log stream in real time]' \
+                        '(-j --job)'{-j,--job}'[Target workflow job name]:job name:' \
+                        '(-h --help)'{-h,--help}'[Display help message]' \
+                        '1:subcommand:(log logs run status help)'
+                    ;;
                 completion)
                     _arguments \
                         '1:shell:(bash zsh fish)'
@@ -373,6 +388,7 @@ complete -c cccp -n "__fish_use_subcommand" -a check -d "Audit project complianc
 complete -c cccp -n "__fish_use_subcommand" -a gost -d "Manage GOST synchronization, audit and upgrades"
 complete -c cccp -n "__fish_use_subcommand" -a serve -d "Unified HTTP server (static, dev with watcher, VDNKh demo)"
 complete -c cccp -n "__fish_use_subcommand" -a repo -d "Gosplan multi-repository management and overview"
+complete -c cccp -n "__fish_use_subcommand" -a act -d "Local CI runner, gate and structured log viewer"
 complete -c cccp -n "__fish_use_subcommand" -a agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a update-agent -d "Generate and synchronize AGENTS.md directives"
 complete -c cccp -n "__fish_use_subcommand" -a sync-agent -d "Generate and synchronize AGENTS.md directives"
@@ -451,6 +467,11 @@ complete -c cccp -n "__fish_seen_subcommand_from repo" -s d -l dir -d "Target di
 complete -c cccp -n "__fish_seen_subcommand_from repo" -s c -l catalog -d "Catalog file to use"
 complete -c cccp -n "__fish_seen_subcommand_from repo" -s f -l fetch -d "Query remote forge for live issue counts"
 complete -c cccp -n "__fish_seen_subcommand_from repo" -a "status list overview help"
+
+# Options for act
+complete -c cccp -n "__fish_seen_subcommand_from act" -s f -l follow -d "Follow log stream in real time"
+complete -c cccp -n "__fish_seen_subcommand_from act" -s j -l job -d "Target workflow job name"
+complete -c cccp -n "__fish_seen_subcommand_from act" -a "log logs run status help"
 
 # Options for completion
 complete -c cccp -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
