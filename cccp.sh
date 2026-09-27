@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.31+20260926.79c7503"
+CCCP_VERSION="2.4.0-dev.31+20260927.5989365"
 export CCCP_VERSION
 
 # Verify required tools
@@ -7038,7 +7038,7 @@ cmd_reference_transaction() {
         parent_cmd=$(ps -p "$PPID" -o args= 2>/dev/null || ps -p "$PPID" -o command= 2>/dev/null || true)
     fi
     case "$parent_cmd" in
-        *fetch*|*pull*|*clone*)
+        *fetch*|*pull*|*clone*|*fast-import*|*filter-repo*)
             return 0
             ;;
     esac
