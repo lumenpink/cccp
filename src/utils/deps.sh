@@ -411,6 +411,15 @@ _deps_install_act() {
     rm -f "$_tmp_tar"
     chmod +x "${_bdir}/act" 2>/dev/null || true
 
+    # Ensure default non-interactive image mapping in ~/.actrc if not present
+    if [ ! -f "${HOME}/.actrc" ] && [ ! -f "${HOME}/.config/act/actrc" ]; then
+        cat > "${HOME}/.actrc" << 'ACTRC_EOF'
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+-P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+-P ubuntu-20.04=catthehacker/ubuntu:act-20.04
+ACTRC_EOF
+    fi
+
     if command -v "${_bdir}/act" >/dev/null 2>&1 || [ -x "${_bdir}/act" ]; then
         _inst_ver=$("${_bdir}/act" --version 2>/dev/null | sed -e 's/.*version[[:space:]]*//' -e 's/[[:space:]].*//' || true)
         if [ "$_silent" -eq 0 ]; then

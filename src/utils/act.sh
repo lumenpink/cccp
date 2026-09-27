@@ -137,7 +137,8 @@ act_ci_gate() {
 
     # 2. Check if repository has CI workflow
     _git_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
-    if [ -z "$_git_root" ] || ! _act_find_workflow "$_git_root" >/dev/null 2>&1; then
+    _raw_wf=$(_act_find_workflow "$_git_root" 2>/dev/null || true)
+    if [ -z "$_git_root" ] || [ -z "$_raw_wf" ]; then
         # No CI workflow found; allow push without running runner
         return 0
     fi
@@ -146,6 +147,15 @@ act_ci_gate() {
     if ! _act_check_prerequisites; then
         printf '%b[pre-push] Aviso: '\''act'\'' ou Docker indisponível. Pulando CI gate local (degradação graciosa).%b\n' "$ACT_C_YELLOW" "$ACT_C_RESET"
         return 0
+    fi
+
+    # Sanitize Forgejo full action URLs (https://github.com/...) for act compatibility
+    _clean_wf="$_raw_wf"
+    _tmp_wf=""
+    if grep -q "uses:[[:space:]]*https://github.com/" "$_raw_wf" 2>/dev/null; then
+        _tmp_wf=$(mktemp 2>/dev/null || printf '/tmp/cccp_wf_%s.yml' "$$")
+        sed 's|uses:[[:space:]]*https://github.com/|uses: |g' "$_raw_wf" > "$_tmp_wf"
+        _clean_wf="$_tmp_wf"
     fi
 
     # 4. Prepare structured log file path (.git/act-logs/<YYYY-MM-DD>_<HH-MM>_<branch>_<short-sha>.log)
@@ -167,7 +177,7 @@ act_ci_gate() {
         printf '  Log: %s\n' "$_logfile"
 
         # Run in background to display interactive spinner and timer
-        "$_act_bin" -j "$_job_name" --no-pull > "$_logfile" 2>&1 &
+        "$_act_bin" -W "$_clean_wf" -j "$_job_name" --pull=false > "$_logfile" 2>&1 &
         _act_pid=$!
 
         _spin_chars='|/-\'
@@ -193,9 +203,11 @@ act_ci_gate() {
         printf '\r%80s\r' "" # clear spinner line
     else
         # Non-interactive or test environment
-        "$_act_bin" -j "$_job_name" --no-pull > "$_logfile" 2>&1
+        "$_act_bin" -W "$_clean_wf" -j "$_job_name" --pull=false > "$_logfile" 2>&1
         _exit_code=$?
     fi
+
+    [ -n "$_tmp_wf" ] && rm -f "$_tmp_wf"
 
     _t_end=$(date +%s 2>/dev/null || echo 0)
     _elapsed_sec=$((_t_end - _t_start))
