@@ -7,7 +7,7 @@
 **«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»**  
 *(Into a bright future with clean Git!)*
 
-[![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Norma: GOST](https://img.shields.io/badge/norma-GOST%201.1.0-blueviolet.svg)](.gost/GOST.md)
 [![POSIX Compatible](https://img.shields.io/badge/POSIX-100%25%20Compliant-gold.svg)](https://pubs.opengroup.org/onlinepubs/9699919799/)
 [![Forges](https://img.shields.io/badge/Forges-Codeberg%20%7C%20GitHub%20%7C%20GitLab%20%7C%20SourceHut-crimson.svg)](docs/forges.md)
@@ -72,6 +72,10 @@ cccp soviet
 
 ---
 
-## License
-
-This project is licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE) and GOST 1.1.0 modular matrix.
+## 📜 License & GOST 1.1.0 Modular Matrix
+ 
+In compliance with the [GOST v1.1.0](.gost/GOST.md) technical standard:
+ 
+* **CLI Application & Core Source Code (`src/`, `cccp.sh`):** Licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE) (or any later version).
+* **Official Visual Identity, Emblems & Logo (`site/assets/logo.svg`):** Licensed under [Creative Commons Attribution-NoDerivatives 4.0 International (CC-BY-ND 4.0)](LICENSE-LOGO).
+* **Media Assets & Promotional Posters (`site/assets/poster.jpg`):** Licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC-BY-SA 4.0)](LICENSE-MEDIA).
