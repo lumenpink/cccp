@@ -164,6 +164,12 @@ printf "# Diva Functions\n" >> "$OUTPUT_FILE"
 printf "# =============================================================================\n" >> "$OUTPUT_FILE"
 extract_functions "$SCRIPT_DIR/src/utils/diva.sh" >> "$OUTPUT_FILE"
 
+# Add matraca function
+printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
+printf "# Matraca Mobile Web REPL & Filesystem Queue Functions\n" >> "$OUTPUT_FILE"
+printf "# =============================================================================\n" >> "$OUTPUT_FILE"
+extract_functions "$SCRIPT_DIR/src/utils/matraca.sh" >> "$OUTPUT_FILE"
+
 # Add web function
 printf "\n# =============================================================================\n" >> "$OUTPUT_FILE"
 printf "# Web Server & Bridge Functions\n" >> "$OUTPUT_FILE"

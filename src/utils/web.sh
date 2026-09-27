@@ -292,14 +292,44 @@ _web_export_assets() {
   </header>
 
   <nav>
-    <button id="nav-diva" class="active" onclick="switchTab('diva')">🛋️ O Divã (Triage IA)</button>
+    <button id="nav-matraca" class="active" onclick="switchTab('matraca')">🦜 Matraca (Web REPL)</button>
+    <button id="nav-diva" onclick="switchTab('diva')">🛋️ O Divã (Triage IA)</button>
     <button id="nav-status" onclick="switchTab('status')">📊 Inspeção do Repositório</button>
     <button id="nav-tickets" onclick="switchTab('tickets')">📋 Tickets Ativos</button>
   </nav>
 
   <main>
+    <!-- TAB 0: MATRACA (WEB REPL) -->
+    <div id="tab-matraca" class="tab-content active">
+      <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:480px; padding:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <h2>🦜 Matraca — Web REPL Móvel</h2>
+            <span id="matraca-conn-status" style="font-size:0.75rem; background:rgba(35,134,54,0.15); color:var(--green); border:1px solid var(--green); padding:0.15rem 0.5rem; border-radius:12px; font-weight:600;">● Online</span>
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="loadMatracaHistory()">Atualizar</button>
+            <button class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="clearMatracaChat()">Limpar Tela</button>
+          </div>
+        </div>
+
+        <div id="matraca-chat" style="flex:1; overflow-y:auto; padding:0.5rem; display:flex; flex-direction:column; gap:0.75rem; margin-bottom:0.75rem; scroll-behavior:smooth;">
+          <div style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:1.5rem 0;">
+            Conectado ao despachante do CCCP. Digite uma mensagem abaixo para interagir com o agente.
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+          <textarea id="matraca-input" rows="2" placeholder="Digite uma instrução para o agy (Shift+Enter para quebra de linha, Enter para enviar)..." style="margin-bottom:0; resize:none;" onkeydown="handleMatracaKey(event)"></textarea>
+          <button id="btn-matraca-send" class="btn" style="height:54px; min-width:80px; display:flex; align-items:center; justify-content:center;" onclick="sendMatraca()">
+            <span>➤ Enviar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- TAB 1: O DIVÃ -->
-    <div id="tab-diva" class="tab-content active">
+    <div id="tab-diva" class="tab-content">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;">
           <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
@@ -572,6 +602,173 @@ _web_export_assets() {
 
       if (name === 'status') loadStatus();
       if (name === 'tickets') loadTickets();
+      if (name === 'matraca') loadMatracaHistory();
+    }
+
+    const activePolls = new Set();
+
+    function formatTime(epoch) {
+      if (!epoch) return '';
+      const d = new Date(epoch * 1000);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderMatracaMessage(msg, isUser, status = 'done') {
+      const chat = document.getElementById('matraca-chat');
+      const bubble = document.createElement('div');
+      bubble.style.maxWidth = '85%';
+      bubble.style.padding = '0.75rem 1rem';
+      bubble.style.borderRadius = isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px';
+      bubble.style.background = isUser ? '#1f6feb' : '#21262d';
+      bubble.style.color = isUser ? '#ffffff' : 'var(--text-bright)';
+      bubble.style.border = isUser ? 'none' : '1px solid var(--border)';
+      bubble.style.alignSelf = isUser ? 'flex-end' : 'flex-start';
+      bubble.style.wordBreak = 'break-word';
+      bubble.style.fontSize = '0.92rem';
+      bubble.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+
+      let badgeHtml = '';
+      if (status === 'pending') {
+        badgeHtml = '<span style="color:var(--gold); font-size:0.75rem; margin-left:6px;">⏳ Na fila...</span>';
+      } else if (status === 'processing') {
+        badgeHtml = '<span style="color:#58a6ff; font-size:0.75rem; margin-left:6px;">⚙ Processando...</span>';
+      } else if (status === 'error') {
+        badgeHtml = '<span style="color:var(--red); font-size:0.75rem; margin-left:6px;">✖ Erro</span>';
+      }
+
+      const timeStr = msg.created_at ? formatTime(msg.created_at) : '';
+      const content = (msg.response || msg.prompt || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      bubble.innerHTML = '<div style="white-space:pre-wrap; font-family:' + (isUser ? 'inherit' : 'var(--font-mono)') + ';">' + content + '</div>' +
+        '<div style="display:flex; justify-content:flex-end; align-items:center; margin-top:4px; font-size:0.7rem; opacity:0.7;">' +
+        timeStr + badgeHtml +
+        '</div>';
+
+      if (msg.id) bubble.id = 'matraca-msg-' + msg.id;
+      chat.appendChild(bubble);
+      chat.scrollTop = chat.scrollHeight;
+      return bubble;
+    }
+
+    async function loadMatracaHistory() {
+      const chat = document.getElementById('matraca-chat');
+      try {
+        const resp = await apiExec(['matraca', 'history', '--limit', '30']);
+        if (resp.ok && resp.stdout) {
+          const data = JSON.parse(resp.stdout);
+          if (data && data.messages && data.messages.length > 0) {
+            chat.innerHTML = '';
+            const sorted = data.messages.sort((a,b) => (a.created_at || 0) - (b.created_at || 0));
+            for (const m of sorted) {
+              if (m.prompt) {
+                renderMatracaMessage({ prompt: m.prompt, created_at: m.created_at }, true);
+              }
+              if (m.response || m.status) {
+                renderMatracaMessage({ response: m.response, created_at: m.updated_at || m.created_at, id: m.id }, false, m.status);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao carregar histórico do Matraca:', err);
+      }
+    }
+
+    function clearMatracaChat() {
+      document.getElementById('matraca-chat').innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:1.5rem 0;">Tela limpa. Fila continua salva no sistema de arquivos.</div>';
+    }
+
+    function handleMatracaKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMatraca();
+      }
+    }
+
+    async function sendMatraca() {
+      const input = document.getElementById('matraca-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const clientId = 'cli_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+      input.value = '';
+
+      renderMatracaMessage({ prompt: text, created_at: Math.floor(Date.now() / 1000) }, true);
+      const botMsg = renderMatracaMessage({ response: 'Aguardando agente...', created_at: Math.floor(Date.now() / 1000) }, false, 'pending');
+
+      const btn = document.getElementById('btn-matraca-send');
+      btn.disabled = true;
+
+      try {
+        const resp = await apiExec(['matraca', 'send', '--client-id', clientId, text]);
+        btn.disabled = false;
+
+        let jobId = '';
+        if (resp.stdout) {
+          try {
+            const parsed = JSON.parse(resp.stdout);
+            jobId = parsed.id;
+          } catch(e) {}
+        }
+
+        if (!jobId) {
+          botMsg.querySelector('div').textContent = 'Erro ao enfileirar: ' + (resp.stderr || 'Resposta inválida');
+          return;
+        }
+
+        pollMatraca(jobId, botMsg);
+      } catch (err) {
+        btn.disabled = false;
+        botMsg.querySelector('div').textContent = 'Erro de rede: ' + err.message;
+      }
+    }
+
+    function pollMatraca(jobId, bubbleEl) {
+      if (activePolls.has(jobId)) return;
+      activePolls.add(jobId);
+
+      const statusPill = document.getElementById('matraca-conn-status');
+
+      const check = async () => {
+        try {
+          const resp = await apiExec(['matraca', 'poll', jobId]);
+          if (statusPill) {
+            statusPill.textContent = '● Online';
+            statusPill.style.color = 'var(--green)';
+          }
+
+          if (resp.stdout) {
+            const data = JSON.parse(resp.stdout);
+            if (data.status === 'done' || data.status === 'error') {
+              activePolls.delete(jobId);
+              const content = (data.response || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              bubbleEl.querySelector('div').innerHTML = content;
+              const metaDiv = bubbleEl.querySelectorAll('div')[1];
+              if (metaDiv) {
+                const badge = data.status === 'done' ? '<span style="color:var(--green); font-size:0.75rem; margin-left:6px;">✔ Concluído</span>' : '<span style="color:var(--red); font-size:0.75rem; margin-left:6px;">✖ Erro</span>';
+                metaDiv.innerHTML = formatTime(data.updated_at || data.created_at) + badge;
+              }
+              const chat = document.getElementById('matraca-chat');
+              chat.scrollTop = chat.scrollHeight;
+              return;
+            } else if (data.status === 'processing') {
+              const metaDiv = bubbleEl.querySelectorAll('div')[1];
+              if (metaDiv) {
+                metaDiv.innerHTML = formatTime(data.created_at) + '<span style="color:#58a6ff; font-size:0.75rem; margin-left:6px;">⚙ Executando...</span>';
+              }
+            }
+          }
+        } catch (err) {
+          if (statusPill) {
+            statusPill.textContent = '▲ Reconectando...';
+            statusPill.style.color = 'var(--gold)';
+          }
+        }
+
+        setTimeout(check, 2000);
+      };
+
+      setTimeout(check, 1000);
     }
 
     async function runDiva() {
@@ -693,6 +890,7 @@ cmd_web() {
                 echo "  -h, --help              Show this help message"
                 echo ""
                 echo "Tabs:"
+                echo "  matraca                 Open directly on Matraca mobile Web REPL"
                 echo "  diva                    Open directly on Diva ticket triage cockpit (default)"
                 echo "  status                  Open directly on repository inspection"
                 echo "  tickets                 Open directly on active tickets list"
@@ -722,7 +920,7 @@ cmd_web() {
             -q|--quiet)
                 _quiet=1
                 ;;
-            diva|status|tickets)
+            diva|status|tickets|matraca)
                 _initial_tab="$1"
                 ;;
             *)

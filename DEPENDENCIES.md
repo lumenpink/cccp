@@ -38,6 +38,7 @@ This document tracks all external (non-POSIX) binary requirements, their usage s
 | `xdg-open` | **Optional** | FreeDesktop/Linux system utility to launch web browser in `serve` and `web` | Falls back to `open` or manual URL access |
 | `act` | **Optional** | Local runner for Forgejo/GitHub Actions CI workflows in pre-push gate | Graceful degradation: warns and allows push if missing |
 | `docker` | **Optional** | Container runtime engine required by `act` | Graceful degradation: warns and allows push if daemon is stopped |
+| `agy` | **Optional** | Antigravity CLI agent runner invoked by `matraca` worker | Graceful error: informs user to install agy or configure MATRACA_RUNNER |
 
 ## 2. Banned Utilities (Gosplan Directives)
 
