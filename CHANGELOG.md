@@ -27,7 +27,7 @@
 
 ## Previous Releases
 
-### [v2.3.0]
+### [v2.3.0] - v2.3.0
 
 ### Features
   - (tag) recompile and stage cccp.sh in release commit
@@ -77,7 +77,7 @@
 ### Features
   - (hooks) implement pre-push and reference-transaction tag guards and CI check
 
-### [v2.1.0] - Gosplan State Inspection & SemVer Protocol
+### [v2.1.0] - v2.1.0 - Gosplan State Inspection & SemVer Protocol
 
 ### Features
   - (config) enforce global-only scope for tool update directives
@@ -90,7 +90,7 @@
   - (version) target base version when latest tag is a pre-release
   - (core) establish single-source version injection and eliminate recursive invocations
 
-### [v2.0.0] - Pure POSIX Architecture & Gosplan Dual Matrix
+### [v2.0.0] - disable update check in spec_helper and cli_spec to prevent test warnings
 
 ### Features
   - (validation) enhance prerequisite checks without awk dependency
@@ -100,32 +100,32 @@
   - (core) ensure safe sourcing and robust configuration hierarchy across modules
   - (changelog) omit empty section headings and add default release fallback
 
-### [v1.7.0] - Teleprinter Telegraph (Shell Autocompletion)
+### [v1.7.0] - v1.7.0 - Teleprinter Telegraph (Shell Autocompletion)
 
 ### Features
   - (completion) add shell autocompletion for bash, zsh, and fish
 
-### [v1.6.0] - Soviet Assembly (Interactive Commit Wizard)
+### [v1.6.0] - v1.6.0 - Soviet Assembly (Interactive Commit Wizard)
 
 ### Features
   - (interactive) add pure shell terminal commit wizard
 
-### [v1.5.0] - Party Line Compliance (Commit Linting)
+### [v1.5.0] - v1.5.0 - Party Line Compliance (Commit Linting)
 
 ### Features
   - (lint) add history and pull request commit linting
 
-### [v1.4.0] - State Inspection (Repository Status)
+### [v1.4.0] - v1.4.0 - State Inspection (Repository Status)
 
 ### Features
   - (status) add repository status and health diagnostic command
 
-### [v1.3.0] - Gosplan Directive (Custom Types and Scopes)
+### [v1.3.0] - v1.3.0 - Gosplan Directive (Custom Types and Scopes)
 
 ### Features
   - (config) support custom types, scopes, and descriptor lookup
 
-### [v1.2.0] - Sputnik Protocol
+### [v1.2.0] - v1.2.0 - Sputnik Protocol
 
 ### Features
   - (tag) support release titles with -t and --title flags
@@ -141,7 +141,7 @@
   - (ci) install shellspec to user space and export PATH
   - (ci) correct YAML escaping for multiline release notes and quote workflow name
 
-### [v1.1.0]
+### [v1.1.0] - v1.1.0
 
 ### Features
   - (tag) automate release commit creation and working tree validation

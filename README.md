@@ -79,3 +79,4 @@ In compliance with the [GOST v1.1.0](.gost/GOST.md) technical standard:
 * **CLI Application & Core Source Code (`src/`, `cccp.sh`):** Licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE) (or any later version).
 * **Official Visual Identity, Emblems & Logo (`site/assets/logo.svg`):** Licensed under [Creative Commons Attribution-NoDerivatives 4.0 International (CC-BY-ND 4.0)](LICENSE-LOGO).
 * **Media Assets & Promotional Posters (`site/assets/poster.jpg`):** Licensed under [Creative Commons Attribution-ShareAlike 4.0 International (CC-BY-SA 4.0)](LICENSE-MEDIA).
+* **Legal & Governance Policy:** Detailed compliance specifications and modular licensing documentation in [docs/legal.md](docs/legal.md).

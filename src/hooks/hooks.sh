@@ -805,7 +805,7 @@ cmd_reference_transaction() {
         parent_cmd=$(ps -p "$PPID" -o args= 2>/dev/null || ps -p "$PPID" -o command= 2>/dev/null || true)
     fi
     case "$parent_cmd" in
-        *fetch*|*pull*|*clone*)
+        *fetch*|*pull*|*clone*|*fast-import*|*filter-repo*)
             return 0
             ;;
     esac
