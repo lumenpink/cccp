@@ -249,6 +249,11 @@ main() {
             cmd_comrades "$@"
             exit 0
             ;;
+        "deps"|"dep"|"dependencies")
+            shift || true
+            cmd_deps "$@"
+            exit $?
+            ;;
         "soviet"|"sputnik"|"anthem"|"gosplan")
             show_soviet
             exit 0

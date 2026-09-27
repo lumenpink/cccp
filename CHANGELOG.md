@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (deps) implementar gerenciador de dependencias com list, check e install (#61)
   - (cli) implementar comando newrepo para scaffolding de repositórios no modelo gost (closes #57)
   - (cockpit) unificar interface grafica no comando cockpit com selecao de tabs (closes #59)
   - (matraca) integrar matraca como web repl movil tolerante a falhas no cccp (closes #58)
