@@ -135,7 +135,7 @@ _diva_http() {
 
 # -----------------------------------------------------------------------------
 # Helper: Resolve Text Editor for Ticket Body Editing
-# Priority: DIVA_EDITOR -> .cccprc diva_editor -> VISUAL/EDITOR -> kv -> kvant -> vi
+# Priority: DIVA_EDITOR -> .cccprc diva_editor -> kv -> kvant -> VISUAL/EDITOR -> vi
 # -----------------------------------------------------------------------------
 _diva_resolve_editor() {
     [ -n "${DIVA_EDITOR:-}" ] && { printf '%s\n' "$DIVA_EDITOR"; return 0; }
@@ -158,17 +158,7 @@ _diva_resolve_editor() {
         fi
     fi
 
-    # 3. Check VISUAL / EDITOR
-    if [ -n "${VISUAL:-}" ]; then
-        printf '%s\n' "$VISUAL"
-        return 0
-    fi
-    if [ -n "${EDITOR:-}" ]; then
-        printf '%s\n' "$EDITOR"
-        return 0
-    fi
-
-    # 4. Probe dedicated micro-editor with full keyboard navigation: kv / kvant
+    # 3. Probe dedicated comrade micro-editor with full keyboard navigation: kv / kvant
     if command -v kv >/dev/null 2>&1; then
         printf 'kv\n'
         return 0
@@ -184,6 +174,16 @@ _diva_resolve_editor() {
                 return 0
             fi
         fi
+    fi
+
+    # 4. Fallback to VISUAL / EDITOR
+    if [ -n "${VISUAL:-}" ]; then
+        printf '%s\n' "$VISUAL"
+        return 0
+    fi
+    if [ -n "${EDITOR:-}" ]; then
+        printf '%s\n' "$EDITOR"
+        return 0
     fi
 
     # 5. Fallback to standard POSIX editor

@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.39+20260927.d6064c1"
+CCCP_VERSION="2.4.0-dev.42+20260927.79e35ef"
 export CCCP_VERSION
 
 # Verify required tools
@@ -4375,17 +4375,7 @@ _diva_resolve_editor() {
         fi
     fi
 
-    # 3. Check VISUAL / EDITOR
-    if [ -n "${VISUAL:-}" ]; then
-        printf '%s\n' "$VISUAL"
-        return 0
-    fi
-    if [ -n "${EDITOR:-}" ]; then
-        printf '%s\n' "$EDITOR"
-        return 0
-    fi
-
-    # 4. Probe dedicated micro-editor with full keyboard navigation: kv / kvant
+    # 3. Probe dedicated comrade micro-editor with full keyboard navigation: kv / kvant
     if command -v kv >/dev/null 2>&1; then
         printf 'kv\n'
         return 0
@@ -4401,6 +4391,16 @@ _diva_resolve_editor() {
                 return 0
             fi
         fi
+    fi
+
+    # 4. Fallback to VISUAL / EDITOR
+    if [ -n "${VISUAL:-}" ]; then
+        printf '%s\n' "$VISUAL"
+        return 0
+    fi
+    if [ -n "${EDITOR:-}" ]; then
+        printf '%s\n' "$EDITOR"
+        return 0
     fi
 
     # 5. Fallback to standard POSIX editor

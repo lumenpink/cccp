@@ -303,7 +303,7 @@ EOF
       The output should include "Criado: https://codeberg.org/lumenpink/cccp/issues/99"
     End
 
-    It 'allows editing ticket body interactively via EDITOR before publishing'
+    It 'allows editing ticket body interactively via DIVA_EDITOR before publishing'
       sample_tickets='{"tickets":[{"title":"fix: test ticket","body":"original body","labels":["bug"]}]}'
       export CODEBERG_TOKEN="fake-token"
       mock_editor="$TEST_DIR/mock_editor.sh"
@@ -312,7 +312,7 @@ EOF
 echo "edited body via mock editor" > "$1"
 EOF
       chmod +x "$mock_editor"
-      export EDITOR="$mock_editor"
+      export DIVA_EDITOR="$mock_editor"
 
       curl() {
         printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/100"}\n'
@@ -376,10 +376,26 @@ EOF
       The output should eq "my_preferred_editor"
     End
 
-    It 'falls back to VISUAL or EDITOR when no diva config exists'
+    It 'prioritizes comrade kv over VISUAL or EDITOR by default'
       unset DIVA_EDITOR || true
       rm -f "$TEST_DIR/.cccprc"
       export VISUAL="my_visual_editor"
+      export EDITOR="my_editor"
+      When call _diva_resolve_editor
+      The status should be success
+      The output should eq "kv"
+    End
+
+    It 'falls back to VISUAL or EDITOR when kv and kvant are unavailable and no diva config exists'
+      unset DIVA_EDITOR || true
+      rm -f "$TEST_DIR/.cccprc"
+      export VISUAL="my_visual_editor"
+      command() {
+        if [ "$1" = "-v" ] && { [ "$2" = "kv" ] || [ "$2" = "kvant" ] || [ "$2" = "_cccp_ensure_comrade" ]; }; then
+          return 1
+        fi
+        builtin command "$@"
+      }
       When call _diva_resolve_editor
       The status should be success
       The output should eq "my_visual_editor"

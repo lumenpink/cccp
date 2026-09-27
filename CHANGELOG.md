@@ -26,6 +26,7 @@
   - (cli) suportar nome parcial de repositorio na opcao -r do diva
 
 ### Bug Fixes
+  - (diva) usar comrade kv (kvant) como editor de texto padrao (closes #50)
   - (act) assegurar extensao yml em workflow temporario para o act (#61)
   - (act) corrigir flag pull e compatibilidade com workflows forgejo no runner (#61)
   - (diva) validar existência local do repositório informado via flag -r (closes #35)

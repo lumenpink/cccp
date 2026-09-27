@@ -1,28 +1,7 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-27 14:25:59 UTC
+> Synced at: 2026-09-27 21:52:02 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#57] feat(cli): implementar comando newrepo para scaffolding de repositórios no modelo gost
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/57
-
-### Description
-## Description
-
-Implementar um novo comando `newrepo` que permita a criação automatizada de repositórios completos já estruturados no modelo `gost` com todos os requisitos iniciais pré-configurados.
-
-## Steps to Reproduce / Propósitos de Uso
-
-1. Executar o comando da CLI (ex: `cccp newrepo <nome-do-repositorio>`)
-2. Verificar a estrutura de arquivos e configurações geradas.
-
-## Expected vs Actual
-
-- **Esperado**: O comando cria uma nova pasta/repositório com a estrutura base do modelo `gost`, scripts e arquivos de configuração iniciais.
-- **Atual**: Não existe um comando dedicado para automatizar o scaffolding de repositórios.
-
----
 ## [#56] chore(gemini): atualizar integração para utilizar a versão mais recente do modelo
 - **Status**: `open`
 - **Labels**: none
