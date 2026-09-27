@@ -157,4 +157,32 @@ cccp act status
 ### Conscious Bypasses
 - `git push --no-verify` (standard Git hook bypass)
 - `CCCP_ACT_SKIP=1 git push` (environment variable override)
+
+---
+
+## 6. Dependencies & Toolchain Manager (`cccp deps`)
+
+Centralizes dependency cataloging, version constraints auditing in pure POSIX sh (zero `awk`), and automated acquisition of standalone binaries (`act` via GitHub Releases) and Gosplan ecosystem comrades (`sv`, `kv`, `mk`):
+
+### Subcommands
+- `cccp deps list`: Displays the full catalog of external binaries, requirement levels, minimum SemVer constraints, and origins.
+- `cccp deps check [deps...]`: Audits whether installed binaries meet minimum version constraints and verifies daemon operational status (`docker info`), reporting `[OK]`, `[DESATUALIZADO]`, `[AUSENTE]`, or `[DAEMON OFF]`.
+- `cccp deps install <dep... | --all>`:
+  - Automatically resolves host architecture (`x86_64`, `aarch64`, etc.) and installs standalone binaries directly to `~/.local/bin/` without `sudo` (e.g. `act`, `sv`, `kv`, `mk`).
+  - Identifies system package manager (`pacman`, `apt`, `dnf`, `apk`, `brew`) for system-level dependencies (`git`, `docker`, etc.) and displays the recommended installation command.
+
+### Examples
+```bash
+# List all mapped dependencies
+cccp deps list
+
+# Audit environment conformity
+cccp deps check
+
+# Check specific tools
+cccp deps check act docker
+
+# Install act runner or ecosystem comrades
+cccp deps install act
+cccp deps install --all
 ```

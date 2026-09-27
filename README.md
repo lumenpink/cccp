@@ -43,6 +43,7 @@ cccp cz
 - **Hierarchical Configuration**: 4-tier Gosplan cascade (`Defaults < Global $XDG_CONFIG_HOME/cccp/config < Local .cccprc < ENV < CLI flags`).
 - **Multi-Forge Ticket Sync**: Sinks issues from Codeberg/Forgejo, GitHub, GitLab/Framagit, and SourceHut into `.antigravity/tickets.md` with sliding hourly rate limiting.
 - **Centralized AI Agent Directives**: Synchronize standardized prompts and workflows into `AGENTS.md`.
+- **Toolchain & Dependency Inspectorate**: Audit version constraints (`cccp deps check`), catalog binaries (`cccp deps list`), and install standalone runners like `act` and ecosystem comrades (`cccp deps install`).
 
 ---
 
