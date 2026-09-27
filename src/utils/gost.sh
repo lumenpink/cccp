@@ -363,7 +363,7 @@ EOF
 
     # 6. GOST-05-BRANCH-PER-TICKET (MUST)
     if [ -d "${_root_dir}/.git" ] && command -v git >/dev/null 2>&1; then
-        _cur_branch="$(cd "$_root_dir" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")"
+        _cur_branch="$(cd "$_root_dir" && (git branch --show-current 2>/dev/null || git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ""))"
         if [ "$_cur_branch" = "main" ] || [ "$_cur_branch" = "master" ]; then
             printf "  %b%-6s%b %-25s : %s\n" "$GOST_C_GREEN" "[PASS]" "$GOST_C_RESET" "GOST-05-BRANCH-TICKET" "Branch canônica/release ($_cur_branch)"
             _passed=$((_passed + 1))

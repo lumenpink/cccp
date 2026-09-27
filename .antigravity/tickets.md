@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-27 02:37:27 UTC
+> Synced at: 2026-09-27 14:25:59 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#57] feat(cli): implementar comando newrepo para scaffolding de repositórios no modelo gost
@@ -84,46 +84,6 @@ Ajustar o parsing de argumentos da CLI do `diva` para que, caso apenas um parâm
 
 - **Expected:** O parâmetro único é interpretado como o repositório.
 - **Actual:** O CLI exige flags adicionais ou falha por falta de parâmetros nomeados.
-
----
-## [#53] chore(legal)!: retificar licenciamento desde o commit inicial e reescrever histórico
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/53
-
-### Description
-## Contexto
-Para garantir pureza jurídica e coerência desde a gênese do projeto, os termos de licenciamento corretos devem ser consolidados retroativamente a partir do primeiro commit (root commit), eliminando declarações legadas ou conflitantes ao longo do histórico Git.
-
-## Tarefas
-- [ ] Substituir/ajustar o arquivo `LICENSE` no commit inicial e em seus descendentes.
-- [ ] Reescrever a árvore histórica do repositório mantendo metadados de autoria e timestamps originais.
-- [ ] Recriar ou re-apontar tags anotadas existentes para os novos commits correspondentes.
-- [ ] Executar push sincronizado na forja com `--force-with-lease`.
-
-## ⚠️ Atenção
-Esta operação é um Breaking Change (`chore(legal)!`) no histórico Git do repositório, alterando os hashes SHA de todos os commits subsequentes.
-
----
-## [#52] chore(legal): adequar matriz de licenciamento modular ao padrão GOST 1.1.0
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/52
-
-### Description
-## Contexto
-Conforme definido na norma técnica GOST v1.1.0 (`specs/legal/licenses.md`), cada repositório deve adotar a matriz de licenciamento estritamente adequada à sua natureza/perfil (princípio anti-boilerplate), com a licença padrão na raiz (`LICENSE`) e arquivos satélites canônicos quando pertinentes (`LICENSE-MEDIA`, `LICENSE-LOGO`, `LICENSE-APACHE`).
-
-## Tarefas
-- [ ] Identificar a tipologia do repositório (Aplicação, Comrade/Microapp, Biblioteca/Protocolo ou Especificação).
-- [ ] Adequar o arquivo raiz `LICENSE` aos termos legais correspondentes.
-- [ ] Incluir satélites pertinentes (`LICENSE-MEDIA`, `LICENSE-LOGO`, `LICENSE-APACHE`) se houver mídias ou marcas a proteger.
-- [ ] Mapear explicitamente a matriz de licenciamento no `README.md`.
-
-## Critérios de Aceite
-- Licença raiz condizente com a política GOST 1.1.0.
-- Ausência de arquivos satélites vazios ou boilerplate genérico irrelevante.
-- Seção de Licença no `README.md` discriminando os arquivos e termos aplicáveis.
 
 ---
 ## [#50] fix(diva): usar comrade kv (kvant) como editor de texto padrão

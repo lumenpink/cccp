@@ -88,7 +88,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"ticket"|"issue"|"matraca"|"cockpit"|"web"|"gost"|"check"|"serve")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"ticket"|"issue"|"matraca"|"cockpit"|"web"|"gost"|"check"|"serve"|"newrepo"|"new-repo")
                 check_auto_update || true
                 ;;
         esac
@@ -273,6 +273,11 @@ main() {
             cmd_repo "$@"
             exit $?
             ;;
+        "newrepo"|"new-repo")
+            shift || true
+            cmd_newrepo "$@"
+            exit $?
+            ;;
         "act")
             shift || true
             cmd_act "$@"
@@ -283,7 +288,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|matraca|cockpit|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|act|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|matraca|cockpit|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|newrepo|act|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

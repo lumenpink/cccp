@@ -767,6 +767,16 @@ cmd_repo() {
 
     while [ $# -gt 0 ]; do
         case "$1" in
+            "new"|"create"|"init")
+                shift
+                if command -v cmd_newrepo >/dev/null 2>&1; then
+                    cmd_newrepo "$@"
+                    return $?
+                else
+                    echo "Error: cmd_newrepo is not available." >&2
+                    return 1
+                fi
+                ;;
             "status"|"list"|"overview")
                 shift
                 ;;
