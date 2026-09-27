@@ -153,7 +153,7 @@ act_ci_gate() {
     _clean_wf="$_raw_wf"
     _tmp_wf=""
     if grep -q "uses:[[:space:]]*https://github.com/" "$_raw_wf" 2>/dev/null; then
-        _tmp_wf=$(mktemp 2>/dev/null || printf '/tmp/cccp_wf_%s.yml' "$$")
+        _tmp_wf=$(mktemp --suffix=.yml 2>/dev/null || mktemp /tmp/cccp_wf_XXXXXX.yml 2>/dev/null || printf '/tmp/cccp_wf_%s.yml' "$$")
         sed 's|uses:[[:space:]]*https://github.com/|uses: |g' "$_raw_wf" > "$_tmp_wf"
         _clean_wf="$_tmp_wf"
     fi
