@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.27+20260926.7adb39e"
+CCCP_VERSION="2.4.0-dev.29+20260926.11aaff0"
 export CCCP_VERSION
 
 # Verify required tools
@@ -9870,7 +9870,7 @@ cmd_gost_check() {
             while IFS= read -r _subj || [ -n "$_subj" ]; do
                 [ -n "$_subj" ] || continue
                 _commits_count=$((_commits_count + 1))
-                if printf "%s\n" "$_subj" | grep -Eq '\((ref|closes) #[0-9]+\)|(ref|closes) #[0-9]+'; then
+                if printf "%s\n" "$_subj" | grep -Eq '\((ref|closes) #[0-9]+\)|(ref|closes) #[0-9]+|\(#[0-9]+\)'; then
                     _commits_valid=$((_commits_valid + 1))
                 fi
             done <<EOF

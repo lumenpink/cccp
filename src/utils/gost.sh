@@ -336,7 +336,7 @@ cmd_gost_check() {
             while IFS= read -r _subj || [ -n "$_subj" ]; do
                 [ -n "$_subj" ] || continue
                 _commits_count=$((_commits_count + 1))
-                if printf "%s\n" "$_subj" | grep -Eq '\((ref|closes) #[0-9]+\)|(ref|closes) #[0-9]+'; then
+                if printf "%s\n" "$_subj" | grep -Eq '\((ref|closes) #[0-9]+\)|(ref|closes) #[0-9]+|\(#[0-9]+\)'; then
                     _commits_valid=$((_commits_valid + 1))
                 fi
             done <<EOF
