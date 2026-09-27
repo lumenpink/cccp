@@ -8,6 +8,7 @@
 *(Into a bright future with clean Git!)*
 
 [![License](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![Norma: GOST](https://img.shields.io/badge/norma-GOST%201.1.0-blueviolet.svg)](.gost/GOST.md)
 [![POSIX Compatible](https://img.shields.io/badge/POSIX-100%25%20Compliant-gold.svg)](https://pubs.opengroup.org/onlinepubs/9699919799/)
 [![Forges](https://img.shields.io/badge/Forges-Codeberg%20%7C%20GitHub%20%7C%20GitLab%20%7C%20SourceHut-crimson.svg)](docs/forges.md)
 [![Documentation](https://img.shields.io/badge/Documentation-cccp.2lp.in-b81d1d.svg)](https://cccp.2lp.in)
