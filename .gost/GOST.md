@@ -17,15 +17,30 @@ As palavras-chave **DEVE** (*MUST*), **NÃO DEVE** (*MUST NOT*), **DEVERIA** (*S
 
 ## 2. Filosofia e Licenciamento
 
-Todo projeto em conformidade com o GOST **DEVE** declarar sua licença de forma explícita na raiz do repositório através de um arquivo `LICENSE`.
+Todo projeto em conformidade com o GOST **DEVE** declarar sua licença de forma explícita na raiz do repositório através de um arquivo `LICENSE`. A especificação técnica detalhada, perfis e matriz normativa encontram-se em [specs/legal/licenses.md](./specs/legal/licenses.md).
 
-### 2.1 Presunção de Domínio Público (`CC0-1.0`)
-* **Regra Geral:** Todo repositório **DEVE** presumir, por padrão, a renúncia de direitos autorais e liberação irrestrita em domínio público via **`CC0-1.0`** (Creative Commons Zero 1.0 Universal).
-* **Justificativa:** O conhecimento, ferramentas e códigos devem fluir com o menor atrito burocrático e jurídico possível, garantindo validade jurídica internacional e reuso irrestrito para qualquer finalidade.
+### 2.1 Princípio da Menor Permissividade como Padrão Raiz
+* **Regra da Raiz:** O arquivo `LICENSE` na raiz **DEVE** ser a licença padrão e geral de todo o repositório.
+* Em repositórios com múltiplos tipos de artefatos (como monorepos ou aplicações híbridas), o arquivo `LICENSE` **DEVE** conter a licença menos permissiva (mais restritiva) adotada (ex: `GPL-3.0`).
+* Quaisquer licenças mais permissivas (ex: `Apache-2.0` para sub-bibliotecas ou `CC-BY-SA-4.0` para mídias) funcionam como exceções modulares declaradas.
 
-### 2.2 Exceção de Copyleft Forte (`GPL-3.0`)
-* **Regra de Exceção:** Quando um projeto possuir natureza estratégica que exija proteção contra apropriação predatória, fechamento de código derivado ou mercantilização comercial sem repasse à comunidade, o projeto **DEVE** adotar a **`GNU General Public License v3.0` (GPL-3.0)** (ou `AGPL-3.0` para serviços web).
-* Qualquer exceção à presunção padrão de `CC0-1.0` **DEVE** ser justificada no `README.md` do projeto.
+### 2.2 Tipologia por Perfil de Repositório
+1. **Aplicações Completas / Monorepos Híbridos (ex: Mayak, Navalha):** Adotam `GPL-3.0` (ou `AGPL-3.0` para serviços web) na raiz (`LICENSE`).
+2. **Microapps & Comrades (ex: comrades/cli):** Adotam `Apache-2.0` na raiz (`LICENSE`) diretamente, sem necessidade de arquivos satélites supérfluos.
+3. **Bibliotecas, Protocolos e SDKs:** Adotam `Apache-2.0` na raiz (`LICENSE`) para máxima interoperabilidade.
+4. **Especificações e Normas (ex: GOST):** Adotam `CC-BY-SA-4.0` para os textos normativos na raiz (`LICENSE`), com esquemas e templates em `CC0-1.0` e marcas protegidas via satélite.
+
+### 2.3 Arquivos Satélites Padronizados
+Quando houver artefatos que exijam tratamentos jurídicos específicos, os seguintes arquivos canônicos **DEVEM** ser utilizados:
+* `LICENSE-MEDIA`: Creative Commons Atribuição-CompartilhaIgual 4.0 Internacional (`CC-BY-SA-4.0`) para mídias, áudios, vídeos, fontes e ilustrações.
+* `LICENSE-LOGO`: Creative Commons Atribuição-SemDerivações 4.0 Internacional (`CC-BY-ND-4.0`) para marcas, insígnias, ícones oficiais e logotipos.
+* `LICENSE-APACHE`: Apache License 2.0 (`Apache-2.0`) para módulos, sub-crates ou bibliotecas desacopladas contidas em monorepos de aplicações.
+
+### 2.4 Mapeamento Obrigatório no `README.md`
+Repositórios com múltiplos tipos de artefatos ou licenças satélites **DEVEM** incluir em seu `README.md` uma seção ou tabela de mapeamento discriminando expressamente os caminhos e arquivos cobertos por cada licença.
+
+### 2.5 Princípio Anti-Boilerplate
+Cada repositório implementa exclusivamente as licenças condizentes com seu perfil real. É vedado copiar blocos genéricos de licenciamento e arquivos satélites vazios para projetos simples (como comrades ou microutilitários).
 
 ---
 
@@ -35,7 +50,10 @@ Todo repositório GOST **DEVE** conter em sua raiz a seguinte estrutura mínima 
 
 ```
 .
-├── LICENSE                     # Termo legal de licenciamento (Seção 2)
+├── LICENSE                     # Termo legal de licenciamento padrão (Seção 2)
+├── LICENSE-MEDIA               # (Opcional) Licença CC-BY-SA para mídias e assets
+├── LICENSE-LOGO                # (Opcional) Licença CC-BY-ND para marcas e logos
+├── LICENSE-APACHE              # (Opcional) Licença Apache-2.0 para bibliotecas internas
 ├── VERSION                     # Versão semântica em texto plano (Seção 4)
 ├── CHANGELOG.md                # Registro cronológico de mudanças (Seção 4)
 ├── README.md                   # Apresentação executiva e guia rápido

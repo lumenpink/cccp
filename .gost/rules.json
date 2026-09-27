@@ -6,11 +6,24 @@
     {
       "id": "GOST-01-LICENSE",
       "section": 2,
-      "title": "Licença Declarada",
+      "title": "Licença Declarada e Matriz de Licenciamento",
       "severity": "MUST",
       "check": "file_exists",
       "target": "LICENSE",
-      "valid_values": ["CC0-1.0", "GPL-3.0", "AGPL-3.0"]
+      "valid_values": [
+        "CC0-1.0",
+        "GPL-3.0",
+        "GPL-3.0-or-later",
+        "AGPL-3.0",
+        "Apache-2.0",
+        "CC-BY-SA-4.0",
+        "CC-BY-ND-4.0"
+      ],
+      "satellite_files": [
+        "LICENSE-MEDIA",
+        "LICENSE-LOGO",
+        "LICENSE-APACHE"
+      ]
     },
     {
       "id": "GOST-02-ANATOMY-ROOT",
