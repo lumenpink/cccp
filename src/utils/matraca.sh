@@ -534,14 +534,11 @@ cmd_matraca_clean() {
 # -----------------------------------------------------------------------------
 cmd_matraca() {
     if [ $# -eq 0 ]; then
-        # Default behavior when called without arguments: open web REPL cockpit
-        if command -v cmd_web >/dev/null 2>&1; then
-            cmd_web matraca
-            return $?
-        else
-            echo "Usage: cccp matraca [send|poll|worker|history|status|clean|web] [options]"
-            return 1
-        fi
+        cmd_matraca --help
+        echo ""
+        echo "💡 Para acessar a interface gráfica completa no navegador ou celular, execute:"
+        echo "   cccp cockpit"
+        return 0
     fi
 
     _sub="$1"
@@ -567,11 +564,11 @@ cmd_matraca() {
             cmd_matraca_clean "$@"
             ;;
         web|serve)
-            if command -v cmd_web >/dev/null 2>&1; then
+            echo "💡 A interface web foi unificada no comando 'cccp cockpit'." >&2
+            if command -v cmd_cockpit >/dev/null 2>&1; then
+                cmd_cockpit matraca "$@"
+            elif command -v cmd_web >/dev/null 2>&1; then
                 cmd_web matraca "$@"
-            else
-                echo "Error: cmd_web is not available in current environment" >&2
-                return 1
             fi
             ;;
         -h|--help|help)
@@ -585,7 +582,9 @@ cmd_matraca() {
             echo "  cccp matraca history [--limit <N>]"
             echo "  cccp matraca status [--json]"
             echo "  cccp matraca clean [--days <N>]"
-            echo "  cccp matraca web [options]"
+            echo ""
+            echo "Note:"
+            echo "  Para abrir o Web REPL no navegador/celular, utilize: cccp cockpit"
             return 0
             ;;
         *)

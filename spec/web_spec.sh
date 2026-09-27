@@ -51,18 +51,44 @@ Describe 'web'
       The contents of file "$target_dir/index.html" should include "repo-select"
       The contents of file "$target_dir/index.html" should not include "gosplan-token-1922"
       The contents of file "$target_dir/index.html" should include "8080"
+      The contents of file "$target_dir/index.html" should include "tab-matraca"
+      The contents of file "$target_dir/index.html" should include "tab-diva"
+    End
+
+    It 'excludes matraca tab when disabled'
+      target_dir="$TEST_DIR/web_assets_no_matraca"
+      When call _web_export_assets "$target_dir" "token" 8080 0 1 1 1 diva
+      The status should be success
+      The contents of file "$target_dir/index.html" should not include "tab-matraca"
+      The contents of file "$target_dir/index.html" should not include "nav-matraca"
+      The contents of file "$target_dir/index.html" should include "tab-diva"
+    End
+
+    It 'excludes diva tab when disabled'
+      target_dir="$TEST_DIR/web_assets_no_diva"
+      When call _web_export_assets "$target_dir" "token" 8080 1 0 1 1 matraca
+      The status should be success
+      The contents of file "$target_dir/index.html" should not include "tab-diva"
+      The contents of file "$target_dir/index.html" should not include "nav-diva"
+      The contents of file "$target_dir/index.html" should include "tab-matraca"
     End
   End
 
-  Describe 'cmd_web'
-    It 'displays usage help on -h or --help'
+  Describe 'cmd_cockpit and cmd_web'
+    It 'displays usage help on -h or --help for cmd_cockpit'
+      When call cmd_cockpit --help
+      The status should be success
+      The output should include "cccp cockpit"
+      The output should include "--no-matraca"
+      The output should include "--no-diva"
+      The output should include "--no-status"
+      The output should include "--no-tickets"
+    End
+
+    It 'displays usage help on -h or --help for cmd_web alias'
       When call cmd_web --help
       The status should be success
-      The output should include "cccp web"
-      The output should include "--port"
-      The output should include "--host"
-      The output should include "--open"
-      The output should include "--token"
+      The output should include "cccp cockpit"
     End
 
     It 'launches mk with bridge and auth parameters without opening browser by default'
@@ -76,7 +102,7 @@ EOF
       chmod +x "$TEST_DIR/bin/mk"
       PATH="$TEST_DIR/bin:$PATH"
 
-      When call cmd_web --port 8088 --host 127.0.0.1
+      When call cmd_cockpit --port 8088 --host 127.0.0.1
       The status should be success
       The output should include "MOCK_MK_ARGS:"
       The output should include "--bridge"
@@ -96,10 +122,46 @@ EOF
       chmod +x "$TEST_DIR/bin/mk"
       PATH="$TEST_DIR/bin:$PATH"
 
-      When call cmd_web --open --port 8088 --host 127.0.0.1
+      When call cmd_cockpit --open --port 8088 --host 127.0.0.1
       The status should be success
       The output should include "MOCK_MK_ARGS:"
       The output should include "--open"
+    End
+
+    It 'supports --no-matraca flag and generates assets without matraca'
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/mk" << 'EOF'
+#!/bin/sh
+echo "MOCK_MK_ARGS: $@"
+if [ -f "$1/index.html" ]; then
+  if grep -q 'tab-matraca' "$1/index.html"; then
+    echo "FOUND_MATRACA"
+  else
+    echo "NO_MATRACA_CONFIRMED"
+  fi
+fi
+exit 0
+EOF
+      chmod +x "$TEST_DIR/bin/mk"
+      PATH="$TEST_DIR/bin:$PATH"
+
+      When call cmd_cockpit --no-matraca --port 8088
+      The status should be success
+      The output should include "NO_MATRACA_CONFIRMED"
+    End
+
+    It 'fails when all tabs are disabled'
+      mkdir -p "$TEST_DIR/bin"
+      cat > "$TEST_DIR/bin/mk" << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+      chmod +x "$TEST_DIR/bin/mk"
+      PATH="$TEST_DIR/bin:$PATH"
+
+      When call cmd_cockpit --no-matraca --no-diva --no-status --no-tickets
+      The status should be failure
+      The error should include "At least one tab must be enabled"
     End
 
     It 'uses token provided via --token flag'
@@ -112,7 +174,7 @@ EOF
       chmod +x "$TEST_DIR/bin/mk"
       PATH="$TEST_DIR/bin:$PATH"
 
-      When call cmd_web --token "super-secret-key-123" --port 8088
+      When call cmd_cockpit --token "super-secret-key-123" --port 8088
       The status should be success
       The output should include "--auth super-secret-key-123"
     End

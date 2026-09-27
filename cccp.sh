@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.32+20260927.5c35a35"
+CCCP_VERSION="2.4.0-dev.34+20260927.428e4b6"
 export CCCP_VERSION
 
 # Verify required tools
@@ -5350,11 +5350,14 @@ cmd_diva() {
                 ;;
             --web|-w)
                 shift
-                if command -v cmd_web >/dev/null 2>&1; then
+                if command -v cmd_cockpit >/dev/null 2>&1; then
+                    cmd_cockpit "diva" "$@"
+                    return $?
+                elif command -v cmd_web >/dev/null 2>&1; then
                     cmd_web "diva" "$@"
                     return $?
                 else
-                    echo "Error: cccp web module is not loaded." >&2
+                    echo "Error: cccp cockpit module is not loaded." >&2
                     return 1
                 fi
                 ;;
@@ -5992,14 +5995,11 @@ cmd_matraca_clean() {
 
 cmd_matraca() {
     if [ $# -eq 0 ]; then
-        # Default behavior when called without arguments: open web REPL cockpit
-        if command -v cmd_web >/dev/null 2>&1; then
-            cmd_web matraca
-            return $?
-        else
-            echo "Usage: cccp matraca [send|poll|worker|history|status|clean|web] [options]"
-            return 1
-        fi
+        cmd_matraca --help
+        echo ""
+        echo "💡 Para acessar a interface gráfica completa no navegador ou celular, execute:"
+        echo "   cccp cockpit"
+        return 0
     fi
 
     _sub="$1"
@@ -6025,11 +6025,11 @@ cmd_matraca() {
             cmd_matraca_clean "$@"
             ;;
         web|serve)
-            if command -v cmd_web >/dev/null 2>&1; then
+            echo "💡 A interface web foi unificada no comando 'cccp cockpit'." >&2
+            if command -v cmd_cockpit >/dev/null 2>&1; then
+                cmd_cockpit matraca "$@"
+            elif command -v cmd_web >/dev/null 2>&1; then
                 cmd_web matraca "$@"
-            else
-                echo "Error: cmd_web is not available in current environment" >&2
-                return 1
             fi
             ;;
         -h|--help|help)
@@ -6043,7 +6043,9 @@ cmd_matraca() {
             echo "  cccp matraca history [--limit <N>]"
             echo "  cccp matraca status [--json]"
             echo "  cccp matraca clean [--days <N>]"
-            echo "  cccp matraca web [options]"
+            echo ""
+            echo "Note:"
+            echo "  Para abrir o Web REPL no navegador/celular, utilize: cccp cockpit"
             return 0
             ;;
         *)
@@ -6067,12 +6069,116 @@ _web_generate_token() {
 
 _web_export_assets() {
     _out_dir="$1"
-    if [ $# -ge 3 ]; then
-        _listen_port="$3"
-    elif [ $# -ge 2 ]; then
-        _listen_port="$2"
-    else
-        _listen_port="8080"
+    _token="${2:-}"
+    _listen_port="${3:-8080}"
+    _enable_matraca="${4:-1}"
+    _enable_diva="${5:-1}"
+    _enable_status="${6:-1}"
+    _enable_tickets="${7:-1}"
+    _initial_tab="${8:-matraca}"
+
+    _nav_html=""
+    _main_html=""
+
+    if [ "$_enable_matraca" -eq 1 ]; then
+        _act=""
+        [ "$_initial_tab" = "matraca" ] && _act=" active"
+        _nav_html="${_nav_html}    <button id=\"nav-matraca\" class=\"${_act}\" onclick=\"switchTab('matraca')\">🦜 Matraca (Web REPL)</button>
+"
+        _main_html="${_main_html}    <!-- TAB 0: MATRACA (WEB REPL) -->
+    <div id=\"tab-matraca\" class=\"tab-content${_act}\">
+      <div class=\"card\" style=\"display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:480px; padding:1.25rem;\">
+        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;\">
+          <div style=\"display:flex; align-items:center; gap:0.6rem;\">
+            <h2>🦜 Matraca — Web REPL Móvel</h2>
+            <span id=\"matraca-conn-status\" style=\"font-size:0.75rem; background:rgba(35,134,54,0.15); color:var(--green); border:1px solid var(--green); padding:0.15rem 0.5rem; border-radius:12px; font-weight:600;\">● Online</span>
+          </div>
+          <div style=\"display:flex; gap:0.5rem; align-items:center;\">
+            <button class=\"btn btn-secondary\" style=\"padding:0.25rem 0.6rem; font-size:0.8rem;\" onclick=\"loadMatracaHistory()\">Atualizar</button>
+            <button class=\"btn btn-secondary\" style=\"padding:0.25rem 0.6rem; font-size:0.8rem;\" onclick=\"clearMatracaChat()\">Limpar Tela</button>
+          </div>
+        </div>
+
+        <div id=\"matraca-chat\" style=\"flex:1; overflow-y:auto; padding:0.5rem; display:flex; flex-direction:column; gap:0.75rem; margin-bottom:0.75rem; scroll-behavior:smooth;\">
+          <div style=\"text-align:center; color:var(--text-muted); font-size:0.85rem; padding:1.5rem 0;\">
+            Conectado ao despachante do CCCP. Digite uma mensagem abaixo para interagir com o agente.
+          </div>
+        </div>
+
+        <div style=\"display:flex; gap:0.5rem; align-items:flex-end;\">
+          <textarea id=\"matraca-input\" rows=\"2\" placeholder=\"Digite uma instrução para o agy (Shift+Enter para quebra de linha, Enter para enviar)...\" style=\"margin-bottom:0; resize:none;\" onkeydown=\"handleMatracaKey(event)\"></textarea>
+          <button id=\"btn-matraca-send\" class=\"btn\" style=\"height:54px; min-width:80px; display:flex; align-items:center; justify-content:center;\" onclick=\"sendMatraca()\">
+            <span>➤ Enviar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+"
+    fi
+
+    if [ "$_enable_diva" -eq 1 ]; then
+        _act=""
+        [ "$_initial_tab" = "diva" ] && _act=" active"
+        _nav_html="${_nav_html}    <button id=\"nav-diva\" class=\"${_act}\" onclick=\"switchTab('diva')\">🛋️ O Divã (Triage IA)</button>
+"
+        _main_html="${_main_html}    <!-- TAB 1: O DIVÃ -->
+    <div id=\"tab-diva\" class=\"tab-content${_act}\">
+      <div class=\"card\">
+        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;\">
+          <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
+          <span id=\"diva-repo-hint\" style=\"font-family:var(--font-mono); font-size:0.85rem; color:var(--gold); font-weight:bold;\"></span>
+        </div>
+        <p class=\"desc\">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com sugestão de branch GOST.</p>
+        
+        <textarea id=\"diva-input\" rows=\"4\" placeholder=\"Ex: O botão de login congela quando o token JWT expira no meio de uma requisição assíncrona, exigindo reload da página...\"></textarea>
+        
+        <div style=\"display:flex; gap:0.5rem;\">
+          <button id=\"btn-diva-run\" class=\"btn\" onclick=\"runDiva()\">
+            <span>✦ Consultar Divã (IA)</span>
+          </button>
+          <button class=\"btn btn-secondary\" onclick=\"document.getElementById('diva-input').value = ''\">Limpar</button>
+        </div>
+      </div>
+
+      <div id=\"diva-results\"></div>
+    </div>
+"
+    fi
+
+    if [ "$_enable_status" -eq 1 ]; then
+        _act=""
+        [ "$_initial_tab" = "status" ] && _act=" active"
+        _nav_html="${_nav_html}    <button id=\"nav-status\" class=\"${_act}\" onclick=\"switchTab('status')\">📊 Inspeção do Repositório</button>
+"
+        _main_html="${_main_html}    <!-- TAB 2: STATUS -->
+    <div id=\"tab-status\" class=\"tab-content${_act}\">
+      <div class=\"card\">
+        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;\">
+          <h2>📊 Inspeção Gosplan do Repositório</h2>
+          <button class=\"btn btn-secondary\" onclick=\"loadStatus()\">Atualizar Status</button>
+        </div>
+        <pre id=\"status-output\" class=\"terminal\">Carregando status do repositório...</pre>
+      </div>
+    </div>
+"
+    fi
+
+    if [ "$_enable_tickets" -eq 1 ]; then
+        _act=""
+        [ "$_initial_tab" = "tickets" ] && _act=" active"
+        _nav_html="${_nav_html}    <button id=\"nav-tickets\" class=\"${_act}\" onclick=\"switchTab('tickets')\">📋 Tickets Ativos</button>
+"
+        _main_html="${_main_html}    <!-- TAB 3: TICKETS -->
+    <div id=\"tab-tickets\" class=\"tab-content${_act}\">
+      <div class=\"card\">
+        <div style=\"display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;\">
+          <h2>📋 Tickets Ativos do Projeto</h2>
+          <button class=\"btn btn-secondary\" onclick=\"loadTickets()\">Sincronizar com Forge</button>
+        </div>
+        <pre id=\"tickets-output\" class=\"terminal\">Carregando tickets...</pre>
+      </div>
+    </div>
+"
     fi
 
     mkdir -p "$_out_dir"
@@ -6343,86 +6449,10 @@ _web_export_assets() {
   </header>
 
   <nav>
-    <button id="nav-matraca" class="active" onclick="switchTab('matraca')">🦜 Matraca (Web REPL)</button>
-    <button id="nav-diva" onclick="switchTab('diva')">🛋️ O Divã (Triage IA)</button>
-    <button id="nav-status" onclick="switchTab('status')">📊 Inspeção do Repositório</button>
-    <button id="nav-tickets" onclick="switchTab('tickets')">📋 Tickets Ativos</button>
-  </nav>
+${_nav_html}  </nav>
 
   <main>
-    <!-- TAB 0: MATRACA (WEB REPL) -->
-    <div id="tab-matraca" class="tab-content active">
-      <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 220px); min-height:480px; padding:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">
-          <div style="display:flex; align-items:center; gap:0.6rem;">
-            <h2>🦜 Matraca — Web REPL Móvel</h2>
-            <span id="matraca-conn-status" style="font-size:0.75rem; background:rgba(35,134,54,0.15); color:var(--green); border:1px solid var(--green); padding:0.15rem 0.5rem; border-radius:12px; font-weight:600;">● Online</span>
-          </div>
-          <div style="display:flex; gap:0.5rem; align-items:center;">
-            <button class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="loadMatracaHistory()">Atualizar</button>
-            <button class="btn btn-secondary" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="clearMatracaChat()">Limpar Tela</button>
-          </div>
-        </div>
-
-        <div id="matraca-chat" style="flex:1; overflow-y:auto; padding:0.5rem; display:flex; flex-direction:column; gap:0.75rem; margin-bottom:0.75rem; scroll-behavior:smooth;">
-          <div style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:1.5rem 0;">
-            Conectado ao despachante do CCCP. Digite uma mensagem abaixo para interagir com o agente.
-          </div>
-        </div>
-
-        <div style="display:flex; gap:0.5rem; align-items:flex-end;">
-          <textarea id="matraca-input" rows="2" placeholder="Digite uma instrução para o agy (Shift+Enter para quebra de linha, Enter para enviar)..." style="margin-bottom:0; resize:none;" onkeydown="handleMatracaKey(event)"></textarea>
-          <button id="btn-matraca-send" class="btn" style="height:54px; min-width:80px; display:flex; align-items:center; justify-content:center;" onclick="sendMatraca()">
-            <span>➤ Enviar</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 1: O DIVÃ -->
-    <div id="tab-diva" class="tab-content">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.5rem;">
-          <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
-          <span id="diva-repo-hint" style="font-family:var(--font-mono); font-size:0.85rem; color:var(--gold); font-weight:bold;"></span>
-        </div>
-        <p class="desc">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com sugestão de branch GOST.</p>
-        
-        <textarea id="diva-input" rows="4" placeholder="Ex: O botão de login congela quando o token JWT expira no meio de uma requisição assíncrona, exigindo reload da página..."></textarea>
-        
-        <div style="display:flex; gap:0.5rem;">
-          <button id="btn-diva-run" class="btn" onclick="runDiva()">
-            <span>✦ Consultar Divã (IA)</span>
-          </button>
-          <button class="btn btn-secondary" onclick="document.getElementById('diva-input').value = ''">Limpar</button>
-        </div>
-      </div>
-
-      <div id="diva-results"></div>
-    </div>
-
-    <!-- TAB 2: STATUS -->
-    <div id="tab-status" class="tab-content">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h2>📊 Inspeção Gosplan do Repositório</h2>
-          <button class="btn btn-secondary" onclick="loadStatus()">Atualizar Status</button>
-        </div>
-        <pre id="status-output" class="terminal">Carregando status do repositório...</pre>
-      </div>
-    </div>
-
-    <!-- TAB 3: TICKETS -->
-    <div id="tab-tickets" class="tab-content">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <h2>📋 Tickets Ativos do Projeto</h2>
-          <button class="btn btn-secondary" onclick="loadTickets()">Sincronizar com Forge</button>
-        </div>
-        <pre id="tickets-output" class="terminal">Carregando tickets...</pre>
-      </div>
-    </div>
-  </main>
+${_main_html}  </main>
 
   <script>
     let sessionToken = sessionStorage.getItem('cccp_token') || new URLSearchParams(window.location.search).get('token') || '';
@@ -6894,6 +6924,8 @@ _web_export_assets() {
         const urlTab = new URLSearchParams(window.location.search).get('tab');
         if (urlTab && document.getElementById('tab-' + urlTab)) {
           switchTab(urlTab);
+        } else {
+          switchTab('${_initial_tab}');
         }
       } catch (err) {
         hideAuthModal();
@@ -6911,23 +6943,27 @@ _web_export_assets() {
 EOF
 }
 
-cmd_web() {
+cmd_cockpit() {
     _port=8080
     _host="127.0.0.1"
     _open_browser=0
     _quiet=0
-    _initial_tab="diva"
+    _initial_tab="matraca"
     _cli_token=""
+    _enable_matraca=1
+    _enable_diva=1
+    _enable_status=1
+    _enable_tickets=1
 
     while [ $# -gt 0 ]; do
         case "$1" in
             -h|--help)
-                echo "cccp web - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
-                echo "================================================================="
+                echo "cccp cockpit - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
+                echo "====================================================================="
                 echo ""
                 echo "Usage:"
+                echo "  cccp cockpit [options] [tab]"
                 echo "  cccp web [options] [tab]"
-                echo "  cccp diva --web [options]"
                 echo ""
                 echo "Options:"
                 echo "  -p, --port <port>       Port to listen on (default: 8080, auto-increments if busy)"
@@ -6936,12 +6972,16 @@ cmd_web() {
                 echo "  -t, --token <token>     API token for authentication (or via CCCP_TOKEN/CCCP_API_KEY)"
                 echo "  --key, --api-key <k>    Alias for --token"
                 echo "  --no-open               Do not open web browser (default behavior)"
+                echo "  --no-matraca            Disable Matraca (Web REPL) tab"
+                echo "  --no-diva               Disable O Divã (triage bot) tab"
+                echo "  --no-status             Disable Repository Status tab"
+                echo "  --no-tickets            Disable Active Tickets tab"
                 echo "  -q, --quiet             Quiet mode (suppress verbose logs)"
                 echo "  -h, --help              Show this help message"
                 echo ""
                 echo "Tabs:"
-                echo "  matraca                 Open directly on Matraca mobile Web REPL"
-                echo "  diva                    Open directly on Diva ticket triage cockpit (default)"
+                echo "  matraca                 Open directly on Matraca mobile Web REPL (default)"
+                echo "  diva                    Open directly on Diva ticket triage cockpit"
                 echo "  status                  Open directly on repository inspection"
                 echo "  tickets                 Open directly on active tickets list"
                 return 0
@@ -6962,6 +7002,18 @@ cmd_web() {
             --no-open)
                 _open_browser=0
                 ;;
+            --no-matraca)
+                _enable_matraca=0
+                ;;
+            --no-diva)
+                _enable_diva=0
+                ;;
+            --no-status)
+                _enable_status=0
+                ;;
+            --no-tickets)
+                _enable_tickets=0
+                ;;
             -t|--token|--key|--api-key)
                 shift
                 [ $# -gt 0 ] || { echo "Error: $1 requires a token argument" >&2; return 1; }
@@ -6980,6 +7032,48 @@ cmd_web() {
         esac
         shift
     done
+
+    # Verify at least one tab is enabled
+    if [ "$_enable_matraca" -eq 0 ] && [ "$_enable_diva" -eq 0 ] && [ "$_enable_status" -eq 0 ] && [ "$_enable_tickets" -eq 0 ]; then
+        echo "Error: At least one tab must be enabled in cockpit." >&2
+        return 1
+    fi
+
+    # Fallback initial tab if chosen tab is disabled
+    case "$_initial_tab" in
+        matraca)
+            if [ "$_enable_matraca" -eq 0 ]; then
+                if [ "$_enable_diva" -eq 1 ]; then _initial_tab="diva"
+                elif [ "$_enable_status" -eq 1 ]; then _initial_tab="status"
+                elif [ "$_enable_tickets" -eq 1 ]; then _initial_tab="tickets"
+                fi
+            fi
+            ;;
+        diva)
+            if [ "$_enable_diva" -eq 0 ]; then
+                if [ "$_enable_matraca" -eq 1 ]; then _initial_tab="matraca"
+                elif [ "$_enable_status" -eq 1 ]; then _initial_tab="status"
+                elif [ "$_enable_tickets" -eq 1 ]; then _initial_tab="tickets"
+                fi
+            fi
+            ;;
+        status)
+            if [ "$_enable_status" -eq 0 ]; then
+                if [ "$_enable_matraca" -eq 1 ]; then _initial_tab="matraca"
+                elif [ "$_enable_diva" -eq 1 ]; then _initial_tab="diva"
+                elif [ "$_enable_tickets" -eq 1 ]; then _initial_tab="tickets"
+                fi
+            fi
+            ;;
+        tickets)
+            if [ "$_enable_tickets" -eq 0 ]; then
+                if [ "$_enable_matraca" -eq 1 ]; then _initial_tab="matraca"
+                elif [ "$_enable_diva" -eq 1 ]; then _initial_tab="diva"
+                elif [ "$_enable_status" -eq 1 ]; then _initial_tab="status"
+                fi
+            fi
+            ;;
+    esac
 
     # 1. Resolve Mayak comrade binary
     _mk_bin=$(command -v mk 2>/dev/null || command -v mayak 2>/dev/null || true)
@@ -7014,7 +7108,7 @@ cmd_web() {
     # 4. Prepare temporary assets
     _uid=$(id -u 2>/dev/null || echo 1000)
     _web_dir="${TMPDIR:-/tmp}/cccp-web-${_uid}-$$"
-    _web_export_assets "$_web_dir" "$_token" "$_port"
+    _web_export_assets "$_web_dir" "$_token" "$_port" "$_enable_matraca" "$_enable_diva" "$_enable_status" "$_enable_tickets" "$_initial_tab"
 
     trap 'rm -rf "$_web_dir" 2>/dev/null || true' EXIT INT TERM
 
@@ -7037,6 +7131,10 @@ cmd_web() {
     fi
 
     "$_mk_bin" "$@"
+}
+
+cmd_web() {
+    cmd_cockpit "$@"
 }
 
 
@@ -8487,16 +8585,16 @@ show_help() {
             echo "  $0 diva --dry-run 'Various bug reports from support inbox...'"
             echo "  $0 diva config AIzaSy..."
             ;;
-        "web")
-            echo "cccp.sh web - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
-            echo "================================================================="
+        "cockpit"|"web")
+            echo "cccp.sh cockpit - Gosplan Interactive Web Cockpit & Mayak Command Bridge"
+            echo "====================================================================="
             echo ""
             echo "Launches an interactive, zero-overhead web interface powered by Mayak (mk)"
-            echo "acting as a local authenticated Command Bridge for Diva ticket triage and status."
+            echo "acting as a local authenticated Command Bridge for Matraca REPL, Diva triage, and status."
             echo ""
             echo "Usage:"
+            echo "  $0 cockpit [options] [tab]"
             echo "  $0 web [options] [tab]"
-            echo "  $0 diva --web [options]"
             echo ""
             echo "Options:"
             echo "  -p, --port <port>       Port to listen on (default: 8080, auto-increments if busy)"
@@ -8505,19 +8603,25 @@ show_help() {
             echo "  -t, --token <token>     API token for authentication (or via CCCP_TOKEN/CCCP_API_KEY)"
             echo "  --key, --api-key <k>    Alias for --token"
             echo "  --no-open               Do not open web browser (default behavior)"
+            echo "  --no-matraca            Disable Matraca mobile REPL tab"
+            echo "  --no-diva               Disable Diva ticket triage tab"
+            echo "  --no-status             Disable repository status tab"
+            echo "  --no-tickets            Disable active tickets tab"
             echo "  -q, --quiet             Quiet mode (suppress verbose logs)"
             echo "  -h, --help              Show this help message"
             echo ""
             echo "Tabs:"
-            echo "  diva                    Open directly on Diva ticket triage cockpit (default)"
+            echo "  matraca                 Open directly on Matraca mobile REPL (default)"
+            echo "  diva                    Open directly on Diva ticket triage cockpit"
             echo "  status                  Open directly on repository inspection"
             echo "  tickets                 Open directly on active tickets list"
             echo ""
             echo "Examples:"
-            echo "  $0 web"
+            echo "  $0 cockpit"
+            echo "  $0 cockpit --open"
+            echo "  $0 cockpit --no-matraca"
+            echo "  $0 cockpit diva -p 3000"
             echo "  $0 web --open"
-            echo "  $0 web -p 3000 --token mysecretkey"
-            echo "  $0 diva --web --open"
             ;;
         "matraca")
             echo "cccp.sh matraca - Mobile & Offline-Tolerant Web REPL for Antigravity (agy)"
@@ -8527,7 +8631,7 @@ show_help() {
             echo "for Antigravity CLI (agy) that functions reliably even over unstable mobile networks."
             echo ""
             echo "Usage:"
-            echo "  $0 matraca [send|poll|worker|history|status|clean|web] [options]"
+            echo "  $0 matraca [send|poll|worker|history|status|clean] [options]"
             echo ""
             echo "Subcommands:"
             echo "  send [--client-id <id>] [--workspace <dir>] <prompt...>"
@@ -8537,13 +8641,12 @@ show_help() {
             echo "  history [--limit <N>]   List recent completed and active interactions"
             echo "  status [--json]        Inspect queue metrics (pending, processing, done, error)"
             echo "  clean [--days <N>]     Purge jobs older than N days (default: 7)"
-            echo "  web [options]          Launch Mayak Web Cockpit with Matraca REPL tab active"
             echo ""
             echo "Examples:"
             echo "  $0 matraca send 'List all git branches and uncommitted files'"
             echo "  $0 matraca poll 1727438100_abc123_4567"
             echo "  $0 matraca worker --daemon"
-            echo "  $0 matraca web --open"
+            echo "  $0 cockpit --open"
             ;;
         "comrades"|"camaradas"|"comrade")
             echo "cccp.sh comrades - Gosplan Micro Tools Manager (Kvant & Svyaz)"
@@ -8710,7 +8813,7 @@ show_help() {
             echo "  ticket, issue      Interactive issue creation via Diva with GOST branch suggestion"
             echo "  diva, divan        Gemini-powered issue triage bot with multi-forge dispatch"
             echo "  matraca            Mobile & offline-tolerant Web REPL for Antigravity CLI (agy)"
-            echo "  web                Interactive Gosplan Web Cockpit via Mayak Command Bridge"
+            echo "  cockpit, web       Interactive Gosplan Web Cockpit via Mayak Command Bridge"
             echo "  comrades [status]  Manage micro ecosystem tools (kvant editor and svyaz HTTP client)"
             echo "  check [options]    Audit project compliance against GOST standard"
             echo "  gost <subcommand>  Manage GOST synchronization, audit and upgrades"
@@ -12498,7 +12601,7 @@ main() {
     # Non-blocking periodic update check on interactive user commands
     if command -v check_auto_update >/dev/null 2>&1; then
         case "$command" in
-            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"ticket"|"issue"|"matraca"|"web"|"gost"|"check"|"serve")
+            "commit"|"cz"|"version"|"tag"|"push"|"changelog"|"config"|"status"|"lint"|"completion"|"hooks"|"tickets"|"sync-tickets"|"agents"|"update-agents"|"set-av"|"catalog"|"sync-catalog"|"diva"|"divan"|"ticket"|"issue"|"matraca"|"cockpit"|"web"|"gost"|"check"|"serve")
                 check_auto_update || true
                 ;;
         esac
@@ -12649,10 +12752,10 @@ main() {
             cmd_matraca "$@"
             exit $?
             ;;
-        "web")
+        "cockpit"|"web")
             shift || true
-            cmd_web "$@"
-            exit 0
+            cmd_cockpit "$@"
+            exit $?
             ;;
         "comrades"|"camaradas"|"comrade")
             shift || true
@@ -12693,7 +12796,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|matraca|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|act|help]"
+            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|matraca|cockpit|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|act|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;

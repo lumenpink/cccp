@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (cockpit) unificar interface grafica no comando cockpit com selecao de tabs (closes #59)
   - (matraca) integrar matraca como web repl movil tolerante a falhas no cccp (closes #58)
   - (act,pre-push) implement pre-push hook with act: local CI gate, live spinner and structured logs (closes #37)
   - (repo) implementar visão geral e gestão unificada de múltiplos repositórios (closes #38)

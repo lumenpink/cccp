@@ -1180,11 +1180,14 @@ cmd_diva() {
                 ;;
             --web|-w)
                 shift
-                if command -v cmd_web >/dev/null 2>&1; then
+                if command -v cmd_cockpit >/dev/null 2>&1; then
+                    cmd_cockpit "diva" "$@"
+                    return $?
+                elif command -v cmd_web >/dev/null 2>&1; then
                     cmd_web "diva" "$@"
                     return $?
                 else
-                    echo "Error: cccp web module is not loaded." >&2
+                    echo "Error: cccp cockpit module is not loaded." >&2
                     return 1
                 fi
                 ;;

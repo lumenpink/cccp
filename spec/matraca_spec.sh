@@ -116,14 +116,15 @@ Describe 'matraca'
   End
 
   Describe 'cmd_matraca web dispatch'
-    It 'dispatches to cmd_web on web subcommand'
-      cmd_web() {
-        echo "MOCK_CMD_WEB_CALLED: $@"
+    It 'dispatches to cmd_cockpit on web subcommand'
+      cmd_cockpit() {
+        echo "MOCK_CMD_COCKPIT_CALLED: $@"
         return 0
       }
       When call cmd_matraca web --port 9090
       The status should be success
-      The output should include "MOCK_CMD_WEB_CALLED: matraca --port 9090"
+      The output should include "MOCK_CMD_COCKPIT_CALLED: matraca --port 9090"
+      The error should include "cccp cockpit"
     End
   End
 
