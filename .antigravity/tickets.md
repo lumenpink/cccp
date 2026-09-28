@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-28 01:01:53 UTC
+> Synced at: 2026-09-28 01:04:09 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#56] chore(gemini): atualizar integração para utilizar a versão mais recente do modelo
@@ -42,27 +42,6 @@ Implementar um modo/flag (ex: `--direct` ou `--no-llm`) no `diva` para postar os
 
 - **Expected:** Possibilidade de ignorar a etapa de IA e postar diretamente.
 - **Actual:** Atualmente, todos os fluxos dependem do processamento do Gemini.
-
----
-## [#54] feat(cli): aceitar repositório como parâmetro posicional único no diva
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/54
-
-### Description
-## Description
-
-Ajustar o parsing de argumentos da CLI do `diva` para que, caso apenas um parâmetro seja informado na linha de comando, ele seja automaticamente atribuído como o repositório alvo.
-
-## Steps to Reproduce / Scenarios
-
-1. Executar `diva <repositorio>`
-2. O comando deve inferir que `<repositorio>` é o alvo da operação sem exigir flags explícitas (ex: `-r` ou `--repo`).
-
-## Expected vs Actual
-
-- **Expected:** O parâmetro único é interpretado como o repositório.
-- **Actual:** O CLI exige flags adicionais ou falha por falta de parâmetros nomeados.
 
 ---
 ## [#49] refactor(cli): desduplicar aliases no micro help e unificar comando de tickets

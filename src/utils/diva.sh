@@ -1152,6 +1152,7 @@ cmd_diva() {
     _model="${GEMINI_MODEL:-gemini-3.6-flash}"
     _temp="${GEMINI_TEMPERATURE:-0.2}"
     _dry_run=0
+    _direct=0
     _user_text=""
     _custom_repo=""
 
@@ -1207,6 +1208,10 @@ cmd_diva() {
                 _dry_run=1
                 shift
                 ;;
+            --direct|--no-llm)
+                _direct=1
+                shift
+                ;;
             --model|-m)
                 shift
                 [ $# -gt 0 ] || { echo "Error: Missing argument for $1" >&2; return 1; }
@@ -1231,6 +1236,7 @@ cmd_diva() {
                 else
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
+                    echo "  --direct, --no-llm Posta diretamente sem triagem via Gemini"
                     echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
                     echo "  --temp <val>       Temperatura de amostragem (padrão: 0.2)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
@@ -1253,14 +1259,18 @@ cmd_diva() {
         esac
     done
 
-    # 1. Resolve Gemini API Key
-    _api_key=$(_diva_resolve_api_key 2>/dev/null || true)
-    if [ -z "$_api_key" ]; then
-        echo "Error: GEMINI_API_KEY não configurada." >&2
-        echo "Configure através de:" >&2
-        echo "  export GEMINI_API_KEY=\"sua_chave\"" >&2
-        echo "  ou: cccp diva config <sua_chave>" >&2
-        return 1
+    # 1. Resolve Gemini API Key (only when LLM triage is enabled)
+    _api_key=""
+    if [ "$_direct" -eq 0 ]; then
+        _api_key=$(_diva_resolve_api_key 2>/dev/null || true)
+        if [ -z "$_api_key" ]; then
+            echo "Error: GEMINI_API_KEY não configurada." >&2
+            echo "Configure através de:" >&2
+            echo "  export GEMINI_API_KEY=\"sua_chave\"" >&2
+            echo "  ou: cccp diva config <sua_chave>" >&2
+            echo "  ou utilize --direct / --no-llm para postagem direta sem Gemini." >&2
+            return 1
+        fi
     fi
 
     # 2. Resolve Forge Info
@@ -1306,6 +1316,33 @@ cmd_diva() {
     if [ -z "$_user_text" ]; then
         echo "Nenhum relato informado. Encerrando sessão."
         return 0
+    fi
+
+    # 4. Direct mode: create ticket from raw user text without Gemini
+    if [ "$_direct" -eq 1 ]; then
+        _title=$(printf '%s\n' "$_user_text" | head -n 1)
+        _body=$(printf '%s\n' "$_user_text" | tail -n +2)
+        if [ -z "$(printf '%s' "$_body" | tr -d ' \t\r\n')" ]; then
+            _body="$_title"
+        fi
+
+        _label_json="[]"
+        case "$_title" in
+            fix*|bug*) _label_json='["bug"]' ;;
+            feat*) _label_json='["enhancement"]' ;;
+            docs*) _label_json='["documentation"]' ;;
+            chore*) _label_json='["chore"]' ;;
+            refactor*) _label_json='["refactor"]' ;;
+        esac
+
+        _escaped_title=$(_diva_escape_json "$_title")
+        _escaped_body=$(_diva_escape_json "$_body")
+
+        _tickets_json="{\"tickets\": [{\"title\": \"$_escaped_title\", \"body\": \"$_escaped_body\", \"labels\": $_label_json}]}"
+
+        echo "-> [ГОСПЛАН] Modo direto ativado (--direct): ignorando etapa do Gemini."
+        _diva_present_and_dispatch "$_tickets_json" "$_domain" "$_owner" "$_repo" "$_dry_run" "$_forgeapp" "" "" "$_user_text" ""
+        return $?
     fi
 
     case "$_temp" in

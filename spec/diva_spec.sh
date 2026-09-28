@@ -244,6 +244,32 @@ Line 2: second line"
       The status should be failure
       The error should include "Repositório \"repo_posicional_inexistente\" não encontrado"
     End
+
+    It 'supports direct posting without GEMINI_API_KEY via --direct (closes #55)'
+      unset GEMINI_API_KEY || true
+      test_direct() {
+        cmd_diva --direct --dry-run "fix(ui): button is misaligned" << 'EOF'
+y
+EOF
+      }
+      When call test_direct
+      The status should be success
+      The output should include "Modo direto ativado (--direct)"
+      The output should include "fix(ui): button is misaligned"
+    End
+
+    It 'supports direct posting without GEMINI_API_KEY via --no-llm (closes #55)'
+      unset GEMINI_API_KEY || true
+      test_no_llm() {
+        cmd_diva --no-llm --dry-run "feat(search): add fuzzy search filter" << 'EOF'
+y
+EOF
+      }
+      When call test_no_llm
+      The status should be success
+      The output should include "Modo direto ativado (--direct)"
+      The output should include "feat(search): add fuzzy search filter"
+    End
   End
 
   Describe '_diva_save_draft'
