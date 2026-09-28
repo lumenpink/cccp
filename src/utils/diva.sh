@@ -728,7 +728,7 @@ _diva_present_and_dispatch() {
     _dry_run="${5:-0}"
     _host_or_app="${6:-}"
     _api_key="${7:-}"
-    _model="${8:-gemini-3.6-flash}"
+    _model="${8:-gemini-3.5-flash-lite}"
     _user_text="${9:-}"
     _temp="${10:-0.2}"
 
@@ -1149,7 +1149,7 @@ _diva_present_and_dispatch() {
 # Main Subcommand Dispatcher: cmd_diva
 # -----------------------------------------------------------------------------
 cmd_diva() {
-    _model="${GEMINI_MODEL:-gemini-3.6-flash}"
+    _model="${GEMINI_MODEL:-gemini-3.5-flash-lite}"
     _temp="${GEMINI_TEMPERATURE:-0.2}"
     _dry_run=0
     _direct=0
@@ -1237,7 +1237,7 @@ cmd_diva() {
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
                     echo "  --direct, --no-llm Posta diretamente sem triagem via Gemini"
-                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
+                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.5-flash-lite)"
                     echo "  --temp <val>       Temperatura de amostragem (padrão: 0.2)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
                     echo "  config <api-key>   Salva GEMINI_API_KEY no .cccprc"

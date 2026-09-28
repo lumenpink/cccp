@@ -541,7 +541,7 @@ CATJSON
           done
           printf '{"candidates":[{"content":{"parts":[{"text":"{\"tickets\":[]}"}]}}]}'
         }
-        _diva_call_gemini "fake_key" "gemini-3.6-flash" "problema no form" "lumenpink/cccp (codeberg)" "0.8" "divida em dois tickets" '{"tickets":[{"title":"old"}]}' >/dev/null
+        _diva_call_gemini "fake_key" "gemini-3.5-flash-lite" "problema no form" "lumenpink/cccp (codeberg)" "0.8" "divida em dois tickets" '{"tickets":[{"title":"old"}]}' >/dev/null
         grep -q '"temperature": 0.8' "$TEST_DIR/curl_captured.json" || return 1
         grep -q 'divida em dois tickets' "$TEST_DIR/curl_captured.json" || return 1
         grep -q 'problema no form' "$TEST_DIR/curl_captured.json" || return 1
@@ -563,7 +563,7 @@ CATJSON
           printf '{"html_url":"https://codeberg.org/lumenpink/cccp/issues/99"}'
         }
         sample_tickets='{"tickets":[{"title":"fix: old initial ticket","body":"Old body"}]}'
-        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" "fake_api_key" "gemini-3.6-flash" "relato inicial" 0.2 <<'EOF'
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "cccp" 0 "codeberg.org" "fake_api_key" "gemini-3.5-flash-lite" "relato inicial" 0.2 <<'EOF'
 r
 :temp 0.9 refazer com mais detalhes
 y
@@ -571,7 +571,7 @@ EOF
       }
       When call test_rediscutir
       The status should be success
-      The output should include "Consultando Gemini (gemini-3.6-flash, temp=0.9) com refinamento..."
+      The output should include "Consultando Gemini (gemini-3.5-flash-lite, temp=0.9) com refinamento..."
       The output should include "Proposta refinada com sucesso pela Gemini (1 ticket(s))"
       The output should include "feat(refined): new atomic ticket"
       The output should include "✅ Criado: https://codeberg.org/lumenpink/cccp/issues/99"
@@ -636,7 +636,7 @@ EOF
           printf '{"html_url":"https://codeberg.org/lumenpink/gost/issues/42","number":42}'
         }
         sample_tickets='{"tickets":[{"title":"feat(auth): token bucket rate limiter","body":"Details"}]}'
-        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "gost" 0 "codeberg.org" "fake_key" "gemini-3.6-flash" "report" 0.2 <<'EOF'
+        _diva_present_and_dispatch "$sample_tickets" "codeberg" "lumenpink" "gost" 0 "codeberg.org" "fake_key" "gemini-3.5-flash-lite" "report" 0.2 <<'EOF'
 y
 EOF
       }

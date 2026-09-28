@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.44+20260927.9c44353"
+CCCP_VERSION="2.4.0-dev.45+20260927.3e0faed"
 export CCCP_VERSION
 
 # Verify required tools
@@ -4911,7 +4911,7 @@ _diva_present_and_dispatch() {
     _dry_run="${5:-0}"
     _host_or_app="${6:-}"
     _api_key="${7:-}"
-    _model="${8:-gemini-3.6-flash}"
+    _model="${8:-gemini-3.5-flash-lite}"
     _user_text="${9:-}"
     _temp="${10:-0.2}"
 
@@ -5329,7 +5329,7 @@ _diva_present_and_dispatch() {
 }
 
 cmd_diva() {
-    _model="${GEMINI_MODEL:-gemini-3.6-flash}"
+    _model="${GEMINI_MODEL:-gemini-3.5-flash-lite}"
     _temp="${GEMINI_TEMPERATURE:-0.2}"
     _dry_run=0
     _direct=0
@@ -5417,7 +5417,7 @@ cmd_diva() {
                     echo "Uso: cccp diva [options] [texto_do_problema]"
                     echo "  --dry-run          Executa triagem sem publicar na forja"
                     echo "  --direct, --no-llm Posta diretamente sem triagem via Gemini"
-                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.6-flash)"
+                    echo "  --model <model>    Modelo Gemini (padrão: gemini-3.5-flash-lite)"
                     echo "  --temp <val>       Temperatura de amostragem (padrão: 0.2)"
                     echo "  --repo <slug>      Repositório alvo (padrão: detectado do git remote)"
                     echo "  config <api-key>   Salva GEMINI_API_KEY no .cccprc"
@@ -8630,7 +8630,8 @@ show_help() {
             echo "Options:"
             echo "  --web, -w                 Open interactive triage cockpit in web browser"
             echo "  --dry-run                 Simulate triage and preview tickets without forge publication"
-            echo "  --model, -m <model>       Gemini model name (default: gemini-3.6-flash)"
+            echo "  --direct, --no-llm        Post ticket directly without Gemini triage"
+            echo "  --model, -m <model>       Gemini model name (default: gemini-3.5-flash-lite)"
             echo "  --temp, -t <val>          Sampling temperature (default: 0.2)"
             echo "  --repo, -r <owner/repo>   Target repository slug (default: detected from git origin)"
             echo "  config <api-key>          Persist GEMINI_API_KEY in .cccprc"

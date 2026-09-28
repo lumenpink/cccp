@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-28 01:04:09 UTC
+> Synced at: 2026-09-28 01:07:11 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#56] chore(gemini): atualizar integração para utilizar a versão mais recente do modelo
@@ -21,27 +21,6 @@ Atualizar as configurações e chamadas do cliente Gemini para utilizar a versã
 
 - **Expected:** Utilizar o modelo mais recente e otimizado.
 - **Actual:** O sistema pode estar apontando para modelos mais antigos ou mais pesados.
-
----
-## [#55] feat(triage): adicionar opção para postagem direta sem intermédio do Gemini
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/55
-
-### Description
-## Description
-
-Implementar um modo/flag (ex: `--direct` ou `--no-llm`) no `diva` para postar os dados informados diretamente no repositório, ignorando a etapa de triagem e estruturação via Gemini.
-
-## Steps to Reproduce / Scenarios
-
-1. Executar o comando de postagem com a flag de envio direto.
-2. Verificar se o ticket é criado com o texto bruto sem realizar chamadas à API da Gemini.
-
-## Expected vs Actual
-
-- **Expected:** Possibilidade de ignorar a etapa de IA e postar diretamente.
-- **Actual:** Atualmente, todos os fluxos dependem do processamento do Gemini.
 
 ---
 ## [#49] refactor(cli): desduplicar aliases no micro help e unificar comando de tickets
