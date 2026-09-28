@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.42+20260927.79e35ef"
+CCCP_VERSION="2.4.0-dev.43+20260927.b80b76e"
 export CCCP_VERSION
 
 # Verify required tools
@@ -5334,6 +5334,18 @@ cmd_diva() {
     _dry_run=0
     _user_text=""
     _custom_repo=""
+
+    # If exactly one positional parameter is provided, assign it as target repository (closes #54)
+    if [ $# -eq 1 ]; then
+        case "$1" in
+            config|help|-h|--help|--dry-run|--web|-w|--direct|--no-llm|-*)
+                ;;
+            *)
+                _custom_repo="$1"
+                shift
+                ;;
+        esac
+    fi
 
     while [ $# -gt 0 ]; do
         case "$1" in

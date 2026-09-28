@@ -1155,6 +1155,18 @@ cmd_diva() {
     _user_text=""
     _custom_repo=""
 
+    # If exactly one positional parameter is provided, assign it as target repository (closes #54)
+    if [ $# -eq 1 ]; then
+        case "$1" in
+            config|help|-h|--help|--dry-run|--web|-w|--direct|--no-llm|-*)
+                ;;
+            *)
+                _custom_repo="$1"
+                shift
+                ;;
+        esac
+    fi
+
     while [ $# -gt 0 ]; do
         case "$1" in
             config)

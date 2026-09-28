@@ -237,6 +237,13 @@ Line 2: second line"
       The status should be failure
       The error should include "Repositório \"repo_inexistente\" não encontrado"
     End
+
+    It 'infers single positional argument as target repository (closes #54)'
+      export GEMINI_API_KEY="AIzaSyTestKey123"
+      When call cmd_diva "repo_posicional_inexistente"
+      The status should be failure
+      The error should include "Repositório \"repo_posicional_inexistente\" não encontrado"
+    End
   End
 
   Describe '_diva_save_draft'

@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-27 21:52:02 UTC
+> Synced at: 2026-09-28 01:01:53 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#56] chore(gemini): atualizar integração para utilizar a versão mais recente do modelo
@@ -63,27 +63,6 @@ Ajustar o parsing de argumentos da CLI do `diva` para que, caso apenas um parâm
 
 - **Expected:** O parâmetro único é interpretado como o repositório.
 - **Actual:** O CLI exige flags adicionais ou falha por falta de parâmetros nomeados.
-
----
-## [#50] fix(diva): usar comrade kv (kvant) como editor de texto padrão
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/50
-
-### Description
-## Description
-
-Atualmente, o Divã não está configurado para utilizar o Comrade KV (Kvant) como seu micro editor de texto padrão.
-
-## Steps to Reproduce
-
-1. Iniciar uma ação de edição de texto no Divã com as configurações padrão.
-2. Verificar qual editor de texto é chamado pela aplicação.
-
-## Expected vs Actual
-
-- **Esperado:** O Comrade KV (Kvant) deve ser utilizado como o editor de texto padrão do Divã.
-- **Atual:** O Divã utiliza outro editor de texto ou não define o Comrade KV por padrão.
 
 ---
 ## [#49] refactor(cli): desduplicar aliases no micro help e unificar comando de tickets
