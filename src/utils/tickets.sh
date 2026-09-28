@@ -538,13 +538,13 @@ cmd_tickets() {
     if [ "$fetch_status" -ne 0 ]; then
         case "$provider" in
             forgejo)
-                api_name="Codeberg API"
-                [ "$host" != "codeberg.org" ] && api_name="Forgejo API"
+                api_name="Codeberg API (forgeapp_forgejo)"
+                [ "$host" != "codeberg.org" ] && api_name="Forgejo API (forgeapp_forgejo)"
                 ;;
-            github) api_name="GitHub API" ;;
-            gitlab) api_name="GitLab API" ;;
-            sourcehut) api_name="SourceHut API" ;;
-            *) api_name="${provider} API" ;;
+            github) api_name="GitHub API (forgeapp_github)" ;;
+            gitlab) api_name="GitLab API (forgeapp_gitlab)" ;;
+            sourcehut) api_name="SourceHut API (forgeapp_sourcehut)" ;;
+            *) api_name="${provider} API (forgeapp_${provider})" ;;
         esac
         echo "Warning: Failed to retrieve or parse issues from ${api_name} (${owner}/${repo})." >&2
         return 0

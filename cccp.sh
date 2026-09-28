@@ -10,7 +10,7 @@
 set -eu
 
 # Script Version (Single Source of Truth, synchronized from VERSION)
-CCCP_VERSION="2.4.0-dev.46+20260927.f211814"
+CCCP_VERSION="2.4.0-dev.47+20260927.831a301"
 export CCCP_VERSION
 
 # Verify required tools
@@ -2703,13 +2703,13 @@ cmd_tickets() {
     if [ "$fetch_status" -ne 0 ]; then
         case "$provider" in
             forgejo)
-                api_name="Codeberg API"
-                [ "$host" != "codeberg.org" ] && api_name="Forgejo API"
+                api_name="Codeberg API (forgeapp_forgejo)"
+                [ "$host" != "codeberg.org" ] && api_name="Forgejo API (forgeapp_forgejo)"
                 ;;
-            github) api_name="GitHub API" ;;
-            gitlab) api_name="GitLab API" ;;
-            sourcehut) api_name="SourceHut API" ;;
-            *) api_name="${provider} API" ;;
+            github) api_name="GitHub API (forgeapp_github)" ;;
+            gitlab) api_name="GitLab API (forgeapp_gitlab)" ;;
+            sourcehut) api_name="SourceHut API (forgeapp_sourcehut)" ;;
+            *) api_name="${provider} API (forgeapp_${provider})" ;;
         esac
         echo "Warning: Failed to retrieve or parse issues from ${api_name} (${owner}/${repo})." >&2
         return 0
@@ -8229,10 +8229,11 @@ show_help() {
             echo "  commands via the 'reference-transaction committed' hook."
             ;;
         "tickets"|"sync-tickets")
-            echo "cccp.sh tickets - Synchronize Issues into Markdown (GitHub / Codeberg)"
+            echo "cccp.sh tickets - Synchronize Issues into Markdown (Generic Forgeapps)"
             echo "======================================================================="
             echo ""
-            echo "Fetches open issues from GitHub or Codeberg API dynamically and formats them into a clean"
+            echo "Fetches open issues dynamically across supported forge backends (forgeapp_forgejo,"
+            echo "forgeapp_github, forgeapp_gitlab, forgeapp_sourcehut) and formats them into a clean"
             echo "markdown document with a strict byte ceiling (10KB default), strictly avoiding"
             echo "truncating tickets mid-text. Protected by Gosplan rate limiter (55 requests/hour)."
             echo ""
@@ -8246,9 +8247,9 @@ show_help() {
             echo "  -f, --file <path>        Output markdown file (default: .antigravity/tickets.md)"
             echo "  -o, --owner <owner>      Repository owner/organization"
             echo "  -r, --repo <repo>        Repository name"
-            echo "  -p, --provider <name>    Provider: github or codeberg (auto-detected by default)"
+            echo "  -p, --provider <name>    Provider engine: forgejo, github, gitlab, or sourcehut (auto-detected)"
             echo "  -m, --max-bytes <num>    Maximum budget in bytes (default: 10240)"
-            echo "  -t, --token <token>      Personal access token (optional, or via TICKETS_TOKEN/GITHUB_TOKEN/CODEBERG_TOKEN)"
+            echo "  -t, --token <token>      Personal access token (optional, or via TICKETS_TOKEN/GITHUB_TOKEN/CODEBERG_TOKEN/GITLAB_TOKEN/SOURCEHUT_TOKEN)"
             echo ""
             echo "Dynamic Repository Discovery:"
             echo "  1. CLI options (--owner, --repo) and environment variables (TICKETS_OWNER, TICKETS_REPO)"
@@ -8922,7 +8923,7 @@ show_help() {
             echo "  version            Generate version information file"
             echo "  tag [version]      Create release tag, update VERSION and CHANGELOG"
             echo "  push [args...]     Execute git push and trigger optional post-push hook"
-            echo "  tickets [options]  Sync Codeberg issues into markdown within strict context limit"
+            echo "  tickets [options]  Sync forge issues into markdown within strict context limit"
             echo "  agent [options]    Generate/update AGENTS.md directives with local variable interpolation"
             echo "  codeberg setup     Interactive wizard to configure Codeberg integration and AGENTS template"
             echo "  set-av <var> <val> Fast shortcut to configure local agent variable in .cccprc"
@@ -13351,8 +13352,8 @@ _cccp() {
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
         'push:Execute git push and trigger optional post-push hook'
-        'tickets:Sync Codeberg issues into markdown'
-        'sync-tickets:Sync Codeberg issues into markdown'
+        'tickets:Sync forge issues into markdown'
+        'sync-tickets:Sync forge issues into markdown'
         'ticket:Interactive issue creation via Diva with GOST branch suggestion'
         'issue:Interactive issue creation via Diva with GOST branch suggestion'
         'diva:Gemini-powered issue triage bot with multi-forge dispatch'
@@ -13546,8 +13547,8 @@ complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical co
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
-complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
-complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync forge issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync forge issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a ticket -d "Interactive issue creation via Diva with GOST branch suggestion"
 complete -c cccp -n "__fish_use_subcommand" -a issue -d "Interactive issue creation via Diva with GOST branch suggestion"
 complete -c cccp -n "__fish_use_subcommand" -a diva -d "Gemini-powered issue triage bot with multi-forge dispatch"
@@ -13585,7 +13586,7 @@ complete -c cccp -n "__fish_seen_subcommand_from tag" -l no-v -d "Tag without v 
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s f -l file -d "Output markdown file"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Repository owner"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Repository name"
-complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider (github or codeberg)"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider engine (forgejo, github, gitlab, sourcehut)"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Personal access token"
 

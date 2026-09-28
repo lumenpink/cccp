@@ -181,8 +181,8 @@ _cccp() {
         'version:Generate predictive SemVer metadata'
         'tag:Create annotated tag, commit VERSION and CHANGELOG'
         'push:Execute git push and trigger optional post-push hook'
-        'tickets:Sync Codeberg issues into markdown'
-        'sync-tickets:Sync Codeberg issues into markdown'
+        'tickets:Sync forge issues into markdown'
+        'sync-tickets:Sync forge issues into markdown'
         'ticket:Interactive issue creation via Diva with GOST branch suggestion'
         'issue:Interactive issue creation via Diva with GOST branch suggestion'
         'diva:Gemini-powered issue triage bot with multi-forge dispatch'
@@ -376,8 +376,8 @@ complete -c cccp -n "__fish_use_subcommand" -a config -d "Manage hierarchical co
 complete -c cccp -n "__fish_use_subcommand" -a version -d "Generate predictive SemVer metadata"
 complete -c cccp -n "__fish_use_subcommand" -a tag -d "Create annotated tag, commit VERSION and CHANGELOG"
 complete -c cccp -n "__fish_use_subcommand" -a push -d "Execute git push and trigger optional post-push hook"
-complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync Codeberg issues into markdown"
-complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync Codeberg issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a tickets -d "Sync forge issues into markdown"
+complete -c cccp -n "__fish_use_subcommand" -a sync-tickets -d "Sync forge issues into markdown"
 complete -c cccp -n "__fish_use_subcommand" -a ticket -d "Interactive issue creation via Diva with GOST branch suggestion"
 complete -c cccp -n "__fish_use_subcommand" -a issue -d "Interactive issue creation via Diva with GOST branch suggestion"
 complete -c cccp -n "__fish_use_subcommand" -a diva -d "Gemini-powered issue triage bot with multi-forge dispatch"
@@ -415,7 +415,7 @@ complete -c cccp -n "__fish_seen_subcommand_from tag" -l no-v -d "Tag without v 
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s f -l file -d "Output markdown file"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s o -l owner -d "Repository owner"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s r -l repo -d "Repository name"
-complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider (github or codeberg)"
+complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s p -l provider -d "Provider engine (forgejo, github, gitlab, sourcehut)"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s m -l max-bytes -d "Maximum budget in bytes"
 complete -c cccp -n "__fish_seen_subcommand_from tickets sync-tickets" -s t -l token -d "Personal access token"
 

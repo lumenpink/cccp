@@ -28,6 +28,7 @@
   - (cli) suportar nome parcial de repositorio na opcao -r do diva
 
 ### Bug Fixes
+  - (apps) corrigir identificacao de forge e metadados no app tickets e subapps (closes #48)
   - (diva) usar comrade kv (kvant) como editor de texto padrao (closes #50)
   - (act) assegurar extensao yml em workflow temporario para o act (#61)
   - (act) corrigir flag pull e compatibilidade com workflows forgejo no runner (#61)
