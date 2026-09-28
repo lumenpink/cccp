@@ -1,28 +1,7 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-28 01:07:11 UTC
+> Synced at: 2026-09-28 01:10:11 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#56] chore(gemini): atualizar integração para utilizar a versão mais recente do modelo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/56
-
-### Description
-## Description
-
-Atualizar as configurações e chamadas do cliente Gemini para utilizar a versão padrão mais recente do modelo (ex: `gemini-1.5-flash` ou superior), que possui melhor desempenho e menor latência.
-
-## Steps to Reproduce / Scenarios
-
-1. Analisar a versão atual do modelo Gemini configurada no código.
-2. Atualizar para o endpoint/modelo mais recente recomendado pela Google AI SDK.
-
-## Expected vs Actual
-
-- **Expected:** Utilizar o modelo mais recente e otimizado.
-- **Actual:** O sistema pode estar apontando para modelos mais antigos ou mais pesados.
-
----
 ## [#49] refactor(cli): desduplicar aliases no micro help e unificar comando de tickets
 - **Status**: `open`
 - **Labels**: none

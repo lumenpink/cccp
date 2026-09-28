@@ -32,6 +32,16 @@ Describe 'CLI Entry Point (End-to-End)'
       The output should include "help"
     End
 
+    It 'prints deduplicated canonical commands in micro help without alias pipes (closes #49)'
+      When call run_cli
+      The status should be failure
+      The output should include "tickets"
+      The output should not include "ticket|tickets"
+      The output should not include "tickets|ticket"
+      The output should not include "commit|cz"
+      The output should not include "cockpit|web"
+    End
+
     It 'prints usage and exits with 1 when called with unknown command'
       When run run_cli "non-existent-directive"
       The status should be failure

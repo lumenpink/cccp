@@ -293,7 +293,7 @@ main() {
             exit 0
             ;;
         *)
-            echo "Usage: $0 [git|commit|cz|install|config|status|lint|completion|version|tag|push|tickets|ticket|issue|agent|set-av|catalog|diva|matraca|cockpit|web|comrades|changelog|commit-msg|post-commit|update|check-update|hooks|gost|check|serve|repo|newrepo|act|help]"
+            echo "Usage: $0 [commit|status|lint|config|version|tag|push|tickets|agent|catalog|diva|matraca|cockpit|comrades|deps|check|gost|serve|repo|newrepo|act|changelog|update|completion|install|hooks|help]"
             echo "Run '$0 help' or '$0 help <command>' for more information."
             exit 1
             ;;
