@@ -81,6 +81,10 @@ pub enum Commands {
     #[command(alias = "sync-tickets")]
     Tickets(TicketsArgs),
 
+    /// Interactive issue triage bot via AI (Gemini or local Ollama)
+    #[command(alias = "ticket", alias = "issue", alias = "divan")]
+    Diva(DivaArgs),
+
     /// Query and interact with remote Git forge (Codeberg, GitHub, GitLab, Gitea)
     #[command(alias = "forge", alias = "codeberg")]
     Forges(ForgesArgs),
@@ -411,6 +415,36 @@ pub struct CompletionArgs {
     pub shell: clap_complete::Shell,
 }
 
+#[derive(Debug, Args, Clone)]
+pub struct DivaArgs {
+    /// Problem description or user report to triage
+    pub prompt: Option<String>,
+
+    /// AI provider to use ('gemini' or 'ollama')
+    #[arg(short = 'p', long = "provider")]
+    pub provider: Option<String>,
+
+    /// Model name override (e.g. 'llama3.2', 'qwen2.5-coder', 'gemini-2.5-flash')
+    #[arg(short = 'm', long = "model")]
+    pub model: Option<String>,
+
+    /// Local Ollama host URL override (default: 'http://localhost:11434')
+    #[arg(long = "host")]
+    pub host: Option<String>,
+
+    /// Generation temperature override (e.g. 0.2)
+    #[arg(long = "temperature")]
+    pub temperature: Option<f32>,
+
+    /// Bypass AI decomposition and create single ticket directly
+    #[arg(long = "direct", alias = "no-llm")]
+    pub direct: bool,
+
+    /// Dry run: display decomposed tickets without publishing to remote forge
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -466,6 +500,32 @@ mod tests {
                 assert!(soviet.plan);
             }
             _ => panic!("Expected Commands::Soviet"),
+        }
+    }
+
+    #[test]
+    fn parse_diva_args() {
+        let args = Cli::parse_from([
+            "cccp",
+            "diva",
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.2",
+            "--host",
+            "http://127.0.0.1:11434",
+            "--dry-run",
+            "fix something",
+        ]);
+        match args.command {
+            Some(Commands::Diva(diva)) => {
+                assert_eq!(diva.provider.as_deref(), Some("ollama"));
+                assert_eq!(diva.model.as_deref(), Some("llama3.2"));
+                assert_eq!(diva.host.as_deref(), Some("http://127.0.0.1:11434"));
+                assert!(diva.dry_run);
+                assert_eq!(diva.prompt.as_deref(), Some("fix something"));
+            }
+            _ => panic!("Expected Commands::Diva"),
         }
     }
 

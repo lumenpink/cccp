@@ -3,7 +3,7 @@
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#87] feat(ai): adicionar suporte ao provedor local Ollama
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: none
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/87
 

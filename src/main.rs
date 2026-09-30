@@ -360,6 +360,108 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
+        Some(Commands::Diva(diva)) => {
+            let prompt = match &diva.prompt {
+                Some(p) if !p.trim().is_empty() => p.trim().to_string(),
+                _ => {
+                    eprintln!(
+                        "{}: Por favor forneça uma descrição ou relatório de problema para triagem.",
+                        theme.red_bold("Error")
+                    );
+                    eprintln!("Uso: cccp diva [OPÇÕES] <RELATÓRIO>");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            if diva.direct {
+                println!(
+                    "{}",
+                    theme.yellow(
+                        "★ [ГОСПЛАН] Modo direto ativado (--direct): ignorando etapa de IA."
+                    )
+                );
+                let ticket = cccp::ai::DecomposedTicket {
+                    title: prompt.clone(),
+                    rationale: Some("Criado em modo direto pelo usuário".to_string()),
+                    labels: vec!["triage".to_string()],
+                    body: format!("## Description\n{}\n", prompt),
+                };
+                cccp::ai::display_triage_results(
+                    &[ticket],
+                    cccp::ai::AiProvider::Ollama,
+                    "direct",
+                    &theme,
+                );
+                return ExitCode::SUCCESS;
+            }
+
+            let mut client = cccp::ai::AiClient::from_config(&config);
+            if let Some(ref p_str) = diva.provider {
+                match p_str.parse::<cccp::ai::AiProvider>() {
+                    Ok(p) => client = client.with_provider(p),
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
+            if let Some(ref m) = diva.model {
+                client = client.with_model(m);
+            }
+            if let Some(ref h) = diva.host {
+                client = client.with_host(h);
+            }
+            if let Some(t) = diva.temperature {
+                client = client.with_temperature(t);
+            }
+
+            let repo_ctx = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => {
+                    let branch = r.branch.as_deref().unwrap_or("main");
+                    let is_clean = !r.is_dirty;
+                    let forge_info = cccp::forges::detect_forge_from_repo(&r).ok();
+                    let forge_str = forge_info
+                        .map(|f| format!("Forge: {} ({}/{})", f.provider, f.owner, f.repo))
+                        .unwrap_or_default();
+                    Some(format!(
+                        "Branch: {}\nWorking tree clean: {}\n{}",
+                        branch, is_clean, forge_str
+                    ))
+                }
+                Err(_) => None,
+            };
+
+            println!(
+                "{} Consultando {} ({}) para decomposição de tickets...",
+                theme.yellow("★ [ГОСПЛАН]"),
+                theme.cyan(&client.provider.to_string()),
+                theme.yellow(&client.model)
+            );
+
+            match client.triage(&prompt, repo_ctx.as_deref()) {
+                Ok(tickets) => {
+                    println!();
+                    cccp::ai::display_triage_results(
+                        &tickets,
+                        client.provider,
+                        &client.model,
+                        &theme,
+                    );
+                    if diva.dry_run {
+                        println!();
+                        println!(
+                            "{}",
+                            theme.dim("[DRY-RUN] Simulação ativa. Nenhum ticket foi publicado.")
+                        );
+                    }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some(Commands::Forges(forges)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,

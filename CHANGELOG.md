@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (ai) adicionar suporte ao provedor local Ollama
   - (installer) script de bootstrap para cccp.2lp.in com download do binário estático
   - (tickets) sincronizador de issues para .antigravity/tickets.md
   - (forges) cliente HTTP com rustls para Codeberg, GitHub e GitLab

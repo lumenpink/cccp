@@ -1,6 +1,7 @@
 //! CCCP - Conventional Commits Compliance Program
 //! Core library crate exposing configuration, CLI models, and cultural modules.
 
+pub mod ai;
 pub mod cli;
 pub mod commit_exec;
 pub mod config;

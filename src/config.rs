@@ -8,7 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Resolved CCCP Configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     /// Allowed commit types (e.g. feat, fix, chore, docs, ...)
     pub commit_types: Vec<String>,
@@ -44,6 +44,20 @@ pub struct Config {
     pub agents_md_url: String,
     /// Output file path for AGENTS.md
     pub agents_md_file: String,
+    /// Default AI provider (e.g. "gemini" or "ollama")
+    pub ai_provider: String,
+    /// Ollama daemon base URL (default: "http://localhost:11434")
+    pub ollama_host: String,
+    /// Ollama model name (default: "llama3.2")
+    pub ollama_model: String,
+    /// Ollama generation temperature
+    pub ollama_temperature: f32,
+    /// Gemini model name (default: "gemini-2.5-flash")
+    pub gemini_model: String,
+    /// Gemini API key
+    pub gemini_api_key: Option<String>,
+    /// Gemini generation temperature
+    pub gemini_temperature: f32,
     /// Arbitrary configuration variables (e.g. agent_var_*, type_desc_*, custom directives)
     pub extra: HashMap<String, String>,
 }
@@ -115,6 +129,13 @@ impl Default for Config {
                 "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
                     .into(),
             agents_md_file: ".antigravity/AGENTS.md".into(),
+            ai_provider: "gemini".into(),
+            ollama_host: "http://localhost:11434".into(),
+            ollama_model: "llama3.2".into(),
+            ollama_temperature: 0.2,
+            gemini_model: "gemini-2.5-flash".into(),
+            gemini_api_key: None,
+            gemini_temperature: 0.2,
             extra: HashMap::new(),
         }
     }
@@ -221,6 +242,36 @@ impl Config {
             "agents_md_file" | "agent_md_file" => {
                 self.agents_md_file = val.trim().to_string();
             }
+            "ai_provider" | "llm_provider" => {
+                self.ai_provider = val.trim().to_ascii_lowercase();
+            }
+            "ollama_host" | "ollama_url" => {
+                self.ollama_host = val.trim().to_string();
+            }
+            "ollama_model" => {
+                self.ollama_model = val.trim().to_string();
+            }
+            "ollama_temperature" => {
+                if let Ok(t) = val.trim().parse::<f32>() {
+                    self.ollama_temperature = t;
+                }
+            }
+            "gemini_model" => {
+                self.gemini_model = val.trim().to_string();
+            }
+            "gemini_api_key" => {
+                let s = val.trim();
+                self.gemini_api_key = if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_string())
+                };
+            }
+            "gemini_temperature" => {
+                if let Ok(t) = val.trim().parse::<f32>() {
+                    self.gemini_temperature = t;
+                }
+            }
             _ => {
                 self.extra.insert(normalized, val.trim().to_string());
             }
@@ -275,6 +326,34 @@ impl Config {
         }
         if let Ok(v) = env::var("TICKETS_FILE").or_else(|_| env::var("CCCP_TICKETS_FILE")) {
             self.tickets_file = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("CCCP_AI_PROVIDER").or_else(|_| env::var("LLM_PROVIDER")) {
+            self.ai_provider = v.trim().to_ascii_lowercase();
+        }
+        if let Ok(v) = env::var("OLLAMA_HOST").or_else(|_| env::var("OLLAMA_URL")) {
+            self.ollama_host = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("OLLAMA_MODEL") {
+            self.ollama_model = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("OLLAMA_TEMPERATURE") {
+            if let Ok(t) = v.trim().parse::<f32>() {
+                self.ollama_temperature = t;
+            }
+        }
+        if let Ok(v) = env::var("GEMINI_MODEL") {
+            self.gemini_model = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("GEMINI_API_KEY") {
+            let s = v.trim();
+            if !s.is_empty() {
+                self.gemini_api_key = Some(s.to_string());
+            }
+        }
+        if let Ok(v) = env::var("GEMINI_TEMPERATURE") {
+            if let Ok(t) = v.trim().parse::<f32>() {
+                self.gemini_temperature = t;
+            }
         }
     }
 }
