@@ -181,9 +181,11 @@ fn test_build_enriched_context() {
         owner: "lumenpink".into(),
         repo: "cccp".into(),
     };
-    let mut config = Config::default();
-    config.commit_types = vec!["feat".into(), "fix".into()];
-    config.commit_scopes = vec!["cli".into(), "ai".into()];
+    let config = Config {
+        commit_types: vec!["feat".into(), "fix".into()],
+        commit_scopes: vec!["cli".into(), "ai".into()],
+        ..Default::default()
+    };
 
     let ctx = cccp::ai::build_enriched_context(None, Some(&forge), &config);
     assert!(ctx.contains("Target Forge: Codeberg (lumenpink/cccp) at codeberg.org"));

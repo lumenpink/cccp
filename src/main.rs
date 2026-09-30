@@ -5,7 +5,7 @@ use cccp::cli::{self, Cli, Commands};
 use cccp::config;
 use cccp::cultural::{self, Theme};
 use clap::{CommandFactory, Parser};
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -362,16 +362,104 @@ fn main() -> ExitCode {
             }
         }
         Some(Commands::Diva(diva)) => {
-            let prompt = match &diva.prompt {
-                Some(p) if !p.trim().is_empty() => p.trim().to_string(),
-                _ => {
+            let start_path = args.dir.as_deref().map(std::path::Path::new);
+
+            // 1. Determine if positional prompt is actually a target repo
+            let (target_repo_arg, mut prompt_arg) = if let Some(ref r) = diva.repo {
+                (Some(r.clone()), diva.prompt.clone())
+            } else if let Some(ref p) = diva.prompt {
+                let trimmed = p.trim();
+                let is_repo_slug = !trimmed.contains(' ')
+                    && (trimmed.contains('/')
+                        || cccp::catalog::resolve_target_repo(trimmed, start_path).is_some());
+                if is_repo_slug {
+                    (Some(trimmed.to_string()), None)
+                } else {
+                    (None, Some(trimmed.to_string()))
+                }
+            } else {
+                (None, None)
+            };
+
+            // 2. Resolve target forge and repository
+            let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let mut detected_forge = if let Some(ref target) = target_repo_arg {
+                match cccp::catalog::resolve_target_repo(target, start_path) {
+                    Some(info) => Some(info),
+                    None => {
+                        eprintln!(
+                            "{}: Target repository '{}' not found in catalog or workspaces.",
+                            theme.red_bold("Error"),
+                            target
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                }
+            } else if let Some(ref r) = git_repo {
+                cccp::forges::detect_forge_from_repo(r).ok()
+            } else {
+                None
+            };
+
+            // 3. If no forge detected yet, pick from catalog interactively
+            if detected_forge.is_none() {
+                let catalog_entries = cccp::catalog::load_catalog(start_path);
+                if !catalog_entries.is_empty() && std::io::stdin().is_terminal() {
+                    println!(
+                        "{} No git repository detected in current directory.",
+                        theme.yellow("★ [GOSPLAN]")
+                    );
+                    println!("Select target repository from your catalog:");
+                    match inquire::Select::new("Target repository:", catalog_entries).prompt() {
+                        Ok(selected) => {
+                            detected_forge = Some(selected.to_forge_info());
+                        }
+                        Err(_) => {
+                            eprintln!("{}: Operation cancelled.", theme.yellow("Notice"));
+                            return ExitCode::SUCCESS;
+                        }
+                    }
+                }
+            }
+
+            // 4. Resolve prompt (interactive if empty)
+            let prompt = if let Some(p) = prompt_arg.take() {
+                p
+            } else if std::io::stdin().is_terminal() {
+                let target_label = if let Some(ref f) = detected_forge {
+                    format!("{} ({}/{})", f.provider, f.owner, f.repo)
+                } else {
+                    "standalone".to_string()
+                };
+                println!(
+                    "{} The Divan — Target: {}",
+                    theme.gold_bold("★ [GOSPLAN]"),
+                    theme.cyan(&target_label)
+                );
+                println!("Describe the issue, bug, or feature request (press Enter to submit):");
+                match inquire::Text::new("> ").prompt() {
+                    Ok(p) if !p.trim().is_empty() => p.trim().to_string(),
+                    _ => {
+                        eprintln!(
+                            "{}: No description provided. Exiting.",
+                            theme.yellow("Notice")
+                        );
+                        return ExitCode::SUCCESS;
+                    }
+                }
+            } else {
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line).unwrap_or_default();
+                let trimmed = line.trim().to_string();
+                if trimmed.is_empty() {
                     eprintln!(
                         "{}: Please provide a description or problem report for triage.",
                         theme.red_bold("Error")
                     );
-                    eprintln!("Usage: cccp diva [OPTIONS] [REPORT]");
+                    eprintln!("Usage: cccp diva [OPTIONS] [REPO] [REPORT]");
                     return ExitCode::FAILURE;
                 }
+                trimmed
             };
 
             let mut client = cccp::ai::AiClient::from_config(&config);
@@ -433,27 +521,11 @@ fn main() -> ExitCode {
                 }
             }
 
-            let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
-            let detected_forge = git_repo
-                .as_ref()
-                .and_then(|r| cccp::forges::detect_forge_from_repo(r).ok());
-            let repo_ctx = git_repo.as_ref().map(|r| {
-                let branch = r.branch.as_deref().unwrap_or("main");
-                let is_clean = !r.is_dirty;
-                let forge_str = detected_forge
-                    .as_ref()
-                    .map(|f| {
-                        format!(
-                            "Forge: {} ({}/{}) at {}",
-                            f.provider, f.owner, f.repo, f.host
-                        )
-                    })
-                    .unwrap_or_default();
-                format!(
-                    "Branch: {}\nWorking tree clean: {}\n{}",
-                    branch, is_clean, forge_str
-                )
-            });
+            let repo_ctx = cccp::ai::build_enriched_context(
+                git_repo.as_ref(),
+                detected_forge.as_ref(),
+                &config,
+            );
 
             let mut tickets = if diva.direct {
                 println!(
@@ -475,7 +547,7 @@ fn main() -> ExitCode {
                     theme.cyan(&client.provider.to_string()),
                     theme.yellow(&client.model)
                 );
-                match client.triage(&prompt, repo_ctx.as_deref()) {
+                match client.triage(&prompt, Some(&repo_ctx)) {
                     Ok(t) => t,
                     Err(e) => {
                         eprintln!("{}: {}", theme.red_bold("Error"), e);
@@ -664,7 +736,7 @@ fn main() -> ExitCode {
                                 client.provider,
                                 client.model
                             );
-                            match client.triage(&refine_prompt, repo_ctx.as_deref()) {
+                            match client.triage(&refine_prompt, Some(&repo_ctx)) {
                                 Ok(new_tickets) if !new_tickets.is_empty() => {
                                     println!(
                                         "  {} Tickets successfully refined! ({} ticket(s))",
