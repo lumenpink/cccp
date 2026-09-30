@@ -509,6 +509,80 @@ Write the ticket body and descriptions in the language used by the user report."
     }
 }
 
+/// Generate rich repository and project context for LLM triage
+pub fn build_enriched_context(
+    repo: Option<&crate::git::GitRepo>,
+    forge: Option<&crate::forges::RepoForgeInfo>,
+    config: &Config,
+) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(f) = forge {
+        parts.push(format!(
+            "Target Forge: {} ({}/{}) at {}",
+            f.provider, f.owner, f.repo, f.host
+        ));
+    }
+
+    if let Some(r) = repo {
+        parts.push(format!(
+            "Branch: {} | Commit: {} | Working tree clean: {}",
+            r.branch.as_deref().unwrap_or("main"),
+            r.head_short_id,
+            !r.is_dirty
+        ));
+
+        if let Some(ref tag) = r.latest_tag {
+            parts.push(format!("Latest release tag: {}", tag.name));
+        }
+
+        if !r.commits_since_tag.is_empty() {
+            let recent: Vec<String> = r
+                .commits_since_tag
+                .iter()
+                .take(10)
+                .map(|c| format!("- {}", c.summary))
+                .collect();
+            parts.push(format!("Recent commits:\n{}", recent.join("\n")));
+        }
+
+        let mut manifests = Vec::new();
+        for file in &[
+            "Cargo.toml",
+            "package.json",
+            "go.mod",
+            "pyproject.toml",
+            "Makefile",
+            "CMakeLists.txt",
+        ] {
+            if r.root_dir.join(file).is_file() {
+                manifests.push(*file);
+            }
+        }
+        if !manifests.is_empty() {
+            parts.push(format!(
+                "Project structure / manifests detected: {}",
+                manifests.join(", ")
+            ));
+        }
+    }
+
+    if !config.commit_types.is_empty() {
+        parts.push(format!(
+            "Configured commit types: {}",
+            config.commit_types.join(", ")
+        ));
+    }
+    if !config.commit_scopes.is_empty() {
+        parts.push(format!(
+            "Configured commit scopes: {}",
+            config.commit_scopes.join(", ")
+        ));
+    }
+
+    parts.join("\n\n")
+}
+
 /// Replace literal unescaped newlines inside JSON string literals with \n
 pub fn sanitize_json_newlines(input: &str) -> String {
     let mut output = String::with_capacity(input.len());

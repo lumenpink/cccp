@@ -172,3 +172,21 @@ fn test_is_generative_model_filtering() {
     assert!(!AiClient::is_generative_model("bge-m3:latest"));
     assert!(!AiClient::is_generative_model("all-minilm-bert"));
 }
+
+#[test]
+fn test_build_enriched_context() {
+    let forge = cccp::forges::RepoForgeInfo {
+        provider: cccp::forges::ForgeType::Codeberg,
+        host: "codeberg.org".into(),
+        owner: "lumenpink".into(),
+        repo: "cccp".into(),
+    };
+    let mut config = Config::default();
+    config.commit_types = vec!["feat".into(), "fix".into()];
+    config.commit_scopes = vec!["cli".into(), "ai".into()];
+
+    let ctx = cccp::ai::build_enriched_context(None, Some(&forge), &config);
+    assert!(ctx.contains("Target Forge: Codeberg (lumenpink/cccp) at codeberg.org"));
+    assert!(ctx.contains("Configured commit types: feat, fix"));
+    assert!(ctx.contains("Configured commit scopes: cli, ai"));
+}
