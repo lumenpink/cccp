@@ -353,17 +353,69 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Forges(forges)) => {
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let info = match cccp::forges::detect_forge_from_repo(&repo) {
+                Ok(info) => info,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+
             match forges.action {
                 Some(cli::ForgeActions::Detect) => {
-                    println!("Forge detected: Codeberg (git@codeberg.org:lumenpink/cccp.git)")
+                    println!(
+                        "{} Forge detected: {} (host: {}, owner: {}, repo: {})",
+                        theme.green("✓"),
+                        theme.gold_bold(&info.provider.to_string()),
+                        info.host,
+                        info.owner,
+                        info.repo
+                    );
                 }
                 Some(cli::ForgeActions::Issues { state }) => {
-                    println!("Listing {} issues from forge...", state)
+                    let client = cccp::forges::ForgeClient::new();
+                    match client.fetch_issues(&info, &state, 30) {
+                        Ok(issues) => {
+                            cccp::forges::display_issues(&issues, &theme);
+                        }
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            return ExitCode::FAILURE;
+                        }
+                    }
                 }
                 Some(cli::ForgeActions::Prs { state }) => {
-                    println!("Listing {} pull requests from forge...", state)
+                    let client = cccp::forges::ForgeClient::new();
+                    match client.fetch_pull_requests(&info, &state, 30) {
+                        Ok(prs) => {
+                            cccp::forges::display_prs(&prs, &theme);
+                        }
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            return ExitCode::FAILURE;
+                        }
+                    }
                 }
-                None => println!("Forge module active. Use --help to see actions."),
+                None => {
+                    println!(
+                        "{} Forge: {} ({}/{}) at {}",
+                        theme.gold_bold("★"),
+                        info.provider,
+                        info.owner,
+                        info.repo,
+                        info.host
+                    );
+                    println!(
+                        "Use 'cccp forges --help' to see available actions (detect, issues, prs)."
+                    );
+                }
             }
             ExitCode::SUCCESS
         }

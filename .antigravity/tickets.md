@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 12:04:15 UTC
+> Synced at: 2026-09-30 12:35:23 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#87] feat(ai): adicionar suporte ao provedor local Ollama
@@ -85,7 +85,7 @@ Sincronização de tickets de forges remotos para o arquivo de contexto de IA `.
 
 ---
 ## [#83] [rust] feat(forges): cliente HTTP com rustls para Codeberg/Forgejo, GitHub e GitLab
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/83
 
@@ -103,7 +103,7 @@ Consumo de APIs de forges Git sem dependência externa do binário `curl` ou de 
 
 ---
 ## [#82] [rust] feat(hook-runner): despachador interno cccp hook commit-msg e pre-push
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/82
 
@@ -121,27 +121,6 @@ Ponto de entrada de altíssima performance para os hooks invocados pelo Git.
 
 ## Critérios de Aceitação
 - Execução imperceptível em tempo de resposta durante o fluxo normal de desenvolvimento.
-
----
-## [#81] [rust] feat(hooks): gerador de stubs mínimos e instalador de hooks (.git/hooks/)
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/81
-
-### Description
-## Contexto
-O CCCP instala hooks locais no repositório Git para garantir a conformidade dos commits.
-
-## Requisitos
-- Implementar subcomando `cccp install` que instala em `.git/hooks/`:
-  - `commit-msg`: stub mínimo de 2 linhas delegando para `cccp hook commit-msg "$1"`.
-  - `pre-push`: stub delegando para `cccp hook pre-push`.
-  - `post-commit`: stub delegando para `cccp hook post-commit`.
-- Criar backup automático (`.bak`) de hooks pré-existentes.
-- Suportar flag de desinstalação `cccp uninstall`.
-
-## Critérios de Aceitação
-- Hooks instalados funcionam com qualquer shell POSIX (`/bin/sh`) invocando o binário `cccp`.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
@@ -268,5 +247,27 @@ O comando `cccp deps` está apresentando um erro de execução na linha 12991 co
 ## Expected vs Actual
 - Expected: O comando `cccp deps` deve ser executado com sucesso sem erros de shift no shell.
 - Actual: O script falha com o erro `shift: cant shif that many` na linha 12991.
+
+---
+## [#63] feat(editor): integrar microeditor embutido
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/63
+
+### Description
+## Description
+
+Adiva ainda não está utilizando o microeditor embutido conforme esperado.
+
+## Steps to Reproduce
+
+1. Abrir a aplicação/diva
+2. Tentar editar um arquivo ou texto
+3. Observar que o editor padrão utilizado não é o microeditor embutido.
+
+## Expected vs Actual
+
+Expected: O sistema deve utilizar o microeditor embutido.
+Actual: O sistema está utilizando outro editor ou o editor padrão antigo.
 
 ---
