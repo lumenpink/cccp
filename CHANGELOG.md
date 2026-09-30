@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (hooks) gerador de stubs minimos e instalador de hooks
   - (commit-exec) despachador de commit via git cli com gpg e ssh signing
   - (cz) wizard interativo de commit de terminal com inquire
   - (lint) analisador sintatico estrito de mensagens de commit (#78)

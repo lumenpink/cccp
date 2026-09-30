@@ -223,11 +223,19 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Install(install)) => {
-            println!(
-                "Installing CCCP Git hooks (force: {}, uninstall: {})...",
-                install.force, install.uninstall
-            );
-            ExitCode::SUCCESS
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            if let Err(e) = cccp::hooks_install::handle_install(&install, &repo, &theme) {
+                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                ExitCode::FAILURE
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some(Commands::Status(status)) => {
             println!(

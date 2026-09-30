@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 09:36:38 UTC
+> Synced at: 2026-09-30 11:28:09 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
@@ -105,7 +105,7 @@ Ponto de entrada de altíssima performance para os hooks invocados pelo Git.
 
 ---
 ## [#81] [rust] feat(hooks): gerador de stubs mínimos e instalador de hooks (.git/hooks/)
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/81
 
@@ -126,7 +126,7 @@ O CCCP instala hooks locais no repositório Git para garantir a conformidade dos
 
 ---
 ## [#80] [rust] feat(commit-exec): despachador de commit via Git CLI com suporte a GPG/SSH signing
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/80
 
@@ -141,29 +141,6 @@ Executar o commit mantendo total compatibilidade com assinaturas criptográficas
 
 ## Critérios de Aceitação
 - O commit é assinado corretamente quando `commit.gpgsign = true` estiver habilitado no Git do usuário.
-
----
-## [#79] [rust] feat(cz): wizard interativo de commit de terminal com inquire/dialoguer
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/79
-
-### Description
-## Contexto
-Substituir o wizard interativo de commit do shell por uma experiência de terminal moderna e fluida.
-
-## Requisitos
-- Implementar fluxo interativo de perguntas:
-  1. Tipo de alteração (menu de navegação por setas com descrições).
-  2. Escopo da alteração (opcional, com histórico ou busca).
-  3. Mensagem concisa do título (com contador de caracteres em tempo real e alerta visual em > 72 chars).
-  4. Descrição detalhada do corpo (opcional).
-  5. Houve quebra de compatibilidade (Breaking Change)?
-  6. Referências a issues/tickets fechados.
-- Preview da mensagem completa formatada antes de comitar.
-
-## Critérios de Aceitação
-- Interface intuitiva, navegável por teclado, sem travamentos de TTY.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
@@ -255,5 +232,40 @@ O catalog atualmente utiliza a lista que está em /src. O comportamento correto 
 
 - Expected: O catalog deve utilizar a lista das configurações.
 - Actual: O catalog está utilizando a lista em `/src`.
+
+---
+## [#65] feat(catalog): support adding remote repositories without prior cloning
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/65
+
+### Description
+## Description
+Atualmente, o comando `catalog add_repo` exige que o repositório já esteja clonado localmente. Precisamos alterar essa lógica para suportar a adição direta de repositórios remotos utilizando apenas a URL (por exemplo, `codeberg.org/lumenpink/tralala`).
+
+## Steps to Reproduce
+1. Executar `cccp catalog add_repo codeberg.org/lumenpink/tralala` para um repositório que não existe localmente.
+
+## Expected vs Actual
+- **Expected:** O repositório é adicionado ao catálogo, baixado ou referenciado corretamente de forma remota.
+- **Actual:** O comando falha por não encontrar o repositório clonado localmente.
+
+---
+## [#64] fix(deps): corrigir erro de shift na linha 12991
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/64
+
+### Description
+## Description
+O comando `cccp deps` está apresentando um erro de execução na linha 12991 com a mensagem `shift: cant shif that many`.
+
+## Steps to Reproduce
+1. Executar o comando `cccp deps` no repositório.
+2. Observar o erro impresso no terminal na linha 12991.
+
+## Expected vs Actual
+- Expected: O comando `cccp deps` deve ser executado com sucesso sem erros de shift no shell.
+- Actual: O script falha com o erro `shift: cant shif that many` na linha 12991.
 
 ---
