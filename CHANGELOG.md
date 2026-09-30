@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (config) parser hierarquico Gosplan em 4 camadas (.cccprc, XDG, ENV, CLI) (#73)
   - (cultural) modulo estetico Gosplan, banners ASCII e respeito estrito a NO_COLOR (#72)
   - (cli) estruturar arvore de comandos e flags com clap (#71)
   - (triage) adicionar opcao para postagem direta sem intermedio do gemini (closes #55)

@@ -2,6 +2,7 @@
 //! Main binary entry point.
 
 mod cli;
+mod config;
 mod cultural;
 
 use clap::{CommandFactory, Parser};
@@ -25,6 +26,8 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
+
+    let config = config::Config::load_hierarchical(None);
 
     match args.command {
         Some(Commands::Cz(cz)) => {
@@ -58,13 +61,23 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Calculating predictive Semantic Version...");
             }
+            let base = &config.default_base_version;
             match semver.format {
-                cli::VersionFormat::Clean => println!("3.0.0"),
-                cli::VersionFormat::Dev => println!("3.0.0-dev.1+20260929.rust"),
+                cli::VersionFormat::Clean => println!("{}", base),
+                cli::VersionFormat::Dev => println!("{}-dev.1+20260929.rust", base),
                 cli::VersionFormat::Json => {
-                    println!(r#"{{"version":"3.0.0","tag":"v3.0.0","bump":"major"}}"#)
+                    println!(
+                        r#"{{"version":"{}","tag":"v{}","bump":"none"}}"#,
+                        base, base
+                    )
                 }
-                cli::VersionFormat::Tag => println!("v3.0.0"),
+                cli::VersionFormat::Tag => {
+                    if config.no_v {
+                        println!("{}", base);
+                    } else {
+                        println!("v{}", base);
+                    }
+                }
             }
             ExitCode::SUCCESS
         }
@@ -171,9 +184,82 @@ fn main() -> ExitCode {
         }
         Some(Commands::Config(cfg)) => {
             if cfg.list {
-                println!("CCCP Configuration Hierarchy resolved.");
-            } else if let Some(key) = cfg.key {
-                println!("Config key '{}' requested (set: {:?})", key, cfg.value);
+                println!("{}", theme.bold("★ CCCP Hierarchical Configuration ★"));
+                println!("commit_types = {}", config.commit_types.join(", "));
+                println!("commit_scopes = {}", config.commit_scopes.join(", "));
+                println!("commit_subscopes = {}", config.commit_subscopes.join(", "));
+                println!("strict_types = {}", config.strict_types);
+                println!("strict_scopes = {}", config.strict_scopes);
+                println!("strict_subscopes = {}", config.strict_subscopes);
+                println!("allow_any_scope = {}", config.allow_any_scope);
+                println!("allow_any_subscope = {}", config.allow_any_subscope);
+                println!("disable_subscopes = {}", config.disable_subscopes);
+                println!(
+                    "disable_multiple_scopes = {}",
+                    config.disable_multiple_scopes
+                );
+                println!("default_base_version = {}", config.default_base_version);
+                println!("no_v = {}", config.no_v);
+                println!("tickets_file = {}", config.tickets_file);
+                println!("agents_md_file = {}", config.agents_md_file);
+                if let Some(ref hook) = config.post_push_hook {
+                    println!("post_push_hook = {}", hook);
+                }
+                if !config.post_push_sync.is_empty() {
+                    println!("post_push_sync = {}", config.post_push_sync.join(", "));
+                }
+                for (k, v) in &config.extra {
+                    println!("{} = {}", k, v);
+                }
+            } else if let Some(ref key) = cfg.key {
+                if let Some(ref value) = cfg.value {
+                    let target_path = if cfg.is_global {
+                        config::find_global_config_path().unwrap_or_else(|| {
+                            let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+                            std::path::PathBuf::from(home)
+                                .join(".config")
+                                .join("cccp")
+                                .join("config")
+                        })
+                    } else {
+                        std::path::PathBuf::from(".cccprc")
+                    };
+                    if let Err(e) = config::write_config_key(&target_path, key, value) {
+                        eprintln!(
+                            "{}: Failed to write config to '{}': {}",
+                            theme.red_bold("Error"),
+                            target_path.display(),
+                            e
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                    println!("Saved '{} = {}' into {}", key, value, target_path.display());
+                } else {
+                    let normalized = key.to_ascii_lowercase().replace('-', "_");
+                    match normalized.as_str() {
+                        "types" | "commit_types" => println!("{}", config.commit_types.join(", ")),
+                        "scopes" | "commit_scopes" => {
+                            println!("{}", config.commit_scopes.join(", "))
+                        }
+                        "strict_types" => println!("{}", config.strict_types),
+                        "strict_scopes" => println!("{}", config.strict_scopes),
+                        "default_base_version" => println!("{}", config.default_base_version),
+                        "no_v" => println!("{}", config.no_v),
+                        _ => {
+                            if let Some(v) = config.extra.get(&normalized) {
+                                println!("{}", v);
+                            } else {
+                                eprintln!(
+                                    "{}: Configuration key '{}' not set.",
+                                    theme.yellow("Warning"),
+                                    key
+                                );
+                            }
+                        }
+                    }
+                }
+            } else {
+                println!("Use 'cccp config --list' or 'cccp config <key> [value]'");
             }
             ExitCode::SUCCESS
         }
