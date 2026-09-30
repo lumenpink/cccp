@@ -1,0 +1,18 @@
+[package]
+name = "cccp"
+version = "3.0.0-dev.1"
+edition = "2021"
+authors = ["Lumen Pink <hi@lumen.pink>"]
+description = "Conventional Commits Compliance Program (CCCP) - Native Standalone Binary"
+license = "GPL-3.0-or-later"
+homepage = "https://cccp.2lp.in"
+repository = "https://codeberg.org/lumenpink/cccp"
+
+[dependencies]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
