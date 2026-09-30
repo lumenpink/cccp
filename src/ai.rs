@@ -89,12 +89,19 @@ impl AiClient {
             .build();
         let agent = ureq::Agent::new_with_config(ureq_cfg);
 
+        let api_key = config.gemini_api_key.clone().or_else(|| {
+            std::env::var("GEMINI_API_KEY")
+                .or_else(|_| std::env::var("gemini_api_key"))
+                .ok()
+                .filter(|s| !s.trim().is_empty())
+        });
+
         Self {
             provider,
             model,
             host: config.ollama_host.clone(),
             temperature,
-            api_key: config.gemini_api_key.clone(),
+            api_key,
             agent,
         }
     }
@@ -268,7 +275,7 @@ Write the ticket body and descriptions in the language used by the user report."
             Some(k) if !k.trim().is_empty() => k.trim(),
             _ => {
                 return Err(
-                    "GEMINI_API_KEY is not configured. Export GEMINI_API_KEY or configure it in .cccprc, or switch to Ollama via '--provider ollama'."
+                    "GEMINI_API_KEY is not configured. Export GEMINI_API_KEY, add it to ~/.env or .cccprc, or switch to Ollama via '--provider ollama'."
                         .to_string(),
                 );
             }

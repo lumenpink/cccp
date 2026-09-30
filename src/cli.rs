@@ -424,7 +424,7 @@ pub struct DivaArgs {
     #[arg(short = 'p', long = "provider")]
     pub provider: Option<String>,
 
-    /// Model name override (e.g. 'llama3.2', 'qwen2.5-coder', 'gemini-2.5-flash')
+    /// Model name override (e.g. 'llama3.2', 'qwen2.5-coder', 'gemini-flash-latest')
     #[arg(short = 'm', long = "model")]
     pub model: Option<String>,
 

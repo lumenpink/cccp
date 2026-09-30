@@ -1,6 +1,8 @@
 //! Exhaustive unit & integration tests for CCCP Gosplan hierarchical configuration.
 
-use cccp::config::{find_local_config_path, parse_key_value_lines, write_config_key, Config};
+use cccp::config::{
+    find_local_config_path, find_local_env_path, parse_key_value_lines, write_config_key, Config,
+};
 use std::fs;
 use tempfile::tempdir;
 
@@ -264,4 +266,27 @@ fn test_write_config_key_in_place_update() {
     assert!(updated.contains("strict_types = 0"));
     assert!(!updated.contains("strict_types = 1"));
     assert!(updated.contains("types = feat, fix, chore"));
+}
+
+#[test]
+fn test_local_env_file_discovery_and_gemini_key_resolution() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let env_file = dir.path().join(".env");
+    fs::write(&env_file, "GEMINI_API_KEY=\"AIzaSyFakeKey123\"\n").expect("Failed to write .env");
+
+    let found = find_local_env_path(Some(dir.path()));
+    assert_eq!(found, Some(env_file));
+
+    let cfg = Config::load_hierarchical(Some(dir.path()));
+    assert_eq!(cfg.gemini_api_key, Some("AIzaSyFakeKey123".to_string()));
+}
+
+#[test]
+fn test_env_gemini_key_case_insensitivity_and_precedence() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let env_file = dir.path().join(".env");
+    fs::write(&env_file, "gemini_api_key=lowercase_key_abc\n").expect("Failed to write .env");
+
+    let cfg = Config::load_hierarchical(Some(dir.path()));
+    assert_eq!(cfg.gemini_api_key, Some("lowercase_key_abc".to_string()));
 }

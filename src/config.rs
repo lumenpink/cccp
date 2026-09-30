@@ -52,7 +52,7 @@ pub struct Config {
     pub ollama_model: String,
     /// Ollama generation temperature
     pub ollama_temperature: f32,
-    /// Gemini model name (default: "gemini-2.5-flash")
+    /// Gemini model name (default: "gemini-flash-latest")
     pub gemini_model: String,
     /// Gemini API key
     pub gemini_api_key: Option<String>,
@@ -133,7 +133,7 @@ impl Default for Config {
             ollama_host: "http://localhost:11434".into(),
             ollama_model: "llama3.2".into(),
             ollama_temperature: 0.2,
-            gemini_model: "gemini-2.5-flash".into(),
+            gemini_model: "gemini-flash-latest".into(),
             gemini_api_key: None,
             gemini_temperature: 0.2,
             extra: HashMap::new(),
@@ -143,7 +143,7 @@ impl Default for Config {
 
 impl Config {
     /// Load hierarchical configuration cascading:
-    /// Defaults -> Global config -> Local repo config (.cccprc) -> Environment variables
+    /// Defaults -> Global config -> User ~/.env -> Local repo config (.cccprc) -> Local repo .env -> Environment variables
     pub fn load_hierarchical(repo_dir: Option<&Path>) -> Self {
         let mut config = Self::default();
 
@@ -154,14 +154,28 @@ impl Config {
             }
         }
 
-        // 2. Local config file (<git-root>/.cccprc or current-dir/.cccprc)
+        // 2. User home .env file (~/.env)
+        if let Some(home_env_path) = find_home_env_path() {
+            if let Ok(content) = fs::read_to_string(&home_env_path) {
+                config.merge_from_str(&content);
+            }
+        }
+
+        // 3. Local config file (<git-root>/.cccprc or current-dir/.cccprc)
         if let Some(local_path) = find_local_config_path(repo_dir) {
             if let Ok(content) = fs::read_to_string(&local_path) {
                 config.merge_from_str(&content);
             }
         }
 
-        // 3. Environment variables (CCCP_* or canonical env flags)
+        // 4. Local repo .env file (<git-root>/.env or current-dir/.env)
+        if let Some(local_env_path) = find_local_env_path(repo_dir) {
+            if let Ok(content) = fs::read_to_string(&local_env_path) {
+                config.merge_from_str(&content);
+            }
+        }
+
+        // 5. Environment variables (CCCP_* or canonical env flags)
         config.merge_from_env();
 
         config
@@ -344,7 +358,7 @@ impl Config {
         if let Ok(v) = env::var("GEMINI_MODEL") {
             self.gemini_model = v.trim().to_string();
         }
-        if let Ok(v) = env::var("GEMINI_API_KEY") {
+        if let Ok(v) = env::var("GEMINI_API_KEY").or_else(|_| env::var("gemini_api_key")) {
             let s = v.trim();
             if !s.is_empty() {
                 self.gemini_api_key = Some(s.to_string());
@@ -396,6 +410,40 @@ pub fn find_local_config_path(start_dir: Option<&Path>) -> Option<PathBuf> {
         }
         if current.join(".git").exists() {
             // Reached git root without finding .cccprc
+            return None;
+        }
+        if !current.pop() {
+            break;
+        }
+    }
+    None
+}
+
+/// Helper: find path to home .env file (~/.env)
+pub fn find_home_env_path() -> Option<PathBuf> {
+    if let Ok(home) = env::var("HOME") {
+        let p = PathBuf::from(&home).join(".env");
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    None
+}
+
+/// Helper: find path to local .env by scanning starting directory upwards to git root
+pub fn find_local_env_path(start_dir: Option<&Path>) -> Option<PathBuf> {
+    let mut current = match start_dir {
+        Some(p) => p.to_path_buf(),
+        None => env::current_dir().ok()?,
+    };
+
+    loop {
+        let candidate = current.join(".env");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if current.join(".git").exists() {
+            // Reached git root without finding .env
             return None;
         }
         if !current.pop() {
