@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 13:55:05 UTC
+> Synced at: 2026-09-30 14:02:05 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#87] feat(ai): adicionar suporte ao provedor local Ollama
@@ -22,7 +22,7 @@ Actual: Apenas o provedor GEMINI está disponível.
 
 ---
 ## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/86
 
@@ -43,7 +43,7 @@ Manter a experiência de instalação em 1 linha (`curl -fsSL https://cccp.2lp.i
 
 ---
 ## [#85] [rust] ci(build): workflow de compilação estática musl multiplataforma
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/85
 
@@ -61,27 +61,6 @@ Automatizar a compilação contínua e release de binários estáticos no Codebe
 
 ## Critérios de Aceitação
 - Releases geram automaticamente binários executáveis prontos para download.
-
----
-## [#84] [rust] feat(tickets): sincronizador de issues para .antigravity/tickets.md
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/84
-
-### Description
-## Contexto
-Sincronização de tickets de forges remotos para o arquivo de contexto de IA `.antigravity/tickets.md`.
-
-## Requisitos
-- Buscar issues abertas no forge configurado do repositório.
-- Formatar as issues em Markdown estruturado com:
-  - Número e título com tags.
-  - Estado, autor e data.
-  - Corpo da descrição.
-- Respeitar o limite de tamanho máximo (ceiling de 10 KB).
-
-## Critérios de Aceitação
-- Atualização limpa de `.antigravity/tickets.md` com paridade de formato em relação ao script anterior.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets

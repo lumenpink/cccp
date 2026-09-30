@@ -2,7 +2,7 @@
 
 # =============================================================================
 # CCCP — Conventional Commits Compliance Program
-# Universal POSIX Shell Installer & Workstation Provisioner
+# Universal High-Performance Workstation Provisioner & Static Binary Installer
 #
 # DEDICATION:
 # «À Lisi, minha estrela mais brilhante e o grande amor da minha vida.
@@ -36,47 +36,222 @@ echo "${GOLD}★ CCCP — Conventional Commits Compliance Program${NC}"
 echo "${CYAN}«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»${NC}"
 echo ""
 
-# Parse channel or flag arguments
+# Parse channel and configuration arguments
 CHANNEL="stable"
-for arg in "$@"; do
-    case "$arg" in
-        nightly|--nightly) CHANNEL="nightly" ;;
-        stable|--stable)   CHANNEL="stable" ;;
+REQUESTED_TAG=""
+INSTALL_DIR="${CCCP_INSTALL_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        nightly|--nightly)
+            CHANNEL="nightly"
+            shift
+            ;;
+        stable|--stable)
+            CHANNEL="stable"
+            shift
+            ;;
+        --tag|--version)
+            REQUESTED_TAG="$2"
+            shift 2
+            ;;
+        --dir)
+            INSTALL_DIR="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
     esac
 done
 
-INSTALL_DIR="${CCCP_INSTALL_DIR:-${XDG_BIN_HOME:-$HOME/.local/bin}}"
 mkdir -p "$INSTALL_DIR"
 
-if [ "$CHANNEL" = "nightly" ]; then
-    PRIMARY_URL="https://cccp.2lp.in/nightly/cccp.sh"
-    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
-    echo "★ Channel selected: ${GOLD}NIGHTLY${NC} (rolling edge build)"
+# -----------------------------------------------------------------------------
+# 1. Platform & Architecture Detection
+# -----------------------------------------------------------------------------
+OS_RAW="$(uname -s)"
+ARCH_RAW="$(uname -m)"
+
+case "$OS_RAW" in
+    Linux)  OS="linux" ;;
+    Darwin) OS="darwin" ;;
+    *)
+        echo "${RED}Error: Unsupported operating system: ${OS_RAW}${NC}" >&2
+        echo "CCCP standalone binaries are currently compiled for Linux and macOS." >&2
+        exit 1
+        ;;
+esac
+
+case "$ARCH_RAW" in
+    x86_64|amd64)
+        ARCH="amd64"
+        TRIPLE_ARCH="x86_64"
+        ;;
+    aarch64|arm64)
+        ARCH="arm64"
+        TRIPLE_ARCH="aarch64"
+        ;;
+    armv7l|armv7|arm)
+        echo "${RED}Error: 32-bit ARM (${ARCH_RAW}) is not supported in precompiled releases.${NC}" >&2
+        exit 1
+        ;;
+    *)
+        echo "${RED}Error: Unsupported architecture: ${ARCH_RAW}${NC}" >&2
+        exit 1
+        ;;
+esac
+
+if [ "$OS" = "linux" ]; then
+    TARGET_TRIPLE="${TRIPLE_ARCH}-unknown-linux-musl"
+    ALIAS="linux-${ARCH}"
 else
-    PRIMARY_URL="https://cccp.2lp.in/cccp.sh"
-    FALLBACK_URL="https://codeberg.org/lumenpink/cccp/raw/branch/main/cccp.sh"
-    echo "★ Channel selected: ${GOLD}STABLE${NC} (official release)"
+    TARGET_TRIPLE="${TRIPLE_ARCH}-apple-darwin"
+    ALIAS="darwin-${ARCH}"
 fi
 
-echo "★ Fetching standalone binary into ${CYAN}$INSTALL_DIR/cccp${NC}..."
+echo "★ Platform detected: ${CYAN}${OS} / ${ARCH}${NC} (target: ${TARGET_TRIPLE})"
 
-if curl -fsSL "$PRIMARY_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
-    echo "✔ Downloaded from primary distribution (${PRIMARY_URL})."
-elif curl -fsSL "$FALLBACK_URL" -o "$INSTALL_DIR/cccp" 2>/dev/null; then
-    echo "✔ Downloaded from Codeberg fallback mirror."
+# -----------------------------------------------------------------------------
+# 2. Checksum Computation Utility
+# -----------------------------------------------------------------------------
+compute_sha256() {
+    target_file="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$target_file" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$target_file" | awk '{print $1}'
+    else
+        echo ""
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# 3. Resolve Target Release & Download URLs
+# -----------------------------------------------------------------------------
+TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'cccp-install')"
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT INT TERM
+
+REPO_OWNER="lumenpink"
+REPO_NAME="cccp"
+FORGE_BASE="https://codeberg.org/${REPO_OWNER}/${REPO_NAME}"
+FORGE_API="https://codeberg.org/api/v1/repos/${REPO_OWNER}/${REPO_NAME}"
+
+if [ "$CHANNEL" = "nightly" ]; then
+    RELEASE_TAG="nightly"
+    echo "★ Channel selected: ${GOLD}NIGHTLY${NC} (rolling edge build)"
+elif [ -n "$REQUESTED_TAG" ]; then
+    RELEASE_TAG="$REQUESTED_TAG"
+    echo "★ Channel selected: ${GOLD}TAG ${RELEASE_TAG}${NC}"
 else
-    echo "${RED}Error: Failed to download cccp from distribution endpoints.${NC}" >&2
+    echo "★ Resolving latest official release from Codeberg..."
+    RELEASE_TAG=""
+    if command -v curl >/dev/null 2>&1; then
+        RELEASE_TAG=$(curl -sSL "${FORGE_API}/releases/latest" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | head -n 1 | cut -d'"' -f4 || true)
+    fi
+    if [ -z "$RELEASE_TAG" ]; then
+        RELEASE_TAG="latest"
+    fi
+    echo "★ Channel selected: ${GOLD}STABLE${NC} (release: ${RELEASE_TAG})"
+fi
+
+# Candidate URLs for the archive
+URLS="
+https://cccp.2lp.in/releases/download/${RELEASE_TAG}/cccp-${RELEASE_TAG}-${ALIAS}.tar.gz
+${FORGE_BASE}/releases/download/${RELEASE_TAG}/cccp-${RELEASE_TAG}-${ALIAS}.tar.gz
+${FORGE_BASE}/releases/download/${RELEASE_TAG}/cccp-${ALIAS}.tar.gz
+${FORGE_BASE}/releases/download/${RELEASE_TAG}/cccp-${RELEASE_TAG}-${TARGET_TRIPLE}.tar.gz
+${FORGE_BASE}/releases/download/${RELEASE_TAG}/cccp-${TARGET_TRIPLE}.tar.gz
+"
+
+CHECKSUM_URLS="
+https://cccp.2lp.in/releases/download/${RELEASE_TAG}/SHA256SUMS
+${FORGE_BASE}/releases/download/${RELEASE_TAG}/SHA256SUMS
+"
+
+ARCHIVE_FILE="$TMP_DIR/cccp-archive.tar.gz"
+CHECKSUM_FILE="$TMP_DIR/SHA256SUMS"
+
+echo "★ Fetching static binary archive for ${CYAN}${ALIAS}${NC}..."
+
+DOWNLOAD_SUCCESS=0
+for url in $URLS; do
+    [ -z "$url" ] && continue
+    if curl -fsSL "$url" -o "$ARCHIVE_FILE" 2>/dev/null; then
+        if [ -s "$ARCHIVE_FILE" ]; then
+            echo "✔ Downloaded archive from ${url}"
+            DOWNLOAD_SUCCESS=1
+            break
+        fi
+    fi
+done
+
+if [ "$DOWNLOAD_SUCCESS" -ne 1 ]; then
+    echo "${RED}Error: Failed to download cccp binary archive from any distribution mirror.${NC}" >&2
+    echo "Please verify release availability at: ${FORGE_BASE}/releases" >&2
     exit 1
 fi
 
+# Attempt to download checksum file
+for c_url in $CHECKSUM_URLS; do
+    [ -z "$c_url" ] && continue
+    if curl -fsSL "$c_url" -o "$CHECKSUM_FILE" 2>/dev/null; then
+        if [ -s "$CHECKSUM_FILE" ]; then
+            break
+        fi
+    fi
+done
+
+# -----------------------------------------------------------------------------
+# 4. Integrity Validation (SHA-256)
+# -----------------------------------------------------------------------------
+if [ -f "$CHECKSUM_FILE" ] && [ -s "$CHECKSUM_FILE" ]; then
+    EXPECTED_HASH=$(grep -E "(cccp.*${ALIAS}\.tar\.gz|cccp.*${TARGET_TRIPLE}\.tar\.gz)" "$CHECKSUM_FILE" | head -n 1 | awk '{print $1}' || true)
+    if [ -n "$EXPECTED_HASH" ]; then
+        ACTUAL_HASH=$(compute_sha256 "$ARCHIVE_FILE")
+        if [ -n "$ACTUAL_HASH" ]; then
+            if [ "$ACTUAL_HASH" != "$EXPECTED_HASH" ]; then
+                echo "" >&2
+                echo "${RED}★ ВНИМАНИЕ! САБОТАЖ! ★${NC}" >&2
+                echo "${RED}Error: SHA-256 integrity verification failed!${NC}" >&2
+                echo "Expected: ${EXPECTED_HASH}" >&2
+                echo "Actual:   ${ACTUAL_HASH}" >&2
+                exit 1
+            else
+                SHORT_HASH=$(printf "%.16s" "$ACTUAL_HASH")
+                echo "✔ Integrity verified: SHA-256 matches Gosplan registry (${SHORT_HASH}...)."
+            fi
+        fi
+    fi
+fi
+
+# -----------------------------------------------------------------------------
+# 5. Extraction & Installation
+# -----------------------------------------------------------------------------
+EXTRACT_DIR="$TMP_DIR/extracted"
+mkdir -p "$EXTRACT_DIR"
+tar -xzf "$ARCHIVE_FILE" -C "$EXTRACT_DIR"
+
+FOUND_BIN=$(find "$EXTRACT_DIR" -type f -name "cccp" | head -n 1 || true)
+if [ -z "$FOUND_BIN" ] || [ ! -f "$FOUND_BIN" ]; then
+    echo "${RED}Error: Executable binary 'cccp' not found inside downloaded archive.${NC}" >&2
+    exit 1
+fi
+
+cp "$FOUND_BIN" "$INSTALL_DIR/cccp"
 chmod +x "$INSTALL_DIR/cccp"
 
-# Verify execution
+# -----------------------------------------------------------------------------
+# 6. Verification and Smoke Test
+# -----------------------------------------------------------------------------
 if "$INSTALL_DIR/cccp" --version >/dev/null 2>&1; then
     INSTALLED_VER=$("$INSTALL_DIR/cccp" --version 2>/dev/null || echo "installed")
-    echo "${GREEN}✔ CCCP ${INSTALLED_VER} successfully deployed!${NC}"
+    echo "${GREEN}✔ CCCP ${INSTALLED_VER} successfully deployed into ${INSTALL_DIR}/cccp!${NC}"
 else
-    echo "${GREEN}✔ CCCP binary placed at $INSTALL_DIR/cccp.${NC}"
+    echo "${GREEN}✔ CCCP binary placed at ${INSTALL_DIR}/cccp.${NC}"
 fi
 
 # PATH check notification

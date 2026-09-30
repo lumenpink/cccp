@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (installer) script de bootstrap para cccp.2lp.in com download do binário estático
   - (tickets) sincronizador de issues para .antigravity/tickets.md
   - (forges) cliente HTTP com rustls para Codeberg, GitHub e GitLab
   - (hook-runner) despachador interno cccp hook commit-msg e pre-push
