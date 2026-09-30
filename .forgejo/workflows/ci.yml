@@ -22,57 +22,50 @@ jobs:
   # JOB 1 — Tests & Lint
   # ─────────────────────────────────────────────────────────────────────────────
   test:
-    name: "Tests & Lint"
+    name: "Rust Tests & Verification"
     runs-on: ubuntu-latest
-    container:
-      image: codeberg.org/lumenpink/gost-ci-shell:latest
     steps:
       - name: "Checkout repository"
         uses: https://github.com/actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "Configure Git for tests"
+      - name: "Install System Dependencies"
         run: |
-          git config --global init.defaultBranch main
-          git config --global user.name "Test User"
-          git config --global user.email "test@example.com"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends musl-tools gcc curl
 
-      - name: "Lint & Format Check"
+      - name: "Setup Rust Toolchain & Target"
         run: |
-          ./combine.sh
-          sh -n cccp.sh
-          if ! git diff -I '^CCCP_VERSION=' --exit-code cccp.sh >/dev/null 2>&1; then
-            echo "::error::cccp.sh is not synchronized with src/. Run ./combine.sh and commit."
-            git diff -I '^CCCP_VERSION=' cccp.sh
-            exit 1
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+            export PATH="$HOME/.cargo/bin:$PATH"
           fi
+          rustup target add x86_64-unknown-linux-musl
+          rustup component add clippy rustfmt
 
-      - name: "External Dependencies Audit"
+      - name: "Rust Formatting Check"
         run: |
-          chmod +x scripts/check-deps.sh
-          scripts/check-deps.sh --verify
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo fmt --check
 
-      - name: "Shell Lint & Format Check"
+      - name: "Clippy Static Analysis (-D warnings)"
         run: |
-          chmod +x scripts/lint.sh
-          scripts/lint.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo clippy --all-targets -- -D warnings
 
-      - name: "Run ShellSpec (Modular Mode)"
+      - name: "Run Rust Test Suite"
         run: |
-          shellspec --format documentation -o junit --reportdir report
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo test --all-targets
 
-      - name: "Run ShellSpec (Bundled Mode)"
+      - name: "Compile Static musl Release Binary"
         run: |
-          CCCP_TEST_TARGET=bundled shellspec --format documentation
-
-      - name: "Upload Test Report Artifact"
-        if: always()
-        continue-on-error: true
-        uses: https://github.com/actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: report/
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo build --release --target x86_64-unknown-linux-musl
+          ls -lh target/x86_64-unknown-linux-musl/release/cccp
+          ./target/x86_64-unknown-linux-musl/release/cccp --version
 
   # ─────────────────────────────────────────────────────────────────────────────
   # JOB 2 — SonarQube / SonarCloud Code Analysis

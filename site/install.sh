@@ -88,13 +88,17 @@ case "$ARCH_RAW" in
         ARCH="amd64"
         TRIPLE_ARCH="x86_64"
         ;;
+    i386|i486|i586|i686|x86)
+        ARCH="386"
+        TRIPLE_ARCH="i686"
+        ;;
     aarch64|arm64)
         ARCH="arm64"
         TRIPLE_ARCH="aarch64"
         ;;
-    armv7l|armv7|arm)
-        echo "${RED}Error: 32-bit ARM (${ARCH_RAW}) is not supported in precompiled releases.${NC}" >&2
-        exit 1
+    armv7*|armv6*|armhf|armv5*|arm|arm32)
+        ARCH="armv7"
+        TRIPLE_ARCH="armv7"
         ;;
     *)
         echo "${RED}Error: Unsupported architecture: ${ARCH_RAW}${NC}" >&2
@@ -103,9 +107,17 @@ case "$ARCH_RAW" in
 esac
 
 if [ "$OS" = "linux" ]; then
-    TARGET_TRIPLE="${TRIPLE_ARCH}-unknown-linux-musl"
+    if [ "$ARCH" = "armv7" ]; then
+        TARGET_TRIPLE="armv7-unknown-linux-musleabihf"
+    else
+        TARGET_TRIPLE="${TRIPLE_ARCH}-unknown-linux-musl"
+    fi
     ALIAS="linux-${ARCH}"
 else
+    if [ "$ARCH" = "386" ] || [ "$ARCH" = "armv7" ]; then
+        echo "${RED}Error: 32-bit macOS is not supported by Apple Darwin.${NC}" >&2
+        exit 1
+    fi
     TARGET_TRIPLE="${TRIPLE_ARCH}-apple-darwin"
     ALIAS="darwin-${ARCH}"
 fi
