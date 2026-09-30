@@ -42,17 +42,108 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Running commit message linter...");
             }
-            if let Some(msg) = lint.message {
-                println!("Validating commit message: \"{}\"", msg);
-            } else if let Some(file) = lint.file {
-                println!("Validating commit message file: {}", file.display());
+            if let Some(ref msg) = lint.message {
+                let res = cccp::lint::lint_commit_message(msg, &config, lint.strict);
+                if res.is_valid {
+                    println!(
+                        "{} Commit message compliant with Conventional Commits 1.0.0",
+                        theme.green("✓")
+                    );
+                    for w in res.warnings {
+                        println!("  {} {}", theme.yellow("Warning:"), w);
+                    }
+                    ExitCode::SUCCESS
+                } else {
+                    println!("{} Commit message rejected:", theme.red_bold("✗"));
+                    for err in res.errors {
+                        println!("  {} {}", theme.red("•"), err);
+                    }
+                    for w in res.warnings {
+                        println!("  {} {}", theme.yellow("Warning:"), w);
+                    }
+                    ExitCode::FAILURE
+                }
+            } else if let Some(ref file) = lint.file {
+                match cccp::lint::lint_commit_file(file, &config, lint.strict) {
+                    Ok(res) => {
+                        if res.is_valid {
+                            println!(
+                                "{} Commit message file '{}' compliant",
+                                theme.green("✓"),
+                                file.display()
+                            );
+                            for w in res.warnings {
+                                println!("  {} {}", theme.yellow("Warning:"), w);
+                            }
+                            ExitCode::SUCCESS
+                        } else {
+                            println!(
+                                "{} Commit message file '{}' rejected:",
+                                theme.red_bold("✗"),
+                                file.display()
+                            );
+                            for err in res.errors {
+                                println!("  {} {}", theme.red("•"), err);
+                            }
+                            for w in res.warnings {
+                                println!("  {} {}", theme.yellow("Warning:"), w);
+                            }
+                            ExitCode::FAILURE
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
             } else {
-                println!(
-                    "Auditing commits in range: {}",
-                    lint.range.as_deref().unwrap_or("HEAD~1..HEAD")
-                );
+                let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                };
+
+                let range_label = lint.range.as_deref().unwrap_or("HEAD (recent commits)");
+                println!("★ CCCP Conventional Commits Audit ({}) ★", range_label);
+
+                if repo.commits_since_tag.is_empty() {
+                    println!("{} All clear: 0 new commits to inspect.", theme.green("✓"));
+                    return ExitCode::SUCCESS;
+                }
+
+                let mut any_failed = false;
+                for commit in &repo.commits_since_tag {
+                    let res =
+                        cccp::lint::lint_commit_message(&commit.message, &config, lint.strict);
+                    if res.is_valid {
+                        println!(
+                            "  {} [{}] {}",
+                            theme.green("✓"),
+                            commit.short_id,
+                            commit.summary
+                        );
+                    } else {
+                        any_failed = true;
+                        println!(
+                            "  {} [{}] {}",
+                            theme.red_bold("✗"),
+                            commit.short_id,
+                            commit.summary
+                        );
+                        for err in res.errors {
+                            println!("    ↳ {}", theme.red(&err));
+                        }
+                    }
+                }
+
+                if any_failed {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
             }
-            ExitCode::SUCCESS
         }
         Some(Commands::Semver(semver)) => {
             if args.verbose > 0 {
