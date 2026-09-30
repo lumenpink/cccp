@@ -424,6 +424,14 @@ pub struct DivaArgs {
     #[arg(short = 'p', long = "provider")]
     pub provider: Option<String>,
 
+    /// Quick shortcut to use local Ollama provider (-o, --ollama, --po)
+    #[arg(short = 'o', long = "ollama", visible_alias = "po")]
+    pub ollama: bool,
+
+    /// Quick shortcut to use Google Gemini provider (-g, --gemini, --pg)
+    #[arg(short = 'g', long = "gemini", visible_alias = "pg")]
+    pub gemini: bool,
+
     /// Model name override (e.g. 'llama3.2', 'qwen2.5-coder', 'gemini-flash-latest')
     #[arg(short = 'm', long = "model")]
     pub model: Option<String>,

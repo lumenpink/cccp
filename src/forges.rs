@@ -360,6 +360,126 @@ impl ForgeClient {
 
         parse_prs_json(&json_val, info.provider)
     }
+
+    /// Create a new issue on the remote forge
+    pub fn create_issue(
+        &self,
+        info: &RepoForgeInfo,
+        title: &str,
+        body: &str,
+        _labels: &[String],
+    ) -> Result<CreatedIssueInfo, String> {
+        let token = resolve_token(info.provider).ok_or_else(|| {
+            format!(
+                "No authentication token found for forge {} ({}). Set CODEBERG_TOKEN, GITHUB_TOKEN, or GITLAB_TOKEN in ~/.env or environment.",
+                info.provider, info.host
+            )
+        })?;
+
+        let (api_url, payload, auth_header) = match info.provider {
+            ForgeType::Codeberg | ForgeType::Forgejo => {
+                let url = format!(
+                    "https://{}/api/v1/repos/{}/{}/issues",
+                    info.host, info.owner, info.repo
+                );
+                let p = serde_json::json!({
+                    "title": title,
+                    "body": body,
+                });
+                (url, p, ("Authorization", format!("token {}", token)))
+            }
+            ForgeType::GitHub => {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/issues",
+                    info.owner, info.repo
+                );
+                let p = serde_json::json!({
+                    "title": title,
+                    "body": body,
+                });
+                (url, p, ("Authorization", format!("Bearer {}", token)))
+            }
+            ForgeType::GitLab => {
+                let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                let url = format!("https://{}/api/v4/projects/{}/issues", info.host, enc_path);
+                let p = serde_json::json!({
+                    "title": title,
+                    "description": body,
+                });
+                (url, p, ("PRIVATE-TOKEN", token))
+            }
+        };
+
+        let req = self
+            .agent
+            .post(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json")
+            .header(auth_header.0, &auth_header.1);
+
+        let mut resp = req
+            .send_json(payload)
+            .map_err(|e| format!("HTTP POST request to {} failed: {}", api_url, e))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body_err = resp.body_mut().read_to_string().unwrap_or_default();
+            return Err(format!("Forge returned HTTP {}: {}", status, body_err));
+        }
+
+        let json_val: serde_json::Value = resp
+            .body_mut()
+            .read_json()
+            .map_err(|e| format!("Failed to parse response from {}: {}", info.host, e))?;
+
+        let number = json_val
+            .get("number")
+            .or_else(|| json_val.get("iid"))
+            .and_then(|n| n.as_u64())
+            .unwrap_or(0);
+
+        let html_url = json_val
+            .get("html_url")
+            .or_else(|| json_val.get("web_url"))
+            .and_then(|u| u.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(CreatedIssueInfo {
+            number,
+            html_url,
+            title: title.to_string(),
+        })
+    }
+}
+
+/// Information returned after creating an issue on a remote forge
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatedIssueInfo {
+    pub number: u64,
+    pub html_url: String,
+    pub title: String,
+}
+
+/// Helper: generate a suggested branch name from issue number and conventional commit title
+pub fn suggest_branch_name(issue_num: u64, title: &str) -> String {
+    let clean: String = title
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let parts: Vec<&str> = clean.split('-').filter(|p| !p.is_empty()).collect();
+    let slug = parts.join("-");
+    if issue_num > 0 {
+        format!("{}-{}", issue_num, slug)
+    } else {
+        slug
+    }
 }
 
 /// Parses issues JSON array across different forge schemas

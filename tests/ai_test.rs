@@ -86,6 +86,13 @@ fn test_parse_tickets_json_single_object() {
 }
 
 #[test]
+fn test_parse_tickets_json_empty_envelope() {
+    let json = r###"{"tickets": []}"###;
+    let tickets = AiClient::parse_tickets_json(json).expect("Failed to parse empty tickets");
+    assert_eq!(tickets.len(), 0);
+}
+
+#[test]
 fn test_config_ai_cascade_parsing() {
     let cccprc_content = r#"
 ai_provider = ollama

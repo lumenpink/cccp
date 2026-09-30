@@ -30,8 +30,8 @@ impl FromStr for AiProvider {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
-            "gemini" | "google" => Ok(AiProvider::Gemini),
-            "ollama" | "local" => Ok(AiProvider::Ollama),
+            "gemini" | "google" | "g" | "pg" => Ok(AiProvider::Gemini),
+            "ollama" | "local" | "o" | "po" => Ok(AiProvider::Ollama),
             other => Err(format!(
                 "Unknown AI provider '{}'. Valid providers are 'gemini' and 'ollama'.",
                 other
@@ -466,6 +466,9 @@ Write the ticket body and descriptions in the language used by the user report."
         // Case 4: Loose JSON Value extraction (resilient to minor LLM variations / duplicate keys)
         if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
             if let Some(arr) = val.get("tickets").and_then(|t| t.as_array()) {
+                if arr.is_empty() {
+                    return Some(vec![]);
+                }
                 let parsed: Vec<DecomposedTicket> = arr
                     .iter()
                     .filter_map(|item| {
@@ -560,6 +563,22 @@ pub fn clean_json_markdown(raw: &str) -> &str {
     text
 }
 
+/// Display single ticket details
+pub fn display_single_ticket(ticket: &DecomposedTicket, idx: usize, total: usize, theme: &Theme) {
+    let num = idx + 1;
+    let header = format!("[DIVAN] Ticket {}/{}: {}", num, total, ticket.title);
+    println!("{}", theme.gold_bold(&header));
+
+    if let Some(ref rationale) = ticket.rationale {
+        println!("  {}: {}", theme.cyan("Rationale"), rationale);
+    }
+    if !ticket.labels.is_empty() {
+        println!("  {}: {}", theme.cyan("Labels"), ticket.labels.join(", "));
+    }
+    println!();
+    println!("{}", ticket.body);
+}
+
 /// Display Soviet Gosplan triage results
 pub fn display_triage_results(
     tickets: &[DecomposedTicket],
@@ -569,10 +588,10 @@ pub fn display_triage_results(
 ) {
     println!(
         "{}",
-        theme.bold("★ [ГОСПЛАН] O Divã — Triagem Interativa de Tickets ★")
+        theme.bold("★ [GOSPLAN] The Divan — Interactive Ticket Triage ★")
     );
     println!(
-        "Provedor: {} (modelo: {})",
+        "Provider: {} (model: {})",
         theme.cyan(&provider.to_string()),
         theme.yellow(model)
     );
@@ -580,18 +599,7 @@ pub fn display_triage_results(
 
     let total = tickets.len();
     for (idx, ticket) in tickets.iter().enumerate() {
-        let num = idx + 1;
-        let header = format!("[ДИВАН] Ticket {}/{}: {}", num, total, ticket.title);
-        println!("{}", theme.gold_bold(&header));
-
-        if let Some(ref rationale) = ticket.rationale {
-            println!("  {}: {}", theme.cyan("Motivação"), rationale);
-        }
-        if !ticket.labels.is_empty() {
-            println!("  {}: {}", theme.cyan("Labels"), ticket.labels.join(", "));
-        }
-        println!();
-        println!("{}", ticket.body);
+        display_single_ticket(ticket, idx, total, theme);
         if idx + 1 < total {
             println!(
                 "{}",
@@ -599,4 +607,87 @@ pub fn display_triage_results(
             );
         }
     }
+}
+
+/// Read a single keypress immediately from terminal without requiring Enter
+pub fn read_single_key() -> std::io::Result<char> {
+    use crossterm::event::{self, Event, KeyCode, KeyEvent};
+    use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+    use std::io::IsTerminal;
+
+    if !std::io::stdin().is_terminal() {
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line)?;
+        return Ok(line.chars().next().unwrap_or('n'));
+    }
+
+    enable_raw_mode()?;
+    let key = loop {
+        if let Event::Key(KeyEvent { code, .. }) = event::read()? {
+            match code {
+                KeyCode::Char(c) => break c.to_ascii_lowercase(),
+                KeyCode::Esc => break 'q',
+                KeyCode::Enter => break 'y',
+                _ => continue,
+            }
+        }
+    };
+    disable_raw_mode()?;
+    Ok(key)
+}
+
+/// Open an external or comrade editor preloaded with initial text, returning edited content
+pub fn open_text_editor(initial_content: &str, file_prefix: &str) -> Result<String, String> {
+    use std::io::Write;
+    let mut temp_file = tempfile::Builder::new()
+        .prefix(file_prefix)
+        .suffix(".md")
+        .tempfile()
+        .map_err(|e| format!("Failed to create temporary editor file: {}", e))?;
+
+    temp_file
+        .write_all(initial_content.as_bytes())
+        .map_err(|e| format!("Failed to write initial content to temp file: {}", e))?;
+
+    let temp_path = temp_file.path().to_path_buf();
+
+    let editor = std::env::var("DIVA_EDITOR")
+        .or_else(|_| std::env::var("VISUAL"))
+        .or_else(|_| std::env::var("EDITOR"))
+        .unwrap_or_else(|_| {
+            if is_command_available("kv") {
+                "kv".to_string()
+            } else if is_command_available("nano") {
+                "nano".to_string()
+            } else {
+                "vi".to_string()
+            }
+        });
+
+    let status = std::process::Command::new(&editor)
+        .arg(&temp_path)
+        .status()
+        .map_err(|e| format!("Failed to launch editor '{}': {}", editor, e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "Editor '{}' exited with status {:?}",
+            editor, status
+        ));
+    }
+
+    let updated = std::fs::read_to_string(&temp_path)
+        .map_err(|e| format!("Failed to read edited content: {}", e))?;
+    Ok(updated)
+}
+
+fn is_command_available(cmd: &str) -> bool {
+    if let Ok(path) = std::env::var("PATH") {
+        for p in path.split(':') {
+            if std::path::Path::new(p).join(cmd).is_file() {
+                return true;
+            }
+        }
+    }
+    false
 }

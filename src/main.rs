@@ -5,6 +5,7 @@ use cccp::cli::{self, Cli, Commands};
 use cccp::config;
 use cccp::cultural::{self, Theme};
 use clap::{CommandFactory, Parser};
+use std::io::Write;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -365,38 +366,26 @@ fn main() -> ExitCode {
                 Some(p) if !p.trim().is_empty() => p.trim().to_string(),
                 _ => {
                     eprintln!(
-                        "{}: Por favor forneça uma descrição ou relatório de problema para triagem.",
+                        "{}: Please provide a description or problem report for triage.",
                         theme.red_bold("Error")
                     );
-                    eprintln!("Uso: cccp diva [OPÇÕES] <RELATÓRIO>");
+                    eprintln!("Usage: cccp diva [OPTIONS] [REPORT]");
                     return ExitCode::FAILURE;
                 }
             };
 
-            if diva.direct {
-                println!(
-                    "{}",
-                    theme.yellow(
-                        "★ [ГОСПЛАН] Modo direto ativado (--direct): ignorando etapa de IA."
-                    )
-                );
-                let ticket = cccp::ai::DecomposedTicket {
-                    title: prompt.clone(),
-                    rationale: Some("Criado em modo direto pelo usuário".to_string()),
-                    labels: vec!["triage".to_string()],
-                    body: format!("## Description\n{}\n", prompt),
-                };
-                cccp::ai::display_triage_results(
-                    &[ticket],
-                    cccp::ai::AiProvider::Ollama,
-                    "direct",
-                    &theme,
-                );
-                return ExitCode::SUCCESS;
-            }
-
             let mut client = cccp::ai::AiClient::from_config(&config);
-            if let Some(ref p_str) = diva.provider {
+            if diva.ollama {
+                client = client.with_provider(cccp::ai::AiProvider::Ollama);
+                if diva.model.is_none() {
+                    client = client.with_model(&config.ollama_model);
+                }
+            } else if diva.gemini {
+                client = client.with_provider(cccp::ai::AiProvider::Gemini);
+                if diva.model.is_none() {
+                    client = client.with_model(&config.gemini_model);
+                }
+            } else if let Some(ref p_str) = diva.provider {
                 match p_str.parse::<cccp::ai::AiProvider>() {
                     Ok(p) => {
                         client = client.with_provider(p);
@@ -429,8 +418,8 @@ fn main() -> ExitCode {
                     Ok(resolved) => {
                         if resolved != client.model && diva.model.is_none() {
                             println!(
-                                "{} Modelo padrão '{}' não encontrado. Utilizando modelo instalado '{}'...",
-                                theme.gold_bold("★ [ГОСПЛАН]"),
+                                "{} Default model '{}' not found. Using installed model '{}'...",
+                                theme.gold_bold("★ [GOSPLAN]"),
                                 client.model,
                                 resolved
                             );
@@ -444,52 +433,287 @@ fn main() -> ExitCode {
                 }
             }
 
-            let repo_ctx = match cccp::git::GitRepo::open(args.dir.as_deref()) {
-                Ok(r) => {
-                    let branch = r.branch.as_deref().unwrap_or("main");
-                    let is_clean = !r.is_dirty;
-                    let forge_info = cccp::forges::detect_forge_from_repo(&r).ok();
-                    let forge_str = forge_info
-                        .map(|f| format!("Forge: {} ({}/{})", f.provider, f.owner, f.repo))
-                        .unwrap_or_default();
-                    Some(format!(
-                        "Branch: {}\nWorking tree clean: {}\n{}",
-                        branch, is_clean, forge_str
-                    ))
+            let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let detected_forge = git_repo
+                .as_ref()
+                .and_then(|r| cccp::forges::detect_forge_from_repo(r).ok());
+            let repo_ctx = git_repo.as_ref().map(|r| {
+                let branch = r.branch.as_deref().unwrap_or("main");
+                let is_clean = !r.is_dirty;
+                let forge_str = detected_forge
+                    .as_ref()
+                    .map(|f| {
+                        format!(
+                            "Forge: {} ({}/{}) at {}",
+                            f.provider, f.owner, f.repo, f.host
+                        )
+                    })
+                    .unwrap_or_default();
+                format!(
+                    "Branch: {}\nWorking tree clean: {}\n{}",
+                    branch, is_clean, forge_str
+                )
+            });
+
+            let mut tickets = if diva.direct {
+                println!(
+                    "{}",
+                    theme.yellow(
+                        "★ [GOSPLAN] Direct mode enabled (--direct): skipping AI triage stage."
+                    )
+                );
+                vec![cccp::ai::DecomposedTicket {
+                    title: prompt.clone(),
+                    rationale: Some("Direct mode - created without AI triage".to_string()),
+                    labels: vec!["triage".to_string()],
+                    body: format!("## Description\n{}\n", prompt),
+                }]
+            } else {
+                println!(
+                    "{} Consulting {} ({}) for ticket decomposition...",
+                    theme.yellow("★ [GOSPLAN]"),
+                    theme.cyan(&client.provider.to_string()),
+                    theme.yellow(&client.model)
+                );
+                match client.triage(&prompt, repo_ctx.as_deref()) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
                 }
-                Err(_) => None,
             };
 
+            if tickets.is_empty() {
+                println!(
+                    "{} No tickets were identified by the AI model.",
+                    theme.yellow("★ [GOSPLAN]")
+                );
+                return ExitCode::SUCCESS;
+            }
+
+            println!();
             println!(
-                "{} Consultando {} ({}) para decomposição de tickets...",
-                theme.yellow("★ [ГОСПЛАН]"),
-                theme.cyan(&client.provider.to_string()),
-                theme.yellow(&client.model)
+                "{}",
+                theme.bold(&format!(
+                    "★ [GOSPLAN] The Divan identified {} ticket(s) for review ★",
+                    tickets.len()
+                ))
             );
 
-            match client.triage(&prompt, repo_ctx.as_deref()) {
-                Ok(tickets) => {
-                    println!();
-                    cccp::ai::display_triage_results(
-                        &tickets,
-                        client.provider,
-                        &client.model,
-                        &theme,
+            let forge_client = cccp::forges::ForgeClient::new();
+            let mut created_count = 0;
+            let mut idx = 0;
+
+            while idx < tickets.len() {
+                println!();
+                println!(
+                    "{}",
+                    theme.dim("────────────────────────────────────────────────────────────────")
+                );
+                cccp::ai::display_single_ticket(&tickets[idx], idx, tickets.len(), &theme);
+                if let Some(ref f) = detected_forge {
+                    println!(
+                        "  {}: {} ({}/{})",
+                        theme.cyan("Destination"),
+                        theme.gold_bold(&f.provider.to_string()),
+                        f.owner,
+                        f.repo
                     );
-                    if diva.dry_run {
-                        println!();
-                        println!(
-                            "{}",
-                            theme.dim("[DRY-RUN] Simulação ativa. Nenhum ticket foi publicado.")
-                        );
-                    }
-                    ExitCode::SUCCESS
                 }
-                Err(e) => {
-                    eprintln!("{}: {}", theme.red_bold("Error"), e);
-                    ExitCode::FAILURE
+                println!(
+                    "{}",
+                    theme.dim("────────────────────────────────────────────────────────────────")
+                );
+
+                let publish_label = if let Some(ref f) = detected_forge {
+                    format!("Publish to {} ({}/{})", f.provider, f.owner, f.repo)
+                } else {
+                    "Accept".to_string()
+                };
+
+                print!(
+                    "  [y] {}  [n] Skip  [t] Edit title  [e] Edit body  [r] Refine with AI  [v] View body  [q] Quit → ",
+                    publish_label
+                );
+                let _ = std::io::stdout().flush();
+
+                let key = cccp::ai::read_single_key().unwrap_or('n');
+                match key {
+                    'y' => {
+                        if diva.dry_run {
+                            println!(
+                                "\n  {}",
+                                theme.dim("[DRY-RUN] Simulation active. Ticket was not published.")
+                            );
+                            idx += 1;
+                            continue;
+                        }
+
+                        if let Some(ref forge_info) = detected_forge {
+                            println!(
+                                "\n  -> Publishing ticket to {} ({}/{})...",
+                                forge_info.provider, forge_info.owner, forge_info.repo
+                            );
+                            match forge_client.create_issue(
+                                forge_info,
+                                &tickets[idx].title,
+                                &tickets[idx].body,
+                                &tickets[idx].labels,
+                            ) {
+                                Ok(res) => {
+                                    println!(
+                                        "  {} Ticket created: {}",
+                                        theme.green("✓"),
+                                        res.html_url
+                                    );
+                                    let branch = cccp::forges::suggest_branch_name(
+                                        res.number,
+                                        &tickets[idx].title,
+                                    );
+                                    println!("     Suggested branch: {}", theme.cyan(&branch));
+                                    created_count += 1;
+                                    idx += 1;
+                                }
+                                Err(e) => {
+                                    eprintln!(
+                                        "\n  {}: {}",
+                                        theme.red_bold("Error publishing ticket"),
+                                        e
+                                    );
+                                    eprintln!(
+                                        "  You may edit title/body [t/e], retry [y], or skip [n]."
+                                    );
+                                }
+                            }
+                        } else {
+                            println!(
+                                "\n  {}: No git remote or forge detected to publish the ticket.",
+                                theme.yellow("Warning")
+                            );
+                            idx += 1;
+                        }
+                    }
+                    'n' => {
+                        println!("\n  Skipped.");
+                        idx += 1;
+                    }
+                    't' => {
+                        println!("\n  Launching text editor for title...");
+                        match cccp::ai::open_text_editor(&tickets[idx].title, "diva-title") {
+                            Ok(new_title) => {
+                                let trimmed = new_title.trim();
+                                if !trimmed.is_empty() {
+                                    tickets[idx].title = trimmed.to_string();
+                                    println!("  {} Title updated.", theme.green("✓"));
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("  {}: {}", theme.red_bold("Editor error"), e);
+                                if let Ok(inline) = inquire::Text::new("Edit title:")
+                                    .with_initial_value(&tickets[idx].title)
+                                    .prompt()
+                                {
+                                    let trimmed = inline.trim();
+                                    if !trimmed.is_empty() {
+                                        tickets[idx].title = trimmed.to_string();
+                                        println!("  {} Title updated.", theme.green("✓"));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    'e' | 'b' => {
+                        println!("\n  Launching text editor for ticket body...");
+                        match cccp::ai::open_text_editor(&tickets[idx].body, "diva-body") {
+                            Ok(new_body) => {
+                                let trimmed = new_body.trim();
+                                if !trimmed.is_empty() {
+                                    tickets[idx].body = new_body;
+                                    println!("  {} Body updated.", theme.green("✓"));
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("  {}: {}", theme.red_bold("Editor error"), e);
+                            }
+                        }
+                    }
+                    'v' | 'f' => {
+                        println!("\n--- FULL TICKET BODY ---");
+                        println!("{}", tickets[idx].body);
+                        println!("------------------------");
+                    }
+                    'r' => {
+                        println!();
+                        print!("  Enter refinement instructions for AI: ");
+                        let _ = std::io::stdout().flush();
+                        let mut ref_input = String::new();
+                        if std::io::stdin().read_line(&mut ref_input).is_ok()
+                            && !ref_input.trim().is_empty()
+                        {
+                            let refine_prompt = format!(
+                                "Original user report:\n{}\n\nCurrent proposed ticket:\nTitle: {}\nBody:\n{}\n\nRefinement request:\n{}",
+                                prompt,
+                                tickets[idx].title,
+                                tickets[idx].body,
+                                ref_input.trim()
+                            );
+                            println!(
+                                "  {} Refining tickets with {} ({})...",
+                                theme.yellow("★ [GOSPLAN]"),
+                                client.provider,
+                                client.model
+                            );
+                            match client.triage(&refine_prompt, repo_ctx.as_deref()) {
+                                Ok(new_tickets) if !new_tickets.is_empty() => {
+                                    println!(
+                                        "  {} Tickets successfully refined! ({} ticket(s))",
+                                        theme.green("✓"),
+                                        new_tickets.len()
+                                    );
+                                    tickets = new_tickets;
+                                    idx = 0;
+                                    continue;
+                                }
+                                Ok(_) => eprintln!(
+                                    "  {}: AI returned empty ticket list. Keeping current tickets.",
+                                    theme.yellow("Warning")
+                                ),
+                                Err(e) => eprintln!(
+                                    "  {}: AI refinement failed: {}. Keeping current tickets.",
+                                    theme.red_bold("Error"),
+                                    e
+                                ),
+                            }
+                        }
+                    }
+                    'q' => {
+                        println!("\n  Triage session cancelled by user.");
+                        return ExitCode::SUCCESS;
+                    }
+                    _ => continue,
                 }
             }
+
+            if created_count > 0 {
+                println!();
+                if let Some(ref repo) = git_repo {
+                    println!(
+                        "{} Syncing .antigravity/tickets.md...",
+                        theme.gold_bold("★ [GOSPLAN]")
+                    );
+                    let tickets_args = cccp::cli::TicketsArgs {
+                        state: "open".to_string(),
+                        limit: 30,
+                        remote: None,
+                        output: None,
+                    };
+                    let _ = cccp::tickets::sync_tickets(&tickets_args, repo, &config, &theme);
+                }
+                println!("Session concluded. {} ticket(s) published.", created_count);
+            }
+
+            ExitCode::SUCCESS
         }
         Some(Commands::Forges(forges)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
