@@ -58,22 +58,53 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Calculating predictive Semantic Version...");
             }
-            let base = &config.default_base_version;
-            match semver.format {
-                cli::VersionFormat::Clean => println!("{}", base),
-                cli::VersionFormat::Dev => println!("{}-dev.1+20260929.rust", base),
-                cli::VersionFormat::Json => {
-                    println!(
-                        r#"{{"version":"{}","tag":"v{}","bump":"none"}}"#,
-                        base, base
-                    )
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
                 }
-                cli::VersionFormat::Tag => {
-                    if config.no_v {
-                        println!("{}", base);
-                    } else {
-                        println!("v{}", base);
-                    }
+            };
+            let no_v = config.no_v;
+            let predicted = match cccp::semver_calc::calculate_version(
+                &repo,
+                &config.default_base_version,
+                no_v,
+                semver.bump,
+            ) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            if semver.write {
+                let write_val = if predicted.is_release {
+                    &predicted.target_version
+                } else {
+                    &predicted.dev_version
+                };
+                if let Err(e) = cccp::semver_calc::write_version_file(&repo.root_dir, write_val) {
+                    eprintln!(
+                        "{}: Failed to write VERSION file: {}",
+                        theme.red_bold("Error"),
+                        e
+                    );
+                    return ExitCode::FAILURE;
+                }
+                println!("Version information written to VERSION file: {}", write_val);
+            }
+
+            match semver.format {
+                cli::VersionFormat::Clean => println!("{}", predicted.target_version),
+                cli::VersionFormat::Dev => println!("{}", predicted.dev_version),
+                cli::VersionFormat::Tag => println!("{}", predicted.tag),
+                cli::VersionFormat::Json => {
+                    let json = serde_json::to_string_pretty(&predicted).unwrap_or_else(|_| {
+                        format!(r#"{{"version":"{}"}}"#, predicted.target_version)
+                    });
+                    println!("{}", json);
                 }
             }
             ExitCode::SUCCESS

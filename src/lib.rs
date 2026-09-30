@@ -5,3 +5,4 @@ pub mod cli;
 pub mod config;
 pub mod cultural;
 pub mod git;
+pub mod semver_calc;

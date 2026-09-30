@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (semver) calculadora preditiva de SemVer 2.0.0 a partir de Conventional Commits (#76)
   - (git-reader) leitor do repositorio local e historico de tags via gix (#75)
   - (config) parser hierarquico Gosplan em 4 camadas (.cccprc, XDG, ENV, CLI) (#73)
   - (cultural) modulo estetico Gosplan, banners ASCII e respeito estrito a NO_COLOR (#72)
