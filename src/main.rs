@@ -398,7 +398,16 @@ fn main() -> ExitCode {
             let mut client = cccp::ai::AiClient::from_config(&config);
             if let Some(ref p_str) = diva.provider {
                 match p_str.parse::<cccp::ai::AiProvider>() {
-                    Ok(p) => client = client.with_provider(p),
+                    Ok(p) => {
+                        client = client.with_provider(p);
+                        if diva.model.is_none() {
+                            let default_model = match p {
+                                cccp::ai::AiProvider::Ollama => &config.ollama_model,
+                                cccp::ai::AiProvider::Gemini => &config.gemini_model,
+                            };
+                            client = client.with_model(default_model);
+                        }
+                    }
                     Err(e) => {
                         eprintln!("{}: {}", theme.red_bold("Error"), e);
                         return ExitCode::FAILURE;
@@ -413,6 +422,26 @@ fn main() -> ExitCode {
             }
             if let Some(t) = diva.temperature {
                 client = client.with_temperature(t);
+            }
+
+            if client.provider == cccp::ai::AiProvider::Ollama {
+                match client.resolve_ollama_model(diva.model.is_some()) {
+                    Ok(resolved) => {
+                        if resolved != client.model && diva.model.is_none() {
+                            println!(
+                                "{} Modelo padrão '{}' não encontrado. Utilizando modelo instalado '{}'...",
+                                theme.gold_bold("★ [ГОСПЛАН]"),
+                                client.model,
+                                resolved
+                            );
+                        }
+                        client = client.with_model(resolved);
+                    }
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                }
             }
 
             let repo_ctx = match cccp::git::GitRepo::open(args.dir.as_deref()) {

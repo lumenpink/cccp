@@ -155,3 +155,13 @@ fn test_gemini_missing_api_key_error() {
         err
     );
 }
+
+#[test]
+fn test_is_generative_model_filtering() {
+    assert!(AiClient::is_generative_model("llama3.2:1b"));
+    assert!(AiClient::is_generative_model("qwen2.5-coder:3b"));
+    assert!(AiClient::is_generative_model("mistral:7b"));
+    assert!(!AiClient::is_generative_model("nomic-embed-text:latest"));
+    assert!(!AiClient::is_generative_model("bge-m3:latest"));
+    assert!(!AiClient::is_generative_model("all-minilm-bert"));
+}

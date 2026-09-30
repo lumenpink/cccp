@@ -172,6 +172,83 @@ Write the ticket body and descriptions in the language used by the user report."
         format!("User input to triage:\n{}", user_text.trim())
     }
 
+    /// Query Ollama /api/tags to list installed models
+    pub fn list_ollama_models(&self) -> Result<Vec<String>, String> {
+        let endpoint = format!("{}/api/tags", self.host.trim_end_matches('/'));
+        let res = self.agent.get(&endpoint).call().map_err(|e| {
+            format!(
+                "Failed to connect to Ollama at '{}'. Ensure the Ollama daemon is active: run 'ollama serve' or check your OLLAMA_HOST. Details: {}",
+                self.host, e
+            )
+        })?;
+        let body_str = res
+            .into_body()
+            .read_to_string()
+            .map_err(|e| format!("Failed to read Ollama /api/tags response: {}", e))?;
+        let json: serde_json::Value = serde_json::from_str(&body_str)
+            .map_err(|e| format!("Failed to parse Ollama /api/tags JSON: {}", e))?;
+        let mut models = Vec::new();
+        if let Some(list) = json.get("models").and_then(|m| m.as_array()) {
+            for item in list {
+                if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
+                    models.push(name.to_string());
+                }
+            }
+        }
+        Ok(models)
+    }
+
+    /// Check whether a model name indicates a text/chat generative model (excluding embeddings)
+    pub fn is_generative_model(name: &str) -> bool {
+        let lower = name.to_ascii_lowercase();
+        !lower.contains("embed") && !lower.contains("bge") && !lower.contains("bert")
+    }
+
+    /// Resolve requested Ollama model with auto-detection if not specified explicitly
+    pub fn resolve_ollama_model(&self, is_explicit: bool) -> Result<String, String> {
+        let installed = self.list_ollama_models()?;
+        if installed.is_empty() {
+            return Err(format!(
+                "No models found on Ollama server at '{}'. Pull a model with: ollama pull {}",
+                self.host, self.model
+            ));
+        }
+
+        let target = self.model.to_ascii_lowercase();
+        // 1. Exact match
+        if let Some(exact) = installed.iter().find(|m| m.to_ascii_lowercase() == target) {
+            return Ok(exact.clone());
+        }
+
+        // 2. Prefix or base name match (e.g. 'llama3.2' matches 'llama3.2:1b' or 'llama3.2:latest')
+        if let Some(matching) = installed.iter().find(|m| {
+            let m_low = m.to_ascii_lowercase();
+            m_low.starts_with(&format!("{}:", target))
+                || m_low.split(':').next() == target.split(':').next()
+        }) {
+            return Ok(matching.clone());
+        }
+
+        // If user explicitly requested a specific model via --model, do not silently switch
+        if is_explicit {
+            return Err(format!(
+                "Model '{}' not found on Ollama server at '{}'. Available models: {}. Pull it with: ollama pull {}",
+                self.model,
+                self.host,
+                installed.join(", "),
+                self.model
+            ));
+        }
+
+        // 3. Fallback to first available generative model
+        if let Some(first_gen) = installed.iter().find(|m| Self::is_generative_model(m)) {
+            return Ok(first_gen.clone());
+        }
+
+        // 4. Fallback to first installed model
+        Ok(installed[0].clone())
+    }
+
     /// Perform triage using local Ollama daemon (/api/chat)
     fn triage_ollama(
         &self,
@@ -349,23 +426,15 @@ Write the ticket body and descriptions in the language used by the user report."
     pub fn parse_tickets_json(raw: &str) -> Result<Vec<DecomposedTicket>, String> {
         let cleaned = clean_json_markdown(raw);
 
-        // Case 1: Structured envelope {"tickets": [...]}
-        if let Ok(wrapper) = serde_json::from_str::<TriageJsonWrapper>(cleaned) {
-            if !wrapper.tickets.is_empty() {
-                return Ok(wrapper.tickets);
-            }
+        // Try direct parse first
+        if let Some(tickets) = Self::try_parse_json(cleaned) {
+            return Ok(tickets);
         }
 
-        // Case 2: Direct array of tickets [{...}, {...}]
-        if let Ok(tickets) = serde_json::from_str::<Vec<DecomposedTicket>>(cleaned) {
-            if !tickets.is_empty() {
-                return Ok(tickets);
-            }
-        }
-
-        // Case 3: Single ticket object {...}
-        if let Ok(single) = serde_json::from_str::<DecomposedTicket>(cleaned) {
-            return Ok(vec![single]);
+        // Fallback: sanitize unescaped literal newlines inside JSON string literals
+        let sanitized = sanitize_json_newlines(cleaned);
+        if let Some(tickets) = Self::try_parse_json(&sanitized) {
+            return Ok(tickets);
         }
 
         Err(format!(
@@ -373,6 +442,108 @@ Write the ticket body and descriptions in the language used by the user report."
             raw
         ))
     }
+
+    fn try_parse_json(text: &str) -> Option<Vec<DecomposedTicket>> {
+        // Case 1: Structured envelope {"tickets": [...]}
+        if let Ok(wrapper) = serde_json::from_str::<TriageJsonWrapper>(text) {
+            if !wrapper.tickets.is_empty() {
+                return Some(wrapper.tickets);
+            }
+        }
+
+        // Case 2: Direct array of tickets [{...}, {...}]
+        if let Ok(tickets) = serde_json::from_str::<Vec<DecomposedTicket>>(text) {
+            if !tickets.is_empty() {
+                return Some(tickets);
+            }
+        }
+
+        // Case 3: Single ticket object {...}
+        if let Ok(single) = serde_json::from_str::<DecomposedTicket>(text) {
+            return Some(vec![single]);
+        }
+
+        // Case 4: Loose JSON Value extraction (resilient to minor LLM variations / duplicate keys)
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(text) {
+            if let Some(arr) = val.get("tickets").and_then(|t| t.as_array()) {
+                let parsed: Vec<DecomposedTicket> = arr
+                    .iter()
+                    .filter_map(|item| {
+                        let title = item.get("title").and_then(|t| t.as_str())?.to_string();
+                        let rationale = item
+                            .get("rationale")
+                            .and_then(|r| r.as_str())
+                            .map(ToString::to_string);
+                        let labels = item
+                            .get("labels")
+                            .and_then(|l| l.as_array())
+                            .map(|a| {
+                                a.iter()
+                                    .filter_map(|x| x.as_str().map(ToString::to_string))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        let body = item
+                            .get("body")
+                            .and_then(|b| b.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        Some(DecomposedTicket {
+                            title,
+                            rationale,
+                            labels,
+                            body,
+                        })
+                    })
+                    .collect();
+                if !parsed.is_empty() {
+                    return Some(parsed);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+/// Replace literal unescaped newlines inside JSON string literals with \n
+pub fn sanitize_json_newlines(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut in_string = false;
+    let mut escape = false;
+
+    for ch in input.chars() {
+        if escape {
+            output.push(ch);
+            escape = false;
+            continue;
+        }
+
+        if ch == '\\' {
+            escape = true;
+            output.push(ch);
+            continue;
+        }
+
+        if ch == '"' {
+            in_string = !in_string;
+            output.push(ch);
+            continue;
+        }
+
+        if in_string && ch == '\n' {
+            output.push_str("\\n");
+            continue;
+        }
+
+        if in_string && ch == '\r' {
+            continue;
+        }
+
+        output.push(ch);
+    }
+
+    output
 }
 
 /// Clean markdown code fences from JSON text
