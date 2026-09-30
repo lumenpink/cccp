@@ -1,0 +1,166 @@
+name: "Release Multiplatform Binaries"
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name (e.g. v3.0.0)'
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 1 — Multiplatform Static & Native Compilation
+  # ─────────────────────────────────────────────────────────────────────────────
+  release-binaries:
+    name: "Build & Publish Multiplatform Binaries"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: https://github.com/actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Gosplan SemVer Quality Check"
+        id: check-version
+        run: |
+          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          CLEAN_VER="${TAG#v}"
+          if [ -f VERSION ]; then
+            FILE_VER=$(head -n 1 VERSION | tr -d ' \r\n')
+            echo "Release tag: $TAG, VERSION file: $FILE_VER"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "clean_ver=$CLEAN_VER" >> "$GITHUB_OUTPUT"
+
+      - name: "Install System Dependencies & Cross Tooling"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            musl-tools \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            curl \
+            tar \
+            gzip
+          pip3 install --break-system-packages cargo-zigbuild ziglang || pip3 install cargo-zigbuild ziglang
+
+      - name: "Setup Rust Toolchain & Targets"
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+            export PATH="$HOME/.cargo/bin:$PATH"
+          fi
+          rustup target add \
+            x86_64-unknown-linux-musl \
+            aarch64-unknown-linux-musl \
+            x86_64-apple-darwin \
+            aarch64-apple-darwin
+
+      - name: "Compile Multiplatform Binaries"
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          echo "★ [1/4] Compiling x86_64-unknown-linux-musl (Linux x86_64 Static)..."
+          cargo zigbuild --release --target x86_64-unknown-linux-musl || \
+            cargo build --release --target x86_64-unknown-linux-musl
+
+          echo "★ [2/4] Compiling aarch64-unknown-linux-musl (Linux ARM64 Static)..."
+          cargo zigbuild --release --target aarch64-unknown-linux-musl
+
+          echo "★ [3/4] Compiling x86_64-apple-darwin (macOS Intel Native)..."
+          cargo zigbuild --release --target x86_64-apple-darwin
+
+          echo "★ [4/4] Compiling aarch64-apple-darwin (macOS Apple Silicon Native)..."
+          cargo zigbuild --release --target aarch64-apple-darwin
+
+      - name: "Package Artifacts & Generate Checksums"
+        id: package
+        run: |
+          TAG="${{ steps.check-version.outputs.tag }}"
+          [ -z "$TAG" ] && TAG="latest"
+          mkdir -p dist/packages
+
+          package_target() {
+            local TARGET="$1"
+            local ALIAS="$2"
+            local BIN="target/${TARGET}/release/cccp"
+
+            if [ -f "$BIN" ]; then
+              echo "✔ Packaging ${TARGET} (alias: ${ALIAS})..."
+              local PKG_DIR="cccp-${TAG}-${TARGET}"
+              mkdir -p "/tmp/${PKG_DIR}"
+              cp "$BIN" "/tmp/${PKG_DIR}/cccp"
+              cp README.md LICENSE "/tmp/${PKG_DIR}/" 2>/dev/null || true
+              tar -czf "dist/packages/cccp-${TAG}-${TARGET}.tar.gz" -C /tmp "${PKG_DIR}"
+              rm -rf "/tmp/${PKG_DIR}"
+
+              if [ -n "$ALIAS" ]; then
+                cp "dist/packages/cccp-${TAG}-${TARGET}.tar.gz" "dist/packages/cccp-${TAG}-${ALIAS}.tar.gz"
+                cp "dist/packages/cccp-${TAG}-${TARGET}.tar.gz" "dist/packages/cccp-${ALIAS}.tar.gz"
+                cp "$BIN" "dist/packages/cccp-${ALIAS}"
+              fi
+              cp "$BIN" "dist/packages/cccp-${TARGET}"
+            else
+              echo "⚠ Warning: Binary for ${TARGET} not found at ${BIN}"
+            fi
+          }
+
+          package_target "x86_64-unknown-linux-musl" "linux-amd64"
+          package_target "aarch64-unknown-linux-musl" "linux-arm64"
+          package_target "x86_64-apple-darwin" "darwin-amd64"
+          package_target "aarch64-apple-darwin" "darwin-arm64"
+
+          echo "★ Generating SHA-256 Checksums..."
+          cd dist/packages
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+          cd ../..
+
+      - name: "Extract Release Notes"
+        id: notes
+        run: |
+          TAG="${{ steps.check-version.outputs.tag }}"
+          CLEAN_VER="${{ steps.check-version.outputs.clean_ver }}"
+          TAG_SUBJECT=$(git tag -l --format="%(contents:subject)" "$TAG" 2>/dev/null || true)
+          RELEASE_TITLE="$TAG"
+          if echo "$TAG_SUBJECT" | grep -q ': '; then
+            TITLE_PART=$(echo "$TAG_SUBJECT" | sed -E 's/^[^:]+: //')
+            RELEASE_TITLE="$TAG - $TITLE_PART"
+          fi
+          echo "title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
+
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(awk -v t1="$TAG" -v t2="$CLEAN_VER" '
+              $0 ~ "^### \\[" t1 "\\]" || $0 ~ "^### \\[" t2 "\\]" { in_section = 1; next }
+              in_section && ($0 ~ "^###? \\[" || $0 ~ "^## ") { in_section = 0 }
+              in_section { print }
+            ' CHANGELOG.md)
+          fi
+
+          if echo "$NOTES" | grep -q '^[[:space:]]*- '; then
+            echo "$NOTES" > /tmp/release_notes.md
+          else
+            echo "- Automated multiplatform static binary release for $TAG." > /tmp/release_notes.md
+          fi
+
+      - name: "Publish Official Release"
+        uses: https://github.com/softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ steps.check-version.outputs.tag }}"
+          name: "${{ steps.notes.outputs.title }}"
+          files: |
+            dist/packages/*
+          body_path: /tmp/release_notes.md

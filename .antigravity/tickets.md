@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 12:57:24 UTC
+> Synced at: 2026-09-30 13:55:05 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#87] feat(ai): adicionar suporte ao provedor local Ollama
@@ -43,7 +43,7 @@ Manter a experiência de instalação em 1 linha (`curl -fsSL https://cccp.2lp.i
 
 ---
 ## [#85] [rust] ci(build): workflow de compilação estática musl multiplataforma
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/85
 
@@ -64,7 +64,7 @@ Automatizar a compilação contínua e release de binários estáticos no Codebe
 
 ---
 ## [#84] [rust] feat(tickets): sincronizador de issues para .antigravity/tickets.md
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/84
 
@@ -82,24 +82,6 @@ Sincronização de tickets de forges remotos para o arquivo de contexto de IA `.
 
 ## Critérios de Aceitação
 - Atualização limpa de `.antigravity/tickets.md` com paridade de formato em relação ao script anterior.
-
----
-## [#83] [rust] feat(forges): cliente HTTP com rustls para Codeberg/Forgejo, GitHub e GitLab
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/83
-
-### Description
-## Contexto
-Consumo de APIs de forges Git sem dependência externa do binário `curl` ou de OpenSSL dinâmico.
-
-## Requisitos
-- Implementar cliente HTTP assíncrono ou síncrono enxuto (`ureq` ou `reqwest` com `rustls`).
-- Suporte a tokens de autenticação via variáveis de ambiente (`CODEBERG_TOKEN`, `GITHUB_TOKEN`, etc.).
-- Tratamento de rate limiting com recuo exponencial e logs informativos.
-
-## Critérios de Aceitação
-- Conexões HTTPS 100% seguras com certificados raiz embutidos via `webpki-roots`.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
