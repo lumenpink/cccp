@@ -2,19 +2,23 @@
 //! Main binary entry point.
 
 mod cli;
+mod cultural;
 
 use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};
+use cultural::Theme;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let args = Cli::parse();
+    let theme = Theme::init(args.no_color);
 
     // Directory override (-C / --dir)
     if let Some(ref target_dir) = args.dir {
         if let Err(err) = std::env::set_current_dir(target_dir) {
             eprintln!(
-                "\x1b[31mError:\x1b[0m Failed to change directory to '{}': {}",
+                "{}: Failed to change directory to '{}': {}",
+                theme.red_bold("Error"),
                 target_dir.display(),
                 err
             );
@@ -27,7 +31,11 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Running cz interactive commit wizard...");
             }
-            println!("★ Conventional Commits Wizard (dry_run: {})", cz.dry_run);
+            println!(
+                "{} Conventional Commits Wizard (dry_run: {})",
+                theme.gold_bold("★"),
+                cz.dry_run
+            );
             ExitCode::SUCCESS
         }
         Some(Commands::Lint(lint)) => {
@@ -68,7 +76,11 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Status(status)) => {
-            println!("CCCP Repository Status: All systems compliant with Conventional Commits 1.0.0 (detailed: {})", status.detailed);
+            println!(
+                "{} CCCP Repository Status: All systems compliant with Conventional Commits 1.0.0 (detailed: {})",
+                theme.red_bold("★"),
+                status.detailed
+            );
             ExitCode::SUCCESS
         }
         Some(Commands::Hook(hook)) => {
@@ -126,13 +138,15 @@ fn main() -> ExitCode {
         }
         Some(Commands::Soviet(soviet)) => {
             if soviet.order227 {
-                println!("★ Order No. 227 (28 July 1942): 'Ni shagu nazad!' (Not a step back!) ★");
+                println!("{}", cultural::order_227(&theme));
             } else if soviet.anthem {
-                println!("★ State Anthem of the Soviet Union ★\nUnbreakable Union of freeborn Republics...");
+                println!("{}", cultural::soviet_anthem(&theme));
             } else if soviet.quote {
-                println!("★ 'Without revolutionary theory there can be no revolutionary movement.' — V. I. Lenin ★");
+                println!("{}", cultural::revolutionary_quote(&theme));
+            } else if soviet.plan {
+                println!("{}", cultural::gosplan_plan(&theme));
             } else {
-                println!("★ Gosplan Quality Mark (GOST) & Five-Year Plan: 100% Conventional Commits Compliance ★");
+                println!("{}", cultural::gosplan_banner(&theme));
             }
             ExitCode::SUCCESS
         }

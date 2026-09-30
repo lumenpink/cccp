@@ -30,7 +30,7 @@ pub struct Cli {
     pub quiet: bool,
 
     /// Disable ANSI color output (also respects NO_COLOR env var)
-    #[arg(long = "no-color", global = true, env = "NO_COLOR")]
+    #[arg(long = "no-color", global = true)]
     pub no_color: bool,
 
     /// Primary subcommand to execute
