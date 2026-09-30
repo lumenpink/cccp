@@ -346,11 +346,19 @@ fn main() -> ExitCode {
             }
         },
         Some(Commands::Tickets(tickets)) => {
-            println!(
-                "Syncing tickets from forge (limit: {}, state: {})...",
-                tickets.limit, tickets.state
-            );
-            ExitCode::SUCCESS
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            if let Err(e) = cccp::tickets::sync_tickets(&tickets, &repo, &config, &theme) {
+                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                ExitCode::FAILURE
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Some(Commands::Forges(forges)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {

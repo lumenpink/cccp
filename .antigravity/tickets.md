@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 12:35:23 UTC
+> Synced at: 2026-09-30 12:57:24 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#87] feat(ai): adicionar suporte ao provedor local Ollama
@@ -64,7 +64,7 @@ Automatizar a compilação contínua e release de binários estáticos no Codebe
 
 ---
 ## [#84] [rust] feat(tickets): sincronizador de issues para .antigravity/tickets.md
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/84
 
@@ -85,7 +85,7 @@ Sincronização de tickets de forges remotos para o arquivo de contexto de IA `.
 
 ---
 ## [#83] [rust] feat(forges): cliente HTTP com rustls para Codeberg/Forgejo, GitHub e GitLab
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/83
 
@@ -100,27 +100,6 @@ Consumo de APIs de forges Git sem dependência externa do binário `curl` ou de 
 
 ## Critérios de Aceitação
 - Conexões HTTPS 100% seguras com certificados raiz embutidos via `webpki-roots`.
-
----
-## [#82] [rust] feat(hook-runner): despachador interno cccp hook commit-msg e pre-push
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/82
-
-### Description
-## Contexto
-Ponto de entrada de altíssima performance para os hooks invocados pelo Git.
-
-## Requisitos
-- Implementar subcomando interno `cccp hook commit-msg <path>`:
-  - Lê o arquivo de mensagem fornecido pelo Git.
-  - Executa o linter em < 3ms.
-  - Aborta o commit se inválido com mensagem clara e didática.
-- Implementar `cccp hook pre-push`:
-  - Executa rotina de validação e CI local pré-push.
-
-## Critérios de Aceitação
-- Execução imperceptível em tempo de resposta durante o fluxo normal de desenvolvimento.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets

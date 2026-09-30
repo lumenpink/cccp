@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (tickets) sincronizador de issues para .antigravity/tickets.md
   - (forges) cliente HTTP com rustls para Codeberg, GitHub e GitLab
   - (hook-runner) despachador interno cccp hook commit-msg e pre-push
   - (hooks) gerador de stubs minimos e instalador de hooks
