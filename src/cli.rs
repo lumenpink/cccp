@@ -420,6 +420,10 @@ pub struct DivaArgs {
     /// Problem description or user report to triage
     pub prompt: Option<String>,
 
+    /// Target repository (e.g. 'cccp', 'owner/repo', or forge URL)
+    #[arg(short = 'r', long = "repo")]
+    pub repo: Option<String>,
+
     /// AI provider to use ('gemini' or 'ollama')
     #[arg(short = 'p', long = "provider")]
     pub provider: Option<String>,
