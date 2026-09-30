@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (commit-exec) despachador de commit via git cli com gpg e ssh signing
   - (cz) wizard interativo de commit de terminal com inquire
   - (lint) analisador sintatico estrito de mensagens de commit (#78)
   - (semver) calculadora preditiva de SemVer 2.0.0 a partir de Conventional Commits (#76)

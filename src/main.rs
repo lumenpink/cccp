@@ -31,7 +31,7 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Running cz interactive commit wizard...");
             }
-            let _composed = match cccp::cz::compose_commit(&cz, &config, &theme) {
+            let composed = match cccp::cz::compose_commit(&cz, &config, &theme) {
                 Ok(c) => c,
                 Err(err) => {
                     eprintln!("{}: {}", theme.red_bold("Error"), err);
@@ -39,19 +39,26 @@ fn main() -> ExitCode {
                 }
             };
 
-            if cz.dry_run {
-                println!(
-                    "{} Dry run enabled: commit was not executed.",
-                    theme.gold_bold("★")
-                );
-                return ExitCode::SUCCESS;
-            }
+            let commit_opts = cccp::commit_exec::CommitOptions {
+                all: cz.all,
+                sign: cz.sign,
+                no_sign: cz.no_sign,
+                dry_run: cz.dry_run,
+                dir: args.dir.clone(),
+            };
 
-            println!(
-                "{} Conventional commit ready for git execution.",
-                theme.green("✓")
-            );
-            ExitCode::SUCCESS
+            match cccp::commit_exec::execute_commit(
+                &composed.formatted_message,
+                &commit_opts,
+                &theme,
+            ) {
+                Ok(0) => ExitCode::SUCCESS,
+                Ok(code) => ExitCode::from(code as u8),
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
         }
         Some(Commands::Lint(lint)) => {
             if args.verbose > 0 {

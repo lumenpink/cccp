@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 08:46:48 UTC
+> Synced at: 2026-09-30 09:36:38 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
@@ -126,7 +126,7 @@ O CCCP instala hooks locais no repositório Git para garantir a conformidade dos
 
 ---
 ## [#80] [rust] feat(commit-exec): despachador de commit via Git CLI com suporte a GPG/SSH signing
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/80
 
@@ -144,7 +144,7 @@ Executar o commit mantendo total compatibilidade com assinaturas criptográficas
 
 ---
 ## [#79] [rust] feat(cz): wizard interativo de commit de terminal com inquire/dialoguer
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/79
 
@@ -164,28 +164,6 @@ Substituir o wizard interativo de commit do shell por uma experiência de termin
 
 ## Critérios de Aceitação
 - Interface intuitiva, navegável por teclado, sem travamentos de TTY.
-
----
-## [#78] [rust] feat(lint): analisador sintático estrito de mensagens de commit
-- **Status**: `closed`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/78
-
-### Description
-## Contexto
-O CCCP audita mensagens de commit para garantir conformidade estrita com o padrão Conventional Commits.
-
-## Requisitos
-- Implementar validador de sintaxe:
-  - Estrutura: `<type>(<scope>): <subject>`
-  - Tipos válidos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
-  - Limite de comprimento: linha de título <= 72 caracteres.
-  - Ausência de ponto final no título.
-  - Linha em branco obrigatória separando título do corpo.
-- Retornar erros detalhados e sugestões de correção.
-
-## Critérios de Aceitação
-- Subcomando `cccp lint --message "..."` valida ou rejeita mensagens informando a regra violada.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
@@ -256,5 +234,26 @@ Implementar um novo comando no catalog que permita adicionar todos os itens que 
 
 - Expected: Todos os itens de `src` devem ser adicionados ao catalog de uma só vez.
 - Actual: O comando ainda não existe.
+
+---
+## [#66] fix(catalog): utilizar a lista de configurações em vez da pasta src
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/66
+
+### Description
+## Description
+
+O catalog atualmente utiliza a lista que está em /src. O comportamento correto é utilizar a lista das configurações.
+
+## Steps to Reproduce
+
+1. Executar operações no catalog.
+2. Observar que a fonte utilizada é a pasta `/src` em vez das configurações.
+
+## Expected vs Actual
+
+- Expected: O catalog deve utilizar a lista das configurações.
+- Actual: O catalog está utilizando a lista em `/src`.
 
 ---
