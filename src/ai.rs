@@ -637,57 +637,11 @@ pub fn read_single_key() -> std::io::Result<char> {
 }
 
 /// Open an external or comrade editor preloaded with initial text, returning edited content
-pub fn open_text_editor(initial_content: &str, file_prefix: &str) -> Result<String, String> {
-    use std::io::Write;
-    let mut temp_file = tempfile::Builder::new()
-        .prefix(file_prefix)
-        .suffix(".md")
-        .tempfile()
-        .map_err(|e| format!("Failed to create temporary editor file: {}", e))?;
-
-    temp_file
-        .write_all(initial_content.as_bytes())
-        .map_err(|e| format!("Failed to write initial content to temp file: {}", e))?;
-
-    let temp_path = temp_file.path().to_path_buf();
-
-    let editor = std::env::var("DIVA_EDITOR")
-        .or_else(|_| std::env::var("VISUAL"))
-        .or_else(|_| std::env::var("EDITOR"))
-        .unwrap_or_else(|_| {
-            if is_command_available("kv") {
-                "kv".to_string()
-            } else if is_command_available("nano") {
-                "nano".to_string()
-            } else {
-                "vi".to_string()
-            }
-        });
-
-    let status = std::process::Command::new(&editor)
-        .arg(&temp_path)
-        .status()
-        .map_err(|e| format!("Failed to launch editor '{}': {}", editor, e))?;
-
-    if !status.success() {
-        return Err(format!(
-            "Editor '{}' exited with status {:?}",
-            editor, status
-        ));
+/// Open the internal minimalist terminal editor preloaded with initial text, returning edited content
+pub fn open_text_editor(initial_content: &str, title: &str) -> Result<String, String> {
+    match crate::editor::edit_text(title, initial_content) {
+        Ok(Some(edited)) => Ok(edited),
+        Ok(None) => Ok(initial_content.to_string()),
+        Err(e) => Err(e),
     }
-
-    let updated = std::fs::read_to_string(&temp_path)
-        .map_err(|e| format!("Failed to read edited content: {}", e))?;
-    Ok(updated)
-}
-
-fn is_command_available(cmd: &str) -> bool {
-    if let Ok(path) = std::env::var("PATH") {
-        for p in path.split(':') {
-            if std::path::Path::new(p).join(cmd).is_file() {
-                return true;
-            }
-        }
-    }
-    false
 }

@@ -7,6 +7,7 @@ pub mod commit_exec;
 pub mod config;
 pub mod cultural;
 pub mod cz;
+pub mod editor;
 pub mod forges;
 pub mod git;
 pub mod hook_runner;
