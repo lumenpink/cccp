@@ -290,3 +290,33 @@ fn test_env_gemini_key_case_insensitivity_and_precedence() {
     let cfg = Config::load_hierarchical(Some(dir.path()));
     assert_eq!(cfg.gemini_api_key, Some("lowercase_key_abc".to_string()));
 }
+
+#[test]
+fn test_ai_configuration_parsing_and_env_overrides() {
+    let mut cfg = Config::default();
+    let content = r#"
+ai_provider = ollama
+ollama_model = qwen2.5-coder:3b
+ollama_host = http://192.168.1.100:11434
+temperature = 0.5
+gemini_model = gemini-1.5-pro
+"#;
+    cfg.merge_from_str(content);
+
+    assert_eq!(cfg.ai_provider, "ollama");
+    assert_eq!(cfg.ollama_model, "qwen2.5-coder:3b");
+    assert_eq!(cfg.ollama_host, "http://192.168.1.100:11434");
+    assert!((cfg.ollama_temperature - 0.5).abs() < f32::EPSILON);
+    assert!((cfg.gemini_temperature - 0.5).abs() < f32::EPSILON);
+    assert_eq!(cfg.gemini_model, "gemini-1.5-pro");
+
+    // Environment overrides
+    std::env::set_var("CCCP_AI_PROVIDER", "gemini");
+    std::env::set_var("CCCP_GEMINI_MODEL", "gemini-ultra");
+    cfg.merge_from_env();
+    std::env::remove_var("CCCP_AI_PROVIDER");
+    std::env::remove_var("CCCP_GEMINI_MODEL");
+
+    assert_eq!(cfg.ai_provider, "gemini");
+    assert_eq!(cfg.gemini_model, "gemini-ultra");
+}

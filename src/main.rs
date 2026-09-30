@@ -841,6 +841,12 @@ fn main() -> ExitCode {
                 if !config.post_push_sync.is_empty() {
                     println!("post_push_sync = {}", config.post_push_sync.join(", "));
                 }
+                println!("ai_provider = {}", config.ai_provider);
+                println!("ollama_model = {}", config.ollama_model);
+                println!("ollama_host = {}", config.ollama_host);
+                println!("ollama_temperature = {}", config.ollama_temperature);
+                println!("gemini_model = {}", config.gemini_model);
+                println!("gemini_temperature = {}", config.gemini_temperature);
                 for (k, v) in &config.extra {
                     println!("{} = {}", k, v);
                 }
@@ -878,6 +884,17 @@ fn main() -> ExitCode {
                         "strict_scopes" => println!("{}", config.strict_scopes),
                         "default_base_version" => println!("{}", config.default_base_version),
                         "no_v" => println!("{}", config.no_v),
+                        "ai_provider" | "provider" | "llm_provider" => {
+                            println!("{}", config.ai_provider)
+                        }
+                        "ollama_model" => println!("{}", config.ollama_model),
+                        "gemini_model" => println!("{}", config.gemini_model),
+                        "ollama_host" | "ollama_url" => println!("{}", config.ollama_host),
+                        "ollama_temperature" => println!("{}", config.ollama_temperature),
+                        "gemini_temperature" => println!("{}", config.gemini_temperature),
+                        "ai_temperature" | "temperature" => {
+                            println!("{}", config.ollama_temperature)
+                        }
                         _ => {
                             if let Some(v) = config.extra.get(&normalized) {
                                 println!("{}", v);

@@ -256,7 +256,7 @@ impl Config {
             "agents_md_file" | "agent_md_file" => {
                 self.agents_md_file = val.trim().to_string();
             }
-            "ai_provider" | "llm_provider" => {
+            "ai_provider" | "llm_provider" | "provider" => {
                 self.ai_provider = val.trim().to_ascii_lowercase();
             }
             "ollama_host" | "ollama_url" => {
@@ -286,6 +286,17 @@ impl Config {
                     self.gemini_temperature = t;
                 }
             }
+            "ai_temperature" | "temperature" => {
+                if let Ok(t) = val.trim().parse::<f32>() {
+                    self.ollama_temperature = t;
+                    self.gemini_temperature = t;
+                }
+            }
+            "ai_model" | "model" => {
+                let m = val.trim().to_string();
+                self.ollama_model = m.clone();
+                self.gemini_model = m;
+            }
             _ => {
                 self.extra.insert(normalized, val.trim().to_string());
             }
@@ -294,6 +305,18 @@ impl Config {
 
     /// Read environment variables and apply overrides
     pub fn merge_from_env(&mut self) {
+        if let Ok(v) = env::var("CCCP_AI_PROVIDER").or_else(|_| env::var("AI_PROVIDER")) {
+            self.ai_provider = v.trim().to_ascii_lowercase();
+        }
+        if let Ok(v) = env::var("CCCP_OLLAMA_MODEL").or_else(|_| env::var("OLLAMA_MODEL")) {
+            self.ollama_model = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("CCCP_GEMINI_MODEL").or_else(|_| env::var("GEMINI_MODEL")) {
+            self.gemini_model = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("CCCP_OLLAMA_HOST").or_else(|_| env::var("OLLAMA_HOST")) {
+            self.ollama_host = v.trim().to_string();
+        }
         if let Ok(v) = env::var("CCCP_TYPES").or_else(|_| env::var("COMMIT_TYPES")) {
             self.commit_types = parse_string_list(&v);
         }
