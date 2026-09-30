@@ -169,31 +169,31 @@ impl Config {
                 self.commit_subscopes = parse_string_list(val);
             }
             "strict_types" => {
-                self.strict_types = parse_bool(val, true);
+                self.strict_types = parse_bool(val, self.strict_types);
             }
             "strict_scopes" => {
-                self.strict_scopes = parse_bool(val, false);
+                self.strict_scopes = parse_bool(val, self.strict_scopes);
             }
             "strict_subscopes" => {
-                self.strict_subscopes = parse_bool(val, false);
+                self.strict_subscopes = parse_bool(val, self.strict_subscopes);
             }
             "allow_any_scope" => {
-                self.allow_any_scope = parse_bool(val, true);
+                self.allow_any_scope = parse_bool(val, self.allow_any_scope);
                 if !self.allow_any_scope {
                     self.strict_scopes = true;
                 }
             }
             "allow_any_subscope" => {
-                self.allow_any_subscope = parse_bool(val, true);
+                self.allow_any_subscope = parse_bool(val, self.allow_any_subscope);
                 if !self.allow_any_subscope {
                     self.strict_subscopes = true;
                 }
             }
             "disable_subscopes" => {
-                self.disable_subscopes = parse_bool(val, false);
+                self.disable_subscopes = parse_bool(val, self.disable_subscopes);
             }
             "disable_multiple_scopes" => {
-                self.disable_multiple_scopes = parse_bool(val, false);
+                self.disable_multiple_scopes = parse_bool(val, self.disable_multiple_scopes);
             }
             "default_base_version" => {
                 self.default_base_version = val.trim().to_string();

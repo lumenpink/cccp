@@ -1,13 +1,10 @@
 //! CCCP - Conventional Commits Compliance Program
 //! Main binary entry point.
 
-mod cli;
-mod config;
-mod cultural;
-
+use cccp::cli::{self, Cli, Commands};
+use cccp::config;
+use cccp::cultural::{self, Theme};
 use clap::{CommandFactory, Parser};
-use cli::{Cli, Commands};
-use cultural::Theme;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
