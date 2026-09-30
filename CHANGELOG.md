@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (cli) estruturar arvore de comandos e flags com clap (#71)
   - (triage) adicionar opcao para postagem direta sem intermedio do gemini (closes #55)
   - (cli) aceitar repositorio como parametro posicional unico no diva (closes #54)
   - (deps) implementar gerenciador de dependencias com list, check e install (#61)
