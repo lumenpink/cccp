@@ -4,6 +4,7 @@
 pub mod cli;
 pub mod config;
 pub mod cultural;
+pub mod cz;
 pub mod git;
 pub mod lint;
 pub mod semver_calc;

@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 00:56:37 UTC
+> Synced at: 2026-09-30 08:46:48 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
@@ -144,7 +144,7 @@ Executar o commit mantendo total compatibilidade com assinaturas criptográficas
 
 ---
 ## [#79] [rust] feat(cz): wizard interativo de commit de terminal com inquire/dialoguer
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/79
 
@@ -167,7 +167,7 @@ Substituir o wizard interativo de commit do shell por uma experiência de termin
 
 ---
 ## [#78] [rust] feat(lint): analisador sintático estrito de mensagens de commit
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/78
 
@@ -188,61 +188,73 @@ O CCCP audita mensagens de commit para garantir conformidade estrita com o padr�
 - Subcomando `cccp lint --message "..."` valida ou rejeita mensagens informando a regra violada.
 
 ---
-## [#77] [rust] test(semver): bateria de testes unitários para cálculo preditivo de versão
+## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
 - **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/77
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/69
 
 ### Description
-## Contexto
-Garantir que a matemática de versões semânticas preditivas cubra todos os cenários de borda.
+## Description
 
-## Requisitos
-- Testes cobrindo:
-  - Sem tags prévias (bootstrap da versão inicial `0.1.0`).
-  - Transições `patch` vs `minor` vs `major`.
-  - Múltiplos commits combinados com pesos diferentes.
-  - Pré-releases e metadados de build com hash curto do git.
+O comando `cataloge` precisa ser estendido para suportar filtragem e ordenação dos repositórios.
+
+Critérios de aceitação:
+- Permitir filtrar repositórios pelo estado.
+- Permitir filtrar repositórios pelo número de tickets.
+- Permitir ordenar a listagem pelo estado.
+- Permitir ordenar a listagem pelo número de tickets.
+
+## Steps to Reproduce
+
+1. Executar o comando `cataloge` com opções de filtro ou ordenação (a definir).
+
+## Expected vs Actual
+
+- Expected: A listagem de repositórios é filtrada e/ou ordenada conforme os parâmetros informados.
+- Actual: O comando atualmente não oferece essas opções de filtro e ordenação.
 
 ---
-## [#76] [rust] feat(semver): calculadora preditiva de SemVer 2.0.0 a partir de Conventional Commits
+## [#68] feat(catalog): adicionar tabela de repositórios com status e contagem de tickets
 - **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/76
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/68
 
 ### Description
-## Contexto
-Cálculo preditivo autônomo da próxima versão semântica (SemVer 2.0.0) com base no histórico de commits desde a última tag.
+## Description
 
-## Requisitos
-- Utilizar a crate `semver` para parsing e comparação de versões.
-- Implementar as regras de progressão:
-  - `feat`: incrementa MINOR (ex: `1.2.0` -> `1.3.0`).
-  - `fix`, `perf`, `refactor`: incrementa PATCH (ex: `1.2.0` -> `1.2.1`).
-  - `BREAKING CHANGE` ou indicador `!` (ex: `feat!:`): incrementa MAJOR (ex: `1.2.0` -> `2.0.0`).
-- Suportar pré-releases incrementais (ex: `-dev.X+hash`).
+Atualizar o comando `catalog` para que ele monte e exiba uma tabela formatada contendo a lista de repositórios gerenciados. A tabela deve incluir:
+- Nome/caminho do repositório
+- Número de tickets abertos
+- Estado do repositório (`clean`, `dirty`, e indicador de commits pendentes para push).
 
-## Critérios de Aceitação
-- Implementação 100% aderente à especificação SemVer 2.0.0.
+## Steps to Reproduce
+
+1. Executar o comando `cccp catalog` no terminal.
+
+## Expected vs Actual
+
+**Expected:** Uma tabela é exibida listando os repositórios, quantidade de tickets abertos e o estado do git/working tree de cada um.
+
+**Actual:** O comando atual não exibe essas informações detalhadas ou não possui esta formatação em tabela.
 
 ---
-## [#75] [rust] feat(git-reader): leitor do repositório local e histórico de tags via gix (Gitoxide)
+## [#67] feat(catalog): adicionar comando cccp catalog add_new --from-src
 - **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/75
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/67
 
 ### Description
-## Contexto
-O CCCP precisa analisar histórico de commits, tags e estado do repositório em frações de milissegundo, sem invocar subprocessos de shell.
+## Description
 
-## Requisitos
-- Utilizar a crate `gix` (Gitoxide, 100% puro Rust) para:
-  - Localizar a raiz do repositório Git a partir do diretório atual.
-  - Ler referências e tags anotadas/leves.
-  - Ler mensagens de commit a partir da última tag de versão até `HEAD`.
-  - Inspecionar status de modificações na working tree (clean/dirty).
+Implementar um novo comando no catalog que permita adicionar todos os itens que estão em `src` com um único comando.
 
-## Critérios de Aceitação
-- Leitura do histórico recente e tags realizada em < 5ms em repositórios com milhares de commits.
+## Steps to Reproduce
+
+1. Executar o comando `cccp catalog add_new --from-src`.
+
+## Expected vs Actual
+
+- Expected: Todos os itens de `src` devem ser adicionados ao catalog de uma só vez.
+- Actual: O comando ainda não existe.
 
 ---

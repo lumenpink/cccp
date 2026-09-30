@@ -308,8 +308,10 @@ mod tests {
 
     #[test]
     fn test_multiple_scopes_disabling() {
-        let mut cfg = Config::default();
-        cfg.disable_multiple_scopes = true;
+        let cfg = Config {
+            disable_multiple_scopes: true,
+            ..Default::default()
+        };
 
         let res = lint_commit_message("feat(ui,api): dual scope", &cfg, false);
         assert!(!res.is_valid);
@@ -321,8 +323,10 @@ mod tests {
 
     #[test]
     fn test_subscopes_disabling() {
-        let mut cfg = Config::default();
-        cfg.disable_subscopes = true;
+        let cfg = Config {
+            disable_subscopes: true,
+            ..Default::default()
+        };
 
         let res = lint_commit_message("feat(ui/button): subscoped", &cfg, false);
         assert!(!res.is_valid);

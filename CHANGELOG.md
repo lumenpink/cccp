@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (cz) wizard interativo de commit de terminal com inquire
   - (lint) analisador sintatico estrito de mensagens de commit (#78)
   - (semver) calculadora preditiva de SemVer 2.0.0 a partir de Conventional Commits (#76)
   - (git-reader) leitor do repositorio local e historico de tags via gix (#75)

@@ -31,10 +31,25 @@ fn main() -> ExitCode {
             if args.verbose > 0 {
                 eprintln!("[cccp] Running cz interactive commit wizard...");
             }
+            let _composed = match cccp::cz::compose_commit(&cz, &config, &theme) {
+                Ok(c) => c,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            if cz.dry_run {
+                println!(
+                    "{} Dry run enabled: commit was not executed.",
+                    theme.gold_bold("★")
+                );
+                return ExitCode::SUCCESS;
+            }
+
             println!(
-                "{} Conventional Commits Wizard (dry_run: {})",
-                theme.gold_bold("★"),
-                cz.dry_run
+                "{} Conventional commit ready for git execution.",
+                theme.green("✓")
             );
             ExitCode::SUCCESS
         }
