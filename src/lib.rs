@@ -7,6 +7,7 @@ pub mod config;
 pub mod cultural;
 pub mod cz;
 pub mod git;
+pub mod hook_runner;
 pub mod hooks_install;
 pub mod lint;
 pub mod semver_calc;

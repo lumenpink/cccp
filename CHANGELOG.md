@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (hook-runner) despachador interno cccp hook commit-msg e pre-push
   - (hooks) gerador de stubs minimos e instalador de hooks
   - (commit-exec) despachador de commit via git cli com gpg e ssh signing
   - (cz) wizard interativo de commit de terminal com inquire

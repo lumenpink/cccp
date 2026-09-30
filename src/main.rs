@@ -282,37 +282,69 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Some(Commands::Hook(hook)) => {
-            match hook.hook {
-                cli::HookSubcommands::CommitMsg { file, source, sha } => {
-                    if args.verbose > 0 {
-                        eprintln!(
-                            "[cccp] Hook commit-msg triggered for file={}, source={:?}, sha={:?}",
-                            file.display(),
-                            source,
-                            sha
-                        );
+        Some(Commands::Hook(hook)) => match hook.hook {
+            cli::HookSubcommands::CommitMsg {
+                file,
+                source: _,
+                sha: _,
+            } => match cccp::hook_runner::run_commit_msg(&file, &config, &theme, args.verbose) {
+                Ok(0) => ExitCode::SUCCESS,
+                Ok(code) => ExitCode::from(code as u8),
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            },
+            cli::HookSubcommands::PrePush { remote, url } => {
+                let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
                     }
-                    println!("Hook: commit-msg check passed for {}", file.display());
-                }
-                cli::HookSubcommands::PrePush { remote, url } => {
-                    if args.verbose > 0 {
-                        eprintln!(
-                            "[cccp] Hook pre-push triggered for remote={:?}, url={:?}",
-                            remote, url
-                        );
+                };
+                match cccp::hook_runner::run_pre_push(
+                    remote.as_deref(),
+                    url.as_deref(),
+                    None,
+                    &repo,
+                    &config,
+                    &theme,
+                    args.verbose,
+                ) {
+                    Ok(0) => ExitCode::SUCCESS,
+                    Ok(code) => ExitCode::from(code as u8),
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
                     }
-                    println!("Hook: pre-push check passed.");
-                }
-                cli::HookSubcommands::PostCommit => {
-                    println!("Hook: post-commit synchronization completed.");
-                }
-                cli::HookSubcommands::ReferenceTransaction { state } => {
-                    println!("Hook: reference-transaction state={:?}", state);
                 }
             }
-            ExitCode::SUCCESS
-        }
+            cli::HookSubcommands::PostCommit => {
+                match cccp::hook_runner::run_post_commit(&theme, args.verbose) {
+                    Ok(0) => ExitCode::SUCCESS,
+                    Ok(code) => ExitCode::from(code as u8),
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            cli::HookSubcommands::ReferenceTransaction { state } => {
+                match cccp::hook_runner::run_reference_transaction(
+                    state.as_deref(),
+                    &theme,
+                    args.verbose,
+                ) {
+                    Ok(0) => ExitCode::SUCCESS,
+                    Ok(code) => ExitCode::from(code as u8),
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        },
         Some(Commands::Tickets(tickets)) => {
             println!(
                 "Syncing tickets from forge (limit: {}, state: {})...",

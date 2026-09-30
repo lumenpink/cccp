@@ -1,7 +1,26 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 11:28:09 UTC
+> Synced at: 2026-09-30 12:04:15 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#87] feat(ai): adicionar suporte ao provedor local Ollama
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/87
+
+### Description
+## Description
+Na branch rust, implementar suporte para utilizar a IA local através do Ollama como alternativa à API do GEMINI.
+
+## Steps to Reproduce
+1. Mudar para a branch rust
+2. Tentar configurar a aplicação para usar uma IA local (Ollama)
+3. Constatar que apenas o GEMINI é suportado
+
+## Expected vs Actual
+Expected: Poder configurar e utilizar o Ollama localmente na branch rust.
+Actual: Apenas o provedor GEMINI está disponível.
+
+---
 ## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
 - **Status**: `open`
 - **Labels**: rust
@@ -84,7 +103,7 @@ Consumo de APIs de forges Git sem dependência externa do binário `curl` ou de 
 
 ---
 ## [#82] [rust] feat(hook-runner): despachador interno cccp hook commit-msg e pre-push
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/82
 
@@ -105,7 +124,7 @@ Ponto de entrada de altíssima performance para os hooks invocados pelo Git.
 
 ---
 ## [#81] [rust] feat(hooks): gerador de stubs mínimos e instalador de hooks (.git/hooks/)
-- **Status**: `closed`
+- **Status**: `open`
 - **Labels**: rust
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/81
 
@@ -123,24 +142,6 @@ O CCCP instala hooks locais no repositório Git para garantir a conformidade dos
 
 ## Critérios de Aceitação
 - Hooks instalados funcionam com qualquer shell POSIX (`/bin/sh`) invocando o binário `cccp`.
-
----
-## [#80] [rust] feat(commit-exec): despachador de commit via Git CLI com suporte a GPG/SSH signing
-- **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/80
-
-### Description
-## Contexto
-Executar o commit mantendo total compatibilidade com assinaturas criptográficas GPG/SSH e agentes locais do usuário.
-
-## Requisitos
-- Após a composição da mensagem no wizard `cccp cz`, invocar o binário `git commit` via `std::process::Command`.
-- Passar a mensagem formatada de forma segura (via arquivo temporário ou stdin) para evitar problemas de escape de shell.
-- Preservar TTY interativo para prompts de senha do SSH-agent ou pinentry do GPG.
-
-## Critérios de Aceitação
-- O commit é assinado corretamente quando `commit.gpgsign = true` estiver habilitado no Git do usuário.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
