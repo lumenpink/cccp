@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Features
+  - (git-reader) leitor do repositorio local e historico de tags via gix (#75)
   - (config) parser hierarquico Gosplan em 4 camadas (.cccprc, XDG, ENV, CLI) (#73)
   - (cultural) modulo estetico Gosplan, banners ASCII e respeito estrito a NO_COLOR (#72)
   - (cli) estruturar arvore de comandos e flags com clap (#71)

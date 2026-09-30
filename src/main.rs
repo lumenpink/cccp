@@ -87,10 +87,47 @@ fn main() -> ExitCode {
         }
         Some(Commands::Status(status)) => {
             println!(
-                "{} CCCP Repository Status: All systems compliant with Conventional Commits 1.0.0 (detailed: {})",
-                theme.red_bold("★"),
-                status.detailed
+                "{} CCCP Repository Status (Gosplan State Inspection)",
+                theme.red_bold("★")
             );
+            match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(repo) => {
+                    println!("  Root Directory : {}", repo.root_dir.display());
+                    println!(
+                        "  Branch         : {}",
+                        repo.branch.as_deref().unwrap_or("HEAD (detached)")
+                    );
+                    println!(
+                        "  HEAD Commit    : {} ({})",
+                        repo.head_short_id, repo.head_date
+                    );
+                    if let Some(ref tag) = repo.latest_tag {
+                        println!("  Latest SemVer  : {} (tag: {})", tag.version, tag.name);
+                    } else {
+                        println!(
+                            "  Latest SemVer  : None (baseline: {})",
+                            config.default_base_version
+                        );
+                    }
+                    println!("  Commits Since  : {}", repo.commits_since_tag.len());
+                    println!(
+                        "  Working Tree   : {}",
+                        if repo.is_dirty {
+                            theme.yellow("dirty (uncommitted changes)")
+                        } else {
+                            theme.green("clean")
+                        }
+                    );
+                    if status.detailed {
+                        for c in &repo.commits_since_tag {
+                            println!("    • {} {}", theme.dim(&c.short_id), c.summary);
+                        }
+                    }
+                }
+                Err(err) => {
+                    eprintln!("  {}: {}", theme.yellow("Warning"), err);
+                }
+            }
             ExitCode::SUCCESS
         }
         Some(Commands::Hook(hook)) => {
