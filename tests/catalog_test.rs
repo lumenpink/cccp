@@ -273,4 +273,70 @@ fn test_scan_and_add_from_src_batch() {
     assert_eq!(loaded2.len(), 2);
 }
 
+#[test]
+fn test_count_open_tickets() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let ag_dir = dir.path().join(".antigravity");
+    fs::create_dir_all(&ag_dir).unwrap();
+
+    let tickets_content = r#"# Active Tickets - testrepo
+## [#1] feat: first ticket
+- **Status**: `open`
+## [#2] fix: second ticket
+- **Status**: `open`
+## [#3] chore: third ticket
+- **Status**: `closed`
+"#;
+    fs::write(ag_dir.join("tickets.md"), tickets_content).unwrap();
+
+    let count = catalog::count_open_tickets(dir.path());
+    assert_eq!(count, 3);
+
+    // Empty dir has 0 tickets
+    let empty_dir = tempdir().expect("Failed to create tempdir");
+    assert_eq!(catalog::count_open_tickets(empty_dir.path()), 0);
+}
+
+#[test]
+fn test_format_catalog_table_rendering() {
+    let summaries = vec![
+        catalog::CatalogRepoSummary {
+            name: "cccp".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "lumenpink/cccp".to_string(),
+            ticket_count: 5,
+            is_clean: Some(true),
+            unpushed: 2,
+            status_label: "clean [↑2]".to_string(),
+            local_path: Some(std::path::PathBuf::from("/home/user/src/cccp")),
+        },
+        catalog::CatalogRepoSummary {
+            name: "remote_tool".to_string(),
+            forge: "github".to_string(),
+            slug: "org/remote_tool".to_string(),
+            ticket_count: 0,
+            is_clean: None,
+            unpushed: 0,
+            status_label: "remote".to_string(),
+            local_path: None,
+        },
+    ];
+
+    let theme = cccp::cultural::Theme::with_color(false);
+    let table = catalog::format_catalog_table(&summaries, &theme);
+
+    assert!(table.contains("REPOSITORY"));
+    assert!(table.contains("FORGE"));
+    assert!(table.contains("TICKETS"));
+    assert!(table.contains("STATUS"));
+    assert!(table.contains("LOCAL PATH"));
+    assert!(table.contains("cccp"));
+    assert!(table.contains("codeberg"));
+    assert!(table.contains("clean [↑2]"));
+    assert!(table.contains("remote_tool"));
+    assert!(table.contains("github"));
+    assert!(table.contains("remote"));
+}
+
+
 

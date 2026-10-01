@@ -1137,22 +1137,14 @@ fn main() -> ExitCode {
                     if entries.is_empty() {
                         println!("{} State Catalog is currently empty.", theme.yellow("★"));
                     } else {
+                        let summaries = cccp::catalog::summarize_catalog(&entries);
                         println!(
-                            "{} Gosplan State Catalog ({} repositories registered):",
+                            "{} Gosplan State Catalog ({} repositories registered):\n",
                             theme.gold_bold("★"),
-                            entries.len()
+                            summaries.len()
                         );
-                        for e in entries {
-                            println!(
-                                "  • {} [{}] ({})",
-                                theme.bold(&e.name),
-                                theme.cyan(&e.forge),
-                                e.slug
-                            );
-                            if !e.description.is_empty() {
-                                println!("    {}", theme.dim(&e.description));
-                            }
-                        }
+                        let table = cccp::catalog::format_catalog_table(&summaries, &theme);
+                        println!("{}", table);
                     }
                     ExitCode::SUCCESS
                 }

@@ -495,4 +495,251 @@ pub fn scan_and_add_from_src(
     Ok(result)
 }
 
+/// Locate local clone path for a catalog entry if it exists on disk
+pub fn find_local_repo_path(entry: &CatalogEntry) -> Option<PathBuf> {
+    // 1. Current directory if matches slug or name
+    if let Ok(cur) = std::env::current_dir() {
+        if cur.join(".git").exists() {
+            if let Some(dir_name) = cur.file_name().and_then(|n| n.to_str()) {
+                if dir_name.eq_ignore_ascii_case(&entry.name) {
+                    return Some(cur);
+                }
+            }
+        }
+    }
+
+    // 2. ~/src/<entry.name>
+    if let Ok(home) = std::env::var("HOME") {
+        let p1 = PathBuf::from(&home).join("src").join(&entry.name);
+        if p1.join(".git").exists() {
+            return Some(p1);
+        }
+
+        // 3. ~/src/<repo> (from slug owner/repo)
+        let repo_part = entry.slug.split('/').nth(1).unwrap_or(&entry.slug);
+        let p2 = PathBuf::from(&home).join("src").join(repo_part);
+        if p2.join(".git").exists() {
+            return Some(p2);
+        }
+    }
+
+    None
+}
+
+/// Count open tickets in a local repository (.antigravity/tickets.md or tickets.md)
+pub fn count_open_tickets(repo_dir: &Path) -> usize {
+    let tickets_path = repo_dir.join(".antigravity").join("tickets.md");
+    let fallback_path = repo_dir.join("tickets.md");
+
+    let target = if tickets_path.is_file() {
+        Some(tickets_path)
+    } else if fallback_path.is_file() {
+        Some(fallback_path)
+    } else {
+        None
+    };
+
+    if let Some(p) = target {
+        if let Ok(content) = fs::read_to_string(p) {
+            return content
+                .lines()
+                .filter(|line| line.starts_with("## [#"))
+                .count();
+        }
+    }
+
+    0
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogRepoSummary {
+    pub name: String,
+    pub forge: String,
+    pub slug: String,
+    pub ticket_count: usize,
+    pub is_clean: Option<bool>, // None if remote
+    pub unpushed: usize,
+    pub status_label: String,   // "clean", "clean [↑4]", "dirty", "dirty [↑2]", "remote"
+    pub local_path: Option<PathBuf>,
+}
+
+/// Gather live status (clean/dirty, unpushed commits, open tickets) for catalog entries
+pub fn summarize_catalog(
+    entries: &[CatalogEntry],
+) -> Vec<CatalogRepoSummary> {
+    entries
+        .iter()
+        .map(|entry| {
+            let local_path = find_local_repo_path(entry);
+            let (ticket_count, is_clean, unpushed, status_label) = if let Some(ref path) = local_path {
+                let tickets = count_open_tickets(path);
+                if let Some(st) = crate::git::inspect_local_status(path) {
+                    let label = match (st.is_clean, st.ahead) {
+                        (true, 0) => "clean".to_string(),
+                        (true, n) => format!("clean [↑{}]", n),
+                        (false, 0) => "dirty".to_string(),
+                        (false, n) => format!("dirty [↑{}]", n),
+                    };
+                    (tickets, Some(st.is_clean), st.ahead, label)
+                } else {
+                    (tickets, None, 0, "unknown".to_string())
+                }
+            } else {
+                (0, None, 0, "remote".to_string())
+            };
+
+            CatalogRepoSummary {
+                name: entry.name.clone(),
+                forge: entry.forge.clone(),
+                slug: entry.slug.clone(),
+                ticket_count,
+                is_clean,
+                unpushed,
+                status_label,
+                local_path,
+            }
+        })
+        .collect()
+}
+
+/// Pretty-format catalog repository summaries into a Gosplan table
+pub fn format_catalog_table(
+    summaries: &[CatalogRepoSummary],
+    theme: &crate::cultural::Theme,
+) -> String {
+    if summaries.is_empty() {
+        return "No repositories registered in catalog.".to_string();
+    }
+
+    let home = std::env::var("HOME").ok();
+    let format_path = |p: &Option<PathBuf>| -> String {
+        match p {
+            Some(path) => {
+                let s = path.to_string_lossy();
+                if let Some(ref h) = home {
+                    if let Some(stripped) = s.strip_prefix(h) {
+                        return format!("~{}", stripped);
+                    }
+                }
+                s.to_string()
+            }
+            None => "-".to_string(),
+        }
+    };
+
+    let h_repo = "REPOSITORY";
+    let h_forge = "FORGE";
+    let h_tickets = "TICKETS";
+    let h_status = "STATUS";
+    let h_path = "LOCAL PATH";
+
+    let mut w_repo = h_repo.chars().count();
+    let mut w_forge = h_forge.chars().count();
+    let mut w_tickets = h_tickets.chars().count();
+    let mut w_status = h_status.chars().count();
+    let mut w_path = h_path.chars().count();
+
+    for s in summaries {
+        w_repo = w_repo.max(s.name.chars().count());
+        w_forge = w_forge.max(s.forge.chars().count());
+        w_tickets = w_tickets.max(s.ticket_count.to_string().chars().count());
+        w_status = w_status.max(s.status_label.chars().count());
+        w_path = w_path.max(format_path(&s.local_path).chars().count());
+    }
+
+    let mut out = String::new();
+
+    // Top border
+    out.push_str(&format!(
+        "┌─{repo}─┬─{forge}─┬─{tickets}─┬─{status}─┬─{path}─┐\n",
+        repo = "─".repeat(w_repo),
+        forge = "─".repeat(w_forge),
+        tickets = "─".repeat(w_tickets),
+        status = "─".repeat(w_status),
+        path = "─".repeat(w_path)
+    ));
+
+    // Header row
+    let pad_r = " ".repeat(w_repo.saturating_sub(h_repo.chars().count()));
+    let pad_f = " ".repeat(w_forge.saturating_sub(h_forge.chars().count()));
+    let pad_t = " ".repeat(w_tickets.saturating_sub(h_tickets.chars().count()));
+    let pad_s = " ".repeat(w_status.saturating_sub(h_status.chars().count()));
+    let pad_p = " ".repeat(w_path.saturating_sub(h_path.chars().count()));
+
+    out.push_str(&format!(
+        "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+        theme.bold(h_repo), pad_r,
+        theme.bold(h_forge), pad_f,
+        pad_t, theme.bold(h_tickets),
+        theme.bold(h_status), pad_s,
+        theme.bold(h_path), pad_p,
+    ));
+
+    // Separator
+    out.push_str(&format!(
+        "├─{repo}─┼─{forge}─┼─{tickets}─┼─{status}─┼─{path}─┤\n",
+        repo = "─".repeat(w_repo),
+        forge = "─".repeat(w_forge),
+        tickets = "─".repeat(w_tickets),
+        status = "─".repeat(w_status),
+        path = "─".repeat(w_path)
+    ));
+
+    // Rows
+    for s in summaries {
+        let path_str = format_path(&s.local_path);
+        let tickets_str = s.ticket_count.to_string();
+
+        let pad_repo = " ".repeat(w_repo.saturating_sub(s.name.chars().count()));
+        let pad_forge = " ".repeat(w_forge.saturating_sub(s.forge.chars().count()));
+        let pad_tickets = " ".repeat(w_tickets.saturating_sub(tickets_str.chars().count()));
+        let pad_status = " ".repeat(w_status.saturating_sub(s.status_label.chars().count()));
+        let pad_path = " ".repeat(w_path.saturating_sub(path_str.chars().count()));
+
+        let styled_status = if s.status_label.starts_with("clean") {
+            theme.green(&s.status_label)
+        } else if s.status_label.starts_with("dirty") {
+            theme.red_bold(&s.status_label)
+        } else {
+            theme.dim(&s.status_label)
+        };
+
+        let styled_tickets = if s.ticket_count > 0 {
+            theme.gold_bold(&tickets_str)
+        } else {
+            theme.dim(&tickets_str)
+        };
+
+        let styled_repo = theme.bold(&s.name);
+        let styled_forge = theme.cyan(&s.forge);
+        let styled_path = if path_str == "-" {
+            theme.dim(&path_str)
+        } else {
+            path_str
+        };
+
+        out.push_str(&format!(
+            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+            styled_repo, pad_repo,
+            styled_forge, pad_forge,
+            pad_tickets, styled_tickets,
+            styled_status, pad_status,
+            styled_path, pad_path,
+        ));
+    }
+
+    // Bottom border
+    out.push_str(&format!(
+        "└─{repo}─┴─{forge}─┴─{tickets}─┴─{status}─┴─{path}─┘",
+        repo = "─".repeat(w_repo),
+        forge = "─".repeat(w_forge),
+        tickets = "─".repeat(w_tickets),
+        status = "─".repeat(w_status),
+        path = "─".repeat(w_path)
+    ));
+
+    out
+}
+
+
 

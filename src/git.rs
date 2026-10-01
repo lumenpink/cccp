@@ -347,6 +347,78 @@ pub fn get_remote_url(repo_dir: &Path) -> Option<String> {
     None
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LocalRepoStatus {
+    pub is_clean: bool,
+    pub ahead: usize,
+    pub behind: usize,
+    pub branch: Option<String>,
+}
+
+/// Inspect local git status (cleanliness, ahead/behind upstream count, branch)
+pub fn inspect_local_status(repo_dir: &Path) -> Option<LocalRepoStatus> {
+    if !repo_dir.join(".git").exists() {
+        return None;
+    }
+
+    let output = std::process::Command::new("git")
+        .args(["status", "--porcelain=v1", "-b"])
+        .current_dir(repo_dir)
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut lines = stdout.lines();
+
+    let mut branch = None;
+    let mut ahead = 0;
+    let mut behind = 0;
+
+    if let Some(branch_line) = lines.next() {
+        let clean = branch_line.trim_start_matches('#').trim();
+        if let Some(bracket_idx) = clean.find('[') {
+            let info_part = &clean[bracket_idx..];
+            if let Some(ahead_match) = info_part.split("ahead ").nth(1) {
+                ahead = ahead_match
+                    .split(|c: char| !c.is_ascii_digit())
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+            }
+            if let Some(behind_match) = info_part.split("behind ").nth(1) {
+                behind = behind_match
+                    .split(|c: char| !c.is_ascii_digit())
+                    .next()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+            }
+        }
+        let bname = clean
+            .split("...")
+            .next()
+            .unwrap_or(clean)
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
+        if !bname.is_empty() {
+            branch = Some(bname.to_string());
+        }
+    }
+
+    let is_clean = lines.next().is_none();
+
+    Some(LocalRepoStatus {
+        is_clean,
+        ahead,
+        behind,
+        branch,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
