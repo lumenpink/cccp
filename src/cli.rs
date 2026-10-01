@@ -419,10 +419,47 @@ pub struct CompletionArgs {
     pub shell: clap_complete::Shell,
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct CatalogFilterArgs {
+    /// Filter repositories by status ('clean', 'dirty', 'unpushed', 'remote')
+    #[arg(short = 's', long = "status")]
+    pub status: Option<String>,
+
+    /// Filter repositories with minimum number of open tickets
+    #[arg(short = 't', long = "tickets", alias = "min-tickets")]
+    pub min_tickets: Option<usize>,
+
+    /// Sort repositories by field ('name', 'tickets', 'status', 'forge')
+    #[arg(long = "sort", default_value = "name")]
+    pub sort: String,
+
+    /// Reverse sort order
+    #[arg(short = 'r', long = "reverse")]
+    pub reverse: bool,
+}
+
+impl CatalogFilterArgs {
+    pub fn merge(&self, sub: &CatalogFilterArgs) -> Self {
+        Self {
+            status: sub.status.clone().or_else(|| self.status.clone()),
+            min_tickets: sub.min_tickets.or(self.min_tickets),
+            sort: if sub.sort != "name" {
+                sub.sort.clone()
+            } else {
+                self.sort.clone()
+            },
+            reverse: sub.reverse || self.reverse,
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct CatalogArgs {
     #[command(subcommand)]
     pub action: Option<CatalogSubcommands>,
+
+    #[command(flatten)]
+    pub filter: CatalogFilterArgs,
 }
 
 #[derive(Debug, Subcommand)]
@@ -448,8 +485,8 @@ pub enum CatalogSubcommands {
         #[arg(long = "from-src", default_missing_value = "~/src", num_args = 0..=1)]
         from_src: Option<String>,
     },
-    /// List all catalog repositories
-    List,
+    /// List all catalog repositories with optional filters and sorting
+    List(CatalogFilterArgs),
 }
 
 #[derive(Debug, Args, Clone)]

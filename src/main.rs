@@ -1132,17 +1132,62 @@ fn main() -> ExitCode {
                         }
                     }
                 }
-                None | Some(cli::CatalogSubcommands::List) => {
+                None => {
                     let entries = cccp::catalog::load_catalog(Some(&config), None);
                     if entries.is_empty() {
                         println!("{} State Catalog is currently empty.", theme.yellow("★"));
                     } else {
-                        let summaries = cccp::catalog::summarize_catalog(&entries);
-                        println!(
-                            "{} Gosplan State Catalog ({} repositories registered):\n",
-                            theme.gold_bold("★"),
-                            summaries.len()
-                        );
+                        let total_count = entries.len();
+                        let mut summaries = cccp::catalog::summarize_catalog(&entries);
+                        cccp::catalog::filter_and_sort_summaries(&mut summaries, &catalog_args.filter);
+
+                        if catalog_args.filter.status.is_some()
+                            || catalog_args.filter.min_tickets.is_some()
+                        {
+                            println!(
+                                "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
+                                theme.gold_bold("★"),
+                                summaries.len(),
+                                total_count
+                            );
+                        } else {
+                            println!(
+                                "{} Gosplan State Catalog ({} repositories registered):\n",
+                                theme.gold_bold("★"),
+                                summaries.len()
+                            );
+                        }
+                        let table = cccp::catalog::format_catalog_table(&summaries, &theme);
+                        println!("{}", table);
+                    }
+                    ExitCode::SUCCESS
+                }
+                Some(cli::CatalogSubcommands::List(list_filter)) => {
+                    let entries = cccp::catalog::load_catalog(Some(&config), None);
+                    if entries.is_empty() {
+                        println!("{} State Catalog is currently empty.", theme.yellow("★"));
+                    } else {
+                        let merged_filter = catalog_args.filter.merge(&list_filter);
+                        let total_count = entries.len();
+                        let mut summaries = cccp::catalog::summarize_catalog(&entries);
+                        cccp::catalog::filter_and_sort_summaries(&mut summaries, &merged_filter);
+
+                        if merged_filter.status.is_some()
+                            || merged_filter.min_tickets.is_some()
+                        {
+                            println!(
+                                "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
+                                theme.gold_bold("★"),
+                                summaries.len(),
+                                total_count
+                            );
+                        } else {
+                            println!(
+                                "{} Gosplan State Catalog ({} repositories registered):\n",
+                                theme.gold_bold("★"),
+                                summaries.len()
+                            );
+                        }
                         let table = cccp::catalog::format_catalog_table(&summaries, &theme);
                         println!("{}", table);
                     }

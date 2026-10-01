@@ -741,5 +741,66 @@ pub fn format_catalog_table(
     out
 }
 
+/// Filter and sort catalog repository summaries according to user criteria
+pub fn filter_and_sort_summaries(
+    summaries: &mut Vec<CatalogRepoSummary>,
+    filter: &crate::cli::CatalogFilterArgs,
+) {
+    // 1. Filter by status
+    if let Some(ref st_filter) = filter.status {
+        let clean_st = st_filter.trim().to_ascii_lowercase();
+        summaries.retain(|s| {
+            match clean_st.as_str() {
+                "clean" => s.status_label.starts_with("clean"),
+                "dirty" => s.status_label.starts_with("dirty"),
+                "unpushed" => s.unpushed > 0,
+                "remote" => s.status_label == "remote" || s.is_clean.is_none(),
+                other => s.status_label.to_ascii_lowercase().contains(other),
+            }
+        });
+    }
+
+    // 2. Filter by minimum tickets
+    if let Some(min_t) = filter.min_tickets {
+        summaries.retain(|s| s.ticket_count >= min_t);
+    }
+
+    // 3. Sort
+    let sort_field = filter.sort.trim().to_ascii_lowercase();
+    match sort_field.as_str() {
+        "tickets" => {
+            summaries.sort_by(|a, b| {
+                b.ticket_count
+                    .cmp(&a.ticket_count)
+                    .then_with(|| a.name.cmp(&b.name))
+            });
+        }
+        "status" => {
+            summaries.sort_by(|a, b| {
+                a.status_label
+                    .cmp(&b.status_label)
+                    .then_with(|| a.name.cmp(&b.name))
+            });
+        }
+        "forge" => {
+            summaries.sort_by(|a, b| {
+                a.forge
+                    .cmp(&b.forge)
+                    .then_with(|| a.name.cmp(&b.name))
+            });
+        }
+        _ => {
+            // Default "name"
+            summaries.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
+        }
+    }
+
+    // 4. Reverse
+    if filter.reverse {
+        summaries.reverse();
+    }
+}
+
+
 
 

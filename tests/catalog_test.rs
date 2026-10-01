@@ -338,5 +338,126 @@ fn test_format_catalog_table_rendering() {
     assert!(table.contains("remote"));
 }
 
+#[test]
+fn test_filter_and_sort_catalog() {
+    let base_summaries = vec![
+        catalog::CatalogRepoSummary {
+            name: "beta".to_string(),
+            forge: "github".to_string(),
+            slug: "org/beta".to_string(),
+            ticket_count: 10,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: Some(std::path::PathBuf::from("/path/beta")),
+        },
+        catalog::CatalogRepoSummary {
+            name: "alpha".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/alpha".to_string(),
+            ticket_count: 2,
+            is_clean: Some(false),
+            unpushed: 3,
+            status_label: "dirty [↑3]".to_string(),
+            local_path: Some(std::path::PathBuf::from("/path/alpha")),
+        },
+        catalog::CatalogRepoSummary {
+            name: "gamma".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/gamma".to_string(),
+            ticket_count: 0,
+            is_clean: None,
+            unpushed: 0,
+            status_label: "remote".to_string(),
+            local_path: None,
+        },
+    ];
+
+    // 1. Filter by status: clean
+    let mut list1 = base_summaries.clone();
+    let f1 = cccp::cli::CatalogFilterArgs {
+        status: Some("clean".to_string()),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list1, &f1);
+    assert_eq!(list1.len(), 1);
+    assert_eq!(list1[0].name, "beta");
+
+    // 2. Filter by status: dirty
+    let mut list2 = base_summaries.clone();
+    let f2 = cccp::cli::CatalogFilterArgs {
+        status: Some("dirty".to_string()),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list2, &f2);
+    assert_eq!(list2.len(), 1);
+    assert_eq!(list2[0].name, "alpha");
+
+    // 3. Filter by status: unpushed
+    let mut list3 = base_summaries.clone();
+    let f3 = cccp::cli::CatalogFilterArgs {
+        status: Some("unpushed".to_string()),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list3, &f3);
+    assert_eq!(list3.len(), 1);
+    assert_eq!(list3[0].name, "alpha");
+
+    // 4. Filter by status: remote
+    let mut list4 = base_summaries.clone();
+    let f4 = cccp::cli::CatalogFilterArgs {
+        status: Some("remote".to_string()),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list4, &f4);
+    assert_eq!(list4.len(), 1);
+    assert_eq!(list4[0].name, "gamma");
+
+    // 5. Filter by min_tickets
+    let mut list5 = base_summaries.clone();
+    let f5 = cccp::cli::CatalogFilterArgs {
+        min_tickets: Some(5),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list5, &f5);
+    assert_eq!(list5.len(), 1);
+    assert_eq!(list5[0].name, "beta");
+
+    // 6. Sort by tickets (descending by default)
+    let mut list6 = base_summaries.clone();
+    let f6 = cccp::cli::CatalogFilterArgs {
+        sort: "tickets".to_string(),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list6, &f6);
+    assert_eq!(list6[0].name, "beta");  // 10
+    assert_eq!(list6[1].name, "alpha"); // 2
+    assert_eq!(list6[2].name, "gamma"); // 0
+
+    // 7. Sort by tickets with reverse
+    let mut list7 = base_summaries.clone();
+    let f7 = cccp::cli::CatalogFilterArgs {
+        sort: "tickets".to_string(),
+        reverse: true,
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list7, &f7);
+    assert_eq!(list7[0].name, "gamma"); // 0
+    assert_eq!(list7[1].name, "alpha"); // 2
+    assert_eq!(list7[2].name, "beta");  // 10
+
+    // 8. Sort by name (alphabetical)
+    let mut list8 = base_summaries.clone();
+    let f8 = cccp::cli::CatalogFilterArgs {
+        sort: "name".to_string(),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut list8, &f8);
+    assert_eq!(list8[0].name, "alpha");
+    assert_eq!(list8[1].name, "beta");
+    assert_eq!(list8[2].name, "gamma");
+}
+
+
 
 
