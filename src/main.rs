@@ -1379,6 +1379,131 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Matraca(matraca_args)) => {
+            match matraca_args.action {
+                Some(cli::MatracaSubcommands::Send(send_args)) => {
+                    let prompt = if send_args.prompt.is_empty() {
+                        use std::io::{IsTerminal, Read};
+                        if !std::io::stdin().is_terminal() {
+                            let mut s = String::new();
+                            let _ = std::io::stdin().read_to_string(&mut s);
+                            s
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        send_args.prompt.join(" ")
+                    };
+                    match cccp::matraca::cmd_matraca_send(
+                        send_args.client_id.as_deref(),
+                        send_args.workspace.as_deref(),
+                        &prompt,
+                        None,
+                    ) {
+                        Ok(resp) => {
+                            println!("{}", resp);
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::MatracaSubcommands::Poll { id }) => {
+                    match cccp::matraca::cmd_matraca_poll(&id, None) {
+                        Ok(resp) => {
+                            println!("{}", resp);
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::MatracaSubcommands::Worker(worker_args)) => {
+                    match cccp::matraca::cmd_matraca_worker(
+                        worker_args.daemon,
+                        worker_args.job_id.as_deref(),
+                        None,
+                    ) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(err) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::MatracaSubcommands::History { limit }) => {
+                    match cccp::matraca::cmd_matraca_history(limit, None) {
+                        Ok(resp) => {
+                            println!("{}", resp);
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::MatracaSubcommands::Status { json }) => {
+                    match cccp::matraca::cmd_matraca_status(json, None) {
+                        Ok(resp) => {
+                            print!("{}", resp);
+                            if !resp.ends_with('\n') {
+                                println!();
+                            }
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::MatracaSubcommands::Clean { days }) => {
+                    match cccp::matraca::cmd_matraca_clean(days, None) {
+                        Ok(resp) => {
+                            println!("{}", resp);
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                None => {
+                    if !matraca_args.prompt.is_empty() {
+                        let prompt = matraca_args.prompt.join(" ");
+                        match cccp::matraca::cmd_matraca_send(None, None, &prompt, None) {
+                            Ok(resp) => {
+                                println!("{}", resp);
+                                ExitCode::SUCCESS
+                            }
+                            Err(err) => {
+                                eprintln!("{}", err);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    } else {
+                        println!("cccp matraca - Mobile & Offline-Tolerant Web REPL for Antigravity (agy)");
+                        println!("=====================================================================\n");
+                        println!("Usage:");
+                        println!("  cccp matraca send [--client-id <id>] [--workspace <dir>] <prompt...>");
+                        println!("  cccp matraca poll <job_id|client_id>");
+                        println!("  cccp matraca worker [--daemon] [--once] [--job-id <id>]");
+                        println!("  cccp matraca history [--limit <N>]");
+                        println!("  cccp matraca status [--json]");
+                        println!("  cccp matraca clean [--days <N>]\n");
+                        println!("Note:");
+                        println!("  Para abrir o Web REPL no navegador/celular, utilize: cccp web");
+                        ExitCode::SUCCESS
+                    }
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

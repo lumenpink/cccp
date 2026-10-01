@@ -17,6 +17,7 @@ pub mod git;
 pub mod hook_runner;
 pub mod hooks_install;
 pub mod lint;
+pub mod matraca;
 pub mod newrepo;
 pub mod semver_calc;
 pub mod serve;

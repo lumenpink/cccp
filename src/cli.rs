@@ -142,6 +142,9 @@ pub enum Commands {
 
     /// Local HTTP preview and documentation server under Gosplan aesthetic
     Serve(ServeArgs),
+
+    /// Mobile & offline-tolerant queue and spool for Antigravity CLI (agy)
+    Matraca(MatracaArgs),
 }
 
 // =============================================================================
@@ -833,6 +836,77 @@ impl From<ServeArgs> for crate::serve::ServeOptions {
     }
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct MatracaArgs {
+    #[command(subcommand)]
+    pub action: Option<MatracaSubcommands>,
+
+    /// Raw prompt to send if no subcommand was specified
+    #[arg(trailing_var_arg = true)]
+    pub prompt: Vec<String>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum MatracaSubcommands {
+    /// Enqueue prompt into FIFO queue (<10ms)
+    Send(MatracaSendArgs),
+    /// Query status and result of a job by ID or client ID
+    Poll {
+        /// Job ID or Client ID to query
+        id: String,
+    },
+    /// Process queued jobs with agy
+    Worker(MatracaWorkerArgs),
+    /// List recently finished or active jobs
+    History {
+        /// Maximum number of messages to return
+        #[arg(short = 'n', long = "limit", default_value = "50")]
+        limit: usize,
+    },
+    /// Show queue health and statistics
+    Status {
+        /// Output status in structured JSON format
+        #[arg(long = "json", action = clap::ArgAction::SetTrue)]
+        json: bool,
+    },
+    /// Clean old completed and failed jobs
+    Clean {
+        /// Number of days to keep jobs (default: 7)
+        #[arg(short = 'd', long = "days", default_value = "7")]
+        days: u64,
+    },
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct MatracaSendArgs {
+    /// Client ID for idempotency tracking
+    #[arg(long = "client-id")]
+    pub client_id: Option<String>,
+
+    /// Target workspace directory (default: current directory)
+    #[arg(long = "workspace")]
+    pub workspace: Option<String>,
+
+    /// Prompt or command for Antigravity
+    #[arg(trailing_var_arg = true)]
+    pub prompt: Vec<String>,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct MatracaWorkerArgs {
+    /// Run worker continuously in daemon mode
+    #[arg(long = "daemon", action = clap::ArgAction::SetTrue)]
+    pub daemon: bool,
+
+    /// Run single pass over pending queue (default)
+    #[arg(long = "once", action = clap::ArgAction::SetTrue)]
+    pub once: bool,
+
+    /// Target specific job ID
+    #[arg(long = "job-id")]
+    pub job_id: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1100,6 +1174,44 @@ mod tests {
                 assert!(opts.quiet);
             }
             _ => panic!("Expected Commands::Serve"),
+        }
+    }
+
+    #[test]
+    fn parse_matraca_args() {
+        let args = Cli::parse_from([
+            "cccp",
+            "matraca",
+            "send",
+            "--client-id",
+            "cid-99",
+            "--workspace",
+            "/tmp/work",
+            "run",
+            "agent",
+            "task",
+        ]);
+        match args.command {
+            Some(Commands::Matraca(matraca)) => match matraca.action {
+                Some(MatracaSubcommands::Send(send_args)) => {
+                    assert_eq!(send_args.client_id.as_deref(), Some("cid-99"));
+                    assert_eq!(send_args.workspace.as_deref(), Some("/tmp/work"));
+                    assert_eq!(send_args.prompt, vec!["run", "agent", "task"]);
+                }
+                _ => panic!("Expected MatracaSubcommands::Send"),
+            },
+            _ => panic!("Expected Commands::Matraca"),
+        }
+
+        let args_poll = Cli::parse_from(["cccp", "matraca", "poll", "job-12345"]);
+        match args_poll.command {
+            Some(Commands::Matraca(matraca)) => match matraca.action {
+                Some(MatracaSubcommands::Poll { id }) => {
+                    assert_eq!(id, "job-12345");
+                }
+                _ => panic!("Expected MatracaSubcommands::Poll"),
+            },
+            _ => panic!("Expected Commands::Matraca"),
         }
     }
 
