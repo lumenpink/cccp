@@ -1261,6 +1261,97 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Agent(agent_args)) => {
+            let start_path = args.dir.as_deref().map(std::path::Path::new);
+            let repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let repo_root = repo.as_ref().map(|r| r.root_dir.as_path()).or(start_path);
+
+            match agent_args.action {
+                Some(cli::AgentSubcommands::Update) | None => {
+                    match cccp::agents::cmd_agent_update(
+                        agent_args.url.as_deref(),
+                        agent_args.file.as_deref(),
+                        repo_root,
+                        &theme,
+                    ) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::AgentSubcommands::Check) => {
+                    match cccp::agents::cmd_agent_check(
+                        agent_args.url.as_deref(),
+                        agent_args.file.as_deref(),
+                        repo_root,
+                        &theme,
+                    ) {
+                        Ok(true) => ExitCode::SUCCESS,
+                        Ok(false) => ExitCode::FAILURE,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::AgentSubcommands::Set { key, value }) => {
+                    match cccp::agents::cmd_agent_set(&key, &value, repo_root) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::AgentSubcommands::Get { key }) => {
+                    match cccp::agents::cmd_agent_get(&key, repo_root) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::AgentSubcommands::Unset { key }) => {
+                    match cccp::agents::cmd_agent_unset(&key, repo_root) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::AgentSubcommands::Fill) => {
+                    match cccp::agents::cmd_agent_fill(
+                        agent_args.url.as_deref(),
+                        agent_args.file.as_deref(),
+                        repo_root,
+                        &theme,
+                    ) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
+        }
+        Some(Commands::SetAv(set_av_args)) => {
+            let start_path = args.dir.as_deref().map(std::path::Path::new);
+            let repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let repo_root = repo.as_ref().map(|r| r.root_dir.as_path()).or(start_path);
+
+            match cccp::agents::cmd_agent_set(&set_av_args.key, &set_av_args.value, repo_root) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

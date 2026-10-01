@@ -127,6 +127,14 @@ pub enum Commands {
     /// Dependency catalog, constraint verification, and ecosystem tools
     #[command(alias = "dependencies", alias = "dep")]
     Deps(DepsArgs),
+
+    /// Generate or update AGENTS.md directives with local variable interpolation
+    #[command(alias = "agents")]
+    Agent(AgentArgs),
+
+    /// Shortcut to configure an agent variable in local .cccprc
+    #[command(name = "set-av", alias = "set_av")]
+    SetAv(SetAvArgs),
 }
 
 // =============================================================================
@@ -638,6 +646,58 @@ pub enum DepsSubcommands {
     },
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct AgentArgs {
+    #[command(subcommand)]
+    pub action: Option<AgentSubcommands>,
+
+    /// URL or local file path for the AGENTS template
+    #[arg(short = 'u', long = "url", global = true)]
+    pub url: Option<String>,
+
+    /// Destination file path for generated AGENTS.md (default: .antigravity/AGENTS.md)
+    #[arg(short = 'f', long = "file", global = true)]
+    pub file: Option<String>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum AgentSubcommands {
+    /// Generate or update AGENTS.md with variable interpolation (default)
+    Update,
+    /// Inspect template variables and verify resolution status
+    #[command(alias = "vars", alias = "list-vars")]
+    Check,
+    /// Set an agent variable in local .cccprc
+    #[command(alias = "set-var")]
+    Set {
+        /// Variable name (e.g. project_name, stack)
+        key: String,
+        /// Variable value
+        value: String,
+    },
+    /// Get the resolved value of an agent variable
+    Get {
+        /// Variable name
+        key: String,
+    },
+    /// Unset an agent variable from local .cccprc
+    Unset {
+        /// Variable name
+        key: String,
+    },
+    /// Interactively prompt for missing variables, then regenerate AGENTS.md
+    #[command(alias = "fill-vars")]
+    Fill,
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct SetAvArgs {
+    /// Variable name (e.g. project_name, stack)
+    pub key: String,
+    /// Variable value
+    pub value: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -807,6 +867,30 @@ mod tests {
                 _ => panic!("Expected DepsSubcommands::Check"),
             },
             _ => panic!("Expected Commands::Deps"),
+        }
+    }
+
+    #[test]
+    fn parse_agent_args() {
+        let args = Cli::parse_from(["cccp", "agent", "set", "project_name", "my-app"]);
+        match args.command {
+            Some(Commands::Agent(agent)) => match agent.action {
+                Some(AgentSubcommands::Set { key, value }) => {
+                    assert_eq!(key, "project_name");
+                    assert_eq!(value, "my-app");
+                }
+                _ => panic!("Expected AgentSubcommands::Set"),
+            },
+            _ => panic!("Expected Commands::Agent"),
+        }
+
+        let args_set_av = Cli::parse_from(["cccp", "set-av", "stack", "rust"]);
+        match args_set_av.command {
+            Some(Commands::SetAv(set_av)) => {
+                assert_eq!(set_av.key, "stack");
+                assert_eq!(set_av.value, "rust");
+            }
+            _ => panic!("Expected Commands::SetAv"),
         }
     }
 

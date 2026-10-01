@@ -2,6 +2,7 @@
 //! Core library crate exposing configuration, CLI models, and cultural modules.
 
 pub mod act;
+pub mod agents;
 pub mod ai;
 pub mod catalog;
 pub mod cli;
