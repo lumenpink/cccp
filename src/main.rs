@@ -1370,6 +1370,15 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Serve(serve_args)) => {
+            match cccp::serve::cmd_serve(serve_args.into(), &theme) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

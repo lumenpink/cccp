@@ -139,6 +139,9 @@ pub enum Commands {
     /// Shortcut to configure an agent variable in local .cccprc
     #[command(name = "set-av", alias = "set_av")]
     SetAv(SetAvArgs),
+
+    /// Local HTTP preview and documentation server under Gosplan aesthetic
+    Serve(ServeArgs),
 }
 
 // =============================================================================
@@ -774,6 +777,62 @@ impl From<NewrepoArgs> for crate::newrepo::NewrepoOptions {
     }
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct ServeArgs {
+    /// Directory to serve (defaults to ./site, ./dist, ./public, or ./)
+    pub path: Option<String>,
+
+    /// Development mode (builder watch, PHP or Node script execution)
+    #[arg(long = "dev", action = clap::ArgAction::SetTrue)]
+    pub dev: bool,
+
+    /// VDNKh demo mode with fixtures and automatic browser launch
+    #[arg(long = "demo", action = clap::ArgAction::SetTrue)]
+    pub demo: bool,
+
+    /// Bind only to loopback interface 127.0.0.1 (default is 0.0.0.0)
+    #[arg(short = 'l', long = "localhost", action = clap::ArgAction::SetTrue)]
+    pub localhost: bool,
+
+    /// Custom IP address for binding
+    #[arg(long = "host")]
+    pub host: Option<String>,
+
+    /// Starting port number (default: 8080)
+    #[arg(short = 'p', long = "port")]
+    pub port: Option<u16>,
+
+    /// Open default browser automatically
+    #[arg(short = 'o', long = "open", action = clap::ArgAction::SetTrue)]
+    pub open: bool,
+
+    /// Quiet mode (suppress per-request access logs)
+    #[arg(short = 'q', long = "quiet", action = clap::ArgAction::SetTrue)]
+    pub quiet: bool,
+}
+
+impl From<ServeArgs> for crate::serve::ServeOptions {
+    fn from(args: ServeArgs) -> Self {
+        let host = if args.localhost {
+            "127.0.0.1".to_string()
+        } else if let Some(h) = args.host {
+            h
+        } else {
+            "0.0.0.0".to_string()
+        };
+
+        Self {
+            target: args.path,
+            dev: args.dev,
+            demo: args.demo,
+            host,
+            port: args.port.unwrap_or(8080),
+            open: args.open,
+            quiet: args.quiet,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1011,6 +1070,36 @@ mod tests {
                 _ => panic!("Expected CatalogSubcommands::New"),
             },
             _ => panic!("Expected Commands::Catalog"),
+        }
+    }
+
+    #[test]
+    fn parse_serve_args() {
+        let args = Cli::parse_from([
+            "cccp",
+            "serve",
+            "./dist",
+            "--port",
+            "9090",
+            "-l",
+            "--open",
+            "--quiet",
+        ]);
+        match args.command {
+            Some(Commands::Serve(serve)) => {
+                assert_eq!(serve.path.as_deref(), Some("./dist"));
+                assert_eq!(serve.port, Some(9090));
+                assert!(serve.localhost);
+                assert!(serve.open);
+                assert!(serve.quiet);
+                let opts: crate::serve::ServeOptions = serve.into();
+                assert_eq!(opts.target.as_deref(), Some("./dist"));
+                assert_eq!(opts.port, 9090);
+                assert_eq!(opts.host, "127.0.0.1");
+                assert!(opts.open);
+                assert!(opts.quiet);
+            }
+            _ => panic!("Expected Commands::Serve"),
         }
     }
 
