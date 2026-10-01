@@ -119,6 +119,10 @@ pub enum Commands {
     /// Manage repository catalog and workspace registry
     #[command(alias = "sync-catalog")]
     Catalog(CatalogArgs),
+
+    /// Local CI runner and pre-push verification gate via act
+    #[command(alias = "ci")]
+    Act(ActArgs),
 }
 
 // =============================================================================
@@ -570,6 +574,31 @@ impl DivaArgs {
     }
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct ActArgs {
+    #[command(subcommand)]
+    pub action: Option<ActSubcommands>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum ActSubcommands {
+    /// Inspect local runner status, Docker daemon, workflows, and logs
+    Status,
+    /// Run local CI workflow with act
+    Run {
+        /// Job name to execute (defaults to CCCP_ACT_JOB or 'test')
+        #[arg(short = 'j', long = "job")]
+        job: Option<String>,
+    },
+    /// Inspect or tail the most recent CI log in .git/act-logs/
+    #[command(alias = "logs")]
+    Log {
+        /// Continuously stream and follow the log output
+        #[arg(short = 'f', long = "follow")]
+        follow: bool,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -692,6 +721,31 @@ mod tests {
                 assert_eq!(prompt.as_deref(), Some("fix css styling"));
             }
             _ => panic!("Expected Commands::Diva"),
+        }
+    }
+
+    #[test]
+    fn parse_act_args() {
+        let args = Cli::parse_from(["cccp", "act", "run", "-j", "lint"]);
+        match args.command {
+            Some(Commands::Act(act)) => match act.action {
+                Some(ActSubcommands::Run { job }) => {
+                    assert_eq!(job.as_deref(), Some("lint"));
+                }
+                _ => panic!("Expected ActSubcommands::Run"),
+            },
+            _ => panic!("Expected Commands::Act"),
+        }
+
+        let args_log = Cli::parse_from(["cccp", "act", "log", "-f"]);
+        match args_log.command {
+            Some(Commands::Act(act)) => match act.action {
+                Some(ActSubcommands::Log { follow }) => {
+                    assert!(follow);
+                }
+                _ => panic!("Expected ActSubcommands::Log"),
+            },
+            _ => panic!("Expected Commands::Act"),
         }
     }
 

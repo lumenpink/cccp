@@ -72,7 +72,7 @@ pub fn run_commit_msg(
 
 /// Handler for the `pre-push` git hook
 pub fn run_pre_push(
-    _remote: Option<&str>,
+    remote: Option<&str>,
     _url: Option<&str>,
     stdin_override: Option<&str>,
     repo: &GitRepo,
@@ -180,12 +180,29 @@ pub fn run_pre_push(
     }
 
     if has_error {
-        Ok(1)
-    } else {
-        if verbose > 0 {
-            println!("{} pre-push checks passed successfully.", theme.green("✓"));
+        return Ok(1);
+    }
+
+    // Run Act local CI gate if applicable
+    let branch = Command::new("git")
+        .args(["symbolic-ref", "--short", "HEAD"])
+        .current_dir(&repo.root_dir)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "HEAD".to_string());
+
+    match crate::act::act_ci_gate(&repo.root_dir, remote.unwrap_or("origin"), &branch, theme, verbose) {
+        Ok(true) => {
+            if verbose > 0 {
+                println!("{} pre-push checks passed successfully.", theme.green("✓"));
+            }
+            Ok(0)
         }
-        Ok(0)
+        Ok(false) => Ok(1),
+        Err(e) => {
+            eprintln!("{}: {}", theme.red_bold("Error"), e);
+            Ok(1)
+        }
     }
 }
 

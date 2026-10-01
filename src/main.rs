@@ -901,8 +901,19 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Push(push)) => {
-            println!("Forwarding push to git with args: {:?}", push.git_args);
-            ExitCode::SUCCESS
+            let mut cmd = std::process::Command::new("git");
+            cmd.arg("push");
+            if !push.git_args.is_empty() {
+                cmd.args(&push.git_args);
+            }
+            match cmd.status() {
+                Ok(status) if status.success() => ExitCode::SUCCESS,
+                Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
+                Err(e) => {
+                    eprintln!("Error executing git push: {}", e);
+                    ExitCode::FAILURE
+                }
+            }
         }
         Some(Commands::Config(cfg)) => {
             if cfg.list {
@@ -1177,6 +1188,39 @@ fn main() -> ExitCode {
                         println!("{}", table);
                     }
                     ExitCode::SUCCESS
+                }
+            }
+        }
+        Some(Commands::Act(act_args)) => {
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            match act_args.action {
+                Some(cli::ActSubcommands::Status) | None => {
+                    cccp::act::run_act_status(&repo.root_dir);
+                    ExitCode::SUCCESS
+                }
+                Some(cli::ActSubcommands::Run { job }) => {
+                    match cccp::act::run_act_run(&repo.root_dir, job.as_deref(), &theme, args.verbose) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::ActSubcommands::Log { follow }) => {
+                    match cccp::act::run_act_log(&repo.root_dir, follow, &theme) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
                 }
             }
         }

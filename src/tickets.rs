@@ -92,7 +92,7 @@ pub fn format_utc_now() -> String {
     )
 }
 
-fn days_to_ymd(days_since_epoch: u64) -> (u32, u32, u32) {
+pub fn days_to_ymd(days_since_epoch: u64) -> (u32, u32, u32) {
     let z = days_since_epoch + 719468;
     let era = z / 146097;
     let doe = z - era * 146097;
