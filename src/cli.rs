@@ -441,6 +441,13 @@ pub enum CatalogSubcommands {
         #[arg(short = 'd', long = "description")]
         description: Option<String>,
     },
+    /// Scan source directory and add all local git repositories to the catalog
+    #[command(alias = "add_new")]
+    AddNew {
+        /// Source directory to scan for git repositories (defaults to ~/src if flag is given without argument)
+        #[arg(long = "from-src", default_missing_value = "~/src", num_args = 0..=1)]
+        from_src: Option<String>,
+    },
     /// List all catalog repositories
     List,
 }

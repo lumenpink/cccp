@@ -1081,6 +1081,57 @@ fn main() -> ExitCode {
                         }
                     }
                 }
+                Some(cli::CatalogSubcommands::AddNew { from_src }) => {
+                    let raw_path = from_src.unwrap_or_else(|| "~/src".to_string());
+                    let target_dir = cccp::catalog::expand_tilde(&raw_path);
+                    match cccp::catalog::scan_and_add_from_src(&target_dir, Some(&config)) {
+                        Ok(res) => {
+                            println!(
+                                "{} Comrade! Ingested repositories from '{}' into State Catalog ({})",
+                                theme.gold_bold("★"),
+                                target_dir.display(),
+                                res.catalog_path.display()
+                            );
+                            println!(
+                                "  • Total directories scanned: {}",
+                                theme.bold(&res.total_scanned.to_string())
+                            );
+                            println!(
+                                "  • Newly registered:          {}",
+                                theme.green(&res.added.len().to_string())
+                            );
+                            if !res.skipped_existing.is_empty() {
+                                println!(
+                                    "  • Already registered:        {}",
+                                    theme.yellow(&res.skipped_existing.len().to_string())
+                                );
+                            }
+                            if !res.skipped_not_git_or_remote.is_empty() {
+                                println!(
+                                    "  • Skipped (no git/remote):   {}",
+                                    theme.dim(&res.skipped_not_git_or_remote.len().to_string())
+                                );
+                            }
+
+                            if !res.added.is_empty() {
+                                println!("\n{} Newly Registered Repositories:", theme.gold_bold("★"));
+                                for item in &res.added {
+                                    println!(
+                                        "    • {} [{}] ({})",
+                                        theme.bold(&item.name),
+                                        theme.cyan(&item.forge),
+                                        item.slug
+                                    );
+                                }
+                            }
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
                 None | Some(cli::CatalogSubcommands::List) => {
                     let entries = cccp::catalog::load_catalog(Some(&config), None);
                     if entries.is_empty() {

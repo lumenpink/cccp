@@ -276,6 +276,77 @@ fn format_date_now() -> String {
     format_timestamp_yyyymmdd(now)
 }
 
+/// Extract the remote URL (origin or first remote) from a git repository directory
+pub fn get_remote_url(repo_dir: &Path) -> Option<String> {
+    // 1. Direct inspection of .git/config (zero subprocess overhead)
+    let git_path = repo_dir.join(".git");
+    let config_path = if git_path.is_dir() {
+        Some(git_path.join("config"))
+    } else if git_path.is_file() {
+        // Worktree or submodule: gitdir: <path>
+        if let Ok(content) = std::fs::read_to_string(&git_path) {
+            let line = content.lines().next().unwrap_or("").trim();
+            if let Some(target) = line.strip_prefix("gitdir:") {
+                let target_path = target.trim();
+                let p = if Path::new(target_path).is_absolute() {
+                    PathBuf::from(target_path)
+                } else {
+                    repo_dir.join(target_path)
+                };
+                Some(p.join("config"))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(ref cfg_file) = config_path {
+        if let Ok(content) = std::fs::read_to_string(cfg_file) {
+            let mut in_origin = false;
+            let mut fallback_url = None;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    in_origin = trimmed.eq_ignore_ascii_case(r#"[remote "origin"]"#);
+                } else if let Some(url_part) = trimmed.strip_prefix("url =") {
+                    let u = url_part.trim().to_string();
+                    if in_origin {
+                        return Some(u);
+                    }
+                    if fallback_url.is_none() {
+                        fallback_url = Some(u);
+                    }
+                }
+            }
+
+            if let Some(u) = fallback_url {
+                return Some(u);
+            }
+        }
+    }
+
+    // 2. Fallback to git subprocess if config was not directly readable
+    let output = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(repo_dir)
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !stdout.is_empty() {
+            return Some(stdout);
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

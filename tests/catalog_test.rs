@@ -216,3 +216,61 @@ fn test_catalog_entry_serialization_full_fields() {
     assert_eq!(deserialized[0], entry);
 }
 
+#[test]
+fn test_scan_and_add_from_src_batch() {
+    let base_dir = tempdir().expect("Failed to create tempdir");
+    let src_mock = base_dir.path().join("src");
+    fs::create_dir_all(&src_mock).unwrap();
+
+    // Repo 1: Codeberg
+    let repo_a = src_mock.join("tool_a");
+    let git_a = repo_a.join(".git");
+    fs::create_dir_all(&git_a).unwrap();
+    fs::write(
+        git_a.join("config"),
+        "[core]\n\trepositoryformatversion = 0\n[remote \"origin\"]\n\turl = https://codeberg.org/lumenpink/tool_a.git\n",
+    )
+    .unwrap();
+
+    // Repo 2: GitHub
+    let repo_b = src_mock.join("tool_b");
+    let git_b = repo_b.join(".git");
+    fs::create_dir_all(&git_b).unwrap();
+    fs::write(
+        git_b.join("config"),
+        "[core]\n\trepositoryformatversion = 0\n[remote \"origin\"]\n\turl = git@github.com:someone/tool_b.git\n",
+    )
+    .unwrap();
+
+    // Directory without git
+    let not_git = src_mock.join("just_a_folder");
+    fs::create_dir_all(&not_git).unwrap();
+
+    // Plain file in src
+    fs::write(src_mock.join("README.md"), "# Mock src root").unwrap();
+
+    let cat_path = base_dir.path().join("catalog.json");
+    let mut config = cccp::config::Config::default();
+    config.catalog_file = Some(cat_path.to_string_lossy().to_string());
+
+    // First scan: should add both repos
+    let res = catalog::scan_and_add_from_src(&src_mock, Some(&config)).unwrap();
+    assert_eq!(res.added.len(), 2);
+    assert_eq!(res.skipped_existing.len(), 0);
+    assert_eq!(res.skipped_not_git_or_remote.len(), 1); // just_a_folder
+
+    let loaded = catalog::load_catalog(Some(&config), None);
+    assert_eq!(loaded.len(), 2);
+    assert!(loaded.iter().any(|e| e.slug == "lumenpink/tool_a" && e.forge == "codeberg"));
+    assert!(loaded.iter().any(|e| e.slug == "someone/tool_b" && e.forge == "github"));
+
+    // Second scan: idempotency check (all existing should be skipped)
+    let res2 = catalog::scan_and_add_from_src(&src_mock, Some(&config)).unwrap();
+    assert_eq!(res2.added.len(), 0);
+    assert_eq!(res2.skipped_existing.len(), 2);
+
+    let loaded2 = catalog::load_catalog(Some(&config), None);
+    assert_eq!(loaded2.len(), 2);
+}
+
+

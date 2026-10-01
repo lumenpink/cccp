@@ -59,7 +59,7 @@ impl CatalogEntry {
     }
 }
 
-fn expand_tilde(path: &str) -> PathBuf {
+pub fn expand_tilde(path: &str) -> PathBuf {
     if path == "~" {
         if let Ok(home) = std::env::var("HOME") {
             return PathBuf::from(home);
@@ -382,4 +382,117 @@ pub fn add_remote_repo(
     let save_path = save_catalog(&catalog, config)?;
     Ok((entry, save_path, is_updated))
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct BatchAddResult {
+    pub total_scanned: usize,
+    pub added: Vec<CatalogEntry>,
+    pub skipped_existing: Vec<String>,
+    pub skipped_not_git_or_remote: Vec<String>,
+    pub catalog_path: PathBuf,
+}
+
+/// Scan a source directory (e.g. ~/src) and register all git repositories into the catalog
+pub fn scan_and_add_from_src(
+    src_dir: &Path,
+    config: Option<&crate::config::Config>,
+) -> Result<BatchAddResult, String> {
+    if !src_dir.is_dir() {
+        return Err(format!(
+            "Source directory does not exist or is not a directory: '{}'",
+            src_dir.display()
+        ));
+    }
+
+    let mut catalog = load_catalog(config, None);
+    let forge_client = crate::forges::ForgeClient::new();
+    let mut result = BatchAddResult::default();
+
+    let read_dir = fs::read_dir(src_dir)
+        .map_err(|e| format!("Failed to read source directory '{}': {}", src_dir.display(), e))?;
+
+    let mut dir_entries: Vec<PathBuf> = read_dir
+        .filter_map(|e| e.ok().map(|de| de.path()))
+        .filter(|p| p.is_dir())
+        .collect();
+
+    // Sort alphabetically for deterministic ordering
+    dir_entries.sort();
+
+    for dir in dir_entries {
+        result.total_scanned += 1;
+        let dir_name = match dir.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+
+        // Check if directory is a git repository and has a remote URL
+        let remote_url = match crate::git::get_remote_url(&dir) {
+            Some(u) => u,
+            None => {
+                result.skipped_not_git_or_remote.push(dir_name);
+                continue;
+            }
+        };
+
+        let info = match crate::forges::parse_remote_url(&remote_url) {
+            Some(i) => i,
+            None => {
+                result.skipped_not_git_or_remote.push(dir_name);
+                continue;
+            }
+        };
+
+        let forge_name = match info.provider {
+            ForgeType::GitHub => "github",
+            ForgeType::GitLab => "gitlab",
+            ForgeType::Codeberg | ForgeType::Forgejo => {
+                if info.host.eq_ignore_ascii_case("codeberg.org") {
+                    "codeberg"
+                } else {
+                    "forgejo"
+                }
+            }
+        }
+        .to_string();
+
+        let slug = format!("{}/{}", info.owner, info.repo);
+
+        // Check if already in catalog (by slug + forge or slug)
+        if catalog.iter().any(|e| {
+            e.slug.eq_ignore_ascii_case(&slug)
+                && (e.forge.is_empty() || e.forge.eq_ignore_ascii_case(&forge_name))
+        }) {
+            result.skipped_existing.push(dir_name);
+            continue;
+        }
+
+        // Fetch remote metadata (graceful fallback if unavailable)
+        let remote_meta = forge_client.fetch_repo_metadata(&info).unwrap_or_default();
+
+        let entry = CatalogEntry {
+            name: dir_name,
+            forge: forge_name,
+            slug,
+            description: remote_meta.description,
+            topics: remote_meta.topics,
+            license: remote_meta.license,
+            website: remote_meta.website,
+            is_upstream: false,
+        };
+
+        catalog.push(entry.clone());
+        result.added.push(entry);
+    }
+
+    if !result.added.is_empty() {
+        result.catalog_path = save_catalog(&catalog, config)?;
+    } else {
+        result.catalog_path =
+            find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
+    }
+
+    Ok(result)
+}
+
 
