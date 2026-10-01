@@ -1,4 +1,7 @@
-use cccp::forges::{parse_issues_json, parse_prs_json, parse_remote_url, resolve_token, ForgeType};
+use cccp::forges::{
+    host_to_token_env_var, parse_issues_json, parse_prs_json, parse_remote_url, resolve_token,
+    resolve_token_for_host, ForgeType,
+};
 use serde_json::json;
 
 #[test]
@@ -175,4 +178,20 @@ fn test_parse_prs_json_unified() {
     assert_eq!(prs[0].author, "stakhanov");
     assert_eq!(prs[0].source_branch, "feat/stakhanov");
     assert_eq!(prs[0].target_branch, "main");
+}
+
+#[test]
+fn test_host_to_token_env_var() {
+    assert_eq!(host_to_token_env_var("codeberg.org"), "CODEBERG_ORG_TOKEN");
+    assert_eq!(host_to_token_env_var("tildegit.org"), "TILDEGIT_ORG_TOKEN");
+    assert_eq!(host_to_token_env_var("github.com"), "GITHUB_COM_TOKEN");
+    assert_eq!(host_to_token_env_var("git.my-domain.net"), "GIT_MY_DOMAIN_NET_TOKEN");
+}
+
+#[test]
+fn test_resolve_token_for_host_domain_precedence() {
+    std::env::set_var("TEST_FORGE_NET_TOKEN", "domain_secret_123");
+    let resolved = resolve_token_for_host("test.forge.net", ForgeType::Codeberg, None);
+    assert_eq!(resolved.as_deref(), Some("domain_secret_123"));
+    std::env::remove_var("TEST_FORGE_NET_TOKEN");
 }

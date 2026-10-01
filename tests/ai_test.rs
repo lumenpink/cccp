@@ -192,3 +192,26 @@ fn test_build_enriched_context() {
     assert!(ctx.contains("Configured commit types: feat, fix"));
     assert!(ctx.contains("Configured commit scopes: cli, ai"));
 }
+
+#[test]
+fn test_check_access_gemini() {
+    let config = Config::default();
+    let client_no_key = AiClient::from_config(&config)
+        .with_provider(AiProvider::Gemini)
+        .with_api_key_opt(None);
+    let err = client_no_key.check_access().unwrap_err();
+    assert!(err.contains("GEMINI_API_KEY is not configured"));
+
+    let client_with_key = client_no_key.with_api_key("some_valid_key");
+    assert!(client_with_key.check_access().is_ok());
+}
+
+#[test]
+fn test_check_access_ollama_offline_fail_fast() {
+    let config = Config::default();
+    let client_offline = AiClient::from_config(&config)
+        .with_provider(AiProvider::Ollama)
+        .with_host("http://127.0.0.1:59999"); // Unused port to trigger connection error
+    let err = client_offline.check_access().unwrap_err();
+    assert!(err.contains("Cannot connect to Ollama at http://127.0.0.1:59999"));
+}

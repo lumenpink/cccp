@@ -89,12 +89,18 @@ impl AiClient {
             .build();
         let agent = ureq::Agent::new_with_config(ureq_cfg);
 
-        let api_key = config.gemini_api_key.clone().or_else(|| {
-            std::env::var("GEMINI_API_KEY")
-                .or_else(|_| std::env::var("gemini_api_key"))
-                .ok()
-                .filter(|s| !s.trim().is_empty())
-        });
+        let api_key = config
+            .gemini_api_key
+            .clone()
+            .or_else(|| config.extra.get("gemini_api_key").cloned())
+            .or_else(|| {
+                std::env::var("GEMINI_API_KEY")
+                    .or_else(|_| std::env::var("gemini_api_key"))
+                    .or_else(|_| std::env::var("GOOGLE_API_KEY"))
+                    .or_else(|_| std::env::var("google_api_key"))
+                    .ok()
+            })
+            .filter(|s| !s.trim().is_empty());
 
         Self {
             provider,
@@ -103,6 +109,39 @@ impl AiClient {
             temperature,
             api_key,
             agent,
+        }
+    }
+
+    /// Fail-fast verification of AI provider credentials and connectivity
+    pub fn check_access(&self) -> Result<(), String> {
+        match self.provider {
+            AiProvider::Gemini => match &self.api_key {
+                Some(k) if !k.trim().is_empty() => Ok(()),
+                _ => Err(
+                    "GEMINI_API_KEY is not configured. Export GEMINI_API_KEY (or GOOGLE_API_KEY) in ~/.env or environment, or switch to Ollama (-po / --ollama)."
+                        .to_string(),
+                ),
+            },
+            AiProvider::Ollama => {
+                let ping_url = format!("{}/api/tags", self.host.trim_end_matches('/'));
+                let ping_agent = ureq::Agent::new_with_config(
+                    ureq::config::Config::builder()
+                        .timeout_global(Some(Duration::from_secs(2)))
+                        .build(),
+                );
+                match ping_agent.get(&ping_url).call() {
+                    Ok(resp) if resp.status().is_success() => Ok(()),
+                    Ok(resp) => Err(format!(
+                        "Ollama server at {} returned HTTP status {}.",
+                        self.host,
+                        resp.status()
+                    )),
+                    Err(e) => Err(format!(
+                        "Cannot connect to Ollama at {}: {}. Make sure the Ollama daemon is running ('ollama serve') or switch to Gemini (-pg / --gemini).",
+                        self.host, e
+                    )),
+                }
+            }
         }
     }
 
@@ -133,6 +172,12 @@ impl AiClient {
     /// Override Gemini API key
     pub fn with_api_key(mut self, key: impl Into<String>) -> Self {
         self.api_key = Some(key.into());
+        self
+    }
+
+    /// Override Gemini API key with optional string
+    pub fn with_api_key_opt(mut self, key: Option<String>) -> Self {
+        self.api_key = key;
         self
     }
 

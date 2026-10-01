@@ -142,20 +142,80 @@ pub fn detect_forge_from_repo(repo: &GitRepo) -> Result<RepoForgeInfo, String> {
     parse_remote_url(&url).ok_or_else(|| format!("Could not parse remote URL '{}'", url))
 }
 
+/// Helper: Convert a forge host to its canonical domain-based environment variable name.
+/// E.g. "codeberg.org" -> "CODEBERG_ORG_TOKEN", "tildegit.org" -> "TILDEGIT_ORG_TOKEN", "github.com" -> "GITHUB_COM_TOKEN"
+pub fn host_to_token_env_var(host: &str) -> String {
+    let clean = host
+        .trim()
+        .replace('.', "_")
+        .replace('-', "_")
+        .to_ascii_uppercase();
+    format!("{}_TOKEN", clean)
+}
+
+/// Resolves the authentication token for a specific forge host and provider
+pub fn resolve_token_for_host(
+    host: &str,
+    provider: ForgeType,
+    config: Option<&crate::config::Config>,
+) -> Option<String> {
+    let domain_var = host_to_token_env_var(host);
+
+    // 1. Domain-based environment variable (e.g. CODEBERG_ORG_TOKEN, GITHUB_COM_TOKEN)
+    if let Ok(tok) = std::env::var(&domain_var) {
+        let trimmed = tok.trim().to_string();
+        if !trimmed.is_empty() {
+            return Some(trimmed);
+        }
+    }
+
+    // 2. Generic provider environment variables
+    let provider_vars: &[&str] = match provider {
+        ForgeType::Codeberg | ForgeType::Forgejo => {
+            &["CODEBERG_TOKEN", "FORGEJO_TOKEN", "GITEA_TOKEN", "TEA_TOKEN"]
+        }
+        ForgeType::GitHub => &["GITHUB_TOKEN", "GH_TOKEN"],
+        ForgeType::GitLab => &["GITLAB_TOKEN", "GL_TOKEN"],
+    };
+
+    for var_name in provider_vars {
+        if let Ok(tok) = std::env::var(var_name) {
+            let trimmed = tok.trim().to_string();
+            if !trimmed.is_empty() {
+                return Some(trimmed);
+            }
+        }
+    }
+
+    // 3. Check loaded Config extra hashmap (.cccprc, ~/.env, .env)
+    if let Some(cfg) = config {
+        let domain_key = domain_var.to_ascii_lowercase();
+        if let Some(tok) = cfg.extra.get(&domain_key) {
+            if !tok.trim().is_empty() {
+                return Some(tok.trim().to_string());
+            }
+        }
+        for var_name in provider_vars {
+            let k = var_name.to_ascii_lowercase();
+            if let Some(tok) = cfg.extra.get(&k) {
+                if !tok.trim().is_empty() {
+                    return Some(tok.trim().to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Resolves the authentication token from environment variables based on the forge type
 pub fn resolve_token(provider: ForgeType) -> Option<String> {
-    match provider {
-        ForgeType::Codeberg | ForgeType::Forgejo => std::env::var("CODEBERG_TOKEN")
-            .or_else(|_| std::env::var("FORGEJO_TOKEN"))
-            .or_else(|_| std::env::var("GITEA_TOKEN"))
-            .ok(),
-        ForgeType::GitHub => std::env::var("GITHUB_TOKEN")
-            .or_else(|_| std::env::var("GH_TOKEN"))
-            .ok(),
-        ForgeType::GitLab => std::env::var("GITLAB_TOKEN")
-            .or_else(|_| std::env::var("GL_TOKEN"))
-            .ok(),
-    }
+    let default_host = match provider {
+        ForgeType::Codeberg | ForgeType::Forgejo => "codeberg.org",
+        ForgeType::GitHub => "github.com",
+        ForgeType::GitLab => "gitlab.com",
+    };
+    resolve_token_for_host(default_host, provider, None)
 }
 
 pub struct ForgeClient {
@@ -233,7 +293,7 @@ impl ForgeClient {
             .header("User-Agent", "cccp/3.0.0")
             .header("Accept", "application/json");
 
-        if let Some(token) = resolve_token(info.provider) {
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
             match info.provider {
                 ForgeType::Codeberg | ForgeType::Forgejo => {
                     req = req.header("Authorization", &format!("token {}", token));
@@ -325,7 +385,7 @@ impl ForgeClient {
             .header("User-Agent", "cccp/3.0.0")
             .header("Accept", "application/json");
 
-        if let Some(token) = resolve_token(info.provider) {
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
             match info.provider {
                 ForgeType::Codeberg | ForgeType::Forgejo => {
                     req = req.header("Authorization", &format!("token {}", token));
@@ -369,10 +429,12 @@ impl ForgeClient {
         body: &str,
         _labels: &[String],
     ) -> Result<CreatedIssueInfo, String> {
-        let token = resolve_token(info.provider).ok_or_else(|| {
+        let token = resolve_token_for_host(&info.host, info.provider, None).ok_or_else(|| {
             format!(
-                "No authentication token found for forge {} ({}). Set CODEBERG_TOKEN, GITHUB_TOKEN, or GITLAB_TOKEN in ~/.env or environment.",
-                info.provider, info.host
+                "No authentication token found for forge {} ({}). Set {} in ~/.env, .cccprc, or environment.",
+                info.provider,
+                info.host,
+                host_to_token_env_var(&info.host)
             )
         })?;
 

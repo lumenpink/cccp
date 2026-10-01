@@ -1,66 +1,86 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 14:02:05 UTC
+> Synced at: 2026-09-30 22:54:52 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#87] feat(ai): adicionar suporte ao provedor local Ollama
-- **Status**: `closed`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/87
-
-### Description
-## Description
-Na branch rust, implementar suporte para utilizar a IA local através do Ollama como alternativa à API do GEMINI.
-
-## Steps to Reproduce
-1. Mudar para a branch rust
-2. Tentar configurar a aplicação para usar uma IA local (Ollama)
-3. Constatar que apenas o GEMINI é suportado
-
-## Expected vs Actual
-Expected: Poder configurar e utilizar o Ollama localmente na branch rust.
-Actual: Apenas o provedor GEMINI está disponível.
-
----
-## [#86] [rust] feat(installer): script de bootstrap para cccp.2lp.in com download do binário estático
-- **Status**: `closed`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/86
-
-### Description
-## Contexto
-Manter a experiência de instalação em 1 linha (`curl -fsSL https://cccp.2lp.in | sh`) baixando o binário estático compilado.
-
-## Requisitos
-- Atualizar o script de instalação servido em `site/install.sh`:
-  - Detectar `OS` (`Linux`, `Darwin`) e `ARCH` (`x86_64`, `aarch64`, `armv7l`).
-  - Buscar a última release do Codeberg.
-  - Baixar o binário estático correspondente.
-  - Instalar em `~/.local/bin/cccp` com permissão de execução.
-- Validar integridade via hash SHA-256.
-
-## Critérios de Aceitação
-- Executar `curl -fsSL https://cccp.2lp.in | sh` instala o binário funcional em qualquer distribuição Linux ou macOS.
-
----
-## [#85] [rust] ci(build): workflow de compilação estática musl multiplataforma
+## [#105] refactor(legacy): remover scripts shell legados (bin/cccp, src/utils, src/hooks) apos paridade com Rust
 - **Status**: `open`
-- **Labels**: rust
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/85
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/105
 
 ### Description
-## Contexto
-Automatizar a compilação contínua e release de binários estáticos no Codeberg Actions / Forgejo Actions.
+Remover todos os scripts legados em shell do repositorio (bin/cccp, src/utils/*.sh, src/hooks/*.sh, src/main.sh, src/config/*.sh) assim que todos os subcomandos e funcionalidades forem integralmente portados para Rust nativo e todos os testes estiverem passando com 100% de paridade.
 
-## Requisitos
-- Criar `.forgejo/workflows/release.yaml`:
-  - Compilação estática para `x86_64-unknown-linux-musl`.
-  - Compilação estática para `aarch64-unknown-linux-musl` (ARM64).
-  - Compilação nativa para macOS `x86_64` e `aarch64` (Apple Silicon).
-- Gerar checksums SHA-256 de todos os artefatos gerados.
-- Anexar os binários aos releases de tags do repositório.
+---
+## [#104] feat(update): implementar verificacao e auto-atualizacao do binario nativo em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/104
 
-## Critérios de Aceitação
-- Releases geram automaticamente binários executáveis prontos para download.
+### Description
+Implementar os comandos cccp update e cccp check-update nativamente em Rust (src/update.rs), substituindo src/utils/update.sh. Suportar consulta a releases no Codeberg/forge configurada, comparacao SemVer da versao instalada versus disponivel, e atualizacao atomica do binario.
+
+---
+## [#103] feat(web): implementar interface web local e painel de controle Gosplan em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/103
+
+### Description
+Implementar o comando cccp web / cccp cockpit nativamente em Rust (src/web.rs), substituindo src/utils/web.sh. Suportar servidor web embutido fornecendo dashboard com autenticacao por token para acompanhamento de status do repositorio, tickets, explorador e interface para Matraca e Diva.
+
+---
+## [#102] feat(matraca): implementar motor de filas e REPL offline/movel para Antigravity em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/102
+
+### Description
+Implementar o comando cccp matraca nativamente em Rust (src/matraca.rs), substituindo src/utils/matraca.sh. Suportar fila persistente baseada no filesystem (~/.local/share/cccp/matraca/), comandos send, poll, worker, status, history e clean para comunicacao com Antigravity CLI (agy).
+
+---
+## [#101] feat(serve): implementar servidor HTTP local para preview e documentacao em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/101
+
+### Description
+Implementar o comando cccp serve nativamente em Rust (src/serve.rs), substituindo src/utils/serve.sh. Suportar servidor HTTP estatico embutido sem dependencias externas para servir documentacao ou build local (site/, dist/, public/ ou diretorio atual) com suporte a definicao de porta, bind de interface e abertura no navegador.
+
+---
+## [#100] feat(newrepo): implementar motor de scaffolding de repositorios padrao GOST em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/100
+
+### Description
+Implementar o comando cccp newrepo nativamente em Rust (src/newrepo.rs), substituindo src/utils/newrepo.sh. Suportar criacao de novos repositorios ou adequacao de diretorios existentes ao padrao GOST com geracao de .cccprc, .gitignore, VERSION, CHANGELOG.md, LICENSE, README.md, workflow de CI e instalacao de hooks.
+
+---
+## [#99] feat(agents): implementar sincronizacao de AGENTS.md e variaveis de agentes em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/99
+
+### Description
+Implementar os comandos cccp agents e cccp set-av nativamente em Rust (src/agents.rs), substituindo src/utils/agents.sh. Suportar sincronizacao/download do template AGENTS_template.md, interpolacao de variaveis {{VAR}} configuradas em .cccprc, e comandos get/set/unset de variaveis de agentes.
+
+---
+## [#98] feat(deps): implementar verificador e catalogo de dependencias do sistema em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/98
+
+### Description
+Implementar o comando cccp deps nativamente em Rust (src/deps.rs), substituindo src/utils/deps.sh. Suportar listagem, checagem e verificacao de versoes minimas de dependencias do ecossistema (git, act, docker, curl, etc.) com saida em tabela e formatacao amigavel.
+
+---
+## [#97] feat(act): implementar executor de CI local e pre-push gate com act em Rust
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/97
+
+### Description
+Implementar o comando cccp act nativamente em Rust (src/act.rs), substituindo src/utils/act.sh. Suportar deteccao de act/docker, execucao de workflows locais (.forgejo/workflows ou .github/workflows), exibicao de logs (.git/act-logs/) e checagem de status.
 
 ---
 ## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
@@ -169,45 +189,5 @@ Atualmente, o comando `catalog add_repo` exige que o repositório já esteja clo
 ## Expected vs Actual
 - **Expected:** O repositório é adicionado ao catálogo, baixado ou referenciado corretamente de forma remota.
 - **Actual:** O comando falha por não encontrar o repositório clonado localmente.
-
----
-## [#64] fix(deps): corrigir erro de shift na linha 12991
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/64
-
-### Description
-## Description
-O comando `cccp deps` está apresentando um erro de execução na linha 12991 com a mensagem `shift: cant shif that many`.
-
-## Steps to Reproduce
-1. Executar o comando `cccp deps` no repositório.
-2. Observar o erro impresso no terminal na linha 12991.
-
-## Expected vs Actual
-- Expected: O comando `cccp deps` deve ser executado com sucesso sem erros de shift no shell.
-- Actual: O script falha com o erro `shift: cant shif that many` na linha 12991.
-
----
-## [#63] feat(editor): integrar microeditor embutido
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/63
-
-### Description
-## Description
-
-Adiva ainda não está utilizando o microeditor embutido conforme esperado.
-
-## Steps to Reproduce
-
-1. Abrir a aplicação/diva
-2. Tentar editar um arquivo ou texto
-3. Observar que o editor padrão utilizado não é o microeditor embutido.
-
-## Expected vs Actual
-
-Expected: O sistema deve utilizar o microeditor embutido.
-Actual: O sistema está utilizando outro editor ou o editor padrão antigo.
 
 ---

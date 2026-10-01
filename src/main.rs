@@ -422,46 +422,30 @@ fn main() -> ExitCode {
                 }
             }
 
-            // 4. Resolve prompt (interactive if empty)
-            let prompt = if let Some(p) = prompt_arg.take() {
-                p
-            } else if std::io::stdin().is_terminal() {
-                let target_label = if let Some(ref f) = detected_forge {
-                    format!("{} ({}/{})", f.provider, f.owner, f.repo)
-                } else {
-                    "standalone".to_string()
-                };
-                println!(
-                    "{} The Divan — Target: {}",
-                    theme.gold_bold("★ [GOSPLAN]"),
-                    theme.cyan(&target_label)
-                );
-                println!("Describe the issue, bug, or feature request (press Enter to submit):");
-                match inquire::Text::new("> ").prompt() {
-                    Ok(p) if !p.trim().is_empty() => p.trim().to_string(),
-                    _ => {
+            // 4. Fail-fast forge token check
+            if !diva.dry_run {
+                if let Some(ref f) = detected_forge {
+                    if cccp::forges::resolve_token_for_host(&f.host, f.provider, Some(&config))
+                        .is_none()
+                    {
+                        let domain_var = cccp::forges::host_to_token_env_var(&f.host);
                         eprintln!(
-                            "{}: No description provided. Exiting.",
-                            theme.yellow("Notice")
+                            "{}: No authentication token found for forge host '{}' ({}/{}).",
+                            theme.red_bold("Fail Fast"),
+                            f.host,
+                            f.owner,
+                            f.repo
                         );
-                        return ExitCode::SUCCESS;
+                        eprintln!(
+                            "  Please configure {} in ~/.env or .cccprc.",
+                            theme.yellow(&domain_var)
+                        );
+                        return ExitCode::FAILURE;
                     }
                 }
-            } else {
-                let mut line = String::new();
-                std::io::stdin().read_line(&mut line).unwrap_or_default();
-                let trimmed = line.trim().to_string();
-                if trimmed.is_empty() {
-                    eprintln!(
-                        "{}: Please provide a description or problem report for triage.",
-                        theme.red_bold("Error")
-                    );
-                    eprintln!("Usage: cccp diva [OPTIONS] [REPO] [REPORT]");
-                    return ExitCode::FAILURE;
-                }
-                trimmed
-            };
+            }
 
+            // 5. Fail-fast AI provider and connectivity check
             let mut client = cccp::ai::AiClient::from_config(&config);
             if diva.ollama {
                 client = client.with_provider(cccp::ai::AiProvider::Ollama);
@@ -501,25 +485,72 @@ fn main() -> ExitCode {
                 client = client.with_temperature(t);
             }
 
-            if client.provider == cccp::ai::AiProvider::Ollama {
-                match client.resolve_ollama_model(diva.model.is_some()) {
-                    Ok(resolved) => {
-                        if resolved != client.model && diva.model.is_none() {
-                            println!(
-                                "{} Default model '{}' not found. Using installed model '{}'...",
-                                theme.gold_bold("★ [GOSPLAN]"),
-                                client.model,
-                                resolved
-                            );
+            if !diva.direct {
+                if let Err(e) = client.check_access() {
+                    eprintln!("{}: {}", theme.red_bold("Fail Fast"), e);
+                    return ExitCode::FAILURE;
+                }
+
+                if client.provider == cccp::ai::AiProvider::Ollama {
+                    match client.resolve_ollama_model(diva.model.is_some()) {
+                        Ok(resolved) => {
+                            if resolved != client.model && diva.model.is_none() {
+                                println!(
+                                    "{} Default model '{}' not found. Using installed model '{}'...",
+                                    theme.gold_bold("★ [GOSPLAN]"),
+                                    client.model,
+                                    resolved
+                                );
+                            }
+                            client = client.with_model(resolved);
                         }
-                        client = client.with_model(resolved);
-                    }
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
-                        return ExitCode::FAILURE;
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Fail Fast"), e);
+                            return ExitCode::FAILURE;
+                        }
                     }
                 }
             }
+
+            // 6. Resolve prompt (interactive if empty)
+            let prompt = if let Some(p) = prompt_arg.take() {
+                p
+            } else if std::io::stdin().is_terminal() {
+                let target_label = if let Some(ref f) = detected_forge {
+                    format!("{} ({}/{})", f.provider, f.owner, f.repo)
+                } else {
+                    "standalone".to_string()
+                };
+                println!(
+                    "{} The Divan — Target: {}",
+                    theme.gold_bold("★ [GOSPLAN]"),
+                    theme.cyan(&target_label)
+                );
+                println!("Describe the issue, bug, or feature request (press Enter to submit):");
+                match inquire::Text::new("> ").prompt() {
+                    Ok(p) if !p.trim().is_empty() => p.trim().to_string(),
+                    _ => {
+                        eprintln!(
+                            "{}: No description provided. Exiting.",
+                            theme.yellow("Notice")
+                        );
+                        return ExitCode::SUCCESS;
+                    }
+                }
+            } else {
+                let mut line = String::new();
+                std::io::stdin().read_line(&mut line).unwrap_or_default();
+                let trimmed = line.trim().to_string();
+                if trimmed.is_empty() {
+                    eprintln!(
+                        "{}: Please provide a description or problem report for triage.",
+                        theme.red_bold("Error")
+                    );
+                    eprintln!("Usage: cccp diva [OPTIONS] [REPO] [REPORT]");
+                    return ExitCode::FAILURE;
+                }
+                trimmed
+            };
 
             let repo_ctx = cccp::ai::build_enriched_context(
                 git_repo.as_ref(),
