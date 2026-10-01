@@ -210,7 +210,42 @@ pub fn resolve_target_repo(
         return Some(entry.to_forge_info());
     }
 
-    // 4. If formatted as owner/repo, infer codeberg as default forge
+    // 4. Local filesystem discovery in ~/src/<name>, start_dir/<name>, or current directory
+    if let Ok(home) = std::env::var("HOME") {
+        let src_path = PathBuf::from(&home).join("src").join(clean);
+        if let Some(remote_url) = crate::git::get_remote_url(&src_path) {
+            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                return Some(info);
+            }
+        }
+    }
+    if let Some(base) = start_dir {
+        let candidate = base.join(clean);
+        if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
+            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                return Some(info);
+            }
+        }
+    }
+    if let Ok(cur) = std::env::current_dir() {
+        if let Some(dir_name) = cur.file_name().and_then(|n| n.to_str()) {
+            if dir_name.eq_ignore_ascii_case(clean) || clean == "." {
+                if let Some(remote_url) = crate::git::get_remote_url(&cur) {
+                    if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                        return Some(info);
+                    }
+                }
+            }
+        }
+        let candidate = cur.join(clean);
+        if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
+            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                return Some(info);
+            }
+        }
+    }
+
+    // 5. If formatted as owner/repo, infer codeberg as default forge
     if clean.contains('/') {
         let parts: Vec<&str> = clean.split('/').collect();
         if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
@@ -264,6 +299,24 @@ pub fn parse_repo_identifier(input: &str) -> Result<RepoForgeInfo, String> {
             owner: parts[0].to_string(),
             repo: parts[1].trim_end_matches(".git").to_string(),
         });
+    }
+
+    // 4. Local repository in ~/src or current directory
+    if let Ok(home) = std::env::var("HOME") {
+        let src_path = PathBuf::from(&home).join("src").join(clean);
+        if let Some(remote_url) = crate::git::get_remote_url(&src_path) {
+            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                return Ok(info);
+            }
+        }
+    }
+    if let Ok(cur) = std::env::current_dir() {
+        let candidate = cur.join(clean);
+        if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
+            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                return Ok(info);
+            }
+        }
     }
 
     Err(format!(

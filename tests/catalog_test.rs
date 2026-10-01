@@ -458,6 +458,28 @@ fn test_filter_and_sort_catalog() {
     assert_eq!(list8[2].name, "gamma");
 }
 
+#[test]
+fn test_resolve_target_repo_from_local_directory() {
+    let temp_root = tempdir().expect("Failed to create tempdir");
+    let local_repo = temp_root.path().join("local_tool");
+    let git_dir = local_repo.join(".git");
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(
+        git_dir.join("config"),
+        "[remote \"origin\"]\n\turl = ssh://git@codeberg.org/lumenpink/local_tool.git\n",
+    )
+    .unwrap();
+
+    let resolved = catalog::resolve_target_repo("local_tool", None, Some(temp_root.path()));
+    assert!(resolved.is_some());
+    let info = resolved.unwrap();
+    assert_eq!(info.provider, ForgeType::Codeberg);
+    assert_eq!(info.host, "codeberg.org");
+    assert_eq!(info.owner, "lumenpink");
+    assert_eq!(info.repo, "local_tool");
+}
+
+
 
 
 
