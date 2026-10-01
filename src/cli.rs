@@ -123,6 +123,10 @@ pub enum Commands {
     /// Local CI runner and pre-push verification gate via act
     #[command(alias = "ci")]
     Act(ActArgs),
+
+    /// Dependency catalog, constraint verification, and ecosystem tools
+    #[command(alias = "dependencies", alias = "dep")]
+    Deps(DepsArgs),
 }
 
 // =============================================================================
@@ -599,6 +603,41 @@ pub enum ActSubcommands {
     },
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct DepsArgs {
+    #[command(subcommand)]
+    pub action: Option<DepsSubcommands>,
+
+    /// Specific dependencies to check when no subcommand is specified
+    #[arg(trailing_var_arg = true)]
+    pub deps: Vec<String>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum DepsSubcommands {
+    /// List all catalog ecosystem dependencies
+    #[command(alias = "ls")]
+    List,
+    /// Audit and verify dependencies against SemVer requirements
+    #[command(alias = "status")]
+    Check {
+        /// Specific dependencies to check
+        #[arg(trailing_var_arg = true)]
+        deps: Vec<String>,
+    },
+    /// Guide or install ecosystem tools and dependencies
+    #[command(alias = "get", alias = "add")]
+    Install {
+        /// Install all standalone ecosystem tools
+        #[arg(long = "all")]
+        all: bool,
+
+        /// Specific dependencies to install
+        #[arg(trailing_var_arg = true)]
+        deps: Vec<String>,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -746,6 +785,28 @@ mod tests {
                 _ => panic!("Expected ActSubcommands::Log"),
             },
             _ => panic!("Expected Commands::Act"),
+        }
+    }
+
+    #[test]
+    fn parse_deps_args() {
+        let args = Cli::parse_from(["cccp", "deps", "list"]);
+        match args.command {
+            Some(Commands::Deps(deps)) => {
+                assert!(matches!(deps.action, Some(DepsSubcommands::List)));
+            }
+            _ => panic!("Expected Commands::Deps"),
+        }
+
+        let args_check = Cli::parse_from(["cccp", "deps", "check", "git", "docker"]);
+        match args_check.command {
+            Some(Commands::Deps(deps)) => match deps.action {
+                Some(DepsSubcommands::Check { deps: target_deps }) => {
+                    assert_eq!(target_deps, vec!["git", "docker"]);
+                }
+                _ => panic!("Expected DepsSubcommands::Check"),
+            },
+            _ => panic!("Expected Commands::Deps"),
         }
     }
 

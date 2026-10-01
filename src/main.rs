@@ -1224,6 +1224,43 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Deps(deps_args)) => {
+            match deps_args.action {
+                Some(cli::DepsSubcommands::List) => {
+                    cccp::deps::cmd_deps_list(&theme);
+                    ExitCode::SUCCESS
+                }
+                Some(cli::DepsSubcommands::Check { deps }) => {
+                    match cccp::deps::cmd_deps_check(&deps, &theme) {
+                        Ok(true) => ExitCode::SUCCESS,
+                        Ok(false) => ExitCode::FAILURE,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::DepsSubcommands::Install { all, deps }) => {
+                    match cccp::deps::cmd_deps_install(&deps, all, &theme) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                None => {
+                    match cccp::deps::cmd_deps_check(&deps_args.deps, &theme) {
+                        Ok(true) => ExitCode::SUCCESS,
+                        Ok(false) => ExitCode::FAILURE,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

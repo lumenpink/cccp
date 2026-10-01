@@ -9,6 +9,7 @@ pub mod commit_exec;
 pub mod config;
 pub mod cultural;
 pub mod cz;
+pub mod deps;
 pub mod editor;
 pub mod forges;
 pub mod git;
