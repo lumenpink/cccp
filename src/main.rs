@@ -1504,6 +1504,15 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Web(cockpit_args)) => {
+            match cccp::web::cmd_cockpit(cockpit_args.into()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

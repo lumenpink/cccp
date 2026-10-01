@@ -145,6 +145,10 @@ pub enum Commands {
 
     /// Mobile & offline-tolerant queue and spool for Antigravity CLI (agy)
     Matraca(MatracaArgs),
+
+    /// Gosplan Interactive Web Cockpit & Mayak Command Bridge
+    #[command(alias = "cockpit")]
+    Web(CockpitArgs),
 }
 
 // =============================================================================
@@ -907,6 +911,75 @@ pub struct MatracaWorkerArgs {
     pub job_id: Option<String>,
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct CockpitArgs {
+    /// Initial tab to display (matraca, diva, status, tickets)
+    pub tab: Option<String>,
+
+    /// Port to listen on (default: 8080)
+    #[arg(short = 'p', long = "port")]
+    pub port: Option<u16>,
+
+    /// Host address to bind to (default: 127.0.0.1)
+    #[arg(long = "host")]
+    pub host: Option<String>,
+
+    /// Open default web browser automatically
+    #[arg(short = 'o', long = "open", action = clap::ArgAction::SetTrue)]
+    pub open: bool,
+
+    /// Do not open web browser
+    #[arg(long = "no-open", action = clap::ArgAction::SetTrue)]
+    pub no_open: bool,
+
+    /// API token for authentication (or via CCCP_TOKEN/CCCP_API_KEY)
+    #[arg(short = 't', long = "token", alias = "key", alias = "api-key")]
+    pub token: Option<String>,
+
+    /// Disable Matraca (Web REPL) tab
+    #[arg(long = "no-matraca", action = clap::ArgAction::SetTrue)]
+    pub no_matraca: bool,
+
+    /// Disable O Divã (triage bot) tab
+    #[arg(long = "no-diva", action = clap::ArgAction::SetTrue)]
+    pub no_diva: bool,
+
+    /// Disable Repository Status tab
+    #[arg(long = "no-status", action = clap::ArgAction::SetTrue)]
+    pub no_status: bool,
+
+    /// Disable Active Tickets tab
+    #[arg(long = "no-tickets", action = clap::ArgAction::SetTrue)]
+    pub no_tickets: bool,
+
+    /// Quiet mode (suppress verbose logs)
+    #[arg(short = 'q', long = "quiet", action = clap::ArgAction::SetTrue)]
+    pub quiet: bool,
+}
+
+impl From<CockpitArgs> for crate::web::CockpitOptions {
+    fn from(args: CockpitArgs) -> Self {
+        let initial_tab = args.tab.unwrap_or_else(|| "matraca".to_string());
+        let open = if args.no_open {
+            false
+        } else {
+            args.open
+        };
+        Self {
+            port: args.port.unwrap_or(8080),
+            host: args.host.unwrap_or_else(|| "127.0.0.1".to_string()),
+            token: args.token,
+            open,
+            quiet: args.quiet,
+            initial_tab,
+            enable_matraca: !args.no_matraca,
+            enable_diva: !args.no_diva,
+            enable_status: !args.no_status,
+            enable_tickets: !args.no_tickets,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1212,6 +1285,46 @@ mod tests {
                 _ => panic!("Expected MatracaSubcommands::Poll"),
             },
             _ => panic!("Expected Commands::Matraca"),
+        }
+    }
+
+    #[test]
+    fn parse_cockpit_args() {
+        let args = Cli::parse_from([
+            "cccp",
+            "cockpit",
+            "diva",
+            "--port",
+            "8090",
+            "--host",
+            "0.0.0.0",
+            "--open",
+            "--token",
+            "my-tok",
+            "--no-matraca",
+            "--quiet",
+        ]);
+        match args.command {
+            Some(Commands::Web(web)) => {
+                assert_eq!(web.tab.as_deref(), Some("diva"));
+                assert_eq!(web.port, Some(8090));
+                assert_eq!(web.host.as_deref(), Some("0.0.0.0"));
+                assert!(web.open);
+                assert_eq!(web.token.as_deref(), Some("my-tok"));
+                assert!(web.no_matraca);
+                assert!(web.quiet);
+
+                let opts: crate::web::CockpitOptions = web.into();
+                assert_eq!(opts.initial_tab, "diva");
+                assert_eq!(opts.port, 8090);
+                assert_eq!(opts.host, "0.0.0.0");
+                assert!(opts.open);
+                assert_eq!(opts.token.as_deref(), Some("my-tok"));
+                assert!(!opts.enable_matraca);
+                assert!(opts.enable_diva);
+                assert!(opts.quiet);
+            }
+            _ => panic!("Expected Commands::Web"),
         }
     }
 

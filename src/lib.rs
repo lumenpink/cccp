@@ -22,3 +22,4 @@ pub mod newrepo;
 pub mod semver_calc;
 pub mod serve;
 pub mod tickets;
+pub mod web;
