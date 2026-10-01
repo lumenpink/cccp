@@ -169,7 +169,24 @@ pub fn resolve_token_for_host(
         }
     }
 
-    // 2. Generic provider environment variables
+    // 2. Domain-based token from loaded Config extra (.cccprc, ~/.env, .env)
+    let fallback_cfg;
+    let cfg = match config {
+        Some(c) => c,
+        None => {
+            fallback_cfg = crate::config::Config::load_hierarchical(None);
+            &fallback_cfg
+        }
+    };
+
+    let domain_key = domain_var.to_ascii_lowercase();
+    if let Some(tok) = cfg.extra.get(&domain_key) {
+        if !tok.trim().is_empty() {
+            return Some(tok.trim().to_string());
+        }
+    }
+
+    // 3. Generic provider environment variables
     let provider_vars: &[&str] = match provider {
         ForgeType::Codeberg | ForgeType::Forgejo => {
             &["CODEBERG_TOKEN", "FORGEJO_TOKEN", "GITEA_TOKEN", "TEA_TOKEN"]
@@ -187,20 +204,12 @@ pub fn resolve_token_for_host(
         }
     }
 
-    // 3. Check loaded Config extra hashmap (.cccprc, ~/.env, .env)
-    if let Some(cfg) = config {
-        let domain_key = domain_var.to_ascii_lowercase();
-        if let Some(tok) = cfg.extra.get(&domain_key) {
+    // 4. Generic provider token from loaded Config extra (.cccprc, ~/.env, .env)
+    for var_name in provider_vars {
+        let k = var_name.to_ascii_lowercase();
+        if let Some(tok) = cfg.extra.get(&k) {
             if !tok.trim().is_empty() {
                 return Some(tok.trim().to_string());
-            }
-        }
-        for var_name in provider_vars {
-            let k = var_name.to_ascii_lowercase();
-            if let Some(tok) = cfg.extra.get(&k) {
-                if !tok.trim().is_empty() {
-                    return Some(tok.trim().to_string());
-                }
             }
         }
     }

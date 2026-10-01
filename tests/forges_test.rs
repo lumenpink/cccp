@@ -1,5 +1,5 @@
 use cccp::forges::{
-    host_to_token_env_var, parse_issues_json, parse_prs_json, parse_remote_url, resolve_token,
+    host_to_token_env_var, parse_issues_json, parse_prs_json, parse_remote_url,
     resolve_token_for_host, ForgeType,
 };
 use serde_json::json;
@@ -75,23 +75,34 @@ fn test_parse_remote_url_invalid() {
 
 #[test]
 fn test_resolve_token_environment() {
+    let empty_cfg = cccp::config::Config::default();
     std::env::set_var("CODEBERG_TOKEN", "cb_secret_token_123");
     assert_eq!(
-        resolve_token(ForgeType::Codeberg),
+        resolve_token_for_host("codeberg.org", ForgeType::Codeberg, Some(&empty_cfg)),
         Some("cb_secret_token_123".into())
     );
 
     std::env::set_var("GITHUB_TOKEN", "gh_secret_token_456");
     assert_eq!(
-        resolve_token(ForgeType::GitHub),
+        resolve_token_for_host("github.com", ForgeType::GitHub, Some(&empty_cfg)),
         Some("gh_secret_token_456".into())
     );
 
     std::env::set_var("GITLAB_TOKEN", "gl_secret_token_789");
     assert_eq!(
-        resolve_token(ForgeType::GitLab),
+        resolve_token_for_host("gitlab.com", ForgeType::GitLab, Some(&empty_cfg)),
         Some("gl_secret_token_789".into())
     );
+
+    std::env::remove_var("CODEBERG_TOKEN");
+    std::env::remove_var("GITHUB_TOKEN");
+    std::env::remove_var("GITLAB_TOKEN");
+}
+
+#[test]
+fn test_resolve_token_reads_home_env_when_config_none() {
+    let token = resolve_token_for_host("codeberg.org", ForgeType::Codeberg, None);
+    assert!(token.is_some(), "Should resolve token from ~/.env");
 }
 
 #[test]
@@ -195,3 +206,13 @@ fn test_resolve_token_for_host_domain_precedence() {
     assert_eq!(resolved.as_deref(), Some("domain_secret_123"));
     std::env::remove_var("TEST_FORGE_NET_TOKEN");
 }
+
+#[test]
+fn test_resolve_token_for_host_from_config_extra() {
+    let mut config = cccp::config::Config::default();
+    config.extra.insert("custom_myforge_org_token".to_string(), "my_cb_token_abc".to_string());
+
+    let resolved = resolve_token_for_host("custom.myforge.org", ForgeType::Codeberg, Some(&config));
+    assert_eq!(resolved.as_deref(), Some("my_cb_token_abc"));
+}
+
