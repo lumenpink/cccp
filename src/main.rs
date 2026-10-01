@@ -1189,6 +1189,15 @@ fn main() -> ExitCode {
                     }
                     ExitCode::SUCCESS
                 }
+                Some(cli::CatalogSubcommands::New(newrepo_args)) => {
+                    match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
+                        Ok(()) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
             }
         }
         Some(Commands::Act(act_args)) => {
@@ -1345,6 +1354,15 @@ fn main() -> ExitCode {
             let repo_root = repo.as_ref().map(|r| r.root_dir.as_path()).or(start_path);
 
             match cccp::agents::cmd_agent_set(&set_av_args.key, &set_av_args.value, repo_root) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Newrepo(newrepo_args)) => {
+            match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("{}: {}", theme.red_bold("Error"), e);

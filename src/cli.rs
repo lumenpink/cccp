@@ -117,8 +117,12 @@ pub enum Commands {
     Completion(CompletionArgs),
 
     /// Manage repository catalog and workspace registry
-    #[command(alias = "sync-catalog")]
+    #[command(alias = "sync-catalog", alias = "repo", alias = "repos")]
     Catalog(CatalogArgs),
+
+    /// Automated repository scaffolding in strict compliance with GOST standard
+    #[command(name = "newrepo", alias = "new-repo", alias = "repo-new")]
+    Newrepo(NewrepoArgs),
 
     /// Local CI runner and pre-push verification gate via act
     #[command(alias = "ci")]
@@ -503,6 +507,9 @@ pub enum CatalogSubcommands {
     },
     /// List all catalog repositories with optional filters and sorting
     List(CatalogFilterArgs),
+    /// Create a new compliant GOST repository (alias to cccp newrepo)
+    #[command(alias = "create", alias = "init")]
+    New(NewrepoArgs),
 }
 
 #[derive(Debug, Args, Clone)]
@@ -698,6 +705,75 @@ pub struct SetAvArgs {
     pub value: String,
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct NewrepoArgs {
+    /// Repository name and directory to create
+    pub name: Option<String>,
+
+    /// Explicit repository name (alternative to positional argument)
+    #[arg(long = "name")]
+    pub explicit_name: Option<String>,
+
+    /// Target root directory (default: ./<repository-name>)
+    #[arg(long = "root")]
+    pub root: Option<std::path::PathBuf>,
+
+    /// Short project description for README and portal
+    #[arg(long = "desc")]
+    pub desc: Option<String>,
+
+    /// Comma-separated active programming languages (default: shell)
+    #[arg(long = "lang", default_value = "shell")]
+    pub lang: String,
+
+    /// SPDX license identifier (default: CC0-1.0; options: MIT, GPL-3.0, CC-BY-SA-4.0, Apache-2.0)
+    #[arg(long = "license", default_value = "CC0-1.0")]
+    pub license: String,
+
+    /// Profile implementation URL (default: profiles/lumen.md)
+    #[arg(long = "profile", default_value = "profiles/lumen.md")]
+    pub profile: String,
+
+    /// Do not initialize a local Git repository
+    #[arg(long = "no-git", action = clap::ArgAction::SetTrue)]
+    pub no_git: bool,
+
+    /// Do not install CCCP Git hooks
+    #[arg(long = "no-hooks", action = clap::ArgAction::SetTrue)]
+    pub no_hooks: bool,
+
+    /// Do not generate CI workflow (.forgejo/workflows/ci.yaml)
+    #[arg(long = "no-ci", action = clap::ArgAction::SetTrue)]
+    pub no_ci: bool,
+
+    /// Do not synchronize GOST specifications (.gost/)
+    #[arg(long = "no-sync", action = clap::ArgAction::SetTrue)]
+    pub no_sync: bool,
+
+    /// Quiet mode, suppress non-essential output
+    #[arg(short = 'q', long = "quiet", action = clap::ArgAction::SetTrue)]
+    pub quiet: bool,
+}
+
+impl From<NewrepoArgs> for crate::newrepo::NewrepoOptions {
+    fn from(args: NewrepoArgs) -> Self {
+        let name = args.explicit_name.or(args.name);
+        Self {
+            name,
+            root: args.root,
+            desc: args.desc,
+            lang: args.lang,
+            license: args.license,
+            profile: args.profile,
+            git: !args.no_git,
+            hooks: !args.no_hooks,
+            ci: !args.no_ci,
+            sync: !args.no_sync,
+            quiet: args.quiet,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -891,6 +967,50 @@ mod tests {
                 assert_eq!(set_av.value, "rust");
             }
             _ => panic!("Expected Commands::SetAv"),
+        }
+    }
+
+    #[test]
+    fn parse_newrepo_args() {
+        let args = Cli::parse_from([
+            "cccp",
+            "newrepo",
+            "my-service",
+            "--lang",
+            "rust,shell",
+            "--license",
+            "MIT",
+            "--desc",
+            "My description",
+            "--no-git",
+            "--quiet",
+        ]);
+        match args.command {
+            Some(Commands::Newrepo(nr)) => {
+                assert_eq!(nr.name.as_deref(), Some("my-service"));
+                assert_eq!(nr.lang, "rust,shell");
+                assert_eq!(nr.license, "MIT");
+                assert_eq!(nr.desc.as_deref(), Some("My description"));
+                assert!(nr.no_git);
+                assert!(nr.quiet);
+                let opts: crate::newrepo::NewrepoOptions = nr.into();
+                assert_eq!(opts.name.as_deref(), Some("my-service"));
+                assert!(!opts.git);
+                assert!(opts.quiet);
+            }
+            _ => panic!("Expected Commands::Newrepo"),
+        }
+
+        // Test delegation from cccp repo new
+        let args_repo_new = Cli::parse_from(["cccp", "repo", "new", "from-repo"]);
+        match args_repo_new.command {
+            Some(Commands::Catalog(cat)) => match cat.action {
+                Some(CatalogSubcommands::New(nr)) => {
+                    assert_eq!(nr.name.as_deref(), Some("from-repo"));
+                }
+                _ => panic!("Expected CatalogSubcommands::New"),
+            },
+            _ => panic!("Expected Commands::Catalog"),
         }
     }
 
