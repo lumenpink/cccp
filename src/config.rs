@@ -44,6 +44,8 @@ pub struct Config {
     pub agents_md_url: String,
     /// Output file path for AGENTS.md
     pub agents_md_file: String,
+    /// Path to catalog.json file
+    pub catalog_file: Option<String>,
     /// Default AI provider (e.g. "gemini" or "ollama")
     pub ai_provider: String,
     /// Ollama daemon base URL (default: "http://localhost:11434")
@@ -129,6 +131,7 @@ impl Default for Config {
                 "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
                     .into(),
             agents_md_file: ".antigravity/AGENTS.md".into(),
+            catalog_file: None,
             ai_provider: "gemini".into(),
             ollama_host: "http://localhost:11434".into(),
             ollama_model: "llama3.2".into(),
@@ -250,6 +253,14 @@ impl Config {
             "tickets_file" => {
                 self.tickets_file = val.trim().to_string();
             }
+            "catalog_file" | "catalog_path" => {
+                let s = val.trim();
+                self.catalog_file = if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_string())
+                };
+            }
             "agents_md_url" | "agent_md_url" => {
                 self.agents_md_url = val.trim().to_string();
             }
@@ -363,6 +374,12 @@ impl Config {
         }
         if let Ok(v) = env::var("TICKETS_FILE").or_else(|_| env::var("CCCP_TICKETS_FILE")) {
             self.tickets_file = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("CCCP_CATALOG_FILE").or_else(|_| env::var("CATALOG_FILE")) {
+            let s = v.trim();
+            if !s.is_empty() {
+                self.catalog_file = Some(s.to_string());
+            }
         }
         if let Ok(v) = env::var("CCCP_AI_PROVIDER").or_else(|_| env::var("LLM_PROVIDER")) {
             self.ai_provider = v.trim().to_ascii_lowercase();

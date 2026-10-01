@@ -53,9 +53,62 @@ impl CatalogEntry {
     }
 }
 
-/// Find catalog.json in standard hierarchical locations
-pub fn find_catalog_path(start_dir: Option<&Path>) -> Option<PathBuf> {
-    // 1. Current or specified dir
+fn expand_tilde(path: &str) -> PathBuf {
+    if path == "~" {
+        if let Ok(home) = std::env::var("HOME") {
+            return PathBuf::from(home);
+        }
+    } else if let Some(stripped) = path.strip_prefix("~/") {
+        if let Ok(home) = std::env::var("HOME") {
+            return PathBuf::from(home).join(stripped);
+        }
+    }
+    PathBuf::from(path)
+}
+
+/// Find catalog.json according to configuration and standard hierarchical locations
+pub fn find_catalog_path(
+    config: Option<&crate::config::Config>,
+    start_dir: Option<&Path>,
+) -> Option<PathBuf> {
+    // 1. Explicit path in configuration (e.g. .cccprc or environment)
+    if let Some(cfg) = config {
+        if let Some(ref path_str) = cfg.catalog_file {
+            let p = expand_tilde(path_str);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+
+    // 2. Direct environment variables: CCCP_CATALOG_FILE or CATALOG_FILE
+    if let Ok(env_path) =
+        std::env::var("CCCP_CATALOG_FILE").or_else(|_| std::env::var("CATALOG_FILE"))
+    {
+        let p = expand_tilde(env_path.trim());
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+
+    // 3. User configuration directory: $XDG_CONFIG_HOME/cccp/catalog.json or ~/.config/cccp/catalog.json
+    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        let p = PathBuf::from(xdg).join("cccp").join("catalog.json");
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let p = PathBuf::from(&home)
+            .join(".config")
+            .join("cccp")
+            .join("catalog.json");
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+
+    // 4. Current directory or specified starting directory
     if let Some(d) = start_dir {
         let p = d.join("catalog.json");
         if p.is_file() {
@@ -75,27 +128,48 @@ pub fn find_catalog_path(start_dir: Option<&Path>) -> Option<PathBuf> {
         }
     }
 
-    // 2. $HOME/src/catalog.json
+    // 5. Fallback for legacy ~/src/catalog.json if it exists
     if let Ok(home) = std::env::var("HOME") {
         let src_cat = PathBuf::from(&home).join("src").join("catalog.json");
         if src_cat.is_file() {
             return Some(src_cat);
-        }
-        let config_cat = PathBuf::from(&home)
-            .join(".config")
-            .join("cccp")
-            .join("catalog.json");
-        if config_cat.is_file() {
-            return Some(config_cat);
         }
     }
 
     None
 }
 
-/// Load catalog entries from disk
-pub fn load_catalog(start_dir: Option<&Path>) -> Vec<CatalogEntry> {
-    if let Some(path) = find_catalog_path(start_dir) {
+/// Determine where new or updated catalog.json should be saved
+pub fn get_catalog_save_path(config: Option<&crate::config::Config>) -> PathBuf {
+    if let Some(cfg) = config {
+        if let Some(ref path_str) = cfg.catalog_file {
+            return expand_tilde(path_str);
+        }
+    }
+    if let Ok(env_path) =
+        std::env::var("CCCP_CATALOG_FILE").or_else(|_| std::env::var("CATALOG_FILE"))
+    {
+        return expand_tilde(env_path.trim());
+    }
+    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        let dir = PathBuf::from(xdg).join("cccp");
+        let _ = fs::create_dir_all(&dir);
+        return dir.join("catalog.json");
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let dir = PathBuf::from(&home).join(".config").join("cccp");
+        let _ = fs::create_dir_all(&dir);
+        return dir.join("catalog.json");
+    }
+    PathBuf::from("catalog.json")
+}
+
+/// Load catalog entries from disk using configured location
+pub fn load_catalog(
+    config: Option<&crate::config::Config>,
+    start_dir: Option<&Path>,
+) -> Vec<CatalogEntry> {
+    if let Some(path) = find_catalog_path(config, start_dir) {
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(entries) = serde_json::from_str::<Vec<CatalogEntry>>(&content) {
                 return entries;
@@ -106,7 +180,11 @@ pub fn load_catalog(start_dir: Option<&Path>) -> Vec<CatalogEntry> {
 }
 
 /// Resolve target repository from user input (e.g. 'cccp', 'owner/repo', or catalog match)
-pub fn resolve_target_repo(input: &str, start_dir: Option<&Path>) -> Option<RepoForgeInfo> {
+pub fn resolve_target_repo(
+    input: &str,
+    config: Option<&crate::config::Config>,
+    start_dir: Option<&Path>,
+) -> Option<RepoForgeInfo> {
     let clean = input.trim();
     if clean.is_empty() {
         return None;
@@ -117,7 +195,7 @@ pub fn resolve_target_repo(input: &str, start_dir: Option<&Path>) -> Option<Repo
         return crate::forges::parse_remote_url(clean);
     }
 
-    let catalog = load_catalog(start_dir);
+    let catalog = load_catalog(config, start_dir);
 
     // 2. Exact match on slug (e.g. 'lumenpink/cccp')
     if let Some(entry) = catalog.iter().find(|e| e.slug.eq_ignore_ascii_case(clean)) {
@@ -139,16 +217,6 @@ pub fn resolve_target_repo(input: &str, start_dir: Option<&Path>) -> Option<Repo
                 owner: parts[0].to_string(),
                 repo: parts[1].to_string(),
             });
-        }
-    }
-
-    // 5. Check local directory in $HOME/src/<clean>
-    if let Ok(home) = std::env::var("HOME") {
-        let local_dir = PathBuf::from(&home).join("src").join(clean);
-        if let Ok(repo) = crate::git::GitRepo::open(Some(&local_dir)) {
-            if let Ok(info) = crate::forges::detect_forge_from_repo(&repo) {
-                return Some(info);
-            }
         }
     }
 

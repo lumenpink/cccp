@@ -53,33 +53,58 @@ fn test_catalog_load_and_resolve() {
     let cat_path = dir.path().join("catalog.json");
     fs::write(&cat_path, catalog_json).expect("Failed to write catalog.json");
 
-    let loaded = catalog::load_catalog(Some(dir.path()));
+    let loaded = catalog::load_catalog(None, Some(dir.path()));
     assert_eq!(loaded.len(), 2);
     assert_eq!(loaded[0].name, "kvant");
     assert_eq!(loaded[1].name, "aura");
 
     // Resolve by slug
-    let res_slug = catalog::resolve_target_repo("Canimandra/aura", Some(dir.path())).unwrap();
+    let res_slug = catalog::resolve_target_repo("Canimandra/aura", None, Some(dir.path())).unwrap();
     assert_eq!(res_slug.provider, ForgeType::GitHub);
     assert_eq!(res_slug.owner, "Canimandra");
     assert_eq!(res_slug.repo, "aura");
 
     // Resolve by name
-    let res_name = catalog::resolve_target_repo("kvant", Some(dir.path())).unwrap();
+    let res_name = catalog::resolve_target_repo("kvant", None, Some(dir.path())).unwrap();
     assert_eq!(res_name.provider, ForgeType::Codeberg);
     assert_eq!(res_name.owner, "lumenpink");
     assert_eq!(res_name.repo, "kvant");
 
     // Fallback owner/repo
-    let res_fallback = catalog::resolve_target_repo("acme/project", Some(dir.path())).unwrap();
+    let res_fallback = catalog::resolve_target_repo("acme/project", None, Some(dir.path())).unwrap();
     assert_eq!(res_fallback.provider, ForgeType::Codeberg);
     assert_eq!(res_fallback.owner, "acme");
     assert_eq!(res_fallback.repo, "project");
 
     // Remote URL
     let res_url =
-        catalog::resolve_target_repo("https://github.com/org/repo.git", Some(dir.path())).unwrap();
+        catalog::resolve_target_repo("https://github.com/org/repo.git", None, Some(dir.path())).unwrap();
     assert_eq!(res_url.provider, ForgeType::GitHub);
     assert_eq!(res_url.owner, "org");
     assert_eq!(res_url.repo, "repo");
+}
+
+#[test]
+fn test_catalog_path_from_config_and_env_precedence() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let custom_cat = dir.path().join("my_custom_catalog.json");
+    fs::write(
+        &custom_cat,
+        r#"[{"name": "custom_proj", "forge": "codeberg", "slug": "custom/proj"}]"#,
+    )
+    .unwrap();
+
+    let mut config = cccp::config::Config::default();
+    config.catalog_file = Some(custom_cat.to_string_lossy().to_string());
+
+    let found = catalog::find_catalog_path(Some(&config), None).unwrap();
+    assert_eq!(found, custom_cat);
+
+    let loaded = catalog::load_catalog(Some(&config), None);
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].name, "custom_proj");
+
+    let resolved = catalog::resolve_target_repo("custom_proj", Some(&config), None).unwrap();
+    assert_eq!(resolved.owner, "custom");
+    assert_eq!(resolved.repo, "proj");
 }

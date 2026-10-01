@@ -371,7 +371,8 @@ fn main() -> ExitCode {
                 let trimmed = p.trim();
                 let is_repo_slug = !trimmed.contains(' ')
                     && (trimmed.contains('/')
-                        || cccp::catalog::resolve_target_repo(trimmed, start_path).is_some());
+                        || cccp::catalog::resolve_target_repo(trimmed, Some(&config), start_path)
+                            .is_some());
                 if is_repo_slug {
                     (Some(trimmed.to_string()), None)
                 } else {
@@ -384,7 +385,7 @@ fn main() -> ExitCode {
             // 2. Resolve target forge and repository
             let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
             let mut detected_forge = if let Some(ref target) = target_repo_arg {
-                match cccp::catalog::resolve_target_repo(target, start_path) {
+                match cccp::catalog::resolve_target_repo(target, Some(&config), start_path) {
                     Some(info) => Some(info),
                     None => {
                         eprintln!(
@@ -403,7 +404,7 @@ fn main() -> ExitCode {
 
             // 3. If no forge detected yet, pick from catalog interactively
             if detected_forge.is_none() {
-                let catalog_entries = cccp::catalog::load_catalog(start_path);
+                let catalog_entries = cccp::catalog::load_catalog(Some(&config), start_path);
                 if !catalog_entries.is_empty() && std::io::stdin().is_terminal() {
                     println!(
                         "{} No git repository detected in current directory.",
