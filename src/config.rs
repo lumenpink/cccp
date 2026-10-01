@@ -543,6 +543,41 @@ pub fn write_config_key(file: &Path, key: &str, value: &str) -> std::io::Result<
     fs::write(file, lines.join("\n") + "\n")
 }
 
+/// Unset/remove a key from a configuration file
+pub fn unset_config_key(file: &Path, key: &str) -> std::io::Result<()> {
+    if !file.exists() {
+        return Ok(());
+    }
+    let normalized = key.to_ascii_lowercase().replace('-', "_");
+    let content = fs::read_to_string(file)?;
+    let mut lines = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let clean = trimmed.strip_prefix("export ").unwrap_or(trimmed).trim();
+        if let Some((k, _)) = clean.split_once('=') {
+            if k.trim().to_ascii_lowercase().replace('-', "_") == normalized {
+                continue;
+            }
+        }
+        lines.push(line.to_string());
+    }
+    fs::write(file, lines.join("\n") + "\n")
+}
+
+/// Returns existing global config path or default path where it should be created
+pub fn get_or_create_global_config_path() -> PathBuf {
+    if let Some(p) = find_global_config_path() {
+        return p;
+    }
+    if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
+        return PathBuf::from(xdg).join("cccp").join("config");
+    }
+    if let Ok(home) = env::var("HOME") {
+        return PathBuf::from(home).join(".config").join("cccp").join("config");
+    }
+    PathBuf::from(".config/cccp/config")
+}
+
 fn parse_string_list(val: &str) -> Vec<String> {
     val.split(|c: char| c == ',' || c.is_whitespace())
         .map(|s| s.trim().to_string())

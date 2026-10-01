@@ -27,6 +27,11 @@ fn main() -> ExitCode {
 
     let config = config::Config::load_hierarchical(None);
 
+    if let Ok(current_dir) = std::env::current_dir() {
+        let _ = cccp::update::check_hook_version(&current_dir);
+    }
+    let _ = cccp::update::check_auto_update(&config);
+
     match args.command {
         Some(Commands::Cz(cz)) => {
             if args.verbose > 0 {
@@ -1506,6 +1511,24 @@ fn main() -> ExitCode {
         }
         Some(Commands::Web(cockpit_args)) => {
             match cccp::web::cmd_cockpit(cockpit_args.into()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Update(update_args)) => {
+            match cccp::update::cmd_update(&update_args) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::CheckUpdate(check_args)) => {
+            match cccp::update::cmd_check_update(check_args.channel.as_deref()) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("{}: {}", theme.red_bold("Error"), err);

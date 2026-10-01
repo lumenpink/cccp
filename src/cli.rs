@@ -149,6 +149,13 @@ pub enum Commands {
     /// Gosplan Interactive Web Cockpit & Mayak Command Bridge
     #[command(alias = "cockpit")]
     Web(CockpitArgs),
+
+    /// Check for updates and automatically upgrade CCCP
+    Update(UpdateArgs),
+
+    /// Verify installed CCCP version against distribution endpoint
+    #[command(name = "check-update", alias = "check-updates")]
+    CheckUpdate(CheckUpdateArgs),
 }
 
 // =============================================================================
@@ -980,6 +987,32 @@ impl From<CockpitArgs> for crate::web::CockpitOptions {
     }
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct UpdateArgs {
+    /// Release channel to track (stable or nightly)
+    #[arg(short = 'c', long = "channel", default_value = "stable")]
+    pub channel: String,
+
+    /// Pin version to prevent updates (or pin to specified version)
+    #[arg(short = 'p', long = "pin", num_args = 0..=1, default_missing_value = "")]
+    pub pin: Option<String>,
+
+    /// Remove version pin and resume standard updates
+    #[arg(short = 'u', long = "unpin")]
+    pub unpin: bool,
+
+    /// Explicit path to target binary to update
+    #[arg(long = "target")]
+    pub target: Option<PathBuf>,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct CheckUpdateArgs {
+    /// Release channel to check (stable or nightly)
+    #[arg(short = 'c', long = "channel")]
+    pub channel: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1335,5 +1368,42 @@ mod tests {
         assert!(args.no_color);
         assert_eq!(args.dir, Some(PathBuf::from("/tmp")));
         assert!(matches!(args.command, Some(Commands::Status(_))));
+    }
+
+    #[test]
+    fn parse_update_and_check_update() {
+        let args = Cli::parse_from(["cccp", "update", "--channel", "nightly", "--pin", "3.0.0"]);
+        match args.command {
+            Some(Commands::Update(up)) => {
+                assert_eq!(up.channel, "nightly");
+                assert_eq!(up.pin.as_deref(), Some("3.0.0"));
+                assert!(!up.unpin);
+            }
+            _ => panic!("Expected Commands::Update"),
+        }
+
+        let args = Cli::parse_from(["cccp", "update", "--unpin"]);
+        match args.command {
+            Some(Commands::Update(up)) => {
+                assert!(up.unpin);
+            }
+            _ => panic!("Expected Commands::Update"),
+        }
+
+        let args = Cli::parse_from(["cccp", "check-update", "--channel", "nightly"]);
+        match args.command {
+            Some(Commands::CheckUpdate(chk)) => {
+                assert_eq!(chk.channel.as_deref(), Some("nightly"));
+            }
+            _ => panic!("Expected Commands::CheckUpdate"),
+        }
+
+        let args = Cli::parse_from(["cccp", "check-updates"]);
+        match args.command {
+            Some(Commands::CheckUpdate(chk)) => {
+                assert_eq!(chk.channel, None);
+            }
+            _ => panic!("Expected Commands::CheckUpdate"),
+        }
     }
 }
