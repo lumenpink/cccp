@@ -491,7 +491,10 @@ pub enum CatalogSubcommands {
 
 #[derive(Debug, Args, Clone)]
 pub struct DivaArgs {
-    /// Problem description or user report to triage
+    /// Target repository or problem description
+    pub target: Option<String>,
+
+    /// Problem description or user report to triage (when target repository is first argument)
     pub prompt: Option<String>,
 
     /// Target repository (e.g. 'cccp', 'owner/repo', or forge URL)
@@ -529,6 +532,42 @@ pub struct DivaArgs {
     /// Dry run: display decomposed tickets without publishing to remote forge
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+}
+
+impl DivaArgs {
+    /// Resolves target repository and prompt description from arguments.
+    ///
+    /// Precedence & inference:
+    /// - If `--repo` is specified, it is always the target repository. Any positional args become prompt.
+    /// - If both `target` and `prompt` positional arguments are given, `target` is the repository and `prompt` is the report.
+    /// - If only a single positional argument is given:
+    ///   - If it contains whitespace, it is treated as a prompt description (for current repo or interactive selection).
+    ///   - Otherwise, it is inferred as the target repository (closes #108).
+    pub fn resolve_repo_and_prompt(&self) -> (Option<String>, Option<String>) {
+        if let Some(ref r) = self.repo {
+            let prompt = match (&self.target, &self.prompt) {
+                (Some(t), Some(p)) => Some(format!("{} {}", t.trim(), p.trim())),
+                (Some(t), None) => Some(t.trim().to_string()),
+                (None, Some(p)) => Some(p.trim().to_string()),
+                (None, None) => None,
+            };
+            (Some(r.trim().to_string()), prompt)
+        } else {
+            match (&self.target, &self.prompt) {
+                (Some(t), Some(p)) => (Some(t.trim().to_string()), Some(p.trim().to_string())),
+                (Some(t), None) => {
+                    let trimmed = t.trim();
+                    if trimmed.contains(' ') {
+                        (None, Some(trimmed.to_string()))
+                    } else {
+                        (Some(trimmed.to_string()), None)
+                    }
+                }
+                (None, Some(p)) => (None, Some(p.trim().to_string())),
+                (None, None) => (None, None),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -609,7 +648,48 @@ mod tests {
                 assert_eq!(diva.model.as_deref(), Some("llama3.2"));
                 assert_eq!(diva.host.as_deref(), Some("http://127.0.0.1:11434"));
                 assert!(diva.dry_run);
-                assert_eq!(diva.prompt.as_deref(), Some("fix something"));
+                let (repo, prompt) = diva.resolve_repo_and_prompt();
+                assert_eq!(repo, None);
+                assert_eq!(prompt.as_deref(), Some("fix something"));
+            }
+            _ => panic!("Expected Commands::Diva"),
+        }
+    }
+
+    #[test]
+    fn parse_diva_args_positional_repo_only() {
+        let args = Cli::parse_from(["cccp", "diva", "joaju"]);
+        match args.command {
+            Some(Commands::Diva(diva)) => {
+                let (repo, prompt) = diva.resolve_repo_and_prompt();
+                assert_eq!(repo.as_deref(), Some("joaju"));
+                assert_eq!(prompt, None);
+            }
+            _ => panic!("Expected Commands::Diva"),
+        }
+    }
+
+    #[test]
+    fn parse_diva_args_positional_repo_and_prompt() {
+        let args = Cli::parse_from(["cccp", "diva", "joaju", "fix css styling"]);
+        match args.command {
+            Some(Commands::Diva(diva)) => {
+                let (repo, prompt) = diva.resolve_repo_and_prompt();
+                assert_eq!(repo.as_deref(), Some("joaju"));
+                assert_eq!(prompt.as_deref(), Some("fix css styling"));
+            }
+            _ => panic!("Expected Commands::Diva"),
+        }
+    }
+
+    #[test]
+    fn parse_diva_args_flag_repo_and_positional_prompt() {
+        let args = Cli::parse_from(["cccp", "diva", "-r", "joaju", "fix css styling"]);
+        match args.command {
+            Some(Commands::Diva(diva)) => {
+                let (repo, prompt) = diva.resolve_repo_and_prompt();
+                assert_eq!(repo.as_deref(), Some("joaju"));
+                assert_eq!(prompt.as_deref(), Some("fix css styling"));
             }
             _ => panic!("Expected Commands::Diva"),
         }

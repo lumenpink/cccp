@@ -364,23 +364,8 @@ fn main() -> ExitCode {
         Some(Commands::Diva(diva)) => {
             let start_path = args.dir.as_deref().map(std::path::Path::new);
 
-            // 1. Determine if positional prompt is actually a target repo
-            let (target_repo_arg, mut prompt_arg) = if let Some(ref r) = diva.repo {
-                (Some(r.clone()), diva.prompt.clone())
-            } else if let Some(ref p) = diva.prompt {
-                let trimmed = p.trim();
-                let is_repo_slug = !trimmed.contains(' ')
-                    && (trimmed.contains('/')
-                        || cccp::catalog::resolve_target_repo(trimmed, Some(&config), start_path)
-                            .is_some());
-                if is_repo_slug {
-                    (Some(trimmed.to_string()), None)
-                } else {
-                    (None, Some(trimmed.to_string()))
-                }
-            } else {
-                (None, None)
-            };
+            // 1. Determine target repo and prompt from arguments
+            let (target_repo_arg, mut prompt_arg) = diva.resolve_repo_and_prompt();
 
             // 2. Resolve target forge and repository
             let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
