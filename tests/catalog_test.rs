@@ -73,14 +73,16 @@ fn test_catalog_load_and_resolve() {
     assert_eq!(res_name.repo, "kvant");
 
     // Fallback owner/repo
-    let res_fallback = catalog::resolve_target_repo("acme/project", None, Some(dir.path())).unwrap();
+    let res_fallback =
+        catalog::resolve_target_repo("acme/project", None, Some(dir.path())).unwrap();
     assert_eq!(res_fallback.provider, ForgeType::Codeberg);
     assert_eq!(res_fallback.owner, "acme");
     assert_eq!(res_fallback.repo, "project");
 
     // Remote URL
     let res_url =
-        catalog::resolve_target_repo("https://github.com/org/repo.git", None, Some(dir.path())).unwrap();
+        catalog::resolve_target_repo("https://github.com/org/repo.git", None, Some(dir.path()))
+            .unwrap();
     assert_eq!(res_url.provider, ForgeType::GitHub);
     assert_eq!(res_url.owner, "org");
     assert_eq!(res_url.repo, "repo");
@@ -96,8 +98,10 @@ fn test_catalog_path_from_config_and_env_precedence() {
     )
     .unwrap();
 
-    let mut config = cccp::config::Config::default();
-    config.catalog_file = Some(custom_cat.to_string_lossy().to_string());
+    let config = cccp::config::Config {
+        catalog_file: Some(custom_cat.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     let found = catalog::find_catalog_path(Some(&config), None).unwrap();
     assert_eq!(found, custom_cat);
@@ -151,8 +155,10 @@ fn test_add_remote_repo_without_prior_clone() {
     let dir = tempdir().expect("Failed to create tempdir");
     let cat_path = dir.path().join("catalog.json");
 
-    let mut config = cccp::config::Config::default();
-    config.catalog_file = Some(cat_path.to_string_lossy().to_string());
+    let config = cccp::config::Config {
+        catalog_file: Some(cat_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     // Add first remote repo
     let (entry, path, is_updated) = catalog::add_remote_repo(
@@ -250,8 +256,10 @@ fn test_scan_and_add_from_src_batch() {
     fs::write(src_mock.join("README.md"), "# Mock src root").unwrap();
 
     let cat_path = base_dir.path().join("catalog.json");
-    let mut config = cccp::config::Config::default();
-    config.catalog_file = Some(cat_path.to_string_lossy().to_string());
+    let config = cccp::config::Config {
+        catalog_file: Some(cat_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     // First scan: should add both repos
     let res = catalog::scan_and_add_from_src(&src_mock, Some(&config)).unwrap();
@@ -261,8 +269,12 @@ fn test_scan_and_add_from_src_batch() {
 
     let loaded = catalog::load_catalog(Some(&config), None);
     assert_eq!(loaded.len(), 2);
-    assert!(loaded.iter().any(|e| e.slug == "lumenpink/tool_a" && e.forge == "codeberg"));
-    assert!(loaded.iter().any(|e| e.slug == "someone/tool_b" && e.forge == "github"));
+    assert!(loaded
+        .iter()
+        .any(|e| e.slug == "lumenpink/tool_a" && e.forge == "codeberg"));
+    assert!(loaded
+        .iter()
+        .any(|e| e.slug == "someone/tool_b" && e.forge == "github"));
 
     // Second scan: idempotency check (all existing should be skipped)
     let res2 = catalog::scan_and_add_from_src(&src_mock, Some(&config)).unwrap();
@@ -430,7 +442,7 @@ fn test_filter_and_sort_catalog() {
         ..Default::default()
     };
     catalog::filter_and_sort_summaries(&mut list6, &f6);
-    assert_eq!(list6[0].name, "beta");  // 10
+    assert_eq!(list6[0].name, "beta"); // 10
     assert_eq!(list6[1].name, "alpha"); // 2
     assert_eq!(list6[2].name, "gamma"); // 0
 
@@ -444,7 +456,7 @@ fn test_filter_and_sort_catalog() {
     catalog::filter_and_sort_summaries(&mut list7, &f7);
     assert_eq!(list7[0].name, "gamma"); // 0
     assert_eq!(list7[1].name, "alpha"); // 2
-    assert_eq!(list7[2].name, "beta");  // 10
+    assert_eq!(list7[2].name, "beta"); // 10
 
     // 8. Sort by name (alphabetical)
     let mut list8 = base_summaries.clone();
@@ -478,8 +490,3 @@ fn test_resolve_target_repo_from_local_directory() {
     assert_eq!(info.owner, "lumenpink");
     assert_eq!(info.repo, "local_tool");
 }
-
-
-
-
-

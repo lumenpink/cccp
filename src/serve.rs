@@ -82,7 +82,10 @@ pub fn find_free_port(start_port: u16, host: &str) -> u16 {
 
 /// Retrieves local network (LAN) IP address
 pub fn get_lan_ip() -> Option<String> {
-    if let Ok(out) = Command::new("ip").args(["route", "get", "1.1.1.1"]).output() {
+    if let Ok(out) = Command::new("ip")
+        .args(["route", "get", "1.1.1.1"])
+        .output()
+    {
         if out.status.success() {
             let text = String::from_utf8_lossy(&out.stdout);
             if let Some(idx) = text.find("src ") {
@@ -141,7 +144,9 @@ pub fn get_tailscale_ip() -> Option<String> {
 
 /// Attempts to open URL in standard desktop browser
 pub fn open_browser(url: &str) {
-    let has_display = std::env::var("DISPLAY").map(|v| !v.is_empty()).unwrap_or(false)
+    let has_display = std::env::var("DISPLAY")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
         || std::env::var("WAYLAND_DISPLAY")
             .map(|v| !v.is_empty())
             .unwrap_or(false);
@@ -187,10 +192,9 @@ fn url_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(val) = u8::from_str_radix(
-                std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""),
-                16,
-            ) {
+            if let Ok(val) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            {
                 result.push(val);
                 i += 3;
                 continue;
@@ -210,7 +214,9 @@ pub fn display_banner(mode: &str, target: &Path, host: &str, port: u16, theme: &
     if mode == "demo" {
         println!(
             "\n{}",
-            theme.gold_bold("★════════════════════════════════════════════════════════════════════════════★")
+            theme.gold_bold(
+                "★════════════════════════════════════════════════════════════════════════════★"
+            )
         );
         println!(
             "{}",
@@ -222,18 +228,16 @@ pub fn display_banner(mode: &str, target: &Path, host: &str, port: u16, theme: &
         );
         println!(
             "{}\n",
-            theme.gold_bold("★════════════════════════════════════════════════════════════════════════════★")
+            theme.gold_bold(
+                "★════════════════════════════════════════════════════════════════════════════★"
+            )
         );
     } else {
         println!(
             "\n{}",
             theme.bold("☭ [ГОСТ / GOSPLAN] CCCP HTTP SERVER ENGINE")
         );
-        println!(
-            "Modo: {} | Alvo: {}",
-            theme.cyan(mode),
-            target.display()
-        );
+        println!("Modo: {} | Alvo: {}", theme.cyan(mode), target.display());
         println!("────────────────────────────────────────────────────────────────────────────");
     }
 
@@ -347,7 +351,8 @@ X-Content-Type-Options: nosniff\r\n\
                     if let Ok(mut f) = fs::File::open(&file_path) {
                         let mut copy_buf = [0u8; 8192];
                         while let Ok(read_bytes) = f.read(&mut copy_buf) {
-                            if read_bytes == 0 || stream.write_all(&copy_buf[..read_bytes]).is_err() {
+                            if read_bytes == 0 || stream.write_all(&copy_buf[..read_bytes]).is_err()
+                            {
                                 break;
                             }
                         }
@@ -519,13 +524,12 @@ pub fn cmd_serve(opts: ServeOptions, theme: &Theme) -> Result<(), String> {
                         open_browser(&format!("http://localhost:{}/", free_port));
                     }
                     let content = fs::read_to_string(&package_json).unwrap_or_default();
-                    let npm_subcmd = if content.contains("\"dev\":") {
-                        "run"
-                    } else if content.contains("\"serve\":") {
-                        "run"
-                    } else {
-                        "start"
-                    };
+                    let npm_subcmd =
+                        if content.contains("\"dev\":") || content.contains("\"serve\":") {
+                            "run"
+                        } else {
+                            "start"
+                        };
 
                     let mut cmd = Command::new("npm");
                     if npm_subcmd == "run" {

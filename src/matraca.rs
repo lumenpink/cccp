@@ -121,7 +121,10 @@ pub fn cmd_matraca_send(
         if let Ok(existing_job_id) = fs::read_to_string(&client_file) {
             let clean_job_id = existing_job_id.trim();
             for sub in ["done", "processing", "pending", "error"] {
-                let candidate = mdir.join("queue").join(sub).join(format!("{}.json", clean_job_id));
+                let candidate = mdir
+                    .join("queue")
+                    .join(sub)
+                    .join(format!("{}.json", clean_job_id));
                 if candidate.is_file() {
                     if let Ok(content) = fs::read_to_string(&candidate) {
                         return Ok(content);
@@ -192,7 +195,10 @@ pub fn cmd_matraca_poll(query_id: &str, data_dir: Option<&Path>) -> Result<Strin
     }
 
     for sub in ["done", "processing", "pending", "error"] {
-        let f = mdir.join("queue").join(sub).join(format!("{}.json", target_id));
+        let f = mdir
+            .join("queue")
+            .join(sub)
+            .join(format!("{}.json", target_id));
         if f.is_file() {
             if let Ok(content) = fs::read_to_string(&f) {
                 return Ok(content);
@@ -289,7 +295,9 @@ fn process_pending_file(pending_file: &Path, mdir: &Path) {
     };
     job.status = final_status.to_string();
 
-    let tmp_dest = mdir.join("queue").join(format!("tmp_final_{}", fname.to_string_lossy()));
+    let tmp_dest = mdir
+        .join("queue")
+        .join(format!("tmp_final_{}", fname.to_string_lossy()));
     if let Ok(bytes) = serde_json::to_vec_pretty(&job) {
         let _ = fs::write(&tmp_dest, bytes);
         let _ = fs::rename(&tmp_dest, dest_dir.join(&fname));
@@ -443,10 +451,10 @@ pub fn cmd_matraca_clean(days: u64, data_dir: Option<&Path>) -> Result<String, S
                     if let Ok(metadata) = fs::metadata(&p) {
                         if let Ok(modified) = metadata.modified() {
                             if let Ok(m_secs) = modified.duration_since(UNIX_EPOCH) {
-                                if now.saturating_sub(m_secs.as_secs()) > cutoff_secs {
-                                    if fs::remove_file(&p).is_ok() {
-                                        removed_count += 1;
-                                    }
+                                if now.saturating_sub(m_secs.as_secs()) > cutoff_secs
+                                    && fs::remove_file(&p).is_ok()
+                                {
+                                    removed_count += 1;
                                 }
                             }
                         }

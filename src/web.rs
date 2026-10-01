@@ -85,14 +85,23 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
         return Err("Error: At least one tab must be enabled in cockpit.".to_string());
     }
 
-    fs::create_dir_all(out_dir)
-        .map_err(|e| format!("Failed to create asset directory '{}': {}", out_dir.display(), e))?;
+    fs::create_dir_all(out_dir).map_err(|e| {
+        format!(
+            "Failed to create asset directory '{}': {}",
+            out_dir.display(),
+            e
+        )
+    })?;
 
     let mut nav_html = String::new();
     let mut main_html = String::new();
 
     if opts.enable_matraca {
-        let act = if opts.initial_tab == "matraca" { " active" } else { "" };
+        let act = if opts.initial_tab == "matraca" {
+            " active"
+        } else {
+            ""
+        };
         nav_html.push_str(&format!(
             "    <button id=\"nav-matraca\" class=\"{}\" onclick=\"switchTab('matraca')\">🦜 Matraca (Web REPL)</button>\n",
             act
@@ -132,7 +141,11 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
     }
 
     if opts.enable_diva {
-        let act = if opts.initial_tab == "diva" { " active" } else { "" };
+        let act = if opts.initial_tab == "diva" {
+            " active"
+        } else {
+            ""
+        };
         nav_html.push_str(&format!(
             "    <button id=\"nav-diva\" class=\"{}\" onclick=\"switchTab('diva')\">🛋️ O Divã (Triage IA)</button>\n",
             act
@@ -165,7 +178,11 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
     }
 
     if opts.enable_status {
-        let act = if opts.initial_tab == "status" { " active" } else { "" };
+        let act = if opts.initial_tab == "status" {
+            " active"
+        } else {
+            ""
+        };
         nav_html.push_str(&format!(
             "    <button id=\"nav-status\" class=\"{}\" onclick=\"switchTab('status')\">📊 Inspeção do Repositório</button>\n",
             act
@@ -187,7 +204,11 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
     }
 
     if opts.enable_tickets {
-        let act = if opts.initial_tab == "tickets" { " active" } else { "" };
+        let act = if opts.initial_tab == "tickets" {
+            " active"
+        } else {
+            ""
+        };
         nav_html.push_str(&format!(
             "    <button id=\"nav-tickets\" class=\"{}\" onclick=\"switchTab('tickets')\">📋 Tickets Ativos</button>\n",
             act
@@ -454,8 +475,13 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
     );
 
     let index_path = out_dir.join("index.html");
-    fs::write(&index_path, index_html)
-        .map_err(|e| format!("Failed to write index.html to '{}': {}", index_path.display(), e))?;
+    fs::write(&index_path, index_html).map_err(|e| {
+        format!(
+            "Failed to write index.html to '{}': {}",
+            index_path.display(),
+            e
+        )
+    })?;
 
     Ok(index_path)
 }
@@ -564,7 +590,9 @@ pub fn cmd_cockpit(mut opts: CockpitOptions) -> Result<(), String> {
             }
         }
 
-        let status = cmd.status().map_err(|e| format!("Failed to run Mayak: {}", e))?;
+        let status = cmd
+            .status()
+            .map_err(|e| format!("Failed to run Mayak: {}", e))?;
         let _ = fs::remove_dir_all(&temp_dir);
 
         if status.success() {
@@ -583,7 +611,8 @@ pub fn cmd_cockpit(mut opts: CockpitOptions) -> Result<(), String> {
             );
         }
 
-        let res = crate::serve::run_static_server(&temp_dir, &opts.host, opts.port, opts.quiet, None);
+        let res =
+            crate::serve::run_static_server(&temp_dir, &opts.host, opts.port, opts.quiet, None);
         let _ = fs::remove_dir_all(&temp_dir);
         res
     }

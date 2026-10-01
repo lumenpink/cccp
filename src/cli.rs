@@ -967,11 +967,7 @@ pub struct CockpitArgs {
 impl From<CockpitArgs> for crate::web::CockpitOptions {
     fn from(args: CockpitArgs) -> Self {
         let initial_tab = args.tab.unwrap_or_else(|| "matraca".to_string());
-        let open = if args.no_open {
-            false
-        } else {
-            args.open
-        };
+        let open = if args.no_open { false } else { args.open };
         Self {
             port: args.port.unwrap_or(8080),
             host: args.host.unwrap_or_else(|| "127.0.0.1".to_string()),
@@ -1256,14 +1252,7 @@ mod tests {
     #[test]
     fn parse_serve_args() {
         let args = Cli::parse_from([
-            "cccp",
-            "serve",
-            "./dist",
-            "--port",
-            "9090",
-            "-l",
-            "--open",
-            "--quiet",
+            "cccp", "serve", "./dist", "--port", "9090", "-l", "--open", "--quiet",
         ]);
         match args.command {
             Some(Commands::Serve(serve)) => {

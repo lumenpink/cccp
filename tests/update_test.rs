@@ -114,7 +114,9 @@ fn test_check_hook_version() {
     .unwrap();
     let warns = check_hook_version(temp.path());
     assert_eq!(warns.len(), 1);
-    assert!(warns[0].contains("Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v1.5.0)"));
+    assert!(warns[0].contains(
+        "Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v1.5.0)"
+    ));
 
     // Case 3: Non-cccp hook
     fs::write(&commit_msg, "#!/bin/sh\necho 'custom git hook'\n").unwrap();
@@ -250,7 +252,9 @@ fn test_cmd_update_pinning_and_validation() {
         target: None,
     };
     let err = cmd_update(&args_standard).unwrap_err();
-    assert!(err.to_string().contains("Version is pinned to 2.0.0 by Gosplan directive"));
+    assert!(err
+        .to_string()
+        .contains("Version is pinned to 2.0.0 by Gosplan directive"));
 
     // Unpin clears pin
     let args_unpin = UpdateArgs {

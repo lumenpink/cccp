@@ -393,16 +393,16 @@ pub fn run_act_log(repo_root: &Path, follow: bool, theme: &Theme) -> Result<(), 
     let latest_log = match logs.last() {
         Some(l) => l,
         None => {
-            return Err(format!(
-                "No act CI logs found in {}",
-                log_dir.display()
-            ));
+            return Err(format!("No act CI logs found in {}", log_dir.display()));
         }
     };
 
     println!(
         "{}",
-        theme.bold(&format!("=== Most Recent CI Log: {} ===", latest_log.display()))
+        theme.bold(&format!(
+            "=== Most Recent CI Log: {} ===",
+            latest_log.display()
+        ))
     );
 
     let content = std::fs::read_to_string(latest_log)

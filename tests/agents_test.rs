@@ -23,7 +23,13 @@ Plain text without vars.
     // invalid-char has a hyphen, so bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_' won't match '-'
     assert_eq!(
         vars,
-        vec!["ANOTHER_VAR", "EMPTY_VAR", "NAME", "PROJECT_DIR", "another_one"]
+        vec![
+            "ANOTHER_VAR",
+            "EMPTY_VAR",
+            "NAME",
+            "PROJECT_DIR",
+            "another_one"
+        ]
     );
 }
 
@@ -127,7 +133,13 @@ fn test_ensure_agent_gitignored() {
     // Calling again does not duplicate
     ensure_agent_gitignored(root, &target);
     let content2 = fs::read_to_string(&gitignore).unwrap();
-    assert_eq!(content2.lines().filter(|l| l.trim() == ".antigravity/").count(), 1);
+    assert_eq!(
+        content2
+            .lines()
+            .filter(|l| l.trim() == ".antigravity/")
+            .count(),
+        1
+    );
 }
 
 #[test]
@@ -187,7 +199,9 @@ fn test_cmd_agent_check_and_update() {
     // Gitignore updated
     let gitignore = root.join(".gitignore");
     assert!(gitignore.is_file());
-    assert!(fs::read_to_string(gitignore).unwrap().contains(".antigravity/"));
+    assert!(fs::read_to_string(gitignore)
+        .unwrap()
+        .contains(".antigravity/"));
 
     // Provide missing variable and re-check
     write_agent_var("optional", "None", root).unwrap();

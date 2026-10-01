@@ -83,7 +83,9 @@ fn test_export_assets_tab_filtering() {
     };
     let err = export_assets(&out_none, &opts_none);
     assert!(err.is_err());
-    assert!(err.unwrap_err().contains("At least one tab must be enabled"));
+    assert!(err
+        .unwrap_err()
+        .contains("At least one tab must be enabled"));
 }
 
 #[test]

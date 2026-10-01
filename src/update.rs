@@ -382,7 +382,9 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
 
     if remote_ver.is_empty() {
         println!("Remote Version    : unavailable (unable to reach distribution endpoint)");
-        println!("Status            : Offline or telemetry unreachable. Verify network connection.");
+        println!(
+            "Status            : Offline or telemetry unreachable. Verify network connection."
+        );
         return Ok(());
     }
 
@@ -408,7 +410,9 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
             curr_ver, remote_ver
         );
     } else {
-        println!("Status            : Up to date. The collective is operating on the latest standard.");
+        println!(
+            "Status            : Up to date. The collective is operating on the latest standard."
+        );
     }
 
     Ok(())

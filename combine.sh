@@ -8,6 +8,11 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUTPUT_FILE="$SCRIPT_DIR/cccp.sh"
 
+if [ ! -d "$SCRIPT_DIR/src/utils" ]; then
+    echo "Notice: Pure native Rust architecture active. Modular shell utils removed."
+    exit 0
+fi
+
 # Function to extract function definitions
 extract_functions() {
     local file="$1"

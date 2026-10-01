@@ -122,9 +122,7 @@ pub fn extract_template_vars(template_text: &str) -> Vec<String> {
 
 /// Resolves variable value checking environment variables, local `.cccprc`, and global `~/.cccprc`
 pub fn resolve_agent_var(var_name: &str, repo_root: Option<&Path>) -> Option<String> {
-    let norm = var_name
-        .to_ascii_lowercase()
-        .replace('-', "_");
+    let norm = var_name.to_ascii_lowercase().replace('-', "_");
     let stripped = norm
         .strip_prefix("agents_")
         .or_else(|| norm.strip_prefix("agent_"))
@@ -189,7 +187,11 @@ fn find_key_in_config(content: &str, candidates: &[String]) -> Option<String> {
         }
         if let Some((key_raw, val_raw)) = trimmed.split_once('=') {
             let key = key_raw.trim().to_ascii_lowercase().replace('-', "_");
-            let clean_val = val_raw.trim().trim_matches('"').trim_matches('\'').to_string();
+            let clean_val = val_raw
+                .trim()
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string();
 
             for cand in candidates {
                 if key == *cand || key == format!("agent_var_{}", cand) {
@@ -234,7 +236,9 @@ pub fn write_agent_var(key: &str, val: &str, repo_root: &Path) -> Result<(String
             }
             if let Some((k, _)) = trimmed.split_once('=') {
                 let clean_k = k.trim().to_ascii_lowercase().replace('-', "_");
-                if clean_k == target_key || (target_key == "agent_md_url" && clean_k == "agent_var_url") {
+                if clean_k == target_key
+                    || (target_key == "agent_md_url" && clean_k == "agent_var_url")
+                {
                     if !updated {
                         lines.push(format!("{} = {}", target_key, val));
                         updated = true;
@@ -509,10 +513,20 @@ pub fn cmd_agent_update(
     }
 
     let tmp_out = target_file.with_extension(format!("tmp.{}", std::process::id()));
-    fs::write(&tmp_out, &result)
-        .map_err(|e| format!("Failed to write temporary file '{}': {}", tmp_out.display(), e))?;
-    fs::rename(&tmp_out, &target_file)
-        .map_err(|e| format!("Failed to save target file '{}': {}", target_file.display(), e))?;
+    fs::write(&tmp_out, &result).map_err(|e| {
+        format!(
+            "Failed to write temporary file '{}': {}",
+            tmp_out.display(),
+            e
+        )
+    })?;
+    fs::rename(&tmp_out, &target_file).map_err(|e| {
+        format!(
+            "Failed to save target file '{}': {}",
+            target_file.display(),
+            e
+        )
+    })?;
 
     if let Some(root) = repo_root {
         ensure_agent_gitignored(root, &target_file);
@@ -635,7 +649,10 @@ pub fn cmd_agent_fill(
             .unwrap_or(&norm_v);
 
         if let Some(existing) = resolve_agent_var(v, repo_root) {
-            println!("  [✓] {} = {}  (already set, skipping)", stripped_v, existing);
+            println!(
+                "  [✓] {} = {}  (already set, skipping)",
+                stripped_v, existing
+            );
             continue;
         }
 

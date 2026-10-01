@@ -1,6 +1,6 @@
 use cccp::matraca::{
-    cmd_matraca_clean, cmd_matraca_history, cmd_matraca_poll, cmd_matraca_send,
-    cmd_matraca_status, cmd_matraca_worker, MatracaJob,
+    cmd_matraca_clean, cmd_matraca_history, cmd_matraca_poll, cmd_matraca_send, cmd_matraca_status,
+    cmd_matraca_worker, MatracaJob,
 };
 use std::sync::Mutex;
 use tempfile::tempdir;

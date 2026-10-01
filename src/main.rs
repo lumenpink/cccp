@@ -1037,174 +1037,166 @@ fn main() -> ExitCode {
             clap_complete::generate(comp.shell, &mut cmd, "cccp", &mut std::io::stdout());
             ExitCode::SUCCESS
         }
-        Some(Commands::Catalog(catalog_args)) => {
-            match catalog_args.action {
-                Some(cli::CatalogSubcommands::Add {
-                    repo,
-                    name,
-                    description,
-                }) => {
-                    match cccp::catalog::add_remote_repo(
-                        &repo,
-                        name.as_deref(),
-                        description.as_deref(),
-                        Some(&config),
-                    ) {
-                        Ok((entry, path, is_updated)) => {
-                            let action_str = if is_updated {
-                                "UPDATED"
-                            } else {
-                                "REGISTERED"
-                            };
-                            println!(
-                                "{} Comrade! Repository {} in State Catalog ({})",
-                                theme.gold_bold("★"),
-                                action_str,
-                                path.display()
-                            );
-                            println!("  • Name:   {}", theme.bold(&entry.name));
-                            println!("  • Forge:  {}", entry.forge);
-                            println!("  • Slug:   {}", theme.cyan(&entry.slug));
-                            if !entry.description.is_empty() {
-                                println!("  • Desc:   {}", entry.description);
-                            }
-                            if !entry.topics.is_empty() {
-                                println!("  • Topics: {}", entry.topics.join(", "));
-                            }
-                            if !entry.license.is_empty() {
-                                println!("  • License: {}", entry.license);
-                            }
-                            ExitCode::SUCCESS
+        Some(Commands::Catalog(catalog_args)) => match catalog_args.action {
+            Some(cli::CatalogSubcommands::Add {
+                repo,
+                name,
+                description,
+            }) => {
+                match cccp::catalog::add_remote_repo(
+                    &repo,
+                    name.as_deref(),
+                    description.as_deref(),
+                    Some(&config),
+                ) {
+                    Ok((entry, path, is_updated)) => {
+                        let action_str = if is_updated { "UPDATED" } else { "REGISTERED" };
+                        println!(
+                            "{} Comrade! Repository {} in State Catalog ({})",
+                            theme.gold_bold("★"),
+                            action_str,
+                            path.display()
+                        );
+                        println!("  • Name:   {}", theme.bold(&entry.name));
+                        println!("  • Forge:  {}", entry.forge);
+                        println!("  • Slug:   {}", theme.cyan(&entry.slug));
+                        if !entry.description.is_empty() {
+                            println!("  • Desc:   {}", entry.description);
                         }
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
+                        if !entry.topics.is_empty() {
+                            println!("  • Topics: {}", entry.topics.join(", "));
                         }
+                        if !entry.license.is_empty() {
+                            println!("  • License: {}", entry.license);
+                        }
+                        ExitCode::SUCCESS
                     }
-                }
-                Some(cli::CatalogSubcommands::AddNew { from_src }) => {
-                    let raw_path = from_src.unwrap_or_else(|| "~/src".to_string());
-                    let target_dir = cccp::catalog::expand_tilde(&raw_path);
-                    match cccp::catalog::scan_and_add_from_src(&target_dir, Some(&config)) {
-                        Ok(res) => {
-                            println!(
-                                "{} Comrade! Ingested repositories from '{}' into State Catalog ({})",
-                                theme.gold_bold("★"),
-                                target_dir.display(),
-                                res.catalog_path.display()
-                            );
-                            println!(
-                                "  • Total directories scanned: {}",
-                                theme.bold(&res.total_scanned.to_string())
-                            );
-                            println!(
-                                "  • Newly registered:          {}",
-                                theme.green(&res.added.len().to_string())
-                            );
-                            if !res.skipped_existing.is_empty() {
-                                println!(
-                                    "  • Already registered:        {}",
-                                    theme.yellow(&res.skipped_existing.len().to_string())
-                                );
-                            }
-                            if !res.skipped_not_git_or_remote.is_empty() {
-                                println!(
-                                    "  • Skipped (no git/remote):   {}",
-                                    theme.dim(&res.skipped_not_git_or_remote.len().to_string())
-                                );
-                            }
-
-                            if !res.added.is_empty() {
-                                println!("\n{} Newly Registered Repositories:", theme.gold_bold("★"));
-                                for item in &res.added {
-                                    println!(
-                                        "    • {} [{}] ({})",
-                                        theme.bold(&item.name),
-                                        theme.cyan(&item.forge),
-                                        item.slug
-                                    );
-                                }
-                            }
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                None => {
-                    let entries = cccp::catalog::load_catalog(Some(&config), None);
-                    if entries.is_empty() {
-                        println!("{} State Catalog is currently empty.", theme.yellow("★"));
-                    } else {
-                        let total_count = entries.len();
-                        let mut summaries = cccp::catalog::summarize_catalog(&entries);
-                        cccp::catalog::filter_and_sort_summaries(&mut summaries, &catalog_args.filter);
-
-                        if catalog_args.filter.status.is_some()
-                            || catalog_args.filter.min_tickets.is_some()
-                        {
-                            println!(
-                                "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
-                                theme.gold_bold("★"),
-                                summaries.len(),
-                                total_count
-                            );
-                        } else {
-                            println!(
-                                "{} Gosplan State Catalog ({} repositories registered):\n",
-                                theme.gold_bold("★"),
-                                summaries.len()
-                            );
-                        }
-                        let table = cccp::catalog::format_catalog_table(&summaries, &theme);
-                        println!("{}", table);
-                    }
-                    ExitCode::SUCCESS
-                }
-                Some(cli::CatalogSubcommands::List(list_filter)) => {
-                    let entries = cccp::catalog::load_catalog(Some(&config), None);
-                    if entries.is_empty() {
-                        println!("{} State Catalog is currently empty.", theme.yellow("★"));
-                    } else {
-                        let merged_filter = catalog_args.filter.merge(&list_filter);
-                        let total_count = entries.len();
-                        let mut summaries = cccp::catalog::summarize_catalog(&entries);
-                        cccp::catalog::filter_and_sort_summaries(&mut summaries, &merged_filter);
-
-                        if merged_filter.status.is_some()
-                            || merged_filter.min_tickets.is_some()
-                        {
-                            println!(
-                                "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
-                                theme.gold_bold("★"),
-                                summaries.len(),
-                                total_count
-                            );
-                        } else {
-                            println!(
-                                "{} Gosplan State Catalog ({} repositories registered):\n",
-                                theme.gold_bold("★"),
-                                summaries.len()
-                            );
-                        }
-                        let table = cccp::catalog::format_catalog_table(&summaries, &theme);
-                        println!("{}", table);
-                    }
-                    ExitCode::SUCCESS
-                }
-                Some(cli::CatalogSubcommands::New(newrepo_args)) => {
-                    match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
-                        Ok(()) => ExitCode::SUCCESS,
-                        Err(e) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), e);
-                            ExitCode::FAILURE
-                        }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
                     }
                 }
             }
-        }
+            Some(cli::CatalogSubcommands::AddNew { from_src }) => {
+                let raw_path = from_src.unwrap_or_else(|| "~/src".to_string());
+                let target_dir = cccp::catalog::expand_tilde(&raw_path);
+                match cccp::catalog::scan_and_add_from_src(&target_dir, Some(&config)) {
+                    Ok(res) => {
+                        println!(
+                            "{} Comrade! Ingested repositories from '{}' into State Catalog ({})",
+                            theme.gold_bold("★"),
+                            target_dir.display(),
+                            res.catalog_path.display()
+                        );
+                        println!(
+                            "  • Total directories scanned: {}",
+                            theme.bold(&res.total_scanned.to_string())
+                        );
+                        println!(
+                            "  • Newly registered:          {}",
+                            theme.green(&res.added.len().to_string())
+                        );
+                        if !res.skipped_existing.is_empty() {
+                            println!(
+                                "  • Already registered:        {}",
+                                theme.yellow(&res.skipped_existing.len().to_string())
+                            );
+                        }
+                        if !res.skipped_not_git_or_remote.is_empty() {
+                            println!(
+                                "  • Skipped (no git/remote):   {}",
+                                theme.dim(&res.skipped_not_git_or_remote.len().to_string())
+                            );
+                        }
+
+                        if !res.added.is_empty() {
+                            println!("\n{} Newly Registered Repositories:", theme.gold_bold("★"));
+                            for item in &res.added {
+                                println!(
+                                    "    • {} [{}] ({})",
+                                    theme.bold(&item.name),
+                                    theme.cyan(&item.forge),
+                                    item.slug
+                                );
+                            }
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            None => {
+                let entries = cccp::catalog::load_catalog(Some(&config), None);
+                if entries.is_empty() {
+                    println!("{} State Catalog is currently empty.", theme.yellow("★"));
+                } else {
+                    let total_count = entries.len();
+                    let mut summaries = cccp::catalog::summarize_catalog(&entries);
+                    cccp::catalog::filter_and_sort_summaries(&mut summaries, &catalog_args.filter);
+
+                    if catalog_args.filter.status.is_some()
+                        || catalog_args.filter.min_tickets.is_some()
+                    {
+                        println!(
+                            "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
+                            theme.gold_bold("★"),
+                            summaries.len(),
+                            total_count
+                        );
+                    } else {
+                        println!(
+                            "{} Gosplan State Catalog ({} repositories registered):\n",
+                            theme.gold_bold("★"),
+                            summaries.len()
+                        );
+                    }
+                    let table = cccp::catalog::format_catalog_table(&summaries, &theme);
+                    println!("{}", table);
+                }
+                ExitCode::SUCCESS
+            }
+            Some(cli::CatalogSubcommands::List(list_filter)) => {
+                let entries = cccp::catalog::load_catalog(Some(&config), None);
+                if entries.is_empty() {
+                    println!("{} State Catalog is currently empty.", theme.yellow("★"));
+                } else {
+                    let merged_filter = catalog_args.filter.merge(&list_filter);
+                    let total_count = entries.len();
+                    let mut summaries = cccp::catalog::summarize_catalog(&entries);
+                    cccp::catalog::filter_and_sort_summaries(&mut summaries, &merged_filter);
+
+                    if merged_filter.status.is_some() || merged_filter.min_tickets.is_some() {
+                        println!(
+                            "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
+                            theme.gold_bold("★"),
+                            summaries.len(),
+                            total_count
+                        );
+                    } else {
+                        println!(
+                            "{} Gosplan State Catalog ({} repositories registered):\n",
+                            theme.gold_bold("★"),
+                            summaries.len()
+                        );
+                    }
+                    let table = cccp::catalog::format_catalog_table(&summaries, &theme);
+                    println!("{}", table);
+                }
+                ExitCode::SUCCESS
+            }
+            Some(cli::CatalogSubcommands::New(newrepo_args)) => {
+                match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        },
         Some(Commands::Act(act_args)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
@@ -1219,7 +1211,12 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
                 Some(cli::ActSubcommands::Run { job }) => {
-                    match cccp::act::run_act_run(&repo.root_dir, job.as_deref(), &theme, args.verbose) {
+                    match cccp::act::run_act_run(
+                        &repo.root_dir,
+                        job.as_deref(),
+                        &theme,
+                        args.verbose,
+                    ) {
                         Ok(()) => ExitCode::SUCCESS,
                         Err(e) => {
                             eprintln!("{}: {}", theme.red_bold("Error"), e);
@@ -1238,43 +1235,39 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some(Commands::Deps(deps_args)) => {
-            match deps_args.action {
-                Some(cli::DepsSubcommands::List) => {
-                    cccp::deps::cmd_deps_list(&theme);
-                    ExitCode::SUCCESS
-                }
-                Some(cli::DepsSubcommands::Check { deps }) => {
-                    match cccp::deps::cmd_deps_check(&deps, &theme) {
-                        Ok(true) => ExitCode::SUCCESS,
-                        Ok(false) => ExitCode::FAILURE,
-                        Err(e) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), e);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                Some(cli::DepsSubcommands::Install { all, deps }) => {
-                    match cccp::deps::cmd_deps_install(&deps, all, &theme) {
-                        Ok(()) => ExitCode::SUCCESS,
-                        Err(e) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), e);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                None => {
-                    match cccp::deps::cmd_deps_check(&deps_args.deps, &theme) {
-                        Ok(true) => ExitCode::SUCCESS,
-                        Ok(false) => ExitCode::FAILURE,
-                        Err(e) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), e);
-                            ExitCode::FAILURE
-                        }
+        Some(Commands::Deps(deps_args)) => match deps_args.action {
+            Some(cli::DepsSubcommands::List) => {
+                cccp::deps::cmd_deps_list(&theme);
+                ExitCode::SUCCESS
+            }
+            Some(cli::DepsSubcommands::Check { deps }) => {
+                match cccp::deps::cmd_deps_check(&deps, &theme) {
+                    Ok(true) => ExitCode::SUCCESS,
+                    Ok(false) => ExitCode::FAILURE,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
                     }
                 }
             }
-        }
+            Some(cli::DepsSubcommands::Install { all, deps }) => {
+                match cccp::deps::cmd_deps_install(&deps, all, &theme) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            None => match cccp::deps::cmd_deps_check(&deps_args.deps, &theme) {
+                Ok(true) => ExitCode::SUCCESS,
+                Ok(false) => ExitCode::FAILURE,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            },
+        },
         Some(Commands::Agent(agent_args)) => {
             let start_path = args.dir.as_deref().map(std::path::Path::new);
             let repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
@@ -1509,24 +1502,20 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some(Commands::Web(cockpit_args)) => {
-            match cccp::web::cmd_cockpit(cockpit_args.into()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(err) => {
-                    eprintln!("{}: {}", theme.red_bold("Error"), err);
-                    ExitCode::FAILURE
-                }
+        Some(Commands::Web(cockpit_args)) => match cccp::web::cmd_cockpit(cockpit_args.into()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("{}: {}", theme.red_bold("Error"), err);
+                ExitCode::FAILURE
             }
-        }
-        Some(Commands::Update(update_args)) => {
-            match cccp::update::cmd_update(&update_args) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(err) => {
-                    eprintln!("{}: {}", theme.red_bold("Error"), err);
-                    ExitCode::FAILURE
-                }
+        },
+        Some(Commands::Update(update_args)) => match cccp::update::cmd_update(&update_args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(err) => {
+                eprintln!("{}: {}", theme.red_bold("Error"), err);
+                ExitCode::FAILURE
             }
-        }
+        },
         Some(Commands::CheckUpdate(check_args)) => {
             match cccp::update::cmd_check_update(check_args.channel.as_deref()) {
                 Ok(()) => ExitCode::SUCCESS,

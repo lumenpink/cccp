@@ -52,16 +52,14 @@ pub fn generate_license_text(spdx: &str, project_name: &str) -> String {
     let year = "2026";
 
     match spdx.trim() {
-        "CC0-1.0" | "CC0" => {
-            "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication\n\n\
+        "CC0-1.0" | "CC0" => "CC0 1.0 Universal (CC0 1.0) Public Domain Dedication\n\n\
 The person who associated a work with this deed has dedicated the work to the\n\
 public domain by waiving all of his or her rights to the work worldwide under\n\
 copyright law, including all related and neighboring rights, to the extent\n\
 allowed by law.\n\n\
 You can copy, modify, distribute and perform the work, even for commercial\n\
 purposes, all without asking permission.\n"
-                .to_string()
-        }
+            .to_string(),
         "MIT" => {
             format!(
                 "MIT License\n\n\
@@ -316,9 +314,9 @@ pub fn cmd_newrepo(opts: NewrepoOptions, theme: &Theme) -> Result<(), String> {
             .unwrap_or_else(|| "projeto".to_string()),
     };
 
-    let desc = opts
-        .desc
-        .unwrap_or_else(|| "Repositório estruturado em estrita conformidade com o padrão GOST v1.1.0".to_string());
+    let desc = opts.desc.unwrap_or_else(|| {
+        "Repositório estruturado em estrita conformidade com o padrão GOST v1.1.0".to_string()
+    });
 
     if !target_root.exists() {
         fs::create_dir_all(&target_root).map_err(|e| {

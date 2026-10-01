@@ -573,7 +573,10 @@ pub fn get_or_create_global_config_path() -> PathBuf {
         return PathBuf::from(xdg).join("cccp").join("config");
     }
     if let Ok(home) = env::var("HOME") {
-        return PathBuf::from(home).join(".config").join("cccp").join("config");
+        return PathBuf::from(home)
+            .join(".config")
+            .join("cccp")
+            .join("config");
     }
     PathBuf::from(".config/cccp/config")
 }

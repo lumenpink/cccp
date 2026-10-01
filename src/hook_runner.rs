@@ -191,7 +191,13 @@ pub fn run_pre_push(
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_else(|_| "HEAD".to_string());
 
-    match crate::act::act_ci_gate(&repo.root_dir, remote.unwrap_or("origin"), &branch, theme, verbose) {
+    match crate::act::act_ci_gate(
+        &repo.root_dir,
+        remote.unwrap_or("origin"),
+        &branch,
+        theme,
+        verbose,
+    ) {
         Ok(true) => {
             if verbose > 0 {
                 println!("{} pre-push checks passed successfully.", theme.green("✓"));

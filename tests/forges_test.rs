@@ -196,7 +196,10 @@ fn test_host_to_token_env_var() {
     assert_eq!(host_to_token_env_var("codeberg.org"), "CODEBERG_ORG_TOKEN");
     assert_eq!(host_to_token_env_var("tildegit.org"), "TILDEGIT_ORG_TOKEN");
     assert_eq!(host_to_token_env_var("github.com"), "GITHUB_COM_TOKEN");
-    assert_eq!(host_to_token_env_var("git.my-domain.net"), "GIT_MY_DOMAIN_NET_TOKEN");
+    assert_eq!(
+        host_to_token_env_var("git.my-domain.net"),
+        "GIT_MY_DOMAIN_NET_TOKEN"
+    );
 }
 
 #[test]
@@ -210,9 +213,11 @@ fn test_resolve_token_for_host_domain_precedence() {
 #[test]
 fn test_resolve_token_for_host_from_config_extra() {
     let mut config = cccp::config::Config::default();
-    config.extra.insert("custom_myforge_org_token".to_string(), "my_cb_token_abc".to_string());
+    config.extra.insert(
+        "custom_myforge_org_token".to_string(),
+        "my_cb_token_abc".to_string(),
+    );
 
     let resolved = resolve_token_for_host("custom.myforge.org", ForgeType::Codeberg, Some(&config));
     assert_eq!(resolved.as_deref(), Some("my_cb_token_abc"));
 }
-

@@ -43,16 +43,25 @@ fn test_get_catalog_structure() {
     let catalog = get_catalog();
     assert!(catalog.len() >= 10);
 
-    let git_dep = catalog.iter().find(|d| d.name == "git").expect("git must be in catalog");
+    let git_dep = catalog
+        .iter()
+        .find(|d| d.name == "git")
+        .expect("git must be in catalog");
     assert_eq!(git_dep.requirement, "Obrigatório");
     assert_eq!(git_dep.category, "core");
 
-    let act_dep = catalog.iter().find(|d| d.name == "act").expect("act must be in catalog");
+    let act_dep = catalog
+        .iter()
+        .find(|d| d.name == "act")
+        .expect("act must be in catalog");
     assert_eq!(act_dep.category, "ci");
 
     let comrades = ["sv", "kv", "mk"];
     for c in comrades {
-        let dep = catalog.iter().find(|d| d.name == c).unwrap_or_else(|| panic!("{} must be in catalog", c));
+        let dep = catalog
+            .iter()
+            .find(|d| d.name == c)
+            .unwrap_or_else(|| panic!("{} must be in catalog", c));
         assert_eq!(dep.category, "comrade");
     }
 }

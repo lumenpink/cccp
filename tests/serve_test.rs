@@ -134,7 +134,9 @@ fn test_http_server_request_handling_and_security() {
     assert!(body_root.contains("<h1>Welcome to CCCP</h1>"));
 
     // 2. GET /style.css -> returns style.css with text/css
-    let resp_css = ureq::get(&format!("{}/style.css", base_url)).call().unwrap();
+    let resp_css = ureq::get(&format!("{}/style.css", base_url))
+        .call()
+        .unwrap();
     assert_eq!(resp_css.status(), 200);
     assert_eq!(
         resp_css.headers().get("content-type").unwrap(),

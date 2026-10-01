@@ -330,15 +330,11 @@ pub fn save_catalog(
     entries: &[CatalogEntry],
     config: Option<&crate::config::Config>,
 ) -> Result<PathBuf, String> {
-    let save_path = find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
+    let save_path =
+        find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
     if let Some(parent) = save_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| {
-            format!(
-                "Failed to create directory '{}': {}",
-                parent.display(),
-                e
-            )
-        })?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory '{}': {}", parent.display(), e))?;
     }
 
     let json = serde_json::to_string_pretty(entries)
@@ -461,8 +457,13 @@ pub fn scan_and_add_from_src(
     let forge_client = crate::forges::ForgeClient::new();
     let mut result = BatchAddResult::default();
 
-    let read_dir = fs::read_dir(src_dir)
-        .map_err(|e| format!("Failed to read source directory '{}': {}", src_dir.display(), e))?;
+    let read_dir = fs::read_dir(src_dir).map_err(|e| {
+        format!(
+            "Failed to read source directory '{}': {}",
+            src_dir.display(),
+            e
+        )
+    })?;
 
     let mut dir_entries: Vec<PathBuf> = read_dir
         .filter_map(|e| e.ok().map(|de| de.path()))
@@ -612,34 +613,33 @@ pub struct CatalogRepoSummary {
     pub ticket_count: usize,
     pub is_clean: Option<bool>, // None if remote
     pub unpushed: usize,
-    pub status_label: String,   // "clean", "clean [↑4]", "dirty", "dirty [↑2]", "remote"
+    pub status_label: String, // "clean", "clean [↑4]", "dirty", "dirty [↑2]", "remote"
     pub local_path: Option<PathBuf>,
 }
 
 /// Gather live status (clean/dirty, unpushed commits, open tickets) for catalog entries
-pub fn summarize_catalog(
-    entries: &[CatalogEntry],
-) -> Vec<CatalogRepoSummary> {
+pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
     entries
         .iter()
         .map(|entry| {
             let local_path = find_local_repo_path(entry);
-            let (ticket_count, is_clean, unpushed, status_label) = if let Some(ref path) = local_path {
-                let tickets = count_open_tickets(path);
-                if let Some(st) = crate::git::inspect_local_status(path) {
-                    let label = match (st.is_clean, st.ahead) {
-                        (true, 0) => "clean".to_string(),
-                        (true, n) => format!("clean [↑{}]", n),
-                        (false, 0) => "dirty".to_string(),
-                        (false, n) => format!("dirty [↑{}]", n),
-                    };
-                    (tickets, Some(st.is_clean), st.ahead, label)
+            let (ticket_count, is_clean, unpushed, status_label) =
+                if let Some(ref path) = local_path {
+                    let tickets = count_open_tickets(path);
+                    if let Some(st) = crate::git::inspect_local_status(path) {
+                        let label = match (st.is_clean, st.ahead) {
+                            (true, 0) => "clean".to_string(),
+                            (true, n) => format!("clean [↑{}]", n),
+                            (false, 0) => "dirty".to_string(),
+                            (false, n) => format!("dirty [↑{}]", n),
+                        };
+                        (tickets, Some(st.is_clean), st.ahead, label)
+                    } else {
+                        (tickets, None, 0, "unknown".to_string())
+                    }
                 } else {
-                    (tickets, None, 0, "unknown".to_string())
-                }
-            } else {
-                (0, None, 0, "remote".to_string())
-            };
+                    (0, None, 0, "remote".to_string())
+                };
 
             CatalogRepoSummary {
                 name: entry.name.clone(),
@@ -721,11 +721,16 @@ pub fn format_catalog_table(
 
     out.push_str(&format!(
         "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
-        theme.bold(h_repo), pad_r,
-        theme.bold(h_forge), pad_f,
-        pad_t, theme.bold(h_tickets),
-        theme.bold(h_status), pad_s,
-        theme.bold(h_path), pad_p,
+        theme.bold(h_repo),
+        pad_r,
+        theme.bold(h_forge),
+        pad_f,
+        pad_t,
+        theme.bold(h_tickets),
+        theme.bold(h_status),
+        pad_s,
+        theme.bold(h_path),
+        pad_p,
     ));
 
     // Separator
@@ -773,11 +778,16 @@ pub fn format_catalog_table(
 
         out.push_str(&format!(
             "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
-            styled_repo, pad_repo,
-            styled_forge, pad_forge,
-            pad_tickets, styled_tickets,
-            styled_status, pad_status,
-            styled_path, pad_path,
+            styled_repo,
+            pad_repo,
+            styled_forge,
+            pad_forge,
+            pad_tickets,
+            styled_tickets,
+            styled_status,
+            pad_status,
+            styled_path,
+            pad_path,
         ));
     }
 
@@ -802,14 +812,12 @@ pub fn filter_and_sort_summaries(
     // 1. Filter by status
     if let Some(ref st_filter) = filter.status {
         let clean_st = st_filter.trim().to_ascii_lowercase();
-        summaries.retain(|s| {
-            match clean_st.as_str() {
-                "clean" => s.status_label.starts_with("clean"),
-                "dirty" => s.status_label.starts_with("dirty"),
-                "unpushed" => s.unpushed > 0,
-                "remote" => s.status_label == "remote" || s.is_clean.is_none(),
-                other => s.status_label.to_ascii_lowercase().contains(other),
-            }
+        summaries.retain(|s| match clean_st.as_str() {
+            "clean" => s.status_label.starts_with("clean"),
+            "dirty" => s.status_label.starts_with("dirty"),
+            "unpushed" => s.unpushed > 0,
+            "remote" => s.status_label == "remote" || s.is_clean.is_none(),
+            other => s.status_label.to_ascii_lowercase().contains(other),
         });
     }
 
@@ -836,15 +844,11 @@ pub fn filter_and_sort_summaries(
             });
         }
         "forge" => {
-            summaries.sort_by(|a, b| {
-                a.forge
-                    .cmp(&b.forge)
-                    .then_with(|| a.name.cmp(&b.name))
-            });
+            summaries.sort_by(|a, b| a.forge.cmp(&b.forge).then_with(|| a.name.cmp(&b.name)));
         }
         _ => {
             // Default "name"
-            summaries.sort_by(|a, b| a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase()));
+            summaries.sort_by_key(|a| a.name.to_ascii_lowercase());
         }
     }
 
@@ -853,7 +857,3 @@ pub fn filter_and_sort_summaries(
         summaries.reverse();
     }
 }
-
-
-
-

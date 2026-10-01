@@ -125,8 +125,16 @@ pub fn get_catalog() -> Vec<Dependency> {
 /// Development builds (e.g. starting with "dev", "development", "trunk", "master", "main")
 /// are treated as conforming.
 pub fn version_ge(actual: &str, required: &str) -> bool {
-    let clean_act = actual.strip_prefix('v').or_else(|| actual.strip_prefix('V')).unwrap_or(actual).trim();
-    let clean_req = required.strip_prefix('v').or_else(|| required.strip_prefix('V')).unwrap_or(required).trim();
+    let clean_act = actual
+        .strip_prefix('v')
+        .or_else(|| actual.strip_prefix('V'))
+        .unwrap_or(actual)
+        .trim();
+    let clean_req = required
+        .strip_prefix('v')
+        .or_else(|| required.strip_prefix('V'))
+        .unwrap_or(required)
+        .trim();
 
     if clean_act.starts_with("dev")
         || clean_act.starts_with("development")
@@ -209,28 +217,57 @@ pub fn probe_version(name: &str, bin_path: &Path) -> Option<String> {
     let clean_ver = match name {
         "git" => {
             // "git version 2.43.0"
-            first_line.split("version").nth(1)?.split_whitespace().next()?.to_string()
+            first_line
+                .split("version")
+                .nth(1)?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "docker" => {
             // "Docker version 28.0.1, build ..."
             let after_ver = first_line.split("version").nth(1)?;
-            after_ver.split(',').next()?.split_whitespace().next()?.to_string()
+            after_ver
+                .split(',')
+                .next()?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "act" => {
             // "act version 0.2.75"
-            first_line.split("version").nth(1)?.split_whitespace().next()?.to_string()
+            first_line
+                .split("version")
+                .nth(1)?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "curl" => {
             // "curl 8.5.0 (x86_64-pc-linux-gnu)..."
-            first_line.strip_prefix("curl")?.split_whitespace().next()?.to_string()
+            first_line
+                .strip_prefix("curl")?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "wget" => {
             // "GNU Wget 1.21.4 built on linux-gnu."
-            first_line.split("Wget").nth(1)?.split_whitespace().next()?.to_string()
+            first_line
+                .split("Wget")
+                .nth(1)?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "jq" => {
             // "jq-1.7.1"
-            first_line.strip_prefix("jq-").unwrap_or(first_line).split_whitespace().next()?.to_string()
+            first_line
+                .strip_prefix("jq-")
+                .unwrap_or(first_line)
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "tea" => {
             // "tea version 0.9.2" or "Version: 0.9.2"
@@ -244,14 +281,25 @@ pub fn probe_version(name: &str, bin_path: &Path) -> Option<String> {
         }
         "gh" => {
             // "gh version 2.45.0 (2024-03-04)"
-            first_line.split("version").nth(1)?.split_whitespace().next()?.to_string()
+            first_line
+                .split("version")
+                .nth(1)?
+                .split_whitespace()
+                .next()?
+                .to_string()
         }
         "kv" | "sv" | "mk" => {
             // extract any sequence of digits and dots
             let mut found = String::new();
             for word in first_line.split_whitespace() {
                 let stripped = word.strip_prefix('v').unwrap_or(word);
-                if stripped.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) && stripped.contains('.') {
+                if stripped
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+                    && stripped.contains('.')
+                {
                     found = stripped.to_string();
                     break;
                 }
@@ -262,12 +310,12 @@ pub fn probe_version(name: &str, bin_path: &Path) -> Option<String> {
                 "0.1.0".to_string()
             }
         }
-        _ => {
-            first_line.split_whitespace().last()?.to_string()
-        }
+        _ => first_line.split_whitespace().last()?.to_string(),
     };
 
-    let result = clean_ver.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '-').to_string();
+    let result = clean_ver
+        .trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '-')
+        .to_string();
     if result.is_empty() {
         None
     } else {
@@ -281,7 +329,8 @@ pub fn get_system_pkg_mgr() -> &'static str {
         "pacman -S"
     } else if Path::new("/etc/debian_version").exists() {
         "apt-get install -y"
-    } else if Path::new("/etc/fedora-release").exists() || Path::new("/etc/redhat-release").exists() {
+    } else if Path::new("/etc/fedora-release").exists() || Path::new("/etc/redhat-release").exists()
+    {
         "dnf install -y"
     } else if Path::new("/etc/alpine-release").exists() {
         "apk add"
@@ -295,7 +344,10 @@ pub fn get_system_pkg_mgr() -> &'static str {
 /// Subcommand: cccp deps list
 pub fn cmd_deps_list(theme: &Theme) {
     println!("{}", theme.bold("========================================================================================"));
-    println!("{}", theme.bold(" ★ [ГОСПЛАН] Catálogo de Dependências e Utilitários do Ecossistema CCCP ★"));
+    println!(
+        "{}",
+        theme.bold(" ★ [ГОСПЛАН] Catálogo de Dependências e Utilitários do Ecossistema CCCP ★")
+    );
     println!("{}", theme.bold("========================================================================================"));
     println!(
         "{}",
@@ -305,8 +357,8 @@ pub fn cmd_deps_list(theme: &Theme) {
         ))
     );
     println!(
-        "{:<8} {:<9} {:<12} {:<10} {:<22} {}",
-        "-------", "---------", "---------", "------", "------", "---------"
+        "{:<8} {:<9} {:<12} {:<10} {:<22} ---------",
+        "-------", "---------", "---------", "------", "------"
     );
 
     for dep in get_catalog() {
@@ -335,7 +387,10 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
     let mut total_outdated = 0;
 
     println!("{}", theme.bold("========================================================================================"));
-    println!("{}", theme.bold(" ★ [ГОСПЛАН] Auditoria de Conformidade de Dependências (Deps Check) ★"));
+    println!(
+        "{}",
+        theme.bold(" ★ [ГОСПЛАН] Auditoria de Conformidade de Dependências (Deps Check) ★")
+    );
     println!("{}", theme.bold("========================================================================================"));
     println!(
         "{}",
@@ -345,12 +400,16 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
         ))
     );
     println!(
-        "{:<10} {:<12} {:<14} {:<14} {:<16} {}",
-        "-------", "---------", "---------", "---------", "------", "----------------------"
+        "{:<10} {:<12} {:<14} {:<14} {:<16} ----------------------",
+        "-------", "---------", "---------", "---------", "------"
     );
 
     for dep in catalog {
-        if !filter_deps.is_empty() && !filter_deps.iter().any(|f| f == dep.name || dep.aliases.contains(&f.as_str())) {
+        if !filter_deps.is_empty()
+            && !filter_deps
+                .iter()
+                .any(|f| f == dep.name || dep.aliases.contains(&f.as_str()))
+        {
             continue;
         }
 
@@ -363,6 +422,7 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
                 has_critical_failure = true;
             }
 
+            let source_msg = format!("Não encontrado no PATH (Origem: {})", dep.source);
             println!(
                 "{:<10} {:<12} {:<14} {:<14} {} {}",
                 dep.name,
@@ -370,7 +430,7 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
                 "-",
                 format!(">= {}", dep.min_version),
                 theme.red(&format!("{:<16}", "[AUSENTE]")),
-                format!("Não encontrado no PATH (Origem: {})", dep.source)
+                source_msg
             );
             continue;
         }
@@ -452,7 +512,9 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
     if has_critical_failure {
         eprintln!(
             "{}",
-            theme.red("[FALHA] Dependências obrigatórias ausentes. O CCCP não poderá operar normalmente.")
+            theme.red(
+                "[FALHA] Dependências obrigatórias ausentes. O CCCP não poderá operar normalmente."
+            )
         );
         Ok(false)
     } else {
@@ -465,7 +527,11 @@ pub fn cmd_deps_check(filter_deps: &[String], theme: &Theme) -> Result<bool, Str
 }
 
 /// Subcommand: cccp deps install <dep... | --all>
-pub fn cmd_deps_install(targets: &[String], install_all: bool, theme: &Theme) -> Result<(), String> {
+pub fn cmd_deps_install(
+    targets: &[String],
+    install_all: bool,
+    theme: &Theme,
+) -> Result<(), String> {
     if targets.is_empty() && !install_all {
         println!("Uso: cccp deps install <nome-da-dependência ... | --all>");
         println!("Exemplo: cccp deps install act");
@@ -501,11 +567,17 @@ pub fn cmd_deps_install(targets: &[String], install_all: bool, theme: &Theme) ->
             "kv" | "kvant" | "sv" | "svyaz" | "mk" | "mayak" => {
                 println!(
                     "{}",
-                    theme.bold(&format!("Camarada '{}': consulte o módulo de camaradas (cccp comrades).", target))
+                    theme.bold(&format!(
+                        "Camarada '{}': consulte o módulo de camaradas (cccp comrades).",
+                        target
+                    ))
                 );
             }
             "git" | "docker" | "curl" | "wget" | "jq" | "tea" | "gh" => {
-                println!("{}", theme.bold(&format!("Dependência de sistema: {}", target)));
+                println!(
+                    "{}",
+                    theme.bold(&format!("Dependência de sistema: {}", target))
+                );
                 println!("  Para instalar no seu sistema operacional, execute:");
                 println!("    {}\n", theme.cyan(&format!("sudo {} {}", pm, target)));
             }

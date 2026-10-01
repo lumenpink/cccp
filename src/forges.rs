@@ -145,11 +145,7 @@ pub fn detect_forge_from_repo(repo: &GitRepo) -> Result<RepoForgeInfo, String> {
 /// Helper: Convert a forge host to its canonical domain-based environment variable name.
 /// E.g. "codeberg.org" -> "CODEBERG_ORG_TOKEN", "tildegit.org" -> "TILDEGIT_ORG_TOKEN", "github.com" -> "GITHUB_COM_TOKEN"
 pub fn host_to_token_env_var(host: &str) -> String {
-    let clean = host
-        .trim()
-        .replace('.', "_")
-        .replace('-', "_")
-        .to_ascii_uppercase();
+    let clean = host.trim().replace(['.', '-'], "_").to_ascii_uppercase();
     format!("{}_TOKEN", clean)
 }
 
@@ -188,9 +184,12 @@ pub fn resolve_token_for_host(
 
     // 3. Generic provider environment variables
     let provider_vars: &[&str] = match provider {
-        ForgeType::Codeberg | ForgeType::Forgejo => {
-            &["CODEBERG_TOKEN", "FORGEJO_TOKEN", "GITEA_TOKEN", "TEA_TOKEN"]
-        }
+        ForgeType::Codeberg | ForgeType::Forgejo => &[
+            "CODEBERG_TOKEN",
+            "FORGEJO_TOKEN",
+            "GITEA_TOKEN",
+            "TEA_TOKEN",
+        ],
         ForgeType::GitHub => &["GITHUB_TOKEN", "GH_TOKEN"],
         ForgeType::GitLab => &["GITLAB_TOKEN", "GL_TOKEN"],
     };
@@ -258,7 +257,10 @@ impl ForgeClient {
     pub fn fetch_repo_metadata(&self, info: &RepoForgeInfo) -> Option<RepoMetadata> {
         let api_url = match info.provider {
             ForgeType::Codeberg | ForgeType::Forgejo => {
-                format!("https://{}/api/v1/repos/{}/{}", info.host, info.owner, info.repo)
+                format!(
+                    "https://{}/api/v1/repos/{}/{}",
+                    info.host, info.owner, info.repo
+                )
             }
             ForgeType::GitHub => {
                 format!("https://api.github.com/repos/{}/{}", info.owner, info.repo)
@@ -325,10 +327,10 @@ impl ForgeClient {
                     Some(s.to_string())
                 } else if let Some(spdx) = v.get("spdx_id").and_then(|s| s.as_str()) {
                     Some(spdx.to_string())
-                } else if let Some(name) = v.get("name").and_then(|s| s.as_str()) {
-                    Some(name.to_string())
                 } else {
-                    None
+                    v.get("name")
+                        .and_then(|s| s.as_str())
+                        .map(|name| name.to_string())
                 }
             })
             .unwrap_or_default();
