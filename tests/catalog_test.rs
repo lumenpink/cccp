@@ -11,6 +11,7 @@ fn test_catalog_entry_to_forge_info() {
         slug: "Canimandra/aura".into(),
         description: "Medical ledger".into(),
         is_upstream: false,
+        ..Default::default()
     };
     let info = github_entry.to_forge_info();
     assert_eq!(info.provider, ForgeType::GitHub);
@@ -24,6 +25,7 @@ fn test_catalog_entry_to_forge_info() {
         slug: "lumenpink/cccp".into(),
         description: "Compliance tool".into(),
         is_upstream: false,
+        ..Default::default()
     };
     let info2 = codeberg_entry.to_forge_info();
     assert_eq!(info2.provider, ForgeType::Codeberg);
@@ -108,3 +110,109 @@ fn test_catalog_path_from_config_and_env_precedence() {
     assert_eq!(resolved.owner, "custom");
     assert_eq!(resolved.repo, "proj");
 }
+
+#[test]
+fn test_parse_repo_identifier() {
+    // 1. Full HTTPS URL
+    let res = catalog::parse_repo_identifier("https://github.com/rust-lang/cargo.git").unwrap();
+    assert_eq!(res.provider, ForgeType::GitHub);
+    assert_eq!(res.host, "github.com");
+    assert_eq!(res.owner, "rust-lang");
+    assert_eq!(res.repo, "cargo");
+
+    // 2. Full SSH URL
+    let res_ssh = catalog::parse_repo_identifier("git@codeberg.org:lumenpink/cccp.git").unwrap();
+    assert_eq!(res_ssh.provider, ForgeType::Codeberg);
+    assert_eq!(res_ssh.host, "codeberg.org");
+    assert_eq!(res_ssh.owner, "lumenpink");
+    assert_eq!(res_ssh.repo, "cccp");
+
+    // 3. Slug with explicit host
+    let res_host_slug = catalog::parse_repo_identifier("gitlab.com/freedesktop/systemd").unwrap();
+    assert_eq!(res_host_slug.provider, ForgeType::GitLab);
+    assert_eq!(res_host_slug.host, "gitlab.com");
+    assert_eq!(res_host_slug.owner, "freedesktop");
+    assert_eq!(res_host_slug.repo, "systemd");
+
+    // 4. Short slug defaults to Codeberg
+    let res_short = catalog::parse_repo_identifier("lumenpink/kvant").unwrap();
+    assert_eq!(res_short.provider, ForgeType::Codeberg);
+    assert_eq!(res_short.host, "codeberg.org");
+    assert_eq!(res_short.owner, "lumenpink");
+    assert_eq!(res_short.repo, "kvant");
+
+    // 5. Invalid identifier
+    assert!(catalog::parse_repo_identifier("").is_err());
+    assert!(catalog::parse_repo_identifier("justaname").is_err());
+}
+
+#[test]
+fn test_add_remote_repo_without_prior_clone() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let cat_path = dir.path().join("catalog.json");
+
+    let mut config = cccp::config::Config::default();
+    config.catalog_file = Some(cat_path.to_string_lossy().to_string());
+
+    // Add first remote repo
+    let (entry, path, is_updated) = catalog::add_remote_repo(
+        "codeberg.org/lumenpink/newrepo",
+        Some("New Repo"),
+        Some("A brand new remote repository"),
+        Some(&config),
+    )
+    .unwrap();
+
+    assert_eq!(path, cat_path);
+    assert!(!is_updated);
+    assert_eq!(entry.name, "New Repo");
+    assert_eq!(entry.forge, "codeberg");
+    assert_eq!(entry.slug, "lumenpink/newrepo");
+    assert_eq!(entry.description, "A brand new remote repository");
+
+    // Verify it is on disk
+    let loaded = catalog::load_catalog(Some(&config), None);
+    assert_eq!(loaded.len(), 1);
+    assert_eq!(loaded[0].slug, "lumenpink/newrepo");
+
+    // Update existing repo entry
+    let (updated_entry, _, was_updated) = catalog::add_remote_repo(
+        "lumenpink/newrepo",
+        Some("Updated Name"),
+        Some("Updated Description"),
+        Some(&config),
+    )
+    .unwrap();
+
+    assert!(was_updated);
+    assert_eq!(updated_entry.name, "Updated Name");
+    assert_eq!(updated_entry.description, "Updated Description");
+
+    let reloaded = catalog::load_catalog(Some(&config), None);
+    assert_eq!(reloaded.len(), 1);
+    assert_eq!(reloaded[0].name, "Updated Name");
+}
+
+#[test]
+fn test_catalog_entry_serialization_full_fields() {
+    let entry = CatalogEntry {
+        name: "test-app".into(),
+        forge: "codeberg".into(),
+        slug: "user/test-app".into(),
+        description: "Test application".into(),
+        topics: vec!["cli".into(), "rust".into(), "gosplan".into()],
+        license: "GPL-3.0".into(),
+        website: "https://example.org".into(),
+        is_upstream: false,
+    };
+
+    let serialized = serde_json::to_string_pretty(&vec![entry.clone()]).unwrap();
+    assert!(serialized.contains(r#""topics": ["#));
+    assert!(serialized.contains(r#""license": "GPL-3.0""#));
+    assert!(serialized.contains(r#""website": "https://example.org""#));
+
+    let deserialized: Vec<CatalogEntry> = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(deserialized.len(), 1);
+    assert_eq!(deserialized[0], entry);
+}
+

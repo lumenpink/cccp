@@ -222,6 +222,14 @@ pub struct ForgeClient {
     agent: ureq::Agent,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RepoMetadata {
+    pub description: String,
+    pub website: String,
+    pub topics: Vec<String>,
+    pub license: String,
+}
+
 impl Default for ForgeClient {
     fn default() -> Self {
         Self::new()
@@ -235,6 +243,93 @@ impl ForgeClient {
             .build();
         let agent = ureq::Agent::new_with_config(config);
         Self { agent }
+    }
+
+    /// Attempt to fetch repository metadata (description, website, topics, license)
+    pub fn fetch_repo_metadata(&self, info: &RepoForgeInfo) -> Option<RepoMetadata> {
+        let api_url = match info.provider {
+            ForgeType::Codeberg | ForgeType::Forgejo => {
+                format!("https://{}/api/v1/repos/{}/{}", info.host, info.owner, info.repo)
+            }
+            ForgeType::GitHub => {
+                format!("https://api.github.com/repos/{}/{}", info.owner, info.repo)
+            }
+            ForgeType::GitLab => {
+                let enc = format!("{}%2F{}", info.owner, info.repo);
+                format!("https://{}/api/v4/projects/{}", info.host, enc)
+            }
+        };
+
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
+            match info.provider {
+                ForgeType::Codeberg | ForgeType::Forgejo => {
+                    req = req.header("Authorization", &format!("token {}", token));
+                }
+                ForgeType::GitHub => {
+                    req = req.header("Authorization", &format!("Bearer {}", token));
+                }
+                ForgeType::GitLab => {
+                    req = req.header("PRIVATE-TOKEN", &token);
+                }
+            }
+        }
+
+        let resp = req.call().ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+
+        let body: serde_json::Value = resp.into_body().read_json().ok()?;
+        let description = body
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let website = body
+            .get("website")
+            .or_else(|| body.get("homepage"))
+            .or_else(|| body.get("web_url"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        let topics = body
+            .get("topics")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|t| t.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let license = body
+            .get("license")
+            .and_then(|v| {
+                if let Some(s) = v.as_str() {
+                    Some(s.to_string())
+                } else if let Some(spdx) = v.get("spdx_id").and_then(|s| s.as_str()) {
+                    Some(spdx.to_string())
+                } else if let Some(name) = v.get("name").and_then(|s| s.as_str()) {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default();
+
+        Some(RepoMetadata {
+            description,
+            website,
+            topics,
+            license,
+        })
     }
 
     /// Fetch issues from the specified forge repository

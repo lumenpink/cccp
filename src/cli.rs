@@ -115,6 +115,10 @@ pub enum Commands {
 
     /// Generate shell completion scripts (bash, zsh, fish, powershell)
     Completion(CompletionArgs),
+
+    /// Manage repository catalog and workspace registry
+    #[command(alias = "sync-catalog")]
+    Catalog(CatalogArgs),
 }
 
 // =============================================================================
@@ -413,6 +417,32 @@ pub struct CompletionArgs {
     /// Shell type for completion generation
     #[arg(value_enum)]
     pub shell: clap_complete::Shell,
+}
+
+#[derive(Debug, Args)]
+pub struct CatalogArgs {
+    #[command(subcommand)]
+    pub action: Option<CatalogSubcommands>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CatalogSubcommands {
+    /// Add a repository to the catalog directly by URL or slug
+    #[command(alias = "add_repo", alias = "add-repo")]
+    Add {
+        /// Remote repository URL or slug (e.g. 'codeberg.org/lumenpink/repo' or 'owner/repo')
+        repo: String,
+
+        /// Optional custom name for the repository
+        #[arg(short = 'n', long = "name")]
+        name: Option<String>,
+
+        /// Optional description for the repository
+        #[arg(short = 'd', long = "description")]
+        description: Option<String>,
+    },
+    /// List all catalog repositories
+    List,
 }
 
 #[derive(Debug, Args, Clone)]

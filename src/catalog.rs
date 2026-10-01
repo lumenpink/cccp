@@ -7,7 +7,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct CatalogEntry {
     pub name: String,
     #[serde(default)]
@@ -15,6 +15,12 @@ pub struct CatalogEntry {
     pub slug: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default)]
+    pub topics: Vec<String>,
+    #[serde(default)]
+    pub license: String,
+    #[serde(default)]
+    pub website: String,
     #[serde(default)]
     pub is_upstream: bool,
 }
@@ -74,10 +80,7 @@ pub fn find_catalog_path(
     // 1. Explicit path in configuration (e.g. .cccprc or environment)
     if let Some(cfg) = config {
         if let Some(ref path_str) = cfg.catalog_file {
-            let p = expand_tilde(path_str);
-            if p.is_file() {
-                return Some(p);
-            }
+            return Some(expand_tilde(path_str));
         }
     }
 
@@ -85,9 +88,9 @@ pub fn find_catalog_path(
     if let Ok(env_path) =
         std::env::var("CCCP_CATALOG_FILE").or_else(|_| std::env::var("CATALOG_FILE"))
     {
-        let p = expand_tilde(env_path.trim());
-        if p.is_file() {
-            return Some(p);
+        let trimmed = env_path.trim();
+        if !trimmed.is_empty() {
+            return Some(expand_tilde(trimmed));
         }
     }
 
@@ -222,3 +225,161 @@ pub fn resolve_target_repo(
 
     None
 }
+
+/// Parse user repository identifier (URL or slug) into RepoForgeInfo
+pub fn parse_repo_identifier(input: &str) -> Result<RepoForgeInfo, String> {
+    let clean = input.trim();
+    if clean.is_empty() {
+        return Err("Repository identifier cannot be empty".to_string());
+    }
+
+    // 1. Full remote URL (https://... or git@...)
+    if clean.contains("://") || clean.starts_with("git@") {
+        return crate::forges::parse_remote_url(clean)
+            .ok_or_else(|| format!("Invalid remote repository URL: '{}'", clean));
+    }
+
+    // 2. Slug with host prefix (e.g. 'codeberg.org/owner/repo', 'github.com/owner/repo')
+    let parts: Vec<&str> = clean.split('/').collect();
+    if parts.len() == 3 && (parts[0].contains('.') || parts[0].contains(':')) {
+        let host = parts[0].to_string();
+        let provider = match host.to_ascii_lowercase().as_str() {
+            "github.com" => ForgeType::GitHub,
+            "gitlab.com" => ForgeType::GitLab,
+            _ => ForgeType::Codeberg,
+        };
+        return Ok(RepoForgeInfo {
+            provider,
+            host,
+            owner: parts[1].to_string(),
+            repo: parts[2].trim_end_matches(".git").to_string(),
+        });
+    }
+
+    // 3. Short slug (e.g. 'owner/repo') -> default to Codeberg
+    if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
+        return Ok(RepoForgeInfo {
+            provider: ForgeType::Codeberg,
+            host: "codeberg.org".to_string(),
+            owner: parts[0].to_string(),
+            repo: parts[1].trim_end_matches(".git").to_string(),
+        });
+    }
+
+    Err(format!(
+        "Invalid repository format: '{}'. Expected 'owner/repo', 'host/owner/repo' or full git URL.",
+        clean
+    ))
+}
+
+/// Save catalog entries to disk at the designated configuration path
+pub fn save_catalog(
+    entries: &[CatalogEntry],
+    config: Option<&crate::config::Config>,
+) -> Result<PathBuf, String> {
+    let save_path = find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
+    if let Some(parent) = save_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create directory '{}': {}",
+                parent.display(),
+                e
+            )
+        })?;
+    }
+
+    let json = serde_json::to_string_pretty(entries)
+        .map_err(|e| format!("Failed to serialize catalog: {}", e))?;
+
+    fs::write(&save_path, json).map_err(|e| {
+        format!(
+            "Failed to write catalog file '{}': {}",
+            save_path.display(),
+            e
+        )
+    })?;
+
+    Ok(save_path)
+}
+
+/// Add or update a remote repository in the catalog without requiring a prior local clone
+pub fn add_remote_repo(
+    repo_input: &str,
+    name_override: Option<&str>,
+    desc_override: Option<&str>,
+    config: Option<&crate::config::Config>,
+) -> Result<(CatalogEntry, PathBuf, bool), String> {
+    let info = parse_repo_identifier(repo_input)?;
+    let mut catalog = load_catalog(config, None);
+
+    let forge_name = match info.provider {
+        ForgeType::GitHub => "github",
+        ForgeType::GitLab => "gitlab",
+        ForgeType::Codeberg | ForgeType::Forgejo => {
+            if info.host.eq_ignore_ascii_case("codeberg.org") {
+                "codeberg"
+            } else {
+                "forgejo"
+            }
+        }
+    }
+    .to_string();
+
+    let slug = format!("{}/{}", info.owner, info.repo);
+
+    // Fetch remote metadata (graceful fallback if unavailable)
+    let forge_client = crate::forges::ForgeClient::new();
+    let remote_meta = forge_client.fetch_repo_metadata(&info).unwrap_or_default();
+
+    let entry_name = name_override
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| info.repo.clone());
+
+    let entry_desc = desc_override
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| remote_meta.description.clone());
+
+    let is_updated;
+    let entry;
+
+    if let Some(existing) = catalog.iter_mut().find(|e| {
+        e.slug.eq_ignore_ascii_case(&slug)
+            && (e.forge.is_empty() || e.forge.eq_ignore_ascii_case(&forge_name))
+    }) {
+        existing.name = entry_name;
+        existing.forge = forge_name;
+        if !entry_desc.is_empty() || existing.description.is_empty() {
+            existing.description = entry_desc;
+        }
+        if !remote_meta.topics.is_empty() {
+            existing.topics = remote_meta.topics;
+        }
+        if !remote_meta.license.is_empty() {
+            existing.license = remote_meta.license;
+        }
+        if !remote_meta.website.is_empty() {
+            existing.website = remote_meta.website;
+        }
+        entry = existing.clone();
+        is_updated = true;
+    } else {
+        entry = CatalogEntry {
+            name: entry_name,
+            forge: forge_name,
+            slug,
+            description: entry_desc,
+            topics: remote_meta.topics,
+            license: remote_meta.license,
+            website: remote_meta.website,
+            is_upstream: false,
+        };
+        catalog.push(entry.clone());
+        is_updated = false;
+    }
+
+    let save_path = save_catalog(&catalog, config)?;
+    Ok((entry, save_path, is_updated))
+}
+
