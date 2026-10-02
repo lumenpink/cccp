@@ -57,40 +57,34 @@ fn styling() -> clap::builder::styling::Styles {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Interactive Conventional Commits wizard (Commitizen style)
-    #[command(alias = "commit")]
-    Cz(CzArgs),
+    /// Interactive Conventional Commits wizard
+    Commit(CommitArgs),
 
     /// Validate commit messages against Conventional Commits specification
     Lint(LintArgs),
 
     /// Calculate predictive Semantic Versioning (SemVer 2.0.0) metadata
-    #[command(alias = "version")]
-    Semver(SemverArgs),
+    Version(VersionArgs),
 
-    /// Install, update, or remove CCCP Git hooks in repository
-    Install(InstallArgs),
+    /// Manage or dispatch Git hooks in repository (--install, --uninstall)
+    Hook(HookArgs),
 
     /// Audit repository Conventional Commits compliance, hooks, and integrity
     Status(StatusArgs),
 
-    /// Internal Git hook dispatcher (commit-msg, pre-push, post-commit)
-    Hook(HookArgs),
+    /// Query or manage forge issues and pull requests
+    Ticket(TicketArgs),
 
-    /// Synchronize forge issues and pull requests into local markdown
-    #[command(alias = "sync-tickets")]
-    Tickets(TicketsArgs),
+    /// Interactive AI ticket triage and consultation bot
+    Divan(DivanArgs),
 
-    /// Interactive issue triage bot via AI (Gemini or local Ollama)
-    #[command(alias = "ticket", alias = "issue", alias = "divan")]
-    Diva(DivaArgs),
+    /// Synchronize forge tickets, AGENTS.md directives, and repository catalog
+    Sync(SyncArgs),
 
     /// Query and interact with remote Git forge (Codeberg, GitHub, GitLab, Gitea)
-    #[command(alias = "forge", alias = "codeberg")]
-    Forges(ForgesArgs),
+    Forge(ForgeArgs),
 
     /// Gosplan cultural registry, Order 227 ("Not a step back!"), and Soviet easter eggs
-    #[command(alias = "gosplan", alias = "sputnik", alias = "anthem")]
     Soviet(SovietArgs),
 
     /// Create an annotated Git release tag with predicted or explicit SemVer
@@ -106,55 +100,47 @@ pub enum Commands {
     Config(ConfigArgs),
 
     /// Comprehensive repository GOST quality and compliance check
-    #[command(alias = "check")]
-    Gost(GostArgs),
+    Audit(AuditArgs),
 
     /// Display project contributors and comrades
-    #[command(alias = "comrade", alias = "camaradas")]
     Comrades(ComradesArgs),
 
     /// Generate shell completion scripts (bash, zsh, fish, powershell)
     Completion(CompletionArgs),
 
     /// Manage repository catalog and workspace registry
-    #[command(alias = "sync-catalog", alias = "repo", alias = "repos")]
     Catalog(CatalogArgs),
 
-    /// Automated repository scaffolding in strict compliance with GOST standard
-    #[command(name = "newrepo", alias = "new-repo", alias = "repo-new")]
-    Newrepo(NewrepoArgs),
+    /// Initialize and scaffold repository under strict GOST standard
+    Init(InitArgs),
 
     /// Local CI runner and pre-push verification gate via act
-    #[command(alias = "ci")]
-    Act(ActArgs),
+    Ci(CiArgs),
 
     /// Dependency catalog, constraint verification, and ecosystem tools
-    #[command(alias = "dependencies", alias = "dep")]
     Deps(DepsArgs),
 
-    /// Generate or update AGENTS.md directives with local variable interpolation
-    #[command(alias = "agents")]
+    /// Generate, inspect, and manage AGENTS.md directives
     Agent(AgentArgs),
 
     /// Shortcut to configure an agent variable in local .cccprc
-    #[command(name = "set-av", alias = "set_av")]
+    #[command(name = "set-av")]
     SetAv(SetAvArgs),
 
     /// Local HTTP preview and documentation server under Gosplan aesthetic
     Serve(ServeArgs),
 
     /// Mobile & offline-tolerant queue and spool for Antigravity CLI (agy)
-    Matraca(MatracaArgs),
+    Spool(SpoolArgs),
 
     /// Gosplan Interactive Web Cockpit & Mayak Command Bridge
-    #[command(alias = "cockpit")]
-    Web(CockpitArgs),
+    Cockpit(CockpitArgs),
 
     /// Check for updates and automatically upgrade CCCP
     Update(UpdateArgs),
 
     /// Verify installed CCCP version against distribution endpoint
-    #[command(name = "check-update", alias = "check-updates")]
+    #[command(name = "check-update")]
     CheckUpdate(CheckUpdateArgs),
 }
 
@@ -162,8 +148,8 @@ pub enum Commands {
 // Subcommand Arguments
 // =============================================================================
 
-#[derive(Debug, Args)]
-pub struct CzArgs {
+#[derive(Debug, Args, Clone, Default)]
+pub struct CommitArgs {
     /// Commit type (e.g. feat, fix, docs, style, refactor, perf, test, chore)
     #[arg(short = 't', long = "type")]
     pub commit_type: Option<String>,
@@ -201,6 +187,8 @@ pub struct CzArgs {
     pub no_sign: bool,
 }
 
+pub type CzArgs = CommitArgs;
+
 #[derive(Debug, Args)]
 pub struct LintArgs {
     /// Commit message string to validate directly
@@ -220,8 +208,8 @@ pub struct LintArgs {
     pub strict: bool,
 }
 
-#[derive(Debug, Args)]
-pub struct SemverArgs {
+#[derive(Debug, Args, Clone, Default)]
+pub struct VersionArgs {
     /// Output format for calculated version
     #[arg(short = 'f', long = "format", value_enum, default_value_t = VersionFormat::Clean)]
     pub format: VersionFormat,
@@ -235,9 +223,12 @@ pub struct SemverArgs {
     pub bump: Option<BumpType>,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
+pub type SemverArgs = VersionArgs;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum, Default)]
 pub enum VersionFormat {
     /// Clean SemVer (e.g. 1.2.0)
+    #[default]
     Clean,
     /// Development SemVer with build metadata (e.g. 1.2.0-dev.4+20260929.abc1234)
     Dev,
@@ -254,7 +245,7 @@ pub enum BumpType {
     Patch,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone, Default)]
 pub struct InstallArgs {
     /// Overwrite existing git hooks without prompting
     #[arg(short = 'f', long = "force")]
@@ -280,14 +271,30 @@ pub struct StatusArgs {
     pub json: bool,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone, Default)]
 pub struct HookArgs {
+    /// Install CCCP Git hooks in repository
+    #[arg(short = 'i', long = "install")]
+    pub install: bool,
+
+    /// Remove installed CCCP hooks from the repository
+    #[arg(short = 'u', long = "uninstall")]
+    pub uninstall: bool,
+
+    /// Overwrite existing git hooks without prompting
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
+    /// Target hooks directory (defaults to .git/hooks)
+    #[arg(long = "hook-dir")]
+    pub hook_dir: Option<PathBuf>,
+
     /// Hook trigger name or subcommand
     #[command(subcommand)]
-    pub hook: HookSubcommands,
+    pub hook: Option<HookSubcommands>,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Subcommand, Clone)]
 pub enum HookSubcommands {
     /// Run commit-msg hook validation on commit message file
     CommitMsg {
@@ -314,8 +321,8 @@ pub enum HookSubcommands {
     },
 }
 
-#[derive(Debug, Args)]
-pub struct TicketsArgs {
+#[derive(Debug, Args, Clone, Default)]
+pub struct TicketArgs {
     /// Remote git forge name or URL
     #[arg(short = 'r', long = "remote")]
     pub remote: Option<String>,
@@ -333,13 +340,40 @@ pub struct TicketsArgs {
     pub state: String,
 }
 
-#[derive(Debug, Args)]
-pub struct ForgesArgs {
+pub type TicketsArgs = TicketArgs;
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct SyncArgs {
+    /// Synchronize forge issues and pull requests into local tickets.md
+    #[arg(short = 't', long = "tickets")]
+    pub tickets: bool,
+
+    /// Synchronize AGENTS.md template with local variable interpolation
+    #[arg(short = 'a', long = "agents")]
+    pub agents: bool,
+
+    /// Synchronize workspace repository catalog (~/src)
+    #[arg(short = 'c', long = "catalog")]
+    pub catalog: bool,
+
+    /// Force full synchronization / overwrite
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
+    /// Target directory override
+    #[arg(long = "dir")]
+    pub dir: Option<PathBuf>,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct ForgeArgs {
     #[command(subcommand)]
     pub action: Option<ForgeActions>,
 }
 
-#[derive(Debug, Subcommand)]
+pub type ForgesArgs = ForgeArgs;
+
+#[derive(Debug, Subcommand, Clone)]
 pub enum ForgeActions {
     /// Detect remote forge and output connection info
     Detect,
@@ -435,12 +469,14 @@ pub struct ConfigArgs {
     pub is_global: bool,
 }
 
-#[derive(Debug, Args)]
-pub struct GostArgs {
+#[derive(Debug, Args, Clone, Default)]
+pub struct AuditArgs {
     /// Fail immediately on any GOST compliance warning
     #[arg(long = "strict")]
     pub strict: bool,
 }
+
+pub type GostArgs = AuditArgs;
 
 #[derive(Debug, Args)]
 pub struct ComradesArgs {
@@ -524,13 +560,12 @@ pub enum CatalogSubcommands {
     },
     /// List all catalog repositories with optional filters and sorting
     List(CatalogFilterArgs),
-    /// Create a new compliant GOST repository (alias to cccp newrepo)
-    #[command(alias = "create", alias = "init")]
-    New(NewrepoArgs),
+    /// Create a new compliant GOST repository
+    New(InitArgs),
 }
 
-#[derive(Debug, Args, Clone)]
-pub struct DivaArgs {
+#[derive(Debug, Args, Clone, Default)]
+pub struct DivanArgs {
     /// Target repository or problem description
     pub target: Option<String>,
 
@@ -574,7 +609,9 @@ pub struct DivaArgs {
     pub dry_run: bool,
 }
 
-impl DivaArgs {
+pub type DivaArgs = DivanArgs;
+
+impl DivanArgs {
     /// Resolves target repository and prompt description from arguments.
     ///
     /// Precedence & inference:
@@ -611,13 +648,15 @@ impl DivaArgs {
 }
 
 #[derive(Debug, Args, Clone, Default)]
-pub struct ActArgs {
+pub struct CiArgs {
     #[command(subcommand)]
-    pub action: Option<ActSubcommands>,
+    pub action: Option<CiSubcommands>,
 }
 
+pub type ActArgs = CiArgs;
+
 #[derive(Debug, Subcommand, Clone)]
-pub enum ActSubcommands {
+pub enum CiSubcommands {
     /// Inspect local runner status, Docker daemon, workflows, and logs
     Status,
     /// Run local CI workflow with act
@@ -634,6 +673,8 @@ pub enum ActSubcommands {
         follow: bool,
     },
 }
+
+pub type ActSubcommands = CiSubcommands;
 
 #[derive(Debug, Args, Clone, Default)]
 pub struct DepsArgs {
@@ -723,7 +764,7 @@ pub struct SetAvArgs {
 }
 
 #[derive(Debug, Args, Clone, Default)]
-pub struct NewrepoArgs {
+pub struct InitArgs {
     /// Repository name and directory to create
     pub name: Option<String>,
 
@@ -772,8 +813,10 @@ pub struct NewrepoArgs {
     pub quiet: bool,
 }
 
-impl From<NewrepoArgs> for crate::newrepo::NewrepoOptions {
-    fn from(args: NewrepoArgs) -> Self {
+pub type NewrepoArgs = InitArgs;
+
+impl From<InitArgs> for crate::newrepo::NewrepoOptions {
+    fn from(args: InitArgs) -> Self {
         let name = args.explicit_name.or(args.name);
         Self {
             name,
@@ -848,26 +891,28 @@ impl From<ServeArgs> for crate::serve::ServeOptions {
 }
 
 #[derive(Debug, Args, Clone, Default)]
-pub struct MatracaArgs {
+pub struct SpoolArgs {
     #[command(subcommand)]
-    pub action: Option<MatracaSubcommands>,
+    pub action: Option<SpoolSubcommands>,
 
     /// Raw prompt to send if no subcommand was specified
     #[arg(trailing_var_arg = true)]
     pub prompt: Vec<String>,
 }
 
+pub type MatracaArgs = SpoolArgs;
+
 #[derive(Debug, Subcommand, Clone)]
-pub enum MatracaSubcommands {
+pub enum SpoolSubcommands {
     /// Enqueue prompt into FIFO queue (<10ms)
-    Send(MatracaSendArgs),
+    Send(SpoolSendArgs),
     /// Query status and result of a job by ID or client ID
     Poll {
         /// Job ID or Client ID to query
         id: String,
     },
     /// Process queued jobs with agy
-    Worker(MatracaWorkerArgs),
+    Worker(SpoolWorkerArgs),
     /// List recently finished or active jobs
     History {
         /// Maximum number of messages to return
@@ -888,8 +933,10 @@ pub enum MatracaSubcommands {
     },
 }
 
+pub type MatracaSubcommands = SpoolSubcommands;
+
 #[derive(Debug, Args, Clone, Default)]
-pub struct MatracaSendArgs {
+pub struct SpoolSendArgs {
     /// Client ID for idempotency tracking
     #[arg(long = "client-id")]
     pub client_id: Option<String>,
@@ -903,8 +950,10 @@ pub struct MatracaSendArgs {
     pub prompt: Vec<String>,
 }
 
+pub type MatracaSendArgs = SpoolSendArgs;
+
 #[derive(Debug, Args, Clone, Default)]
-pub struct MatracaWorkerArgs {
+pub struct SpoolWorkerArgs {
     /// Run worker continuously in daemon mode
     #[arg(long = "daemon", action = clap::ArgAction::SetTrue)]
     pub daemon: bool,
@@ -917,6 +966,8 @@ pub struct MatracaWorkerArgs {
     #[arg(long = "job-id")]
     pub job_id: Option<String>,
 }
+
+pub type MatracaWorkerArgs = SpoolWorkerArgs;
 
 #[derive(Debug, Args, Clone, Default)]
 pub struct CockpitArgs {
@@ -1020,10 +1071,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_cz_args() {
+    fn parse_commit_args() {
         let args = Cli::parse_from([
             "cccp",
-            "cz",
+            "commit",
             "-t",
             "feat",
             "-s",
@@ -1033,25 +1084,73 @@ mod tests {
             "--breaking",
         ]);
         match args.command {
-            Some(Commands::Cz(cz)) => {
-                assert_eq!(cz.commit_type.as_deref(), Some("feat"));
-                assert_eq!(cz.scope.as_deref(), Some("core"));
-                assert_eq!(cz.message.as_deref(), Some("hello world"));
-                assert!(cz.breaking);
+            Some(Commands::Commit(c)) => {
+                assert_eq!(c.commit_type.as_deref(), Some("feat"));
+                assert_eq!(c.scope.as_deref(), Some("core"));
+                assert_eq!(c.message.as_deref(), Some("hello world"));
+                assert!(c.breaking);
             }
-            _ => panic!("Expected Commands::Cz"),
+            _ => panic!("Expected Commands::Commit"),
         }
     }
 
     #[test]
-    fn parse_semver_args() {
-        let args = Cli::parse_from(["cccp", "semver", "-f", "dev", "-w"]);
+    fn parse_version_args() {
+        let args = Cli::parse_from(["cccp", "version", "-f", "dev", "-w"]);
         match args.command {
-            Some(Commands::Semver(semver)) => {
-                assert_eq!(semver.format, VersionFormat::Dev);
-                assert!(semver.write);
+            Some(Commands::Version(v)) => {
+                assert_eq!(v.format, VersionFormat::Dev);
+                assert!(v.write);
             }
-            _ => panic!("Expected Commands::Semver"),
+            _ => panic!("Expected Commands::Version"),
+        }
+    }
+
+    #[test]
+    fn parse_hook_args() {
+        let args = Cli::parse_from(["cccp", "hook", "--install", "--force"]);
+        match args.command {
+            Some(Commands::Hook(h)) => {
+                assert!(h.install);
+                assert!(h.force);
+                assert!(!h.uninstall);
+            }
+            _ => panic!("Expected Commands::Hook"),
+        }
+
+        let args_uninst = Cli::parse_from(["cccp", "hook", "--uninstall"]);
+        match args_uninst.command {
+            Some(Commands::Hook(h)) => {
+                assert!(h.uninstall);
+                assert!(!h.install);
+            }
+            _ => panic!("Expected Commands::Hook"),
+        }
+    }
+
+    #[test]
+    fn parse_sync_args() {
+        let args = Cli::parse_from(["cccp", "sync", "--tickets", "--agents", "-f"]);
+        match args.command {
+            Some(Commands::Sync(s)) => {
+                assert!(s.tickets);
+                assert!(s.agents);
+                assert!(!s.catalog);
+                assert!(s.force);
+            }
+            _ => panic!("Expected Commands::Sync"),
+        }
+    }
+
+    #[test]
+    fn parse_ticket_args() {
+        let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
+        match args.command {
+            Some(Commands::Ticket(t)) => {
+                assert_eq!(t.state, "closed");
+                assert_eq!(t.limit, 10);
+            }
+            _ => panic!("Expected Commands::Ticket"),
         }
     }
 
@@ -1068,10 +1167,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_diva_args() {
+    fn parse_divan_args() {
         let args = Cli::parse_from([
             "cccp",
-            "diva",
+            "divan",
             "--provider",
             "ollama",
             "--model",
@@ -1082,80 +1181,80 @@ mod tests {
             "fix something",
         ]);
         match args.command {
-            Some(Commands::Diva(diva)) => {
-                assert_eq!(diva.provider.as_deref(), Some("ollama"));
-                assert_eq!(diva.model.as_deref(), Some("llama3.2"));
-                assert_eq!(diva.host.as_deref(), Some("http://127.0.0.1:11434"));
-                assert!(diva.dry_run);
-                let (repo, prompt) = diva.resolve_repo_and_prompt();
+            Some(Commands::Divan(divan)) => {
+                assert_eq!(divan.provider.as_deref(), Some("ollama"));
+                assert_eq!(divan.model.as_deref(), Some("llama3.2"));
+                assert_eq!(divan.host.as_deref(), Some("http://127.0.0.1:11434"));
+                assert!(divan.dry_run);
+                let (repo, prompt) = divan.resolve_repo_and_prompt();
                 assert_eq!(repo, None);
                 assert_eq!(prompt.as_deref(), Some("fix something"));
             }
-            _ => panic!("Expected Commands::Diva"),
+            _ => panic!("Expected Commands::Divan"),
         }
     }
 
     #[test]
-    fn parse_diva_args_positional_repo_only() {
-        let args = Cli::parse_from(["cccp", "diva", "joaju"]);
+    fn parse_divan_args_positional_repo_only() {
+        let args = Cli::parse_from(["cccp", "divan", "joaju"]);
         match args.command {
-            Some(Commands::Diva(diva)) => {
-                let (repo, prompt) = diva.resolve_repo_and_prompt();
+            Some(Commands::Divan(divan)) => {
+                let (repo, prompt) = divan.resolve_repo_and_prompt();
                 assert_eq!(repo.as_deref(), Some("joaju"));
                 assert_eq!(prompt, None);
             }
-            _ => panic!("Expected Commands::Diva"),
+            _ => panic!("Expected Commands::Divan"),
         }
     }
 
     #[test]
-    fn parse_diva_args_positional_repo_and_prompt() {
-        let args = Cli::parse_from(["cccp", "diva", "joaju", "fix css styling"]);
+    fn parse_divan_args_positional_repo_and_prompt() {
+        let args = Cli::parse_from(["cccp", "divan", "joaju", "fix css styling"]);
         match args.command {
-            Some(Commands::Diva(diva)) => {
-                let (repo, prompt) = diva.resolve_repo_and_prompt();
+            Some(Commands::Divan(divan)) => {
+                let (repo, prompt) = divan.resolve_repo_and_prompt();
                 assert_eq!(repo.as_deref(), Some("joaju"));
                 assert_eq!(prompt.as_deref(), Some("fix css styling"));
             }
-            _ => panic!("Expected Commands::Diva"),
+            _ => panic!("Expected Commands::Divan"),
         }
     }
 
     #[test]
-    fn parse_diva_args_flag_repo_and_positional_prompt() {
-        let args = Cli::parse_from(["cccp", "diva", "-r", "joaju", "fix css styling"]);
+    fn parse_divan_args_flag_repo_and_positional_prompt() {
+        let args = Cli::parse_from(["cccp", "divan", "-r", "joaju", "fix css styling"]);
         match args.command {
-            Some(Commands::Diva(diva)) => {
-                let (repo, prompt) = diva.resolve_repo_and_prompt();
+            Some(Commands::Divan(divan)) => {
+                let (repo, prompt) = divan.resolve_repo_and_prompt();
                 assert_eq!(repo.as_deref(), Some("joaju"));
                 assert_eq!(prompt.as_deref(), Some("fix css styling"));
             }
-            _ => panic!("Expected Commands::Diva"),
+            _ => panic!("Expected Commands::Divan"),
         }
     }
 
     #[test]
-    fn parse_act_args() {
-        let args = Cli::parse_from(["cccp", "act", "run", "-j", "lint"]);
+    fn parse_ci_args() {
+        let args = Cli::parse_from(["cccp", "ci", "run", "-j", "lint"]);
         match args.command {
-            Some(Commands::Act(act)) => match act.action {
-                Some(ActSubcommands::Run { job }) => {
+            Some(Commands::Ci(ci)) => match ci.action {
+                Some(CiSubcommands::Run { job }) => {
                     assert_eq!(job.as_deref(), Some("lint"));
                 }
-                _ => panic!("Expected ActSubcommands::Run"),
+                _ => panic!("Expected CiSubcommands::Run"),
             },
-            _ => panic!("Expected Commands::Act"),
+            _ => panic!("Expected Commands::Ci"),
         }
 
-        let args_log = Cli::parse_from(["cccp", "act", "log", "-f"]);
+        let args_log = Cli::parse_from(["cccp", "ci", "log", "-f"]);
         match args_log.command {
-            Some(Commands::Act(act)) => match act.action {
-                Some(ActSubcommands::Log { follow }) => {
+            Some(Commands::Ci(ci)) => match ci.action {
+                Some(CiSubcommands::Log { follow }) => {
                     assert!(follow);
                 }
-                _ => panic!("Expected ActSubcommands::Log"),
+                _ => panic!("Expected CiSubcommands::Log"),
             },
-            _ => panic!("Expected Commands::Act"),
+            _ => panic!("Expected Commands::Ci"),
         }
     }
 
@@ -1206,10 +1305,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_newrepo_args() {
+    fn parse_init_args() {
         let args = Cli::parse_from([
             "cccp",
-            "newrepo",
+            "init",
             "my-service",
             "--lang",
             "rust,shell",
@@ -1221,27 +1320,27 @@ mod tests {
             "--quiet",
         ]);
         match args.command {
-            Some(Commands::Newrepo(nr)) => {
-                assert_eq!(nr.name.as_deref(), Some("my-service"));
-                assert_eq!(nr.lang, "rust,shell");
-                assert_eq!(nr.license, "MIT");
-                assert_eq!(nr.desc.as_deref(), Some("My description"));
-                assert!(nr.no_git);
-                assert!(nr.quiet);
-                let opts: crate::newrepo::NewrepoOptions = nr.into();
+            Some(Commands::Init(init)) => {
+                assert_eq!(init.name.as_deref(), Some("my-service"));
+                assert_eq!(init.lang, "rust,shell");
+                assert_eq!(init.license, "MIT");
+                assert_eq!(init.desc.as_deref(), Some("My description"));
+                assert!(init.no_git);
+                assert!(init.quiet);
+                let opts: crate::newrepo::NewrepoOptions = init.into();
                 assert_eq!(opts.name.as_deref(), Some("my-service"));
                 assert!(!opts.git);
                 assert!(opts.quiet);
             }
-            _ => panic!("Expected Commands::Newrepo"),
+            _ => panic!("Expected Commands::Init"),
         }
 
-        // Test delegation from cccp repo new
-        let args_repo_new = Cli::parse_from(["cccp", "repo", "new", "from-repo"]);
-        match args_repo_new.command {
+        // Test delegation from cccp catalog new
+        let args_cat_new = Cli::parse_from(["cccp", "catalog", "new", "from-repo"]);
+        match args_cat_new.command {
             Some(Commands::Catalog(cat)) => match cat.action {
-                Some(CatalogSubcommands::New(nr)) => {
-                    assert_eq!(nr.name.as_deref(), Some("from-repo"));
+                Some(CatalogSubcommands::New(init)) => {
+                    assert_eq!(init.name.as_deref(), Some("from-repo"));
                 }
                 _ => panic!("Expected CatalogSubcommands::New"),
             },
@@ -1273,10 +1372,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_matraca_args() {
+    fn parse_spool_args() {
         let args = Cli::parse_from([
             "cccp",
-            "matraca",
+            "spool",
             "send",
             "--client-id",
             "cid-99",
@@ -1287,26 +1386,26 @@ mod tests {
             "task",
         ]);
         match args.command {
-            Some(Commands::Matraca(matraca)) => match matraca.action {
-                Some(MatracaSubcommands::Send(send_args)) => {
+            Some(Commands::Spool(spool)) => match spool.action {
+                Some(SpoolSubcommands::Send(send_args)) => {
                     assert_eq!(send_args.client_id.as_deref(), Some("cid-99"));
                     assert_eq!(send_args.workspace.as_deref(), Some("/tmp/work"));
                     assert_eq!(send_args.prompt, vec!["run", "agent", "task"]);
                 }
-                _ => panic!("Expected MatracaSubcommands::Send"),
+                _ => panic!("Expected SpoolSubcommands::Send"),
             },
-            _ => panic!("Expected Commands::Matraca"),
+            _ => panic!("Expected Commands::Spool"),
         }
 
-        let args_poll = Cli::parse_from(["cccp", "matraca", "poll", "job-12345"]);
+        let args_poll = Cli::parse_from(["cccp", "spool", "poll", "job-12345"]);
         match args_poll.command {
-            Some(Commands::Matraca(matraca)) => match matraca.action {
-                Some(MatracaSubcommands::Poll { id }) => {
+            Some(Commands::Spool(spool)) => match spool.action {
+                Some(SpoolSubcommands::Poll { id }) => {
                     assert_eq!(id, "job-12345");
                 }
-                _ => panic!("Expected MatracaSubcommands::Poll"),
+                _ => panic!("Expected SpoolSubcommands::Poll"),
             },
-            _ => panic!("Expected Commands::Matraca"),
+            _ => panic!("Expected Commands::Spool"),
         }
     }
 
@@ -1315,7 +1414,7 @@ mod tests {
         let args = Cli::parse_from([
             "cccp",
             "cockpit",
-            "diva",
+            "divan",
             "--port",
             "8090",
             "--host",
@@ -1327,17 +1426,17 @@ mod tests {
             "--quiet",
         ]);
         match args.command {
-            Some(Commands::Web(web)) => {
-                assert_eq!(web.tab.as_deref(), Some("diva"));
-                assert_eq!(web.port, Some(8090));
-                assert_eq!(web.host.as_deref(), Some("0.0.0.0"));
-                assert!(web.open);
-                assert_eq!(web.token.as_deref(), Some("my-tok"));
-                assert!(web.no_matraca);
-                assert!(web.quiet);
+            Some(Commands::Cockpit(cockpit)) => {
+                assert_eq!(cockpit.tab.as_deref(), Some("divan"));
+                assert_eq!(cockpit.port, Some(8090));
+                assert_eq!(cockpit.host.as_deref(), Some("0.0.0.0"));
+                assert!(cockpit.open);
+                assert_eq!(cockpit.token.as_deref(), Some("my-tok"));
+                assert!(cockpit.no_matraca);
+                assert!(cockpit.quiet);
 
-                let opts: crate::web::CockpitOptions = web.into();
-                assert_eq!(opts.initial_tab, "diva");
+                let opts: crate::web::CockpitOptions = cockpit.into();
+                assert_eq!(opts.initial_tab, "divan");
                 assert_eq!(opts.port, 8090);
                 assert_eq!(opts.host, "0.0.0.0");
                 assert!(opts.open);
@@ -1346,7 +1445,7 @@ mod tests {
                 assert!(opts.enable_diva);
                 assert!(opts.quiet);
             }
-            _ => panic!("Expected Commands::Web"),
+            _ => panic!("Expected Commands::Cockpit"),
         }
     }
 
@@ -1383,14 +1482,6 @@ mod tests {
         match args.command {
             Some(Commands::CheckUpdate(chk)) => {
                 assert_eq!(chk.channel.as_deref(), Some("nightly"));
-            }
-            _ => panic!("Expected Commands::CheckUpdate"),
-        }
-
-        let args = Cli::parse_from(["cccp", "check-updates"]);
-        match args.command {
-            Some(Commands::CheckUpdate(chk)) => {
-                assert_eq!(chk.channel, None);
             }
             _ => panic!("Expected Commands::CheckUpdate"),
         }

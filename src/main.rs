@@ -33,9 +33,9 @@ fn main() -> ExitCode {
     let _ = cccp::update::check_auto_update(&config);
 
     match args.command {
-        Some(Commands::Cz(cz)) => {
+        Some(Commands::Commit(cz)) => {
             if args.verbose > 0 {
-                eprintln!("[cccp] Running cz interactive commit wizard...");
+                eprintln!("[cccp] Running interactive commit wizard...");
             }
             let composed = match cccp::cz::compose_commit(&cz, &config, &theme) {
                 Ok(c) => c,
@@ -173,7 +173,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some(Commands::Semver(semver)) => {
+        Some(Commands::Version(semver)) => {
             if args.verbose > 0 {
                 eprintln!("[cccp] Calculating predictive Semantic Version...");
             }
@@ -228,19 +228,112 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Some(Commands::Install(install)) => {
-            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
-                Ok(r) => r,
-                Err(e) => {
+        Some(Commands::Hook(hook)) => {
+            if hook.install || hook.uninstall {
+                let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let install_opts = cli::InstallArgs {
+                    force: hook.force,
+                    hook_dir: hook.hook_dir.clone(),
+                    uninstall: hook.uninstall,
+                };
+                if let Err(e) = cccp::hooks_install::handle_install(&install_opts, &repo, &theme) {
                     eprintln!("{}: {}", theme.red_bold("Error"), e);
-                    return ExitCode::FAILURE;
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
                 }
-            };
-            if let Err(e) = cccp::hooks_install::handle_install(&install, &repo, &theme) {
-                eprintln!("{}: {}", theme.red_bold("Error"), e);
-                ExitCode::FAILURE
+            } else if let Some(ref sub) = hook.hook {
+                match sub {
+                    cli::HookSubcommands::CommitMsg {
+                        file,
+                        source: _,
+                        sha: _,
+                    } => {
+                        match cccp::hook_runner::run_commit_msg(file, &config, &theme, args.verbose)
+                        {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    cli::HookSubcommands::PrePush { remote, url } => {
+                        let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                return ExitCode::FAILURE;
+                            }
+                        };
+                        match cccp::hook_runner::run_pre_push(
+                            remote.as_deref(),
+                            url.as_deref(),
+                            None,
+                            &repo,
+                            &config,
+                            &theme,
+                            args.verbose,
+                        ) {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    cli::HookSubcommands::PostCommit => {
+                        match cccp::hook_runner::run_post_commit(&theme, args.verbose) {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    cli::HookSubcommands::ReferenceTransaction { state } => {
+                        match cccp::hook_runner::run_reference_transaction(
+                            state.as_deref(),
+                            &theme,
+                            args.verbose,
+                        ) {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                }
             } else {
-                ExitCode::SUCCESS
+                let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                };
+                let install_opts = cli::InstallArgs {
+                    force: hook.force,
+                    hook_dir: hook.hook_dir.clone(),
+                    uninstall: false,
+                };
+                if let Err(e) = cccp::hooks_install::handle_install(&install_opts, &repo, &theme) {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
             }
         }
         Some(Commands::Status(status)) => {
@@ -288,70 +381,7 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Some(Commands::Hook(hook)) => match hook.hook {
-            cli::HookSubcommands::CommitMsg {
-                file,
-                source: _,
-                sha: _,
-            } => match cccp::hook_runner::run_commit_msg(&file, &config, &theme, args.verbose) {
-                Ok(0) => ExitCode::SUCCESS,
-                Ok(code) => ExitCode::from(code as u8),
-                Err(e) => {
-                    eprintln!("{}: {}", theme.red_bold("Error"), e);
-                    ExitCode::FAILURE
-                }
-            },
-            cli::HookSubcommands::PrePush { remote, url } => {
-                let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
-                    Ok(r) => r,
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
-                        return ExitCode::FAILURE;
-                    }
-                };
-                match cccp::hook_runner::run_pre_push(
-                    remote.as_deref(),
-                    url.as_deref(),
-                    None,
-                    &repo,
-                    &config,
-                    &theme,
-                    args.verbose,
-                ) {
-                    Ok(0) => ExitCode::SUCCESS,
-                    Ok(code) => ExitCode::from(code as u8),
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
-                        ExitCode::FAILURE
-                    }
-                }
-            }
-            cli::HookSubcommands::PostCommit => {
-                match cccp::hook_runner::run_post_commit(&theme, args.verbose) {
-                    Ok(0) => ExitCode::SUCCESS,
-                    Ok(code) => ExitCode::from(code as u8),
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
-                        ExitCode::FAILURE
-                    }
-                }
-            }
-            cli::HookSubcommands::ReferenceTransaction { state } => {
-                match cccp::hook_runner::run_reference_transaction(
-                    state.as_deref(),
-                    &theme,
-                    args.verbose,
-                ) {
-                    Ok(0) => ExitCode::SUCCESS,
-                    Ok(code) => ExitCode::from(code as u8),
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
-                        ExitCode::FAILURE
-                    }
-                }
-            }
-        },
-        Some(Commands::Tickets(tickets)) => {
+        Some(Commands::Ticket(tickets)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
                 Err(e) => {
@@ -366,7 +396,72 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             }
         }
-        Some(Commands::Diva(diva)) => {
+        Some(Commands::Sync(sync_args)) => {
+            let sync_all = !sync_args.tickets && !sync_args.agents && !sync_args.catalog;
+            let start_path = sync_args.dir.as_deref().or(args.dir.as_deref());
+            let repo = cccp::git::GitRepo::open(start_path).ok();
+            let repo_root = repo.as_ref().map(|r| r.root_dir.as_path()).or(start_path);
+
+            let mut success = true;
+
+            // 1. Sync tickets
+            if sync_all || sync_args.tickets {
+                if let Some(ref r) = repo {
+                    println!("{} Synchronizing forge tickets...", theme.cyan("★"));
+                    let tickets_opts = cli::TicketArgs {
+                        remote: None,
+                        output: None,
+                        limit: 50,
+                        state: "open".to_string(),
+                    };
+                    if let Err(e) = cccp::tickets::sync_tickets(&tickets_opts, r, &config, &theme) {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        success = false;
+                    }
+                } else {
+                    eprintln!(
+                        "{}: Cannot sync tickets outside a git repository.",
+                        theme.yellow("Warning")
+                    );
+                }
+            }
+
+            // 2. Sync agents (AGENTS.md)
+            if sync_all || sync_args.agents {
+                println!("{} Synchronizing AGENTS.md directives...", theme.cyan("★"));
+                if let Err(e) = cccp::agents::cmd_agent_update(None, None, repo_root, &theme) {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    success = false;
+                }
+            }
+
+            // 3. Sync catalog (~/src)
+            if sync_all || sync_args.catalog {
+                println!("{} Synchronizing repository catalog...", theme.cyan("★"));
+                let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+                let src_dir = std::path::Path::new(&home).join("src");
+                match cccp::catalog::scan_and_add_from_src(&src_dir, Some(&config)) {
+                    Ok(res) => {
+                        println!(
+                            "  Catalog updated: {} added, {} existing.",
+                            res.added.len(),
+                            res.skipped_existing.len()
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        success = false;
+                    }
+                }
+            }
+
+            if success {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
+        }
+        Some(Commands::Divan(diva)) => {
             let start_path = args.dir.as_deref().map(std::path::Path::new);
 
             // 1. Determine target repo and prompt from arguments
@@ -809,7 +904,7 @@ fn main() -> ExitCode {
 
             ExitCode::SUCCESS
         }
-        Some(Commands::Forges(forges)) => {
+        Some(Commands::Forge(forges)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
                 Err(e) => {
@@ -1018,7 +1113,7 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Some(Commands::Gost(gost)) => {
+        Some(Commands::Audit(gost)) => {
             println!(
                 "GOST Standards Inspection: Compliance verified (strict: {}).",
                 gost.strict
@@ -1197,7 +1292,7 @@ fn main() -> ExitCode {
                 }
             }
         },
-        Some(Commands::Act(act_args)) => {
+        Some(Commands::Ci(act_args)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
                 Err(e) => {
@@ -1359,7 +1454,7 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some(Commands::Newrepo(newrepo_args)) => {
+        Some(Commands::Init(newrepo_args)) => {
             match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
@@ -1377,138 +1472,140 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some(Commands::Matraca(matraca_args)) => {
-            match matraca_args.action {
-                Some(cli::MatracaSubcommands::Send(send_args)) => {
-                    let prompt = if send_args.prompt.is_empty() {
-                        use std::io::{IsTerminal, Read};
-                        if !std::io::stdin().is_terminal() {
-                            let mut s = String::new();
-                            let _ = std::io::stdin().read_to_string(&mut s);
-                            s
-                        } else {
-                            String::new()
-                        }
+        Some(Commands::Spool(spool_args)) => match spool_args.action {
+            Some(cli::SpoolSubcommands::Send(send_args)) => {
+                let prompt = if send_args.prompt.is_empty() {
+                    use std::io::{IsTerminal, Read};
+                    if !std::io::stdin().is_terminal() {
+                        let mut s = String::new();
+                        let _ = std::io::stdin().read_to_string(&mut s);
+                        s
                     } else {
-                        send_args.prompt.join(" ")
-                    };
-                    match cccp::matraca::cmd_matraca_send(
-                        send_args.client_id.as_deref(),
-                        send_args.workspace.as_deref(),
-                        &prompt,
-                        None,
-                    ) {
-                        Ok(resp) => {
-                            println!("{}", resp);
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}", err);
-                            ExitCode::FAILURE
-                        }
+                        String::new()
                     }
-                }
-                Some(cli::MatracaSubcommands::Poll { id }) => {
-                    match cccp::matraca::cmd_matraca_poll(&id, None) {
-                        Ok(resp) => {
-                            println!("{}", resp);
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}", err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                Some(cli::MatracaSubcommands::Worker(worker_args)) => {
-                    match cccp::matraca::cmd_matraca_worker(
-                        worker_args.daemon,
-                        worker_args.job_id.as_deref(),
-                        None,
-                    ) {
-                        Ok(()) => ExitCode::SUCCESS,
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                Some(cli::MatracaSubcommands::History { limit }) => {
-                    match cccp::matraca::cmd_matraca_history(limit, None) {
-                        Ok(resp) => {
-                            println!("{}", resp);
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                Some(cli::MatracaSubcommands::Status { json }) => {
-                    match cccp::matraca::cmd_matraca_status(json, None) {
-                        Ok(resp) => {
-                            print!("{}", resp);
-                            if !resp.ends_with('\n') {
-                                println!();
-                            }
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                Some(cli::MatracaSubcommands::Clean { days }) => {
-                    match cccp::matraca::cmd_matraca_clean(days, None) {
-                        Ok(resp) => {
-                            println!("{}", resp);
-                            ExitCode::SUCCESS
-                        }
-                        Err(err) => {
-                            eprintln!("{}: {}", theme.red_bold("Error"), err);
-                            ExitCode::FAILURE
-                        }
-                    }
-                }
-                None => {
-                    if !matraca_args.prompt.is_empty() {
-                        let prompt = matraca_args.prompt.join(" ");
-                        match cccp::matraca::cmd_matraca_send(None, None, &prompt, None) {
-                            Ok(resp) => {
-                                println!("{}", resp);
-                                ExitCode::SUCCESS
-                            }
-                            Err(err) => {
-                                eprintln!("{}", err);
-                                ExitCode::FAILURE
-                            }
-                        }
-                    } else {
-                        println!("cccp matraca - Mobile & Offline-Tolerant Web REPL for Antigravity (agy)");
-                        println!("=====================================================================\n");
-                        println!("Usage:");
-                        println!("  cccp matraca send [--client-id <id>] [--workspace <dir>] <prompt...>");
-                        println!("  cccp matraca poll <job_id|client_id>");
-                        println!("  cccp matraca worker [--daemon] [--once] [--job-id <id>]");
-                        println!("  cccp matraca history [--limit <N>]");
-                        println!("  cccp matraca status [--json]");
-                        println!("  cccp matraca clean [--days <N>]\n");
-                        println!("Note:");
-                        println!("  Para abrir o Web REPL no navegador/celular, utilize: cccp web");
+                } else {
+                    send_args.prompt.join(" ")
+                };
+                match cccp::matraca::cmd_matraca_send(
+                    send_args.client_id.as_deref(),
+                    send_args.workspace.as_deref(),
+                    &prompt,
+                    None,
+                ) {
+                    Ok(resp) => {
+                        println!("{}", resp);
                         ExitCode::SUCCESS
                     }
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::SpoolSubcommands::Poll { id }) => {
+                match cccp::matraca::cmd_matraca_poll(&id, None) {
+                    Ok(resp) => {
+                        println!("{}", resp);
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}", err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::SpoolSubcommands::Worker(worker_args)) => {
+                match cccp::matraca::cmd_matraca_worker(
+                    worker_args.daemon,
+                    worker_args.job_id.as_deref(),
+                    None,
+                ) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::SpoolSubcommands::History { limit }) => {
+                match cccp::matraca::cmd_matraca_history(limit, None) {
+                    Ok(resp) => {
+                        println!("{}", resp);
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::SpoolSubcommands::Status { json }) => {
+                match cccp::matraca::cmd_matraca_status(json, None) {
+                    Ok(resp) => {
+                        print!("{}", resp);
+                        if !resp.ends_with('\n') {
+                            println!();
+                        }
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::SpoolSubcommands::Clean { days }) => {
+                match cccp::matraca::cmd_matraca_clean(days, None) {
+                    Ok(resp) => {
+                        println!("{}", resp);
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+            None => {
+                if !spool_args.prompt.is_empty() {
+                    let prompt = spool_args.prompt.join(" ");
+                    match cccp::matraca::cmd_matraca_send(None, None, &prompt, None) {
+                        Ok(resp) => {
+                            println!("{}", resp);
+                            ExitCode::SUCCESS
+                        }
+                        Err(err) => {
+                            eprintln!("{}", err);
+                            ExitCode::FAILURE
+                        }
+                    }
+                } else {
+                    println!("cccp spool - Mobile & Offline-Tolerant Queue & Spool for Antigravity (agy)");
+                    println!("=========================================================================\n");
+                    println!("Usage:");
+                    println!(
+                        "  cccp spool send [--client-id <id>] [--workspace <dir>] <prompt...>"
+                    );
+                    println!("  cccp spool poll <job_id|client_id>");
+                    println!("  cccp spool worker [--daemon] [--once] [--job-id <id>]");
+                    println!("  cccp spool history [--limit <N>]");
+                    println!("  cccp spool status [--json]");
+                    println!("  cccp spool clean [--days <N>]\n");
+                    println!("Note:");
+                    println!("  To open the interactive cockpit in browser: cccp cockpit");
+                    ExitCode::SUCCESS
+                }
+            }
+        },
+        Some(Commands::Cockpit(cockpit_args)) => {
+            match cccp::web::cmd_cockpit(cockpit_args.into()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
                 }
             }
         }
-        Some(Commands::Web(cockpit_args)) => match cccp::web::cmd_cockpit(cockpit_args.into()) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(err) => {
-                eprintln!("{}: {}", theme.red_bold("Error"), err);
-                ExitCode::FAILURE
-            }
-        },
         Some(Commands::Update(update_args)) => match cccp::update::cmd_update(&update_args) {
             Ok(()) => ExitCode::SUCCESS,
             Err(err) => {
