@@ -1,0 +1,58 @@
+[app]
+name = "CCCP"
+tagline = "Программа Соответствия Стандарту Conventional Commits"
+error = "Ошибка"
+warning = "Предупреждение"
+success = "Успех"
+
+[commit]
+wizard_title = "Мастер Conventional Commits CCCP"
+type_prompt = "Выберите тип вносимых изменений:"
+scope_prompt = "Область изменений (необязательно):"
+summary_prompt = "Краткое описание изменений (макс. 72 символа):"
+body_prompt = "Подробное описание изменений (необязательно):"
+breaking_prompt = "Имеются ли критические изменения (breaking change)?"
+breaking_desc_prompt = "Опишите критические изменения:"
+issues_prompt = "Закрываемые задачи/тикеты (напр. #123, необязательно):"
+confirm_commit = "Подтвердить и выполнить коммит?"
+dry_run_notice = "Тестовый прогон: сообщение сформировано, но коммит не выполнен."
+empty_summary = "Описание коммита не может быть пустым."
+summary_too_long = "Описание коммита превышает лимит в 72 символа."
+
+[lint]
+compliant = "Сообщение коммита соответствует стандарту Conventional Commits 1.0.0"
+rejected = "Сообщение коммита отклонено:"
+no_commits = "Все чисто: 0 новых коммитов для проверки."
+audit_header = "Аудит Conventional Commits CCCP ({range})"
+
+[status]
+title = "Статус репозитория CCCP (Госплан Инспекция)"
+root_dir = "Корневой каталог"
+branch = "Ветка"
+head_commit = "HEAD коммит"
+latest_semver = "Последний SemVer"
+commits_since = "Коммитов с тех пор"
+working_tree = "Рабочая директория"
+clean = "чисто"
+dirty = "грязно (незакоммиченные изменения)"
+
+[hooks]
+install_success = "Git хуки CCCP успешно установлены."
+uninstall_success = "Git хуки CCCP удалены, резервные копии восстановлены."
+installed = "установлен"
+missing = "не установлен"
+
+[sync]
+tickets_start = "Синхронизация тикетов..."
+agents_start = "Синхронизация директив AGENTS.md..."
+catalog_start = "Синхронизация каталога репозиториев..."
+catalog_summary = "Каталог обновлен: добавлено {added}, существует {existing}."
+not_in_repo = "Синхронизация тикетов невозможна вне репозитория git."
+
+[init]
+scaffold_success = "Репозиторий инициализирован по стандарту ГОСТ."
+
+[update]
+checking = "Проверка обновлений..."
+up_to_date = "CCCP обновлен до актуальной версии ({version})."
+update_available = "Доступна новая версия: {new_version} (текущая: {current_version})."

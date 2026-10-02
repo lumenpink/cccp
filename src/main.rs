@@ -26,6 +26,7 @@ fn main() -> ExitCode {
     }
 
     let config = config::Config::load_hierarchical(None);
+    cccp::i18n::init(args.lang.as_deref(), &config);
 
     if let Ok(current_dir) = std::env::current_dir() {
         let _ = cccp::update::check_hook_version(&current_dir);

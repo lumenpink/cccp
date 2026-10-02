@@ -1,193 +1,196 @@
 # Active Tickets - cccp
-> Synced at: 2026-09-30 22:54:52 UTC
+> Synced at: 2026-10-02 01:30:29 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#105] refactor(legacy): remover scripts shell legados (bin/cccp, src/utils, src/hooks) apos paridade com Rust
+## [#122] refactor(core): remover scripts e artefatos shell legados remanescentes
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/105
-
-### Description
-Remover todos os scripts legados em shell do repositorio (bin/cccp, src/utils/*.sh, src/hooks/*.sh, src/main.sh, src/config/*.sh) assim que todos os subcomandos e funcionalidades forem integralmente portados para Rust nativo e todos os testes estiverem passando com 100% de paridade.
-
----
-## [#104] feat(update): implementar verificacao e auto-atualizacao do binario nativo em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/104
-
-### Description
-Implementar os comandos cccp update e cccp check-update nativamente em Rust (src/update.rs), substituindo src/utils/update.sh. Suportar consulta a releases no Codeberg/forge configurada, comparacao SemVer da versao instalada versus disponivel, e atualizacao atomica do binario.
-
----
-## [#103] feat(web): implementar interface web local e painel de controle Gosplan em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/103
-
-### Description
-Implementar o comando cccp web / cccp cockpit nativamente em Rust (src/web.rs), substituindo src/utils/web.sh. Suportar servidor web embutido fornecendo dashboard com autenticacao por token para acompanhamento de status do repositorio, tickets, explorador e interface para Matraca e Diva.
-
----
-## [#102] feat(matraca): implementar motor de filas e REPL offline/movel para Antigravity em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/102
-
-### Description
-Implementar o comando cccp matraca nativamente em Rust (src/matraca.rs), substituindo src/utils/matraca.sh. Suportar fila persistente baseada no filesystem (~/.local/share/cccp/matraca/), comandos send, poll, worker, status, history e clean para comunicacao com Antigravity CLI (agy).
-
----
-## [#101] feat(serve): implementar servidor HTTP local para preview e documentacao em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/101
-
-### Description
-Implementar o comando cccp serve nativamente em Rust (src/serve.rs), substituindo src/utils/serve.sh. Suportar servidor HTTP estatico embutido sem dependencias externas para servir documentacao ou build local (site/, dist/, public/ ou diretorio atual) com suporte a definicao de porta, bind de interface e abertura no navegador.
-
----
-## [#100] feat(newrepo): implementar motor de scaffolding de repositorios padrao GOST em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/100
-
-### Description
-Implementar o comando cccp newrepo nativamente em Rust (src/newrepo.rs), substituindo src/utils/newrepo.sh. Suportar criacao de novos repositorios ou adequacao de diretorios existentes ao padrao GOST com geracao de .cccprc, .gitignore, VERSION, CHANGELOG.md, LICENSE, README.md, workflow de CI e instalacao de hooks.
-
----
-## [#99] feat(agents): implementar sincronizacao de AGENTS.md e variaveis de agentes em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/99
-
-### Description
-Implementar os comandos cccp agents e cccp set-av nativamente em Rust (src/agents.rs), substituindo src/utils/agents.sh. Suportar sincronizacao/download do template AGENTS_template.md, interpolacao de variaveis {{VAR}} configuradas em .cccprc, e comandos get/set/unset de variaveis de agentes.
-
----
-## [#98] feat(deps): implementar verificador e catalogo de dependencias do sistema em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/98
-
-### Description
-Implementar o comando cccp deps nativamente em Rust (src/deps.rs), substituindo src/utils/deps.sh. Suportar listagem, checagem e verificacao de versoes minimas de dependencias do ecossistema (git, act, docker, curl, etc.) com saida em tabela e formatacao amigavel.
-
----
-## [#97] feat(act): implementar executor de CI local e pre-push gate com act em Rust
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/97
-
-### Description
-Implementar o comando cccp act nativamente em Rust (src/act.rs), substituindo src/utils/act.sh. Suportar deteccao de act/docker, execucao de workflows locais (.forgejo/workflows ou .github/workflows), exibicao de logs (.git/act-logs/) e checagem de status.
-
----
-## [#69] feat(catalog): adicionar filtros e ordenação por estado e número de tickets
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/69
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/122
 
 ### Description
 ## Description
 
-O comando `cataloge` precisa ser estendido para suportar filtragem e ordenação dos repositórios.
+Apesar dos esforços recentes de migração para Rust, ainda restam arquivos, scripts e artefatos legados do modelo antigo em shell script no repositório. É necessário realizar uma auditoria completa na árvore do projeto para identificar, revisar e remover em definitivo todos os componentes que se tornaram obsoletos e não são mais utilizados pela versão em Rust.
 
-Critérios de aceitação:
-- Permitir filtrar repositórios pelo estado.
-- Permitir filtrar repositórios pelo número de tickets.
-- Permitir ordenar a listagem pelo estado.
-- Permitir ordenar a listagem pelo número de tickets.
+## Tarefas
 
-## Steps to Reproduce
-
-1. Executar o comando `cataloge` com opções de filtro ou ordenação (a definir).
+- [ ] Realizar busca por scripts shell (`*.sh`) e arquivos auxiliares do modelo legado no repositório.
+- [ ] Verificar se há dependências ou referências a esses scripts em documentações, workflows de CI ou templates.
+- [ ] Remover os scripts e artefatos obsoletos identificados.
+- [ ] Garantir que o build e os testes em Rust continuem passando sem regressões.
 
 ## Expected vs Actual
 
-- Expected: A listagem de repositórios é filtrada e/ou ordenada conforme os parâmetros informados.
-- Actual: O comando atualmente não oferece essas opções de filtro e ordenação.
+- **Expected:** Repositório enxuto contendo apenas o ecossistema e fontes Rust, sem resquícios de implementações obsoletas em shell.
+- **Actual:** Arquivos residuais do modelo legado em shell continuam presentes na árvore do projeto.
 
 ---
-## [#68] feat(catalog): adicionar tabela de repositórios com status e contagem de tickets
+## [#121] feat(build): adicionar script de compilacao e instalacao do binario
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/68
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/121
 
 ### Description
 ## Description
 
-Atualizar o comando `catalog` para que ele monte e exiba uma tabela formatada contendo a lista de repositórios gerenciados. A tabela deve incluir:
-- Nome/caminho do repositório
-- Número de tickets abertos
-- Estado do repositório (`clean`, `dirty`, e indicador de commits pendentes para push).
-
-## Steps to Reproduce
-
-1. Executar o comando `cccp catalog` no terminal.
+Atualmente, a compilação e instalação do binário `cccp` precisa ser feita manualmente via comandos do Cargo. Sentiu-se a falta de um script no repositório (por exemplo, `install.sh` ou alvo no `Makefile`) que compile o projeto em release e copie ou instale o binário no seu devido local (ex.: `~/.local/bin`, `/usr/local/bin` ou diretório apropriado do ambiente).
 
 ## Expected vs Actual
 
-**Expected:** Uma tabela é exibida listando os repositórios, quantidade de tickets abertos e o estado do git/working tree de cada um.
+- **Esperado:** Existência de um script de instalação no repositório (ex.: `./install.sh` ou `make install`) que faça o build em release (`cargo build --release` ou `cargo install --path .`) e instale o executável no PATH padrão do usuário.
+- **Atual:** Não há script de compilação/instalação direta disponível no repositório após a migração para Rust.
 
-**Actual:** O comando atual não exibe essas informações detalhadas ou não possui esta formatação em tabela.
+## Critérios de Aceitação
+
+- [ ] Criar script de instalação documentado no repositório.
+- [ ] Garantir verificação prévia da presença do toolchain Rust/Cargo.
+- [ ] Definir e documentar o diretório de destino padrão da instalação (com possibilidade de sobrescrever o prefixo/destino).
+- [ ] Atualizar o README/documentação com instruções de uso do script.
 
 ---
-## [#67] feat(catalog): adicionar comando cccp catalog add_new --from-src
+## [#120] feat(cli): restaurar mensagens e terminologia tematica sovietica nos comandos Rust
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/67
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/120
+
+### Description
+## Description
+Durante a migração dos scripts legados em shell para o binário Rust (e a recente reformulação da CLI), as mensagens temáticas soviéticas (como verificação de 'adequação ideológica' no comando `check`) foram removidas ou substituídas por saídas neutras/convencionais.
+
+É necessário inspecionar os commits e versões anteriores (antes de `refactor(legacy): remover scripts shell legados apos paridade Rust`) para mapear as mensagens de status, avisos e saídas dos comandos antigos e restaurar a identidade estilística no ecossistema Rust.
+
+## Steps to Reproduce
+1. Executar comandos de checagem/validação na versão Rust (ex: `cccp check` ou equivalente).
+2. Observar a saída de texto padrão/genérica sem a estilização ideológica soviética original.
+
+## Expected vs Actual
+- **Esperado:** As mensagens de status, logs e validações devem manter o vocabulário temático (ex: inspeção de adequação ideológica, conformidade com os planos do Gosplan, etc.), preservando a experiência dos scripts legados.
+- **Atual:** Mensagens padronizadas em inglês ou neutras que descaracterizam o clima soviético da ferramenta.
+
+---
+## [#119] feat(cli): restaurar formatacao visual de ticket com bordas na saida do diva
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/119
 
 ### Description
 ## Description
 
-Implementar um novo comando no catalog que permita adicionar todos os itens que estão em `src` com um único comando.
+Na versão em shell script do cccp, os tickets produzidos pelo comando de triagem (diva) eram renderizados no terminal com um formato gráfico de ticket estilizado, utilizando bordas decorativas e margens demarcando cada issue.
 
-## Steps to Reproduce
-
-1. Executar o comando `cccp catalog add_new --from-src`.
+Com a migração para Rust, a saída perdeu essa apresentação estética. Esta issue propõe resgatar a exibição em caixa/cartão de ticket para as issues triadas.
 
 ## Expected vs Actual
 
-- Expected: Todos os itens de `src` devem ser adicionados ao catalog de uma só vez.
-- Actual: O comando ainda não existe.
+- **Esperado:** A visualização dos tickets gerados pelo diva no terminal deve apresentar moldura/bordas e margens (estilo cartão de ticket ASCII/Unicode).
+- **Atual:** A saída do diva no terminal não conta mais com a moldura e formatação de ticket presente na versão legada.
 
 ---
-## [#66] fix(catalog): utilizar a lista de configurações em vez da pasta src
+## [#118] feat(core): implementar suporte a idioma padrão
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/66
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/118
 
 ### Description
 ## Description
 
-O catalog atualmente utiliza a lista que está em /src. O comportamento correto é utilizar a lista das configurações.
+Implementar um mecanismo de idioma padrão que permita definir uma língua default para o projeto. Isso deve ser capaz de lidar com a internacionalização (Intl) para garantir que todos os elementos do sistema sejam exibidos e utilizados corretamente em diferentes idiomas.
 
 ## Steps to Reproduce
 
-1. Executar operações no catalog.
-2. Observar que a fonte utilizada é a pasta `/src` em vez das configurações.
+1. Adicionar um arquivo de configuração para definir a língua padrão.
+2. Implementar funções para detectar o idioma do usuário ou da sessão atual.
+3. Criar uma interface para permitir que os usuários escolham a língua preferida.
+4. Atualizar todos os componentes (tickets, comandos, funções e variáveis) para usar a linguagem padrão.
+5. Implementar suporte ao Intl para garantir que as strings sejam traduzidas corretamente.
 
 ## Expected vs Actual
 
-- Expected: O catalog deve utilizar a lista das configurações.
-- Actual: O catalog está utilizando a lista em `/src`.
+- Todos os elementos do sistema devem ser exibidos na língua padrão definida.
+- A internacionalização deve funcionar corretamente, permitindo a translação de todas as mensagens e textos para diferentes idiomas.
 
 ---
-## [#65] feat(catalog): support adding remote repositories without prior cloning
+## [#117] feat(cli): add 'update' command for self-update
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/65
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/117
 
 ### Description
 ## Description
-Atualmente, o comando `catalog add_repo` exige que o repositório já esteja clonado localmente. Precisamos alterar essa lógica para suportar a adição direta de repositórios remotos utilizando apenas a URL (por exemplo, `codeberg.org/lumenpink/tralala`).
+
+Add a new command `update` to the CLI that checks for available updates and performs an automatic update if necessary.
 
 ## Steps to Reproduce
-1. Executar `cccp catalog add_repo codeberg.org/lumenpink/tralala` para um repositório que não existe localmente.
+1. Run `cccp update`
+2. The CLI will check for any available updates and prompt the user to proceed with the update.
+3. If an update is available, the CLI will download and install it automatically.
 
 ## Expected vs Actual
-- **Expected:** O repositório é adicionado ao catálogo, baixado ou referenciado corretamente de forma remota.
-- **Actual:** O comando falha por não encontrar o repositório clonado localmente.
+- **Expected**: The application should be updated to the latest version without manual intervention.
+- **Actual**: The application should check for updates and offer to perform them automatically.
+
+---
+## [#116] feat(cli): injetar contexto do projeto automaticamente na execucao do diva
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/116
+
+### Description
+## Descrição
+
+Ao executar o comando `diva`, o assistente deve extrair e repassar automaticamente o contexto relevante da aplicação/repositório (como estrutura do projeto, símbolos, assinaturas de funções ou visão geral da arquitetura) para o modelo.
+
+Dessa forma, o usuário pode referenciar funções, módulos ou componentes diretamente no prompt sem a necessidade de explicar manualmente sua existência ou propósito.
+
+## Comportamento Esperado
+
+- O comando `diva` inspeciona automaticamente a base de código/projeto atual antes de enviar a requisição ao modelo.
+- O contexto coletado (manifests, arquivos principais, definições de funções ou resumo do projeto) é incorporado ao payload/system prompt da sessão de forma transparente.
+- O modelo passa a reconhecer termos, funções e módulos existentes no projeto sem necessidade de flags manuais de contexto.
+
+---
+## [#114] test(e2e): end-to-end integration tests for compiled cccp standalone binary
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/114
+
+### Description
+Implement end-to-end tests in tests/e2e_cli_test.rs invoking the compiled cccp binary directly across realistic workflows: repo initialization, hook install and intercept, lint stdin, config, and completion.
+
+---
+## [#113] test(cli): functional tests for command parsing, global flags, and dispatch
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/113
+
+### Description
+Implement functional tests in tests/cli_test.rs covering CLI command dispatch, global flags (-C/--dir, -v/-vv, -q, --no-color), and parameter validation.
+
+---
+## [#112] test(cultural): unit tests for theme colors, soviet registry, and order 227
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/112
+
+### Description
+Implement unit tests in tests/cultural_test.rs for NO_COLOR compliance, constructivist color palette, historical registry, and Order 227 («Ни шагу назад!»).
+
+---
+## [#111] test(lint): comprehensive unit and functional tests for GOST commit linting
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/111
+
+### Description
+Implement exhaustive test coverage for src/lint.rs (tests/lint_test.rs) covering types, scopes, 72-char header ceiling, breaking changes, and commit sanitization.
+
+---
+## [#110] feat(i18n): implement internationalization (i18n) and multilingual support
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/110
+
+### Description
+Implement pure Rust embedded i18n architecture with en-US default fallback, supporting en-US, pt-BR, ru-RU, and es-ES. Resolve language via CLI flag, CCCP_LANG, LC_ALL/LANG, and config.
 
 ---

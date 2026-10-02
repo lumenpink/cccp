@@ -33,6 +33,10 @@ pub struct Cli {
     #[arg(long = "no-color", global = true)]
     pub no_color: bool,
 
+    /// Interface language/locale (en-US, pt-BR, ru-RU, es-ES)
+    #[arg(long = "lang", global = true, value_name = "LOCALE")]
+    pub lang: Option<String>,
+
     /// Primary subcommand to execute
     #[command(subcommand)]
     pub command: Option<Commands>,

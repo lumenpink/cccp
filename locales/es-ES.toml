@@ -1,0 +1,58 @@
+[app]
+name = "CCCP"
+tagline = "Programa de Cumplimiento de Conventional Commits"
+error = "Error"
+warning = "Advertencia"
+success = "Éxito"
+
+[commit]
+wizard_title = "Asistente de Conventional Commits de CCCP"
+type_prompt = "Selecciona el tipo de cambio que vas a confirmar:"
+scope_prompt = "Ámbito de este cambio (opcional):"
+summary_prompt = "Resumen breve e imperativo del cambio (máx 72 caracteres):"
+body_prompt = "Descripción detallada del cambio (opcional):"
+breaking_prompt = "¿Hay cambios que rompen la compatibilidad (breaking changes)?"
+breaking_desc_prompt = "Describe los cambios que rompen la compatibilidad:"
+issues_prompt = "Tiques/problemas cerrados (ej: #123, opcional):"
+confirm_commit = "¿Confirmar y proceder con este commit?"
+dry_run_notice = "Modo de prueba (dry run): mensaje formateado pero no ejecutado."
+empty_summary = "El resumen del commit no puede estar vacío."
+summary_too_long = "El resumen del commit supera el límite de 72 caracteres."
+
+[lint]
+compliant = "Mensaje de commit compatible con Conventional Commits 1.0.0"
+rejected = "Mensaje de commit rechazado:"
+no_commits = "Todo limpio: 0 commits nuevos para inspeccionar."
+audit_header = "Auditoría de Conventional Commits de CCCP ({range})"
+
+[status]
+title = "Estado del Repositorio CCCP (Inspección Estatal Gosplan)"
+root_dir = "Directorio Raíz"
+branch = "Rama (Branch)"
+head_commit = "Commit HEAD"
+latest_semver = "Último SemVer"
+commits_since = "Commits Desde Entonces"
+working_tree = "Árbol de Trabajo"
+clean = "limpio"
+dirty = "sucio (cambios sin confirmar)"
+
+[hooks]
+install_success = "Git hooks de CCCP instalados correctamente."
+uninstall_success = "Git hooks de CCCP eliminados y copias de seguridad restauradas."
+installed = "instalado"
+missing = "no instalado"
+
+[sync]
+tickets_start = "Sincronizando tiques de la forja..."
+agents_start = "Sincronizando directivas de AGENTS.md..."
+catalog_start = "Sincronizando catálogo de repositorios..."
+catalog_summary = "Catálogo actualizado: {added} añadidos, {existing} existentes."
+not_in_repo = "No se pueden sincronizar tiques fuera de un repositorio git."
+
+[init]
+scaffold_success = "Repositorio inicializado bajo los estándares GOST."
+
+[update]
+checking = "Comprobando actualizaciones..."
+up_to_date = "CCCP está actualizado ({version})."
+update_available = "Nueva versión disponible: {new_version} (actual: {current_version})."

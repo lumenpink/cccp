@@ -222,19 +222,18 @@ fn prompt_commit_type(_config: &Config) -> Result<String, String> {
         },
     ];
 
-    let choice = Select::new(
-        "Select the type of change you are committing:",
-        type_options,
-    )
-    .prompt()
-    .map_err(|e| format!("Prompt aborted: {}", e))?;
+    let prompt_text = crate::t!("commit.type_prompt");
+    let choice = Select::new(&prompt_text, type_options)
+        .prompt()
+        .map_err(|e| format!("Prompt aborted: {}", e))?;
 
     Ok(choice.name.to_string())
 }
 
 fn prompt_scope(config: &Config) -> Result<Option<String>, String> {
     let help_msg = format!("e.g. {}", config.commit_scopes.join(", "));
-    let scope_input = Text::new("Scope of this change (optional):")
+    let prompt_text = crate::t!("commit.scope_prompt");
+    let scope_input = Text::new(&prompt_text)
         .with_help_message(&help_msg)
         .prompt()
         .map_err(|e| format!("Prompt aborted: {}", e))?;
@@ -248,18 +247,21 @@ fn prompt_scope(config: &Config) -> Result<Option<String>, String> {
 }
 
 fn prompt_is_breaking() -> Result<bool, String> {
-    Confirm::new("Are there any BREAKING CHANGES in this commit?")
+    let prompt_text = crate::t!("commit.breaking_prompt");
+    Confirm::new(&prompt_text)
         .with_default(false)
         .prompt()
         .map_err(|e| format!("Prompt aborted: {}", e))
 }
 
 fn prompt_subject() -> Result<String, String> {
-    Text::new("Concise subject description (imperative, no trailing dot):")
-        .with_validator(|input: &str| {
+    let prompt_text = crate::t!("commit.summary_prompt");
+    let empty_err = crate::t!("commit.empty_summary");
+    Text::new(&prompt_text)
+        .with_validator(move |input: &str| {
             let trimmed = input.trim();
             if trimmed.is_empty() {
-                Ok(Validation::Invalid("Subject cannot be empty".into()))
+                Ok(Validation::Invalid(empty_err.clone().into()))
             } else if trimmed.ends_with('.') {
                 Ok(Validation::Invalid(
                     "Subject must not end with a period/dot ('.')".into(),
@@ -274,7 +276,8 @@ fn prompt_subject() -> Result<String, String> {
 }
 
 fn prompt_body() -> Result<Option<String>, String> {
-    let body_input = Text::new("Detailed commit body description (optional):")
+    let prompt_text = crate::t!("commit.body_prompt");
+    let body_input = Text::new(&prompt_text)
         .prompt()
         .map_err(|e| format!("Prompt aborted: {}", e))?;
 
@@ -287,7 +290,8 @@ fn prompt_body() -> Result<Option<String>, String> {
 }
 
 fn prompt_breaking_description() -> Result<Option<String>, String> {
-    let desc = Text::new("Describe the BREAKING CHANGE:")
+    let prompt_text = crate::t!("commit.breaking_desc_prompt");
+    let desc = Text::new(&prompt_text)
         .prompt()
         .map_err(|e| format!("Prompt aborted: {}", e))?;
 
@@ -300,7 +304,8 @@ fn prompt_breaking_description() -> Result<Option<String>, String> {
 }
 
 fn prompt_issues() -> Result<Option<String>, String> {
-    let issues_input = Text::new("Closed issues/tickets (optional, e.g. #42, closes #78):")
+    let prompt_text = crate::t!("commit.issues_prompt");
+    let issues_input = Text::new(&prompt_text)
         .prompt()
         .map_err(|e| format!("Prompt aborted: {}", e))?;
 

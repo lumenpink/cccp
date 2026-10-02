@@ -1,0 +1,58 @@
+[app]
+name = "CCCP"
+tagline = "Conventional Commits Compliance Program"
+error = "Error"
+warning = "Warning"
+success = "Success"
+
+[commit]
+wizard_title = "CCCP Conventional Commits Wizard"
+type_prompt = "Select the type of change you are committing:"
+scope_prompt = "Scope of this change (optional):"
+summary_prompt = "Short, imperative summary of the change (max 72 chars):"
+body_prompt = "Longer description of the change (optional):"
+breaking_prompt = "Are there any breaking changes?"
+breaking_desc_prompt = "Describe the breaking changes:"
+issues_prompt = "Closed issues/tickets (e.g. #123, optional):"
+confirm_commit = "Proceed with this commit?"
+dry_run_notice = "Dry run mode: commit message formatted but not executed."
+empty_summary = "Commit summary cannot be empty."
+summary_too_long = "Commit summary exceeds 72 characters limit."
+
+[lint]
+compliant = "Commit message compliant with Conventional Commits 1.0.0"
+rejected = "Commit message rejected:"
+no_commits = "All clear: 0 new commits to inspect."
+audit_header = "CCCP Conventional Commits Audit ({range})"
+
+[status]
+title = "CCCP Repository Status (Gosplan State Inspection)"
+root_dir = "Root Directory"
+branch = "Branch"
+head_commit = "HEAD Commit"
+latest_semver = "Latest SemVer"
+commits_since = "Commits Since"
+working_tree = "Working Tree"
+clean = "clean"
+dirty = "dirty (uncommitted changes)"
+
+[hooks]
+install_success = "CCCP Git hooks successfully installed."
+uninstall_success = "CCCP Git hooks removed and backups restored."
+installed = "installed"
+missing = "not installed"
+
+[sync]
+tickets_start = "Synchronizing forge tickets..."
+agents_start = "Synchronizing AGENTS.md directives..."
+catalog_start = "Synchronizing repository catalog..."
+catalog_summary = "Catalog updated: {added} added, {existing} existing."
+not_in_repo = "Cannot sync tickets outside a git repository."
+
+[init]
+scaffold_success = "Repository initialized under GOST standards."
+
+[update]
+checking = "Checking for updates..."
+up_to_date = "CCCP is up to date ({version})."
+update_available = "New version available: {new_version} (current: {current_version})."
