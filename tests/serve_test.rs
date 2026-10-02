@@ -123,8 +123,16 @@ fn test_http_server_request_handling_and_security() {
 
     let base_url = format!("http://127.0.0.1:{}", port);
 
-    // 1. GET / -> returns index.html
-    let resp_root = ureq::get(&format!("{}/", base_url)).call().unwrap();
+    // 1. GET / -> returns index.html (retry up to 10 times to ensure accept queue is active)
+    let mut resp_root = None;
+    for _ in 0..20 {
+        if let Ok(resp) = ureq::get(&format!("{}/", base_url)).call() {
+            resp_root = Some(resp);
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    let resp_root = resp_root.expect("Server must respond to root GET");
     assert_eq!(resp_root.status(), 200);
     assert_eq!(
         resp_root.headers().get("content-type").unwrap(),

@@ -968,20 +968,130 @@ pub fn clean_json_markdown(raw: &str) -> &str {
     text
 }
 
-/// Display single ticket details
-pub fn display_single_ticket(ticket: &DecomposedTicket, idx: usize, total: usize, theme: &Theme) {
-    let num = idx + 1;
-    let header = format!("[DIVAN] Ticket {}/{}: {}", num, total, ticket.title);
-    println!("{}", theme.gold_bold(&header));
+fn visible_width(s: &str) -> usize {
+    let mut in_escape = false;
+    let mut len = 0;
+    for ch in s.chars() {
+        if ch == '\x1b' {
+            in_escape = true;
+        } else if in_escape {
+            if ch == 'm' {
+                in_escape = false;
+            }
+        } else {
+            len += 1;
+        }
+    }
+    len
+}
 
+fn wrap_box_text(text: &str, width: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim_end();
+        if trimmed.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+        let words: Vec<&str> = trimmed.split_whitespace().collect();
+        if words.is_empty() {
+            out.push(String::new());
+            continue;
+        }
+        let mut cur = String::new();
+        for word in words {
+            if cur.is_empty() {
+                cur.push_str(word);
+            } else if cur.chars().count() + 1 + word.chars().count() <= width {
+                cur.push(' ');
+                cur.push_str(word);
+            } else {
+                out.push(cur);
+                cur = word.to_string();
+            }
+        }
+        if !cur.is_empty() {
+            out.push(cur);
+        }
+    }
+    out
+}
+
+fn render_box_line(content: &str, width: usize, theme: &Theme) -> String {
+    let v_width = visible_width(content);
+    let pad = width.saturating_sub(v_width);
+    let border = theme.dim("│");
+    format!("{} {}{} {}\n", border, content, " ".repeat(pad), border)
+}
+
+/// Render a single ticket inside a Soviet Gosplan styled ticket card with borders
+pub fn render_ticket_card(
+    ticket: &DecomposedTicket,
+    idx: usize,
+    total: usize,
+    destination: Option<&str>,
+    theme: &Theme,
+) -> String {
+    let width = 72;
+    let bar = "─".repeat(width + 2);
+    let top_border = format!("{}{}{}\n", theme.dim("┌"), theme.dim(&bar), theme.dim("┐"));
+    let mid_border = format!("{}{}{}\n", theme.dim("├"), theme.dim(&bar), theme.dim("┤"));
+    let bot_border = format!("{}{}{}\n", theme.dim("└"), theme.dim(&bar), theme.dim("┘"));
+
+    let mut out = String::new();
+    out.push('\n');
+    out.push_str(&top_border);
+
+    // Title line
+    let title_prefix = format!("★ [TICKET {}/{}] ", idx + 1, total);
+    let title_text = format!(
+        "{}{}",
+        theme.gold_bold(&title_prefix),
+        theme.bold(&ticket.title)
+    );
+    out.push_str(&render_box_line(&title_text, width, theme));
+
+    out.push_str(&mid_border);
+
+    // Metadata lines
+    if let Some(dest) = destination {
+        let dest_line = format!("{}: {}", theme.cyan("Destination"), theme.yellow(dest));
+        out.push_str(&render_box_line(&dest_line, width, theme));
+    }
     if let Some(ref rationale) = ticket.rationale {
-        println!("  {}: {}", theme.cyan("Rationale"), rationale);
+        let rat_line = format!("{}: {}", theme.cyan("Rationale  "), rationale);
+        for line in wrap_box_text(&rat_line, width) {
+            out.push_str(&render_box_line(&line, width, theme));
+        }
     }
     if !ticket.labels.is_empty() {
-        println!("  {}: {}", theme.cyan("Labels"), ticket.labels.join(", "));
+        let lbl_line = format!(
+            "{}: {}",
+            theme.cyan("Labels     "),
+            ticket.labels.join(", ")
+        );
+        out.push_str(&render_box_line(&lbl_line, width, theme));
     }
-    println!();
-    println!("{}", ticket.body);
+
+    out.push_str(&mid_border);
+
+    // Body lines
+    let wrapped_body = wrap_box_text(&ticket.body, width);
+    for line in wrapped_body {
+        if line.starts_with('#') {
+            out.push_str(&render_box_line(&theme.bold(&line), width, theme));
+        } else {
+            out.push_str(&render_box_line(&line, width, theme));
+        }
+    }
+
+    out.push_str(&bot_border);
+    out
+}
+
+/// Display single ticket details inside a framed ticket card
+pub fn display_single_ticket(ticket: &DecomposedTicket, idx: usize, total: usize, theme: &Theme) {
+    print!("{}", render_ticket_card(ticket, idx, total, None, theme));
 }
 
 /// Display Soviet Gosplan triage results

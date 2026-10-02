@@ -697,24 +697,18 @@ fn main() -> ExitCode {
             let mut idx = 0;
 
             while idx < tickets.len() {
-                println!();
-                println!(
+                let dest_str = detected_forge
+                    .as_ref()
+                    .map(|f| format!("{} ({}/{})", f.provider, f.owner, f.repo));
+                print!(
                     "{}",
-                    theme.dim("────────────────────────────────────────────────────────────────")
-                );
-                cccp::ai::display_single_ticket(&tickets[idx], idx, tickets.len(), &theme);
-                if let Some(ref f) = detected_forge {
-                    println!(
-                        "  {}: {} ({}/{})",
-                        theme.cyan("Destination"),
-                        theme.gold_bold(&f.provider.to_string()),
-                        f.owner,
-                        f.repo
-                    );
-                }
-                println!(
-                    "{}",
-                    theme.dim("────────────────────────────────────────────────────────────────")
+                    cccp::ai::render_ticket_card(
+                        &tickets[idx],
+                        idx,
+                        tickets.len(),
+                        dest_str.as_deref(),
+                        &theme
+                    )
                 );
 
                 let publish_label = if let Some(ref f) = detected_forge {

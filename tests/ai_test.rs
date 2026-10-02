@@ -362,3 +362,60 @@ fn test_build_enriched_context_with_provider_budget() {
     // Gemini allows more context
     assert!(symbols_gemini.len() > symbols_ollama.len());
 }
+
+#[test]
+fn test_render_ticket_card_borders_and_metadata() {
+    let ticket = cccp::ai::DecomposedTicket {
+        title: "feat(auth): add OAuth2 provider authentication".into(),
+        rationale: Some("Allows offline user authentication".into()),
+        labels: vec!["auth".into(), "security".into()],
+        body:
+            "## Description\nImplements JWT token decoding and validation with fail-fast checks.\n"
+                .into(),
+    };
+    let theme = cccp::cultural::Theme::init(false);
+
+    let card =
+        cccp::ai::render_ticket_card(&ticket, 0, 2, Some("Codeberg (lumenpink/cccp)"), &theme);
+
+    // Verify box-drawing borders
+    assert!(card.contains('┌'), "must contain top-left border");
+    assert!(card.contains('┐'), "must contain top-right border");
+    assert!(card.contains('├'), "must contain mid border");
+    assert!(card.contains('┤'), "must contain mid border");
+    assert!(card.contains('│'), "must contain vertical border");
+    assert!(card.contains('└'), "must contain bottom-left border");
+    assert!(card.contains('┘'), "must contain bottom-right border");
+
+    // Verify content
+    assert!(card.contains("TICKET 1/2"));
+    assert!(card.contains("feat(auth): add OAuth2 provider authentication"));
+    assert!(card.contains("Destination"));
+    assert!(card.contains("Codeberg (lumenpink/cccp)"));
+    assert!(card.contains("Rationale"));
+    assert!(card.contains("Allows offline user authentication"));
+    assert!(card.contains("Labels"));
+    assert!(card.contains("auth, security"));
+    assert!(card.contains("## Description"));
+}
+
+#[test]
+fn test_render_ticket_card_no_color_strips_ansi() {
+    let ticket = cccp::ai::DecomposedTicket {
+        title: "fix(cli): resolve argument parsing error".into(),
+        rationale: None,
+        labels: vec![],
+        body: "Fixes parsing bug.\n".into(),
+    };
+    let theme = cccp::cultural::Theme::init(true); // NO_COLOR
+
+    let card = cccp::ai::render_ticket_card(&ticket, 1, 1, None, &theme);
+
+    assert!(card.contains('┌'));
+    assert!(card.contains('└'));
+    assert!(card.contains("fix(cli): resolve argument parsing error"));
+    assert!(
+        !card.contains("\x1b["),
+        "card must contain 0 ANSI escape sequences when no-color is active"
+    );
+}
