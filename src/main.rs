@@ -639,10 +639,11 @@ fn main() -> ExitCode {
                 trimmed
             };
 
-            let repo_ctx = cccp::ai::build_enriched_context(
+            let repo_ctx = cccp::ai::build_enriched_context_with_provider(
                 git_repo.as_ref(),
                 detected_forge.as_ref(),
                 &config,
+                Some(client.provider),
             );
 
             let mut tickets = if diva.direct {

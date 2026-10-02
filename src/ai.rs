@@ -554,13 +554,312 @@ Write the ticket body and descriptions in the language used by the user report."
     }
 }
 
+/// Extract summary of primary package manifest (Cargo.toml, package.json, go.mod, pyproject.toml)
+pub fn extract_project_manifest(root: &std::path::Path) -> Option<String> {
+    // 1. Rust Cargo.toml
+    let cargo_path = root.join("Cargo.toml");
+    if cargo_path.is_file() {
+        if let Ok(content) = std::fs::read_to_string(&cargo_path) {
+            let mut name = None;
+            let mut version = None;
+            let mut desc = None;
+            let mut deps = Vec::new();
+            let mut in_package = false;
+            let mut in_deps = false;
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') {
+                    in_package = trimmed == "[package]";
+                    in_deps = trimmed == "[dependencies]" || trimmed == "[dev-dependencies]";
+                    continue;
+                }
+                if in_package {
+                    if let Some(rest) = trimmed.strip_prefix("name =") {
+                        name = Some(rest.trim().trim_matches('"').to_string());
+                    } else if let Some(rest) = trimmed.strip_prefix("version =") {
+                        version = Some(rest.trim().trim_matches('"').to_string());
+                    } else if let Some(rest) = trimmed.strip_prefix("description =") {
+                        desc = Some(rest.trim().trim_matches('"').to_string());
+                    }
+                } else if in_deps && !trimmed.is_empty() && !trimmed.starts_with('#') {
+                    if let Some(dep_name) = trimmed.split('=').next().map(str::trim) {
+                        if !dep_name.is_empty() && deps.len() < 8 {
+                            deps.push(dep_name.to_string());
+                        }
+                    }
+                }
+            }
+
+            if let Some(n) = name {
+                let v = version.unwrap_or_else(|| "0.1.0".to_string());
+                let d = desc.map(|s| format!(" - {}", s)).unwrap_or_default();
+                let dep_str = if deps.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [deps: {}]", deps.join(", "))
+                };
+                return Some(format!("Rust crate: {} v{}{}{}", n, v, d, dep_str));
+            }
+        }
+    }
+
+    // 2. Node / JS package.json
+    let pkg_path = root.join("package.json");
+    if pkg_path.is_file() {
+        if let Ok(content) = std::fs::read_to_string(&pkg_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                let name = json
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("project");
+                let version = json
+                    .get("version")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("1.0.0");
+                let desc = json.get("description").and_then(|v| v.as_str());
+                let mut deps = Vec::new();
+                if let Some(deps_obj) = json.get("dependencies").and_then(|v| v.as_object()) {
+                    for k in deps_obj.keys().take(6) {
+                        deps.push(k.as_str());
+                    }
+                }
+                let dep_str = if deps.is_empty() {
+                    String::new()
+                } else {
+                    format!(" [deps: {}]", deps.join(", "))
+                };
+                let d = desc.map(|s| format!(" - {}", s)).unwrap_or_default();
+                return Some(format!(
+                    "Node package: {} v{}{}{}",
+                    name, version, d, dep_str
+                ));
+            }
+        }
+    }
+
+    // 3. Go go.mod
+    let go_path = root.join("go.mod");
+    if go_path.is_file() {
+        if let Ok(content) = std::fs::read_to_string(&go_path) {
+            for line in content.lines() {
+                if let Some(rest) = line.strip_prefix("module ") {
+                    return Some(format!("Go module: {}", rest.trim()));
+                }
+            }
+        }
+    }
+
+    // 4. Python pyproject.toml
+    let py_path = root.join("pyproject.toml");
+    if py_path.is_file() {
+        if let Ok(content) = std::fs::read_to_string(&py_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("name =") {
+                    return Some(format!("Python package: {}", rest.trim().trim_matches('"')));
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Extract top modules and function/type signatures from source directory
+pub fn extract_codebase_symbols(
+    root: &std::path::Path,
+    max_files: usize,
+    max_symbols_per_file: usize,
+) -> Vec<String> {
+    let mut results = Vec::new();
+    let src_dirs = [
+        root.join("src"),
+        root.join("lib"),
+        root.join("app"),
+        root.join("pkg"),
+    ];
+
+    let mut files_to_scan = Vec::new();
+    for dir in &src_dirs {
+        if dir.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                            if matches!(ext, "rs" | "ts" | "js" | "py" | "go") {
+                                files_to_scan.push(path);
+                                if files_to_scan.len() >= max_files {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if files_to_scan.len() >= max_files {
+            break;
+        }
+    }
+
+    files_to_scan.sort();
+
+    for path in files_to_scan {
+        let rel_path = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .display()
+            .to_string();
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            let mut symbols = Vec::new();
+            for line in content.lines().take(400) {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("pub fn ") {
+                    let name = rest.split(['(', '<']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(format!("{}()", name));
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("pub struct ") {
+                    let name = rest.split(['{', '<', ';', ' ']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("pub enum ") {
+                    let name = rest.split(['{', '<', ' ']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("pub trait ") {
+                    let name = rest.split(['{', '<', ' ']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("export function ") {
+                    let name = rest.split(['(', '<']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(format!("{}()", name));
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("export class ") {
+                    let name = rest.split(['{', '<', ' ']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("export interface ") {
+                    let name = rest.split(['{', '<', ' ']).next().unwrap_or("").trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if line.starts_with("def ") {
+                    let name = line
+                        .trim_start_matches("def ")
+                        .split(['(', ':'])
+                        .next()
+                        .unwrap_or("")
+                        .trim();
+                    if !name.is_empty() && !name.starts_with('_') {
+                        symbols.push(format!("{}()", name));
+                    }
+                } else if line.starts_with("class ") {
+                    let name = line
+                        .trim_start_matches("class ")
+                        .split(['(', ':'])
+                        .next()
+                        .unwrap_or("")
+                        .trim();
+                    if !name.is_empty() {
+                        symbols.push(name.to_string());
+                    }
+                } else if let Some(rest) = trimmed.strip_prefix("func ") {
+                    let name = rest.split('(').next().unwrap_or("").trim();
+                    if !name.is_empty() && name.chars().next().is_some_and(|c| c.is_uppercase()) {
+                        symbols.push(format!("{}()", name));
+                    }
+                }
+
+                if symbols.len() >= max_symbols_per_file {
+                    break;
+                }
+            }
+
+            if !symbols.is_empty() {
+                results.push(format!("{}: {}", rel_path, symbols.join(", ")));
+            }
+        }
+    }
+
+    results
+}
+
+/// Extract project outline with caching in .git/cccp-context.cache
+pub fn extract_project_summary(
+    root: &std::path::Path,
+    head_commit: Option<&str>,
+    is_ollama: bool,
+) -> String {
+    let cache_file = root.join(".git").join("cccp-context.cache");
+    if let (Some(commit), true) = (head_commit, cache_file.is_file()) {
+        if let Ok(cached) = std::fs::read_to_string(&cache_file) {
+            let mut lines = cached.lines();
+            if let Some(first) = lines.next() {
+                if first.trim() == format!("HEAD:{}", commit) {
+                    return lines.collect::<Vec<_>>().join("\n");
+                }
+            }
+        }
+    }
+
+    let (max_files, max_syms) = if is_ollama {
+        (8, 4) // Compact Gosplan austerity budget (~200 tokens)
+    } else {
+        (15, 6) // Richer budget for Gemini
+    };
+
+    let mut sections = Vec::new();
+
+    if let Some(manifest_info) = extract_project_manifest(root) {
+        sections.push(format!("Project Identity: {}", manifest_info));
+    }
+
+    let symbols = extract_codebase_symbols(root, max_files, max_syms);
+    if !symbols.is_empty() {
+        sections.push(format!(
+            "Key Modules & Symbols:\n• {}",
+            symbols.join("\n• ")
+        ));
+    }
+
+    let summary = sections.join("\n\n");
+
+    if let Some(commit) = head_commit {
+        if root.join(".git").is_dir() {
+            let cache_content = format!("HEAD:{}\n{}", commit, summary);
+            let _ = std::fs::write(&cache_file, cache_content);
+        }
+    }
+
+    summary
+}
+
 /// Generate rich repository and project context for LLM triage
 pub fn build_enriched_context(
     repo: Option<&crate::git::GitRepo>,
     forge: Option<&crate::forges::RepoForgeInfo>,
     config: &Config,
 ) -> String {
+    build_enriched_context_with_provider(repo, forge, config, None)
+}
+
+/// Generate rich repository and project context for LLM triage with provider awareness
+pub fn build_enriched_context_with_provider(
+    repo: Option<&crate::git::GitRepo>,
+    forge: Option<&crate::forges::RepoForgeInfo>,
+    config: &Config,
+    provider: Option<AiProvider>,
+) -> String {
     let mut parts = Vec::new();
+    let is_ollama = matches!(provider, Some(AiProvider::Ollama));
 
     if let Some(f) = forge {
         parts.push(format!(
@@ -582,33 +881,20 @@ pub fn build_enriched_context(
         }
 
         if !r.commits_since_tag.is_empty() {
+            let limit = if is_ollama { 5 } else { 10 };
             let recent: Vec<String> = r
                 .commits_since_tag
                 .iter()
-                .take(10)
+                .take(limit)
                 .map(|c| format!("- {}", c.summary))
                 .collect();
             parts.push(format!("Recent commits:\n{}", recent.join("\n")));
         }
 
-        let mut manifests = Vec::new();
-        for file in &[
-            "Cargo.toml",
-            "package.json",
-            "go.mod",
-            "pyproject.toml",
-            "Makefile",
-            "CMakeLists.txt",
-        ] {
-            if r.root_dir.join(file).is_file() {
-                manifests.push(*file);
-            }
-        }
-        if !manifests.is_empty() {
-            parts.push(format!(
-                "Project structure / manifests detected: {}",
-                manifests.join(", ")
-            ));
+        let summary =
+            extract_project_summary(&r.root_dir, Some(r.head_short_id.as_str()), is_ollama);
+        if !summary.trim().is_empty() {
+            parts.push(summary);
         }
     }
 
