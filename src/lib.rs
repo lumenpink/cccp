@@ -4,6 +4,7 @@
 pub mod act;
 pub mod agents;
 pub mod ai;
+pub mod audit;
 pub mod catalog;
 pub mod cli;
 pub mod commit_exec;

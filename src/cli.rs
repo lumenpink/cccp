@@ -104,6 +104,7 @@ pub enum Commands {
     Config(ConfigArgs),
 
     /// Comprehensive repository GOST quality and compliance check
+    #[command(alias = "check", alias = "gost")]
     Audit(AuditArgs),
 
     /// Display project contributors and comrades

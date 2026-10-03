@@ -75,7 +75,7 @@ fn main() -> ExitCode {
                 let res = cccp::lint::lint_commit_message(msg, &config, lint.strict);
                 if res.is_valid {
                     println!(
-                        "{} Commit message compliant with Conventional Commits 1.0.0",
+                        "{} Commit message compliant with Conventional Commits 1.0.0 (Party Line Compliant)",
                         theme.green("✓")
                     );
                     for w in res.warnings {
@@ -83,13 +83,22 @@ fn main() -> ExitCode {
                     }
                     ExitCode::SUCCESS
                 } else {
-                    println!("{} Commit message rejected:", theme.red_bold("✗"));
+                    println!(
+                        "{} Commit message rejected (Ideological Deviation):",
+                        theme.red_bold("✗")
+                    );
                     for err in res.errors {
                         println!("  {} {}", theme.red("•"), err);
                     }
                     for w in res.warnings {
                         println!("  {} {}", theme.yellow("Warning:"), w);
                     }
+                    println!(
+                        "{}",
+                        theme.red_bold(
+                            "Directive: Order No. 227 - Not One Step Back from Clean Commits!"
+                        )
+                    );
                     ExitCode::FAILURE
                 }
             } else if let Some(ref file) = lint.file {
@@ -97,7 +106,7 @@ fn main() -> ExitCode {
                     Ok(res) => {
                         if res.is_valid {
                             println!(
-                                "{} Commit message file '{}' compliant",
+                                "{} Commit message file '{}' compliant with Conventional Commits 1.0.0 (Party Line Compliant)",
                                 theme.green("✓"),
                                 file.display()
                             );
@@ -107,7 +116,7 @@ fn main() -> ExitCode {
                             ExitCode::SUCCESS
                         } else {
                             println!(
-                                "{} Commit message file '{}' rejected:",
+                                "{} Commit message file '{}' rejected (Ideological Deviation):",
                                 theme.red_bold("✗"),
                                 file.display()
                             );
@@ -117,6 +126,12 @@ fn main() -> ExitCode {
                             for w in res.warnings {
                                 println!("  {} {}", theme.yellow("Warning:"), w);
                             }
+                            println!(
+                                "{}",
+                                theme.red_bold(
+                                    "Directive: Order No. 227 - Not One Step Back from Clean Commits!"
+                                )
+                            );
                             ExitCode::FAILURE
                         }
                     }
@@ -135,18 +150,43 @@ fn main() -> ExitCode {
                 };
 
                 let range_label = lint.range.as_deref().unwrap_or("HEAD (recent commits)");
-                println!("★ CCCP Conventional Commits Audit ({}) ★", range_label);
+                println!(
+                    "{}",
+                    theme.bold("========================================================")
+                );
+                println!(
+                    "{}",
+                    theme.bold(" ★ CCCP Party Line Compliance (Commit Linting) ★")
+                );
+                println!(
+                    "{}",
+                    theme.bold("========================================================")
+                );
+                println!("Inspected Range: {}", range_label);
 
                 if repo.commits_since_tag.is_empty() {
-                    println!("{} All clear: 0 new commits to inspect.", theme.green("✓"));
+                    println!("Result: 0 commits found in range to inspect.");
+                    println!("{} Status: All clear for the State Plan.", theme.green("✓"));
+                    println!(
+                        "{}",
+                        theme.bold("========================================================")
+                    );
                     return ExitCode::SUCCESS;
                 }
 
-                let mut any_failed = false;
+                println!(
+                    "{}",
+                    theme.dim("────────────────────────────────────────────────────────")
+                );
+
+                let mut passed_count = 0;
+                let mut failed_count = 0;
+
                 for commit in &repo.commits_since_tag {
                     let res =
                         cccp::lint::lint_commit_message(&commit.message, &config, lint.strict);
                     if res.is_valid {
+                        passed_count += 1;
                         println!(
                             "  {} [{}] {}",
                             theme.green("✓"),
@@ -154,7 +194,7 @@ fn main() -> ExitCode {
                             commit.summary
                         );
                     } else {
-                        any_failed = true;
+                        failed_count += 1;
                         println!(
                             "  {} [{}] {}",
                             theme.red_bold("✗"),
@@ -167,9 +207,48 @@ fn main() -> ExitCode {
                     }
                 }
 
-                if any_failed {
+                println!(
+                    "{}",
+                    theme.bold("========================================================")
+                );
+                println!(
+                    "Inspection Summary: {} inspected, {} compliant, {} ideological deviations.",
+                    repo.commits_since_tag.len(),
+                    theme.green(&passed_count.to_string()),
+                    if failed_count > 0 {
+                        theme.red_bold(&failed_count.to_string())
+                    } else {
+                        theme.green("0")
+                    }
+                );
+
+                if failed_count > 0 {
+                    println!(
+                        "{}",
+                        theme.red_bold(
+                            "Directive: Order No. 227 - Not One Step Back from Clean Commits!"
+                        )
+                    );
+                    println!(
+                        "{}",
+                        theme.red(
+                            "FAILED: Non-compliant commits detected. Correct history before merge."
+                        )
+                    );
+                    println!(
+                        "{}",
+                        theme.bold("========================================================")
+                    );
                     ExitCode::FAILURE
                 } else {
+                    println!(
+                        "{}",
+                        theme.green("PASSED: Full ideological compliance verified. Glory to the collective!")
+                    );
+                    println!(
+                        "{}",
+                        theme.bold("========================================================")
+                    );
                     ExitCode::SUCCESS
                 }
             }
@@ -1110,17 +1189,46 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Audit(gost)) => {
-            println!(
-                "GOST Standards Inspection: Compliance verified (strict: {}).",
-                gost.strict
-            );
-            ExitCode::SUCCESS
+            let start_dir = args
+                .dir
+                .as_deref()
+                .unwrap_or_else(|| std::path::Path::new("."));
+            let report = cccp::audit::run_gost_audit(start_dir, gost.strict, &theme);
+            if report.is_success {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            }
         }
         Some(Commands::Comrades(c)) => {
-            println!(
-                "Comrades of CCCP (format: {}): Lumen Pink <hi@lumen.pink>",
-                c.format
-            );
+            if c.format == "json" {
+                println!(
+                    "[{{\"name\":\"Lumen Pink\",\"email\":\"hi@lumen.pink\",\"role\":\"Hero of Socialist Code & Project Architect\"}}]"
+                );
+            } else {
+                println!();
+                println!(
+                    "{}",
+                    theme.bold(
+                        "★ CCCP Honorary Stakhanovite Brigade (Comrades of the Revolution) ★"
+                    )
+                );
+                println!(
+                    "{}",
+                    theme.dim("────────────────────────────────────────────────────────────────────────────")
+                );
+                println!(
+                    "  • {} <hi@lumen.pink> — {}",
+                    theme.gold_bold("Lumen Pink"),
+                    theme.cyan("Hero of Socialist Code & Project Architect")
+                );
+                println!(
+                    "{}",
+                    theme.dim("────────────────────────────────────────────────────────────────────────────")
+                );
+                println!("Glory to the workers who maintain clean commits and strict SemVer!");
+                println!();
+            }
             ExitCode::SUCCESS
         }
         Some(Commands::Completion(comp)) => {
