@@ -1,5 +1,21 @@
 # Changelog
 
+## [v3.1.0] - 2026-10-03
+
+### Multilingual Support, Divan Context Injection & Catalog Aliases
+
+CCCP 3.1.0 expands the native standalone Rust binary with embedded internationalization, intelligent codebase context extraction for AI triage, enhanced terminal aesthetics, source installation tooling, and flexible repository catalog aliases.
+
+#### Key Features & Improvements
+- **Embedded Multilingual Internationalization (i18n)**: Zero-overhead embedded localization system supporting `en-US` (default fallback), `pt-BR`, `ru-RU`, and `es-ES` across the entire CLI with 4-tier precedence cascade (`CLI --lang < Config < ENV < Defaults`). (closes #110, #118)
+- **Automatic Project Context & Symbols Injection**: Built-in manifest scanner (`Cargo.toml`, `package.json`, `pyproject.toml`, etc.), exported symbol extractor, and Gosplan token-budgeted prompt injection for Divan with `.git/cccp-context.cache` caching. (closes #116)
+- **Constructivist Card Visual Formatting for Tickets**: High-aesthetic box-drawing cards with ANSI-aware padding and word-wrapping for ticket reviews in Divan. (closes #119)
+- **CLI Commands Overhaul & Rationalization**: Unified commands under clear mnemonic English (`commit`, `version`, `lint`, `audit`, `sync`, `divan`), deprecating redundant aliases and unifying synchronization. (closes #115)
+- **Soviet Constructivist Terminology Restored**: Reinstated ideological Party Line compliance, Order No. 227 directives, and full 9-point GOST compliance audit. (closes #120)
+- **Compilation & Installation Infrastructure**: Root `install.sh` and POSIX `Makefile` with automatic toolchain verification, custom prefix/bindir, staging destdir, and shell PATH validation. (closes #121)
+- **Repository Aliases in Catalog**: Support for short aliases (`alias` and `aliases`) in `catalog.json` with safety collision detection, enabling fast repo references in CCCP commands and Divan. (closes #123)
+- **Comprehensive Test Suite & Quality Inspectorate**: 27 test targets covering linting, cultural themes, command parsing, E2E binaries, i18n dictionaries, and installer verification with 100% pass rate. (closes #111, #112, #113, #114)
+
 ## [v3.0.0] - 2026-09-30
 
 ### Complete Rust Migration & Multiplatform Release
