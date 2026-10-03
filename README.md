@@ -25,6 +25,10 @@ A comprehensive, zero-dependency POSIX shell tool for enforcing and automating C
 # 1. Install globally into ~/.local/bin/cccp
 curl -fsSL https://cccp.2lp.in | sh
 
+# Or build & install from source in a cloned repository:
+./install.sh
+# (or: make install)
+
 # 2. Enter any Git project and install compliance hooks
 cd my-project
 cccp install

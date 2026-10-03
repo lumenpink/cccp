@@ -21,10 +21,21 @@ curl -fsSL https://cccp.2lp.in | sh
 curl -fsSL https://cccp.2lp.in | sh -s -- nightly
 ```
 
-Alternatively, from within a cloned repository:
+Alternatively, from within a cloned source repository:
 
 ```bash
-./cccp.sh install --global
+# Compile in release mode and install to ~/.local/bin/cccp:
+./install.sh
+
+# Or with Makefile:
+make install
+
+# Custom prefix or bin directory:
+./install.sh --prefix /usr/local
+./install.sh --bin-dir ~/.bin
+
+# Dry-run inspection:
+./install.sh --dry-run
 ```
 
 Verify your installation:
