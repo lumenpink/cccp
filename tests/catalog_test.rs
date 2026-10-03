@@ -205,6 +205,7 @@ fn test_catalog_entry_serialization_full_fields() {
         name: "test-app".into(),
         forge: "codeberg".into(),
         slug: "user/test-app".into(),
+        aliases: vec!["app".into(), "cli".into()],
         description: "Test application".into(),
         topics: vec!["cli".into(), "rust".into(), "gosplan".into()],
         license: "GPL-3.0".into(),
@@ -213,6 +214,7 @@ fn test_catalog_entry_serialization_full_fields() {
     };
 
     let serialized = serde_json::to_string_pretty(&vec![entry.clone()]).unwrap();
+    assert!(serialized.contains(r#""aliases": ["#));
     assert!(serialized.contains(r#""topics": ["#));
     assert!(serialized.contains(r#""license": "GPL-3.0""#));
     assert!(serialized.contains(r#""website": "https://example.org""#));
@@ -316,6 +318,7 @@ fn test_format_catalog_table_rendering() {
             name: "cccp".to_string(),
             forge: "codeberg".to_string(),
             slug: "lumenpink/cccp".to_string(),
+            aliases: vec!["core".to_string()],
             ticket_count: 5,
             is_clean: Some(true),
             unpushed: 2,
@@ -326,6 +329,7 @@ fn test_format_catalog_table_rendering() {
             name: "remote_tool".to_string(),
             forge: "github".to_string(),
             slug: "org/remote_tool".to_string(),
+            aliases: vec![],
             ticket_count: 0,
             is_clean: None,
             unpushed: 0,
@@ -357,6 +361,7 @@ fn test_filter_and_sort_catalog() {
             name: "beta".to_string(),
             forge: "github".to_string(),
             slug: "org/beta".to_string(),
+            aliases: vec![],
             ticket_count: 10,
             is_clean: Some(true),
             unpushed: 0,
@@ -367,6 +372,7 @@ fn test_filter_and_sort_catalog() {
             name: "alpha".to_string(),
             forge: "codeberg".to_string(),
             slug: "org/alpha".to_string(),
+            aliases: vec![],
             ticket_count: 2,
             is_clean: Some(false),
             unpushed: 3,
@@ -377,6 +383,7 @@ fn test_filter_and_sort_catalog() {
             name: "gamma".to_string(),
             forge: "codeberg".to_string(),
             slug: "org/gamma".to_string(),
+            aliases: vec![],
             ticket_count: 0,
             is_clean: None,
             unpushed: 0,
@@ -489,4 +496,148 @@ fn test_resolve_target_repo_from_local_directory() {
     assert_eq!(info.host, "codeberg.org");
     assert_eq!(info.owner, "lumenpink");
     assert_eq!(info.repo, "local_tool");
+}
+
+#[test]
+fn test_catalog_alias_deserialization_variants() {
+    let json_data = r#"[
+        {
+            "name": "project-single-alias",
+            "forge": "github",
+            "slug": "org/proj-single",
+            "alias": "app"
+        },
+        {
+            "name": "project-multiple-aliases",
+            "forge": "codeberg",
+            "slug": "org/proj-multi",
+            "aliases": ["cli", "terminal"]
+        },
+        {
+            "name": "project-both-fields",
+            "forge": "gitlab",
+            "slug": "org/proj-both",
+            "alias": "web",
+            "aliases": ["frontend", "ui"]
+        },
+        {
+            "name": "project-no-alias",
+            "forge": "codeberg",
+            "slug": "org/proj-none"
+        }
+    ]"#;
+
+    let entries: Vec<CatalogEntry> =
+        serde_json::from_str(json_data).expect("Failed to deserialize");
+    assert_eq!(entries.len(), 4);
+
+    assert_eq!(entries[0].aliases, vec!["app"]);
+    assert_eq!(entries[1].aliases, vec!["cli", "terminal"]);
+    assert_eq!(entries[2].aliases, vec!["web", "frontend", "ui"]);
+    assert!(entries[3].aliases.is_empty());
+}
+
+#[test]
+fn test_catalog_resolve_by_alias_success() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let catalog_json = r#"[
+        {
+            "name": "kvant",
+            "forge": "codeberg",
+            "slug": "lumenpink/kvant",
+            "alias": "editor"
+        },
+        {
+            "name": "joaju",
+            "forge": "codeberg",
+            "slug": "lumenpink/joaju",
+            "aliases": ["portal", "hub"]
+        }
+    ]"#;
+
+    let cat_path = dir.path().join("catalog.json");
+    fs::write(&cat_path, catalog_json).expect("Failed to write catalog.json");
+
+    // Resolve by alias "editor"
+    let resolved = catalog::resolve_target_repo("editor", None, Some(dir.path()));
+    assert!(resolved.is_some());
+    let info = resolved.unwrap();
+    assert_eq!(info.owner, "lumenpink");
+    assert_eq!(info.repo, "kvant");
+
+    // Resolve by alias "portal" (from aliases array)
+    let resolved_portal = catalog::resolve_target_repo("portal", None, Some(dir.path()));
+    assert!(resolved_portal.is_some());
+    let info_portal = resolved_portal.unwrap();
+    assert_eq!(info_portal.owner, "lumenpink");
+    assert_eq!(info_portal.repo, "joaju");
+
+    // Resolve by alias "HUB" (case-insensitive)
+    let resolved_hub = catalog::resolve_target_repo("HUB", None, Some(dir.path()));
+    assert!(resolved_hub.is_some());
+    let info_hub = resolved_hub.unwrap();
+    assert_eq!(info_hub.owner, "lumenpink");
+    assert_eq!(info_hub.repo, "joaju");
+}
+
+#[test]
+fn test_catalog_resolve_alias_collision() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let catalog_json = r#"[
+        {
+            "name": "repo-one",
+            "forge": "codeberg",
+            "slug": "org/repo-one",
+            "alias": "shared"
+        },
+        {
+            "name": "repo-two",
+            "forge": "github",
+            "slug": "org/repo-two",
+            "aliases": ["shared", "secondary"]
+        }
+    ]"#;
+
+    let cat_path = dir.path().join("catalog.json");
+    fs::write(&cat_path, catalog_json).expect("Failed to write catalog.json");
+
+    // Attempting to resolve ambiguous alias "shared" should return None due to collision
+    let resolved = catalog::resolve_target_repo("shared", None, Some(dir.path()));
+    assert!(
+        resolved.is_none(),
+        "Collision on alias must return None for safety"
+    );
+
+    // Unique alias on repo-two still resolves correctly
+    let resolved_secondary = catalog::resolve_target_repo("secondary", None, Some(dir.path()));
+    assert!(resolved_secondary.is_some());
+    assert_eq!(resolved_secondary.unwrap().repo, "repo-two");
+}
+
+#[test]
+fn test_catalog_resolve_name_or_slug_takes_precedence_over_alias() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let catalog_json = r#"[
+        {
+            "name": "target-app",
+            "forge": "codeberg",
+            "slug": "org/target-app"
+        },
+        {
+            "name": "other-app",
+            "forge": "github",
+            "slug": "org/other-app",
+            "alias": "target-app"
+        }
+    ]"#;
+
+    let cat_path = dir.path().join("catalog.json");
+    fs::write(&cat_path, catalog_json).expect("Failed to write catalog.json");
+
+    // "target-app" matches repo 1 by exact name, which has precedence over repo 2's alias
+    let resolved = catalog::resolve_target_repo("target-app", None, Some(dir.path()));
+    assert!(resolved.is_some());
+    let info = resolved.unwrap();
+    assert_eq!(info.repo, "target-app");
+    assert_eq!(info.provider, ForgeType::Codeberg);
 }

@@ -8,11 +8,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(from = "RawCatalogEntry")]
 pub struct CatalogEntry {
     pub name: String,
     #[serde(default)]
     pub forge: String,
     pub slug: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
     #[serde(default)]
     pub description: String,
     #[serde(default)]
@@ -25,12 +28,95 @@ pub struct CatalogEntry {
     pub is_upstream: bool,
 }
 
+#[derive(Deserialize)]
+struct RawCatalogEntry {
+    pub name: String,
+    #[serde(default)]
+    pub forge: String,
+    pub slug: String,
+    #[serde(default)]
+    pub alias: Option<StringOrVec>,
+    #[serde(default)]
+    pub aliases: Option<StringOrVec>,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub topics: Vec<String>,
+    #[serde(default)]
+    pub license: String,
+    #[serde(default)]
+    pub website: String,
+    #[serde(default)]
+    pub is_upstream: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrVec {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl From<RawCatalogEntry> for CatalogEntry {
+    fn from(raw: RawCatalogEntry) -> Self {
+        let mut aliases = Vec::new();
+        let add_str_or_vec = |dest: &mut Vec<String>, sov: StringOrVec| match sov {
+            StringOrVec::Single(s) => {
+                let trimmed = s.trim().to_string();
+                if !trimmed.is_empty() && !dest.contains(&trimmed) {
+                    dest.push(trimmed);
+                }
+            }
+            StringOrVec::Multiple(vec) => {
+                for s in vec {
+                    let trimmed = s.trim().to_string();
+                    if !trimmed.is_empty() && !dest.contains(&trimmed) {
+                        dest.push(trimmed);
+                    }
+                }
+            }
+        };
+
+        if let Some(a) = raw.alias {
+            add_str_or_vec(&mut aliases, a);
+        }
+        if let Some(a) = raw.aliases {
+            add_str_or_vec(&mut aliases, a);
+        }
+
+        CatalogEntry {
+            name: raw.name,
+            forge: raw.forge,
+            slug: raw.slug,
+            aliases,
+            description: raw.description,
+            topics: raw.topics,
+            license: raw.license,
+            website: raw.website,
+            is_upstream: raw.is_upstream,
+        }
+    }
+}
+
 impl fmt::Display for CatalogEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.description.is_empty() {
-            write!(f, "{} ({}/{})", self.name, self.forge, self.slug)
+        let alias_str = if self.aliases.is_empty() {
+            String::new()
         } else {
-            write!(f, "{} ({}) - {}", self.name, self.slug, self.description)
+            format!(" [{}]", self.aliases.join(", "))
+        };
+        if self.description.is_empty() {
+            write!(
+                f,
+                "{}{} ({}/{})",
+                self.name, alias_str, self.forge, self.slug
+            )
+        } else {
+            write!(
+                f,
+                "{}{} ({}) - {}",
+                self.name, alias_str, self.slug, self.description
+            )
         }
     }
 }
@@ -210,7 +296,28 @@ pub fn resolve_target_repo(
         return Some(entry.to_forge_info());
     }
 
-    // 4. Local filesystem discovery in ~/src/<name>, start_dir/<name>, or current directory
+    // 4. Match on alias (e.g. 'app')
+    let alias_matches: Vec<&CatalogEntry> = catalog
+        .iter()
+        .filter(|e| e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean)))
+        .collect();
+
+    if alias_matches.len() == 1 {
+        return Some(alias_matches[0].to_forge_info());
+    } else if alias_matches.len() > 1 {
+        let matched_names: Vec<String> = alias_matches
+            .iter()
+            .map(|e| format!("'{}' ({})", e.name, e.slug))
+            .collect();
+        eprintln!(
+            "Warning: Ambiguous repository alias '{}' matches multiple catalog entries: [{}]. Disambiguate using full slug or name.",
+            clean,
+            matched_names.join(", ")
+        );
+        return None;
+    }
+
+    // 5. Local filesystem discovery in ~/src/<name>, start_dir/<name>, or current directory
     if let Ok(home) = std::env::var("HOME") {
         let src_path = PathBuf::from(&home).join("src").join(clean);
         if let Some(remote_url) = crate::git::get_remote_url(&src_path) {
@@ -418,6 +525,7 @@ pub fn add_remote_repo(
             name: entry_name,
             forge: forge_name,
             slug,
+            aliases: Vec::new(),
             description: entry_desc,
             topics: remote_meta.topics,
             license: remote_meta.license,
@@ -528,6 +636,7 @@ pub fn scan_and_add_from_src(
             name: dir_name,
             forge: forge_name,
             slug,
+            aliases: Vec::new(),
             description: remote_meta.description,
             topics: remote_meta.topics,
             license: remote_meta.license,
@@ -551,11 +660,16 @@ pub fn scan_and_add_from_src(
 
 /// Locate local clone path for a catalog entry if it exists on disk
 pub fn find_local_repo_path(entry: &CatalogEntry) -> Option<PathBuf> {
-    // 1. Current directory if matches slug or name
+    // 1. Current directory if matches slug, name, or any alias
     if let Ok(cur) = std::env::current_dir() {
         if cur.join(".git").exists() {
             if let Some(dir_name) = cur.file_name().and_then(|n| n.to_str()) {
-                if dir_name.eq_ignore_ascii_case(&entry.name) {
+                if dir_name.eq_ignore_ascii_case(&entry.name)
+                    || entry
+                        .aliases
+                        .iter()
+                        .any(|a| a.eq_ignore_ascii_case(dir_name))
+                {
                     return Some(cur);
                 }
             }
@@ -574,6 +688,14 @@ pub fn find_local_repo_path(entry: &CatalogEntry) -> Option<PathBuf> {
         let p2 = PathBuf::from(&home).join("src").join(repo_part);
         if p2.join(".git").exists() {
             return Some(p2);
+        }
+
+        // 4. ~/src/<alias>
+        for alias in &entry.aliases {
+            let pa = PathBuf::from(&home).join("src").join(alias);
+            if pa.join(".git").exists() {
+                return Some(pa);
+            }
         }
     }
 
@@ -605,11 +727,12 @@ pub fn count_open_tickets(repo_dir: &Path) -> usize {
     0
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CatalogRepoSummary {
     pub name: String,
     pub forge: String,
     pub slug: String,
+    pub aliases: Vec<String>,
     pub ticket_count: usize,
     pub is_clean: Option<bool>, // None if remote
     pub unpushed: usize,
@@ -645,6 +768,7 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                 name: entry.name.clone(),
                 forge: entry.forge.clone(),
                 slug: entry.slug.clone(),
+                aliases: entry.aliases.clone(),
                 ticket_count,
                 is_clean,
                 unpushed,
@@ -693,7 +817,12 @@ pub fn format_catalog_table(
     let mut w_path = h_path.chars().count();
 
     for s in summaries {
-        w_repo = w_repo.max(s.name.chars().count());
+        let repo_display = if s.aliases.is_empty() {
+            s.name.clone()
+        } else {
+            format!("{} [{}]", s.name, s.aliases.join(", "))
+        };
+        w_repo = w_repo.max(repo_display.chars().count());
         w_forge = w_forge.max(s.forge.chars().count());
         w_tickets = w_tickets.max(s.ticket_count.to_string().chars().count());
         w_status = w_status.max(s.status_label.chars().count());
@@ -745,10 +874,15 @@ pub fn format_catalog_table(
 
     // Rows
     for s in summaries {
+        let repo_display = if s.aliases.is_empty() {
+            s.name.clone()
+        } else {
+            format!("{} [{}]", s.name, s.aliases.join(", "))
+        };
         let path_str = format_path(&s.local_path);
         let tickets_str = s.ticket_count.to_string();
 
-        let pad_repo = " ".repeat(w_repo.saturating_sub(s.name.chars().count()));
+        let pad_repo = " ".repeat(w_repo.saturating_sub(repo_display.chars().count()));
         let pad_forge = " ".repeat(w_forge.saturating_sub(s.forge.chars().count()));
         let pad_tickets = " ".repeat(w_tickets.saturating_sub(tickets_str.chars().count()));
         let pad_status = " ".repeat(w_status.saturating_sub(s.status_label.chars().count()));
@@ -768,7 +902,7 @@ pub fn format_catalog_table(
             theme.dim(&tickets_str)
         };
 
-        let styled_repo = theme.bold(&s.name);
+        let styled_repo = theme.bold(&repo_display);
         let styled_forge = theme.cyan(&s.forge);
         let styled_path = if path_str == "-" {
             theme.dim(&path_str)
