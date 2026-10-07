@@ -199,9 +199,19 @@ Your task is to analyze user reports, bug descriptions, and feature requests, an
 into one or more discrete, atomic issue tickets following the Conventional Commits specification for titles \
 (e.g. feat(scope): title, fix(scope): title, refactor(scope): title). \
 Split multi-topic or unrelated problems into separate tickets. \
+Every ticket body MUST strictly include the canonical GOST 9-phase DD-TDD checklist under '## Tasks / DD-TDD Checklist (9 Fases GOST)': \
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado \
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main \
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção) \
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito \
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando \
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings \
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas \
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados \
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>) \
 Return ONLY a valid JSON object matching this schema: \
-{\"tickets\": [{\"title\": \"Conventional Commit title\", \"rationale\": \"Why this is a distinct issue\", \"labels\": [\"bug\"], \"body\": \"## Description\\n\\n## Steps to Reproduce\\n\\n## Expected vs Actual\\n\"}]} \
-Write the ticket body and descriptions in the language used by the user report."
+{\"tickets\": [{\"title\": \"Conventional Commit title\", \"rationale\": \"Why this is a distinct issue\", \"labels\": [\"bug\"], \"body\": \"## Description\\n\\n## Expected Behavior & Acceptance Criteria\\n- [ ] ...\\n\\n## Tasks / DD-TDD Checklist (9 Fases GOST)\\n- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado\\n- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main\\n- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)\\n- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito\\n- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando\\n- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings\\n- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas\\n- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados\\n- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)\\n\"}]} \
+Write the ticket body and descriptions in the language used by the user report, adapting checklist labels to that language if necessary while strictly preserving the 9 phases in order."
     }
 
     fn build_prompt(user_text: &str, repo_context: Option<&str>) -> String {

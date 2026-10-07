@@ -158,7 +158,7 @@ pub fn export_assets(out_dir: &Path, opts: &CockpitOptions) -> Result<PathBuf, S
           <h2>🛋️ O Divã — Triagem Semântica de Tickets</h2>
           <span id="diva-repo-hint" style="font-family:var(--font-mono); font-size:0.85rem; color:var(--gold); font-weight:bold;"></span>
         </div>
-        <p class="desc">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com sugestão de branch GOST.</p>
+        <p class="desc">Descreva livremente o problema, bug ou necessidade. A IA do Gosplan estruturará tickets atômicos seguindo Conventional Commits com o checklist canônico das 9 fases DD-TDD do GOST.</p>
         
         <textarea id="diva-input" rows="4" placeholder="Ex: O botão de login congela quando o token JWT expira no meio de uma requisição assíncrona, exigindo reload da página..."></textarea>
         
