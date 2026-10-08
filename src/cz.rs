@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::cultural::Theme;
 use inquire::validator::Validation;
 use inquire::{Confirm, Select, Text};
+use std::io::IsTerminal;
 
 /// Composed Conventional Commit message
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +163,28 @@ pub fn compose_commit(
     println!("\n{}", theme.bold("★ Proposed Commit Message ★"));
     println!("{}\n", theme.cyan(&formatted_message));
 
+    let mut final_message = formatted_message;
+
+    if std::io::stdin().is_terminal() {
+        let options = vec!["Commit", "Edit in built-in editor", "Cancel"];
+        match inquire::Select::new("Action:", options).prompt() {
+            Ok("Edit in built-in editor") => {
+                match crate::editor::edit_text("Commit Message", &final_message) {
+                    Ok(Some(edited)) if !edited.trim().is_empty() => {
+                        final_message = edited.trim().to_string();
+                        println!("\n{}", theme.bold("★ Updated Commit Message ★"));
+                        println!("{}\n", theme.cyan(&final_message));
+                    }
+                    _ => {}
+                }
+            }
+            Ok("Cancel") => {
+                return Err("Commit aborted by user.".to_string());
+            }
+            _ => {}
+        }
+    }
+
     Ok(ComposedCommit {
         commit_type,
         scope,
@@ -170,7 +193,7 @@ pub fn compose_commit(
         body,
         breaking_description: breaking_desc,
         issue_references: issues,
-        formatted_message,
+        formatted_message: final_message,
     })
 }
 

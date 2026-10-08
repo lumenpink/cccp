@@ -378,6 +378,40 @@ pub fn edit_text(title: &str, initial_content: &str) -> Result<Option<String>, S
     result
 }
 
+/// Open a file in the built-in terminal editor, saving changes if confirmed (Ctrl+S / F2).
+/// If `file_path` is None, opens a scratchpad and prints content to stdout upon save.
+pub fn edit_file_or_scratch(file_path: Option<&std::path::Path>) -> Result<bool, String> {
+    let (title, initial_content) = if let Some(path) = file_path {
+        let content = if path.exists() {
+            std::fs::read_to_string(path)
+                .map_err(|e| format!("Failed to read file '{}': {}", path.display(), e))?
+        } else {
+            String::new()
+        };
+        (path.display().to_string(), content)
+    } else {
+        ("*scratch*".to_string(), String::new())
+    };
+
+    match edit_text(&title, &initial_content)? {
+        Some(saved_content) => {
+            if let Some(path) = file_path {
+                if let Some(parent) = path.parent() {
+                    if !parent.as_os_str().is_empty() && !parent.exists() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                }
+                std::fs::write(path, saved_content)
+                    .map_err(|e| format!("Failed to save file '{}': {}", path.display(), e))?;
+            } else {
+                print!("{}", saved_content);
+            }
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
 fn char_to_byte_index(s: &str, char_target: usize) -> usize {
     let mut byte_idx = 0;
     for (idx, ch) in s.chars().enumerate() {

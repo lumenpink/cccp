@@ -101,6 +101,16 @@ fn test_resolve_token_environment() {
 
 #[test]
 fn test_resolve_token_reads_home_env_when_config_none() {
+    if let Some(home) = std::env::var_os("HOME") {
+        let env_file = std::path::Path::new(&home).join(".env");
+        if !env_file.exists() {
+            let _ = std::fs::write(&env_file, "CODEBERG_TOKEN=ci_test_token\n");
+            let token = resolve_token_for_host("codeberg.org", ForgeType::Codeberg, None);
+            let _ = std::fs::remove_file(&env_file);
+            assert_eq!(token.as_deref(), Some("ci_test_token"));
+            return;
+        }
+    }
     let token = resolve_token_for_host("codeberg.org", ForgeType::Codeberg, None);
     assert!(token.is_some(), "Should resolve token from ~/.env");
 }

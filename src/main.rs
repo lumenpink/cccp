@@ -687,14 +687,26 @@ fn main() -> ExitCode {
                 } else {
                     "standalone".to_string()
                 };
-                println!(
-                    "{} The Divan — Target: {}",
-                    theme.gold_bold("★ [GOSPLAN]"),
-                    theme.cyan(&target_label)
+                let initial_prompt = format!(
+                    "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
+                    target_label
                 );
-                println!("Describe the issue, bug, or feature request (press Enter to submit):");
-                match inquire::Text::new("> ").prompt() {
-                    Ok(p) if !p.trim().is_empty() => p.trim().to_string(),
+                match cccp::editor::edit_text("Divan - Triage Prompt", &initial_prompt) {
+                    Ok(Some(edited)) => {
+                        let filtered: Vec<&str> = edited
+                            .lines()
+                            .filter(|line| !line.trim().starts_with('#'))
+                            .collect();
+                        let prompt_text = filtered.join("\n").trim().to_string();
+                        if prompt_text.is_empty() {
+                            eprintln!(
+                                "{}: No description provided. Exiting.",
+                                theme.yellow("Notice")
+                            );
+                            return ExitCode::SUCCESS;
+                        }
+                        prompt_text
+                    }
                     _ => {
                         eprintln!(
                             "{}: No description provided. Exiting.",
@@ -1722,6 +1734,15 @@ fn main() -> ExitCode {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("{}: {}", theme.red_bold("Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Editor(editor_args)) => {
+            match cccp::editor::edit_file_or_scratch(editor_args.file.as_deref()) {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(err) => {
+                    eprintln!("{}: {}", theme.red_bold("Editor Error"), err);
                     ExitCode::FAILURE
                 }
             }

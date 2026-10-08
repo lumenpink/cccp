@@ -50,3 +50,54 @@ fn test_editor_cursor_clamping() {
     editor.clamp_cursor();
     assert_eq!(editor.cursor_x, 5);
 }
+
+#[test]
+fn test_editor_cli_parsing() {
+    use cccp::cli::{Cli, Commands};
+    use clap::Parser;
+    use std::path::PathBuf;
+
+    let parsed_edit = Cli::parse_from(["cccp", "edit", "README.md"]);
+    match parsed_edit.command {
+        Some(Commands::Editor(args)) => {
+            assert_eq!(args.file, Some(PathBuf::from("README.md")));
+        }
+        _ => panic!("Expected Commands::Editor"),
+    }
+
+    let parsed_editor = Cli::parse_from(["cccp", "editor", "src/main.rs"]);
+    match parsed_editor.command {
+        Some(Commands::Editor(args)) => {
+            assert_eq!(args.file, Some(PathBuf::from("src/main.rs")));
+        }
+        _ => panic!("Expected Commands::Editor"),
+    }
+
+    let parsed_scratch = Cli::parse_from(["cccp", "editor"]);
+    match parsed_scratch.command {
+        Some(Commands::Editor(args)) => {
+            assert_eq!(args.file, None);
+        }
+        _ => panic!("Expected Commands::Editor"),
+    }
+}
+
+#[test]
+fn test_editor_buffer_file_io() {
+    use tempfile::NamedTempFile;
+
+    let temp = NamedTempFile::new().expect("Failed to create tempfile");
+    std::fs::write(temp.path(), "Initial content\nSecond line").expect("Write failed");
+
+    let content = std::fs::read_to_string(temp.path()).expect("Read failed");
+    let mut editor = Editor::new("Test IO", &content);
+    assert_eq!(editor.rows.len(), 2);
+    assert_eq!(editor.rows[0], "Initial content");
+
+    editor.insert_char('!');
+    let new_content = editor.to_content();
+    std::fs::write(temp.path(), &new_content).expect("Write back failed");
+
+    let saved = std::fs::read_to_string(temp.path()).expect("Read failed");
+    assert_eq!(saved, "!Initial content\nSecond line\n");
+}

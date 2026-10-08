@@ -681,6 +681,35 @@ fn test_catalog_command_options() {
             _ => panic!("Expected CatalogSubcommands::List"),
         },
         _ => panic!("Expected Commands::Catalog"),
+    };
+
+    // Catalog alias 'cat' and 'c'
+    let cli_cat = Cli::try_parse_from(["cccp", "cat", "list"]).expect("should parse cat list");
+    assert!(matches!(cli_cat.command, Some(Commands::Catalog(_))));
+
+    let cli_c = Cli::try_parse_from(["cccp", "c", "list"]).expect("should parse c list");
+    assert!(matches!(cli_c.command, Some(Commands::Catalog(_))));
+}
+
+#[test]
+fn test_editor_command_options() {
+    let cli = Cli::try_parse_from(["cccp", "editor", "foo.txt"]).expect("should parse editor");
+    match cli.command {
+        Some(Commands::Editor(e)) => assert_eq!(e.file, Some(PathBuf::from("foo.txt"))),
+        _ => panic!("Expected Commands::Editor"),
+    }
+
+    let cli_alias =
+        Cli::try_parse_from(["cccp", "edit", "bar.txt"]).expect("should parse edit alias");
+    match cli_alias.command {
+        Some(Commands::Editor(e)) => assert_eq!(e.file, Some(PathBuf::from("bar.txt"))),
+        _ => panic!("Expected Commands::Editor"),
+    }
+
+    let cli_scratch = Cli::try_parse_from(["cccp", "edit"]).expect("should parse scratch edit");
+    match cli_scratch.command {
+        Some(Commands::Editor(e)) => assert_eq!(e.file, None),
+        _ => panic!("Expected Commands::Editor"),
     }
 }
 

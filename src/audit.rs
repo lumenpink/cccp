@@ -195,7 +195,11 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
                     .take(sample_size)
                     .filter(|c| {
                         let s = &c.summary;
-                        s.contains('#') || s.contains("(ref") || s.contains("(closes") || s.contains("(resolves") || s.contains("(fixes")
+                        s.contains('#')
+                            || s.contains("(ref")
+                            || s.contains("(closes")
+                            || s.contains("(resolves")
+                            || s.contains("(fixes")
                     })
                     .count();
 

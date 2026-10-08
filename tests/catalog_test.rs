@@ -641,3 +641,18 @@ fn test_catalog_resolve_name_or_slug_takes_precedence_over_alias() {
     assert_eq!(info.repo, "target-app");
     assert_eq!(info.provider, ForgeType::Codeberg);
 }
+
+#[test]
+fn test_catalog_cli_aliases() {
+    use cccp::cli::{Cli, Commands};
+    use clap::Parser;
+
+    let parsed_cat = Cli::parse_from(["cccp", "cat"]);
+    assert!(matches!(parsed_cat.command, Some(Commands::Catalog(_))));
+
+    let parsed_c = Cli::parse_from(["cccp", "c"]);
+    assert!(matches!(parsed_c.command, Some(Commands::Catalog(_))));
+
+    let parsed_full = Cli::parse_from(["cccp", "catalog"]);
+    assert!(matches!(parsed_full.command, Some(Commands::Catalog(_))));
+}

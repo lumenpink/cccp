@@ -114,6 +114,7 @@ pub enum Commands {
     Completion(CompletionArgs),
 
     /// Manage repository catalog and workspace registry
+    #[command(visible_alias = "cat", visible_alias = "c")]
     Catalog(CatalogArgs),
 
     /// Initialize and scaffold repository under strict GOST standard
@@ -147,6 +148,10 @@ pub enum Commands {
     /// Verify installed CCCP version against distribution endpoint
     #[command(name = "check-update")]
     CheckUpdate(CheckUpdateArgs),
+
+    /// Built-in minimalist terminal text editor (Kvant/kv microeditor)
+    #[command(visible_alias = "edit")]
+    Editor(EditorArgs),
 }
 
 // =============================================================================
@@ -1063,6 +1068,13 @@ pub struct CheckUpdateArgs {
     /// Release channel to check (stable or nightly)
     #[arg(short = 'c', long = "channel")]
     pub channel: Option<String>,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct EditorArgs {
+    /// Path to file to open and edit
+    #[arg(value_name = "FILE")]
+    pub file: Option<PathBuf>,
 }
 
 #[cfg(test)]
