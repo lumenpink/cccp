@@ -47,7 +47,7 @@
       "title": "Rastreabilidade Estrita de Tickets nos Commits",
       "severity": "MUST",
       "check": "commit_msg_pattern",
-      "pattern": ".*\\((ref|closes) #[0-9]+\\)$"
+      "pattern": ".*\\((ref|closes|resolves|fixes) #[0-9]+\\)$"
     },
     {
       "id": "GOST-05-BRANCH-PER-TICKET",

@@ -55,7 +55,8 @@ fn test_e2e_binary_version_and_help() {
         .expect("failed to run cccp --version");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("cccp 3.0.0"), "stdout was: {}", stdout);
+    let expected_ver = format!("cccp {}", env!("CARGO_PKG_VERSION"));
+    assert!(stdout.contains(&expected_ver), "stdout was: {}", stdout);
 
     // Test --help
     let output = cccp_bin()
