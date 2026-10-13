@@ -126,7 +126,9 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
         return None;
     }
 
-    let (host, path) = if let Some(stripped) = clean.strip_prefix("git@") {
+    let clean_lower = clean.to_ascii_lowercase();
+    let (host, path) = if clean_lower.starts_with("git@") {
+        let stripped = &clean[4..];
         // SCP syntax: git@host:owner/repo.git or git@host/owner/repo.git
         if let Some((h, p)) = stripped.split_once(':') {
             (h, p)
@@ -135,7 +137,8 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
         } else {
             return None;
         }
-    } else if let Some(stripped) = clean.strip_prefix("ssh://") {
+    } else if clean_lower.starts_with("ssh://") {
+        let stripped = &clean[6..];
         let without_user = if let Some((_, rest)) = stripped.split_once('@') {
             rest
         } else {
@@ -149,9 +152,13 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
         };
         (host, p)
     } else {
-        let stripped = clean
-            .strip_prefix("https://")
-            .or_else(|| clean.strip_prefix("http://"))?;
+        let stripped = if clean_lower.starts_with("https://") {
+            &clean[8..]
+        } else if clean_lower.starts_with("http://") {
+            &clean[7..]
+        } else {
+            return None;
+        };
         let without_user = if let Some((_, rest)) = stripped.split_once('@') {
             rest
         } else {

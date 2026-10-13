@@ -89,6 +89,46 @@ fn test_parse_remote_url_tildegit_https() {
 }
 
 #[test]
+fn test_parse_remote_url_tildegit_subdomain_and_port() {
+    let info = parse_remote_url("ssh://git@git.tildegit.org:2222/lumen/install_i3.git")
+        .expect("parse failed");
+    assert_eq!(info.provider, ForgeType::Tildegit);
+    assert_eq!(info.software, cccp::forges::ForgeSoftware::Forgejo);
+    assert_eq!(info.host, "git.tildegit.org");
+    assert_eq!(info.owner, "lumen");
+    assert_eq!(info.repo, "install_i3");
+    assert_eq!(info.forge_name(), "tildegit");
+    assert_eq!(info.software_name(), "forgejo");
+}
+
+#[test]
+fn test_parse_remote_url_tildegit_case_insensitive() {
+    let info = parse_remote_url("HTTPS://TILDEGIT.ORG/Lumen/Install_i3.git")
+        .expect("parse failed");
+    assert_eq!(info.provider, ForgeType::Tildegit);
+    assert_eq!(info.software, cccp::forges::ForgeSoftware::Forgejo);
+    assert_eq!(info.owner, "Lumen");
+    assert_eq!(info.repo, "Install_i3");
+}
+
+#[test]
+fn test_resolve_token_for_tildegit_domain_precedence() {
+    let empty_cfg = cccp::config::Config::default();
+    std::env::set_var("TILDEGIT_ORG_TOKEN", "domain_tok_111");
+    std::env::set_var("TILDEGIT_TOKEN", "generic_tok_222");
+    assert_eq!(
+        resolve_token_for_host("tildegit.org", ForgeType::Tildegit, Some(&empty_cfg)),
+        Some("domain_tok_111".into())
+    );
+    std::env::remove_var("TILDEGIT_ORG_TOKEN");
+    assert_eq!(
+        resolve_token_for_host("tildegit.org", ForgeType::Tildegit, Some(&empty_cfg)),
+        Some("generic_tok_222".into())
+    );
+    std::env::remove_var("TILDEGIT_TOKEN");
+}
+
+#[test]
 fn test_parse_remote_url_invalid() {
     assert!(parse_remote_url("not_a_valid_url").is_none());
     assert!(parse_remote_url("").is_none());
@@ -118,7 +158,7 @@ fn test_resolve_token_environment() {
 
     std::env::set_var("TILDEGIT_TOKEN", "tg_secret_token_321");
     assert_eq!(
-        resolve_token_for_host("tildegit.org", ForgeType::Tildegit, Some(&empty_cfg)),
+        resolve_token_for_host("mock-tildegit.org", ForgeType::Tildegit, Some(&empty_cfg)),
         Some("tg_secret_token_321".into())
     );
 
