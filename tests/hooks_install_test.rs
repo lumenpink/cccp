@@ -193,3 +193,19 @@ fn test_hook_modified_manually_is_preserved_with_warning() {
     let current_content = fs::read_to_string(hooks_dir.join("commit-msg")).unwrap();
     assert_eq!(current_content, custom_commit_msg);
 }
+
+#[test]
+fn test_hook_matching_template_version_silent_even_if_cccp_version_differs() {
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let hooks_dir = p.join(".git").join("hooks");
+
+    fs::create_dir_all(&hooks_dir).unwrap();
+    // Hook com template_version igual ao atual, mas com cccp-hook-version desatualizada
+    let content = "#!/bin/sh\n# cccp-hook-version: 3.1.0\n# cccp-hook-template-version: 1\n# cccp-hook-checksum: auto\nexec cccp hook commit-msg \"$@\"\n";
+    fs::write(hooks_dir.join("commit-msg"), content).unwrap();
+
+    let warns = cccp::update::check_hook_version(p);
+    // Nenhuma mensagem emitida quando o template está na versão atual
+    assert!(warns.is_empty());
+}
