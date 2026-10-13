@@ -619,6 +619,123 @@ impl ForgeClient {
             title: title.to_string(),
         })
     }
+
+    /// Close an existing issue on the remote forge, optionally posting a resolution comment
+    pub fn close_issue(
+        &self,
+        info: &RepoForgeInfo,
+        issue_id: u64,
+        comment: Option<&str>,
+    ) -> Result<(), String> {
+        let token = resolve_token_for_host(&info.host, info.provider, None).ok_or_else(|| {
+            format!(
+                "No authentication token found for forge {} ({}). Set {} in ~/.env, .cccprc, or environment.",
+                info.provider,
+                info.host,
+                host_to_token_env_var(&info.host)
+            )
+        })?;
+
+        // 1. Optionally post comment before or after closing
+        if let Some(msg) = comment {
+            let (comment_url, comment_payload, comment_auth) = match info.provider {
+                ForgeType::Codeberg | ForgeType::Forgejo => {
+                    let url = format!(
+                        "https://{}/api/v1/repos/{}/{}/issues/{}/comments",
+                        info.host, info.owner, info.repo, issue_id
+                    );
+                    let p = serde_json::json!({ "body": msg });
+                    (url, p, ("Authorization", format!("token {}", token)))
+                }
+                ForgeType::GitHub => {
+                    let url = format!(
+                        "https://api.github.com/repos/{}/{}/issues/{}/comments",
+                        info.owner, info.repo, issue_id
+                    );
+                    let p = serde_json::json!({ "body": msg });
+                    (url, p, ("Authorization", format!("Bearer {}", token)))
+                }
+                ForgeType::GitLab => {
+                    let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                    let url = format!(
+                        "https://{}/api/v4/projects/{}/issues/{}/notes",
+                        info.host, enc_path, issue_id
+                    );
+                    let p = serde_json::json!({ "body": msg });
+                    (url, p, ("PRIVATE-TOKEN", token.clone()))
+                }
+            };
+
+            let req = self
+                .agent
+                .post(&comment_url)
+                .header("User-Agent", "cccp/3.0.0")
+                .header("Accept", "application/json")
+                .header(comment_auth.0, &comment_auth.1);
+
+            let _ = req.send_json(comment_payload);
+        }
+
+        // 2. Change state to closed
+        let (api_url, payload, auth_header, http_method) = match info.provider {
+            ForgeType::Codeberg | ForgeType::Forgejo => {
+                let url = format!(
+                    "https://{}/api/v1/repos/{}/{}/issues/{}",
+                    info.host, info.owner, info.repo, issue_id
+                );
+                let p = serde_json::json!({ "state": "closed" });
+                (
+                    url,
+                    p,
+                    ("Authorization", format!("token {}", token)),
+                    "PATCH",
+                )
+            }
+            ForgeType::GitHub => {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/issues/{}",
+                    info.owner, info.repo, issue_id
+                );
+                let p = serde_json::json!({ "state": "closed" });
+                (
+                    url,
+                    p,
+                    ("Authorization", format!("Bearer {}", token)),
+                    "PATCH",
+                )
+            }
+            ForgeType::GitLab => {
+                let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                let url = format!(
+                    "https://{}/api/v4/projects/{}/issues/{}",
+                    info.host, enc_path, issue_id
+                );
+                let p = serde_json::json!({ "state_event": "close" });
+                (url, p, ("PRIVATE-TOKEN", token), "PUT")
+            }
+        };
+
+        let req = if http_method == "PATCH" {
+            self.agent.patch(&api_url)
+        } else {
+            self.agent.put(&api_url)
+        }
+        .header("User-Agent", "cccp/3.0.0")
+        .header("Accept", "application/json")
+        .header(auth_header.0, &auth_header.1);
+
+        let mut resp = req
+            .send_json(payload)
+            .map_err(|e| format!("HTTP {} request to {} failed: {}", http_method, api_url, e))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body_err = resp.body_mut().read_to_string().unwrap_or_default();
+            return Err(format!("Forge returned HTTP {}: {}", status, body_err));
+        }
+
+        Ok(())
+    }
 }
 
 /// Information returned after creating an issue on a remote forge

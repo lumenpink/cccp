@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Automated Merge Ticket Closing & Merge Lock Gate
+- **Merge Lock Gate (`cccp merge <branch>`)**: Bloqueia a integração de branches que não contêm commits com a tag canônica `(closes #<id>)`, garantindo conformidade irrestrita com a Fase 9 do GOST DD-TDD. (closes #133)
+- **Post-Merge Git Hook (`post-merge`)**: Hook nativo de Git que inspeciona `ORIG_HEAD..HEAD`, identifica tags `(closes #<id>)` e encerra automaticamente as issues na API remota do forge. (closes #133)
+- **Ticket Closure CLI (`cccp ticket close <ids...> [-m <comment>]`)**: Encerramento direto de tickets via API do forge (Codeberg/Forgejo/GitHub/GitLab) sem depender de ferramentas de terceiros. (closes #133)
+
 ## [v3.1.0] - 2026-10-03
 
 ### Multilingual Support, Divan Context Injection & Catalog Aliases

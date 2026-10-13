@@ -179,3 +179,41 @@ pub fn sync_tickets(
         output_path,
     })
 }
+
+/// Close one or more issues on the remote forge associated with the repository
+pub fn close_tickets(
+    repo: &GitRepo,
+    ids: &[u64],
+    comment: Option<&str>,
+    theme: &Theme,
+) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    let forge_info = detect_forge_from_repo(repo)?;
+    let client = ForgeClient::new();
+
+    for &id in ids {
+        println!(
+            "{} Closing ticket #{} on {} ({}/{})...",
+            theme.cyan("★"),
+            id,
+            forge_info.provider,
+            forge_info.owner,
+            forge_info.repo
+        );
+
+        match client.close_issue(&forge_info, id, comment) {
+            Ok(()) => {
+                println!("  {} Ticket #{} closed successfully.", theme.green("✓"), id);
+            }
+            Err(e) => {
+                eprintln!("  {} Failed to close ticket #{}: {}", theme.red("✗"), id, e);
+                return Err(e);
+            }
+        }
+    }
+
+    Ok(())
+}

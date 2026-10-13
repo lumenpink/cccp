@@ -186,3 +186,26 @@ cccp deps check act docker
 cccp deps install act
 cccp deps install --all
 ```
+
+---
+
+## 7. Ticket Lifecycle & Merge Gate (`cccp ticket close` & `cccp merge`)
+
+Enforces GOST DD-TDD Phase 9 requirements and forge ticket sovereignty:
+
+### `cccp ticket close <ids...> [-m <comment>]`
+Closes one or more tickets directly on the remote Git forge (Codeberg, Forgejo, GitHub, GitLab) via the authenticated Forge API:
+```bash
+# Close ticket #133 with default Gosplan notice:
+cccp ticket close 133
+
+# Close multiple tickets with custom resolution comment:
+cccp ticket close 133 134 -m "Resolved through canonical GOST integration"
+```
+
+### `cccp merge <branch>`
+Integrates a completed feature or fix branch into the current branch with strict GOST Phase 9 validation:
+- **Lock Check:** Inspects the incoming branch commits for canonical closing tags `(closes #<id>)`. Rejects merge with code 1 if the ticket branch lacks the closing tag.
+- **Automated Ticket Closure:** Upon fast-forward or merge completion, triggers ticket closure on the forge.
+- **Bypass Flag:** `--force` allows administrative override when consciously justified.
+

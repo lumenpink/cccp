@@ -8,11 +8,12 @@ use crate::git::GitRepo;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const HOOK_NAMES: [&str; 4] = [
+pub const HOOK_NAMES: [&str; 5] = [
     "commit-msg",
     "pre-push",
     "post-commit",
     "reference-transaction",
+    "post-merge",
 ];
 
 /// Determines the hooks directory for the repository

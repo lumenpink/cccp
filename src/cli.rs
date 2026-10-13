@@ -152,6 +152,24 @@ pub enum Commands {
     /// Built-in minimalist terminal text editor (Kvant/kv microeditor)
     #[command(visible_alias = "edit")]
     Editor(EditorArgs),
+
+    /// Merge a branch with strict GOST Phase 9 closes tag validation
+    Merge(MergeArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct MergeArgs {
+    /// Branch name to merge into current branch
+    #[arg(required = true)]
+    pub branch: String,
+
+    /// Force merge even if canonical (closes #<id>) tag is missing
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
+    /// Custom commit message for the merge commit
+    #[arg(short = 'm', long = "message")]
+    pub message: Option<String>,
 }
 
 // =============================================================================
@@ -329,6 +347,11 @@ pub enum HookSubcommands {
         /// Transaction state (prepared, committed, aborted)
         state: Option<String>,
     },
+    /// Run post-merge hook actions (close tickets on merge)
+    PostMerge {
+        /// Flag whether merge was a squash merge (1 or 0)
+        is_squash: Option<String>,
+    },
 }
 
 #[derive(Debug, Args, Clone, Default)]
@@ -348,6 +371,24 @@ pub struct TicketArgs {
     /// Filter tickets by state (open, closed, all)
     #[arg(short = 's', long = "state", default_value = "open")]
     pub state: String,
+
+    /// Ticket action or subcommand (e.g. close)
+    #[command(subcommand)]
+    pub action: Option<TicketAction>,
+}
+
+#[derive(Debug, Subcommand, Clone, PartialEq, Eq)]
+pub enum TicketAction {
+    /// Close one or more tickets on the remote forge
+    Close {
+        /// One or more ticket IDs to close (e.g. 133 134)
+        #[arg(required = true)]
+        ids: Vec<u64>,
+
+        /// Optional closing comment message
+        #[arg(short = 'm', long = "comment")]
+        comment: Option<String>,
+    },
 }
 
 pub type TicketsArgs = TicketArgs;

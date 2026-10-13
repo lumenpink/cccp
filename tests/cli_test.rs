@@ -367,6 +367,53 @@ fn test_ticket_command_options() {
 }
 
 #[test]
+fn test_ticket_close_subcommand_options() {
+    let cli = Cli::try_parse_from([
+        "cccp",
+        "ticket",
+        "close",
+        "133",
+        "134",
+        "-m",
+        "Resolved canonically via CCCP",
+    ])
+    .expect("should parse ticket close subcommand");
+
+    match cli.command {
+        Some(Commands::Ticket(t)) => match t.action {
+            Some(cccp::cli::TicketAction::Close { ids, comment }) => {
+                assert_eq!(ids, vec![133, 134]);
+                assert_eq!(comment.as_deref(), Some("Resolved canonically via CCCP"));
+            }
+            _ => panic!("Expected TicketAction::Close"),
+        },
+        _ => panic!("Expected Commands::Ticket"),
+    }
+}
+
+#[test]
+fn test_merge_command_options() {
+    let cli = Cli::try_parse_from([
+        "cccp",
+        "merge",
+        "feat/133-feature",
+        "-f",
+        "-m",
+        "Merge commit message",
+    ])
+    .expect("should parse merge flags");
+
+    match cli.command {
+        Some(Commands::Merge(m)) => {
+            assert_eq!(m.branch, "feat/133-feature");
+            assert!(m.force);
+            assert_eq!(m.message.as_deref(), Some("Merge commit message"));
+        }
+        _ => panic!("Expected Commands::Merge"),
+    }
+}
+
+#[test]
 fn test_sync_command_options() {
     let cli = Cli::try_parse_from([
         "cccp",

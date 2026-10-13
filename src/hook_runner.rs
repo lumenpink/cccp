@@ -239,3 +239,96 @@ pub fn run_reference_transaction(
     }
     Ok(0)
 }
+
+/// Extract ticket IDs from commit messages containing the canonical `(closes #<id>)` tag
+pub fn extract_closes_ids(text: &str) -> Vec<u64> {
+    let mut ids = Vec::new();
+    // Match canonical pattern: (closes #<id>)
+    for line in text.lines() {
+        let mut remainder = line;
+        while let Some(start_pos) = remainder.find("(closes #") {
+            let after = &remainder[start_pos + "(closes #".len()..];
+            if let Some(end_pos) = after.find(')') {
+                let id_str = &after[..end_pos].trim();
+                if let Ok(id) = id_str.parse::<u64>() {
+                    if !ids.contains(&id) {
+                        ids.push(id);
+                    }
+                }
+                remainder = &after[end_pos + 1..];
+            } else {
+                break;
+            }
+        }
+    }
+    ids
+}
+
+/// Handler for the `post-merge` git hook
+pub fn run_post_merge(
+    is_squash: Option<&str>,
+    repo: &GitRepo,
+    theme: &Theme,
+    verbose: u8,
+) -> Result<i32, String> {
+    if std::env::var("HOOK_ACTIVE").as_deref() == Ok("1") {
+        return Ok(0);
+    }
+
+    if verbose > 0 {
+        println!(
+            "{} CCCP post-merge hook triggered (is_squash: {})...",
+            theme.green("✓"),
+            is_squash.unwrap_or("0")
+        );
+    }
+
+    // Inspect commits integrated by this merge (ORIG_HEAD..HEAD)
+    let output = Command::new("git")
+        .args([
+            "log",
+            "ORIG_HEAD..HEAD",
+            "--pretty=format:%B---COMMIT-END---",
+        ])
+        .current_dir(&repo.root_dir)
+        .output();
+
+    let commit_logs = match output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        _ => {
+            // Fallback: check HEAD commit if ORIG_HEAD was not set (e.g. fresh merge)
+            Command::new("git")
+                .args(["log", "-1", "--pretty=format:%B"])
+                .current_dir(&repo.root_dir)
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+                .unwrap_or_default()
+        }
+    };
+
+    let ticket_ids = extract_closes_ids(&commit_logs);
+    if ticket_ids.is_empty() {
+        if verbose > 0 {
+            println!("  No canonical '(closes #<id>)' tags found in merged commits.");
+        }
+        return Ok(0);
+    }
+
+    println!(
+        "{} Detected {} ticket(s) to close in merged commits: {:?}",
+        theme.cyan("★ [GOSPLAN]"),
+        ticket_ids.len(),
+        ticket_ids
+    );
+
+    let comment = "Fechado automaticamente pelo merge no CCCP / GOST DD-TDD Fase 9.";
+    if let Err(e) = crate::tickets::close_tickets(repo, &ticket_ids, Some(comment), theme) {
+        eprintln!(
+            "  {} Notice: Could not close tickets automatically: {}",
+            theme.yellow("!"),
+            e
+        );
+    }
+
+    Ok(0)
+}

@@ -240,3 +240,18 @@ fn test_hook_post_commit_and_reference_transaction() {
         0
     );
 }
+
+#[test]
+fn test_extract_closes_ids_canonical_syntax() {
+    use cccp::hook_runner::extract_closes_ids;
+
+    let text1 = "feat(core): implement stakhanovite worker (closes #133)";
+    assert_eq!(extract_closes_ids(text1), vec![133]);
+
+    let text2 = "fix: resolve deadlock (closes #42) and (closes #43)\nMultiple lines (closes #99)";
+    assert_eq!(extract_closes_ids(text2), vec![42, 43, 99]);
+
+    // Invalid non-canonical syntax should NOT be extracted
+    let text3 = "fix: close #123, closes 456, fix #789 without parens";
+    assert_eq!(extract_closes_ids(text3), Vec::<u64>::new());
+}

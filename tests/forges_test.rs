@@ -231,3 +231,19 @@ fn test_resolve_token_for_host_from_config_extra() {
     let resolved = resolve_token_for_host("custom.myforge.org", ForgeType::Codeberg, Some(&config));
     assert_eq!(resolved.as_deref(), Some("my_cb_token_abc"));
 }
+
+#[test]
+fn test_close_issue_missing_token_returns_error() {
+    let client = cccp::forges::ForgeClient::new();
+    let info = cccp::forges::RepoForgeInfo {
+        provider: ForgeType::Codeberg,
+        host: "unknown-forge-domain.example".to_string(),
+        owner: "testowner".to_string(),
+        repo: "testrepo".to_string(),
+    };
+
+    let result = client.close_issue(&info, 133, Some("Closing note"));
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err();
+    assert!(err_msg.contains("No authentication token found"));
+}

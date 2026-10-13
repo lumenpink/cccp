@@ -6,7 +6,7 @@ use cccp::config;
 use cccp::cultural::{self, Theme};
 use clap::{CommandFactory, Parser};
 use std::io::{IsTerminal, Write};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 fn main() -> ExitCode {
     let args = Cli::parse();
@@ -394,6 +394,28 @@ fn main() -> ExitCode {
                             }
                         }
                     }
+                    cli::HookSubcommands::PostMerge { is_squash } => {
+                        let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                return ExitCode::FAILURE;
+                            }
+                        };
+                        match cccp::hook_runner::run_post_merge(
+                            is_squash.as_deref(),
+                            &repo,
+                            &theme,
+                            args.verbose,
+                        ) {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
                 }
             } else {
                 let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
@@ -469,7 +491,20 @@ fn main() -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            if let Err(e) = cccp::tickets::sync_tickets(&tickets, &repo, &config, &theme) {
+
+            if let Some(cli::TicketAction::Close {
+                ref ids,
+                ref comment,
+            }) = tickets.action
+            {
+                if let Err(e) = cccp::tickets::close_tickets(&repo, ids, comment.as_deref(), &theme)
+                {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
+            } else if let Err(e) = cccp::tickets::sync_tickets(&tickets, &repo, &config, &theme) {
                 eprintln!("{}: {}", theme.red_bold("Error"), e);
                 ExitCode::FAILURE
             } else {
@@ -493,6 +528,7 @@ fn main() -> ExitCode {
                         output: None,
                         limit: 50,
                         state: "open".to_string(),
+                        action: None,
                     };
                     if let Err(e) = cccp::tickets::sync_tickets(&tickets_opts, r, &config, &theme) {
                         eprintln!("{}: {}", theme.red_bold("Error"), e);
@@ -983,6 +1019,7 @@ fn main() -> ExitCode {
                         limit: 30,
                         remote: None,
                         output: None,
+                        action: None,
                     };
                     let _ = cccp::tickets::sync_tickets(&tickets_args, repo, &config, &theme);
                 }
@@ -1743,6 +1780,100 @@ fn main() -> ExitCode {
                 Ok(_) => ExitCode::SUCCESS,
                 Err(err) => {
                     eprintln!("{}: {}", theme.red_bold("Editor Error"), err);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Merge(merge_args)) => {
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            // Inspect commits that the target branch would introduce
+            let branch_rev = format!("HEAD..{}", merge_args.branch);
+            let log_output = Command::new("git")
+                .args(["log", &branch_rev, "--pretty=format:%B---COMMIT-END---"])
+                .current_dir(&repo.root_dir)
+                .output();
+
+            let commits_text = match log_output {
+                Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+                _ => {
+                    eprintln!(
+                        "{}: Branch '{}' does not exist or has no commit log relative to HEAD.",
+                        theme.red_bold("Merge Lock Rejected"),
+                        merge_args.branch
+                    );
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let closing_ids = cccp::hook_runner::extract_closes_ids(&commits_text);
+            if closing_ids.is_empty() && !merge_args.force {
+                eprintln!(
+                    "\n{}\n{}\nBranch '{}' does not contain any commit with canonical closing tag: '(closes #<id>)'.\n\n{}\n{}\n",
+                    theme.red_bold("★ GOSPLAN QUALITY CONTROL: MERGE LOCK REJECTED ★"),
+                    theme.gold_bold("«НИ ШАГУ НАЗАД!» — Order No. 227 (Strict DD-TDD Phase 9 Compliance)"),
+                    merge_args.branch,
+                    theme.cyan("Gosplan Directive: Every feature/fix branch MUST contain '(closes #<id>)' in its final commit before merge to main."),
+                    theme.dim("If this merge is intentional and administrative, rerun with --force.")
+                );
+                return ExitCode::FAILURE;
+            }
+
+            println!(
+                "{} Integrating branch '{}' (verified ticket closing tags: {:?})...",
+                theme.cyan("★ [GOSPLAN]"),
+                merge_args.branch,
+                closing_ids
+            );
+
+            let mut git_merge = Command::new("git");
+            git_merge.arg("merge");
+            if let Some(ref msg) = merge_args.message {
+                git_merge.args(["-m", msg]);
+            }
+            git_merge.arg(&merge_args.branch);
+            git_merge.current_dir(&repo.root_dir);
+
+            match git_merge.status() {
+                Ok(st) if st.success() => {
+                    println!(
+                        "{} Branch '{}' merged successfully into current branch.",
+                        theme.green("✓"),
+                        merge_args.branch
+                    );
+                    // Automatically close tickets if not already closed by post-merge hook
+                    if !closing_ids.is_empty() {
+                        let comment =
+                            "Fechado automaticamente pelo merge no CCCP / GOST DD-TDD Fase 9.";
+                        let _ = cccp::tickets::close_tickets(
+                            &repo,
+                            &closing_ids,
+                            Some(comment),
+                            &theme,
+                        );
+                    }
+                    ExitCode::SUCCESS
+                }
+                Ok(st) => {
+                    eprintln!(
+                        "{}: git merge exited with code {}",
+                        theme.red_bold("Error"),
+                        st.code().unwrap_or(1)
+                    );
+                    ExitCode::FAILURE
+                }
+                Err(e) => {
+                    eprintln!(
+                        "{}: Failed to invoke git merge: {}",
+                        theme.red_bold("Error"),
+                        e
+                    );
                     ExitCode::FAILURE
                 }
             }

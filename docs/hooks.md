@@ -15,6 +15,7 @@ CCCP acts as an automated commissar for your Git repository, installing and orch
 | `post-commit` | Fires after successful commit | Updates `CHANGELOG.md` and generates fresh predictive `VERSION`. |
 | `pre-push` | Fires during `git push` | Verifies that release tags match committed `VERSION` files and working trees are clean. |
 | `reference-transaction` | Fires on tag creation | Blocks creating release tags with dirty working trees or mismatched versions. |
+| `post-merge` | Fires after successful merge | Inspects merged commits (`ORIG_HEAD..HEAD`), parses canonical `(closes #<id>)` tags, and automatically closes corresponding tickets via Forge API. |
 
 ---
 
