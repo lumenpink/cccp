@@ -57,3 +57,14 @@ Para `ForgeType::Tildegit`:
 No `catalog.rs`:
 - Entradas de catálogo com `forge: "tildegit"` mapeiam para `host: "tildegit.org"`, `provider: ForgeType::Tildegit`, `software: ForgeSoftware::Forgejo`.
 - Ao sincronizar ou salvar entradas no catálogo originadas de `tildegit.org`, o campo `forge` será gravado como `"tildegit"` (e não `"forgejo"` ou fallback para `"codeberg"`).
+
+## 6. Resultado da Implementação (DD-TDD)
+- [x] Fase 1 - Ticket: Issue #137 identificada e escopo delimitado.
+- [x] Fase 2 - Branch: `fix/137-forge-detection-tildegit` criada a partir de `main`.
+- [x] Fase 3 - Doc/Spec: `docs/specs/137-forge-detection-tildegit.md` redigida e commitada.
+- [x] Fase 4 - Red: Testes falhos comprovando ausência de `ForgeType::Tildegit` e `ForgeSoftware`.
+- [x] Fase 5 - Green: Separação de conceitos em `src/forges.rs` e suporte em `src/catalog.rs`.
+- [x] Fase 6 - Refactor: `cargo fmt` e `cargo clippy -D warnings` limpos.
+- [x] Fase 7 - Mutation: Casos de borda (subdomínios, portas ssh, maiúsculas/minúsculas, precedência de tokens).
+- [x] Fase 8 - Quality Gate: Validação de 100% dos testes sem avisos ou falhas.
+- [x] Fase 9 - Close: Registro e encerramento documental.
