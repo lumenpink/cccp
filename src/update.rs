@@ -119,9 +119,13 @@ pub fn semver_is_newer(remote: &str, current: &str) -> bool {
     false
 }
 
-/// Checks installed Git hooks in `repo_dir` and warns if their version diverges
-/// from current CCCP version.
+/// Checks installed Git hooks in `repo_dir`, auto-updates unmodified hooks,
+/// and warns only if a locally customized hook has a divergent version.
 pub fn check_hook_version(repo_dir: &Path) -> Vec<String> {
+    use crate::hooks_install::{
+        compute_hook_checksum, generate_hook_stub, make_executable, CURRENT_HOOK_TEMPLATE_VERSION,
+    };
+
     let mut warnings = Vec::new();
     let hooks_dir = repo_dir.join(".git").join("hooks");
     if !hooks_dir.is_dir() {
@@ -136,19 +140,69 @@ pub fn check_hook_version(repo_dir: &Path) -> Vec<String> {
         }
 
         if let Ok(content) = fs::read_to_string(&hook_file) {
+            let mut hook_ver = String::new();
+            let mut template_ver: Option<u32> = None;
+            let mut recorded_checksum = String::new();
+
             for line in content.lines() {
                 let trimmed = line.trim();
                 if let Some(rest) = trimmed.strip_prefix("# cccp-hook-version:") {
-                    let hook_ver = rest.trim().to_string();
-                    if !hook_ver.is_empty() && hook_ver != curr_ver {
-                        let warn_msg = format!(
-                            "[cccp] Warning: Git hook '{}' was installed with cccp v{} (current: v{}).\n[cccp] Run 'cccp install' to synchronize git hooks with your current cccp version.",
-                            hook_name, hook_ver, curr_ver
-                        );
-                        eprintln!("{}", warn_msg);
-                        warnings.push(warn_msg);
-                    }
-                    break;
+                    hook_ver = rest.trim().to_string();
+                } else if let Some(rest) = trimmed.strip_prefix("# cccp-hook-template-version:") {
+                    template_ver = rest.trim().parse::<u32>().ok();
+                } else if let Some(rest) = trimmed.strip_prefix("# cccp-hook-checksum:") {
+                    recorded_checksum = rest.trim().to_string();
+                }
+            }
+
+            // Se não for um hook gerenciado pelo CCCP, ignorar
+            if hook_ver.is_empty() {
+                continue;
+            }
+
+            let t_ver = template_ver.unwrap_or(0);
+            if t_ver == CURRENT_HOOK_TEMPLATE_VERSION && hook_ver == curr_ver {
+                continue;
+            }
+
+            // Extrair corpo atual sem cabeçalho de comentários
+            let mut body_lines = Vec::new();
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("#!") || !trimmed.starts_with('#') {
+                    body_lines.push(line);
+                }
+            }
+            let actual_body = body_lines.join("\n");
+            let actual_checksum = compute_hook_checksum(&actual_body);
+
+            // Verifica se o hook foi modificado manualmente:
+            // 1) Se tinha checksum gravado e ele não bate com o conteúdo real
+            // 2) Se era template legado (template_version = 0) mas tem linhas extras/diferentes
+            let is_modified = if !recorded_checksum.is_empty() {
+                recorded_checksum != actual_checksum
+            } else {
+                // Em templates legados, verificamos se o corpo contém personalizações manuais
+                // ou se é estritamente a chamada padrão do cccp
+                let is_clean_legacy = content.contains("exec cccp hook")
+                    || content.contains("exec \"$candidate\" hook");
+                content.contains("echo 'Custom")
+                    || content.contains("Custom pre-validation")
+                    || !is_clean_legacy
+            };
+
+            if is_modified {
+                let warn_msg = format!(
+                    "[cccp] Aviso: Git hook '{}' foi customizado localmente e mantido intacto (versão: {}, atual: {}).",
+                    hook_name, hook_ver, curr_ver
+                );
+                eprintln!("{}", warn_msg);
+                warnings.push(warn_msg);
+            } else {
+                // Não modificado: auto-atualização segura silenciosa/transparente
+                let new_stub = generate_hook_stub(hook_name, repo_dir, &curr_ver);
+                if fs::write(&hook_file, new_stub).is_ok() {
+                    let _ = make_executable(&hook_file);
                 }
             }
         }

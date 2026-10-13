@@ -44,6 +44,18 @@ pub fn resolve_hooks_dir(repo: &GitRepo, cli_hook_dir: Option<&Path>) -> PathBuf
     repo.root_dir.join(".git").join("hooks")
 }
 
+pub const CURRENT_HOOK_TEMPLATE_VERSION: u32 = 1;
+
+/// Computes a deterministic 16-hex hash (fnv-1a 64-bit) of hook content
+pub fn compute_hook_checksum(content: &str) -> String {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for byte in content.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", hash)
+}
+
 /// Checks if an existing file is a CCCP-managed hook
 pub fn is_cccp_hook(path: &Path) -> bool {
     if let Ok(content) = fs::read_to_string(path) {
@@ -56,12 +68,8 @@ pub fn is_cccp_hook(path: &Path) -> bool {
 /// Generate canonical POSIX shell stub for a hook
 pub fn generate_hook_stub(hook_name: &str, repo_root: &Path, version: &str) -> String {
     let root_str = repo_root.display();
-    format!(
-        r#"#!/bin/sh
-# cccp-hook-version: {version}
-# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)
-
-# 1. Prioritize cccp in PATH
+    let body = format!(
+        r#"# 1. Prioritize cccp in PATH
 if command -v cccp >/dev/null 2>&1; then
     exec cccp hook {hook_name} "$@"
 fi
@@ -87,6 +95,12 @@ echo "Sabotage of the Five-Year Plan is inadmissible! Install cccp or configure 
 echo "«НИ ШАГУ НАЗАД!» — Order No. 227" >&2
 exit 1
 "#
+    );
+    let checksum = compute_hook_checksum(&body);
+    let template_ver = CURRENT_HOOK_TEMPLATE_VERSION;
+
+    format!(
+        "#!/bin/sh\n# cccp-hook-version: {version}\n# cccp-hook-template-version: {template_ver}\n# cccp-hook-checksum: {checksum}\n# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n{body}"
     )
 }
 

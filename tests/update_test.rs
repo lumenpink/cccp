@@ -106,19 +106,28 @@ fn test_check_hook_version() {
     let warns = check_hook_version(temp.path());
     assert!(warns.is_empty());
 
-    // Case 2: Divergent version
+    // Case 2: Divergent version, unmodified hook -> auto-updates silently/safely
     fs::write(
         &commit_msg,
         "#!/bin/sh\n# cccp-hook-version: 1.0.0\nexec cccp hook commit-msg \"$@\"\n",
     )
     .unwrap();
     let warns = check_hook_version(temp.path());
-    assert_eq!(warns.len(), 1);
-    assert!(warns[0].contains(
-        "Warning: Git hook 'commit-msg' was installed with cccp v1.0.0 (current: v1.5.0)"
-    ));
+    assert!(warns.is_empty());
+    let updated = fs::read_to_string(&commit_msg).unwrap();
+    assert!(updated.contains("# cccp-hook-version: 1.5.0"));
 
-    // Case 3: Non-cccp hook
+    // Case 3: Divergent version, manually modified hook -> preserves and warns
+    fs::write(
+        &commit_msg,
+        "#!/bin/sh\n# cccp-hook-version: 1.0.0\n# cccp-hook-checksum: 1234\necho 'custom local'\nexec cccp hook commit-msg \"$@\"\n",
+    )
+    .unwrap();
+    let warns = check_hook_version(temp.path());
+    assert_eq!(warns.len(), 1);
+    assert!(warns[0].contains("customizado") || warns[0].contains("Custom"));
+
+    // Case 4: Non-cccp hook -> ignored
     fs::write(&commit_msg, "#!/bin/sh\necho 'custom git hook'\n").unwrap();
     let warns = check_hook_version(temp.path());
     assert!(warns.is_empty());
