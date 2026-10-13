@@ -264,12 +264,12 @@ fn test_resolve_token_for_host_from_config_extra() {
 #[test]
 fn test_close_issue_missing_token_returns_error() {
     let client = cccp::forges::ForgeClient::new();
-    let info = cccp::forges::RepoForgeInfo {
-        provider: ForgeType::Codeberg,
-        host: "unknown-forge-domain.example".to_string(),
-        owner: "testowner".to_string(),
-        repo: "testrepo".to_string(),
-    };
+    let info = cccp::forges::RepoForgeInfo::new(
+        ForgeType::Codeberg,
+        "unknown-forge-domain.example".to_string(),
+        "testowner".to_string(),
+        "testrepo".to_string(),
+    );
 
     let result = client.close_issue(&info, 133, Some("Closing note"));
     assert!(result.is_err());

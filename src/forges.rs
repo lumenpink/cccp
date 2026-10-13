@@ -8,17 +8,47 @@ use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ForgeType {
-    Codeberg,
+pub enum ForgeSoftware {
     Forgejo,
     GitHub,
     GitLab,
+}
+
+impl std::fmt::Display for ForgeSoftware {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Forgejo => write!(f, "Forgejo"),
+            Self::GitHub => write!(f, "GitHub"),
+            Self::GitLab => write!(f, "GitLab"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ForgeType {
+    Codeberg,
+    Tildegit,
+    Forgejo,
+    GitHub,
+    GitLab,
+}
+
+impl ForgeType {
+    pub fn software(&self) -> ForgeSoftware {
+        match self {
+            Self::Codeberg | Self::Tildegit | Self::Forgejo => ForgeSoftware::Forgejo,
+            Self::GitHub => ForgeSoftware::GitHub,
+            Self::GitLab => ForgeSoftware::GitLab,
+        }
+    }
 }
 
 impl std::fmt::Display for ForgeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Codeberg => write!(f, "Codeberg"),
+            Self::Tildegit => write!(f, "TildeGit"),
             Self::Forgejo => write!(f, "Forgejo"),
             Self::GitHub => write!(f, "GitHub"),
             Self::GitLab => write!(f, "GitLab"),
@@ -29,9 +59,41 @@ impl std::fmt::Display for ForgeType {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RepoForgeInfo {
     pub provider: ForgeType,
+    pub software: ForgeSoftware,
     pub host: String,
     pub owner: String,
     pub repo: String,
+}
+
+impl RepoForgeInfo {
+    pub fn new(provider: ForgeType, host: String, owner: String, repo: String) -> Self {
+        let software = provider.software();
+        Self {
+            provider,
+            software,
+            host,
+            owner,
+            repo,
+        }
+    }
+
+    pub fn forge_name(&self) -> &str {
+        match self.provider {
+            ForgeType::Codeberg => "codeberg",
+            ForgeType::Tildegit => "tildegit",
+            ForgeType::Forgejo => "forgejo",
+            ForgeType::GitHub => "github",
+            ForgeType::GitLab => "gitlab",
+        }
+    }
+
+    pub fn software_name(&self) -> &str {
+        match self.software {
+            ForgeSoftware::Forgejo => "forgejo",
+            ForgeSoftware::GitHub => "github",
+            ForgeSoftware::GitLab => "gitlab",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +172,8 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
     let host_lower = host.to_ascii_lowercase();
     let provider = if host_lower.contains("codeberg.org") {
         ForgeType::Codeberg
+    } else if host_lower.contains("tildegit.org") {
+        ForgeType::Tildegit
     } else if host_lower.contains("github.com") {
         ForgeType::GitHub
     } else if host_lower.contains("gitlab") || host_lower.contains("framagit") {
@@ -118,12 +182,12 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
         ForgeType::Forgejo
     };
 
-    Some(RepoForgeInfo {
+    Some(RepoForgeInfo::new(
         provider,
-        host: host.to_string(),
+        host.to_string(),
         owner,
         repo,
-    })
+    ))
 }
 
 /// Detects the remote forge and coordinates from the git repository
@@ -184,11 +248,23 @@ pub fn resolve_token_for_host(
 
     // 3. Generic provider environment variables
     let provider_vars: &[&str] = match provider {
-        ForgeType::Codeberg | ForgeType::Forgejo => &[
+        ForgeType::Codeberg => &[
             "CODEBERG_TOKEN",
             "FORGEJO_TOKEN",
             "GITEA_TOKEN",
             "TEA_TOKEN",
+        ],
+        ForgeType::Tildegit => &[
+            "TILDEGIT_TOKEN",
+            "FORGEJO_TOKEN",
+            "GITEA_TOKEN",
+            "TEA_TOKEN",
+        ],
+        ForgeType::Forgejo => &[
+            "FORGEJO_TOKEN",
+            "GITEA_TOKEN",
+            "TEA_TOKEN",
+            "CODEBERG_TOKEN",
         ],
         ForgeType::GitHub => &["GITHUB_TOKEN", "GH_TOKEN"],
         ForgeType::GitLab => &["GITLAB_TOKEN", "GL_TOKEN"],
@@ -219,7 +295,9 @@ pub fn resolve_token_for_host(
 /// Resolves the authentication token from environment variables based on the forge type
 pub fn resolve_token(provider: ForgeType) -> Option<String> {
     let default_host = match provider {
-        ForgeType::Codeberg | ForgeType::Forgejo => "codeberg.org",
+        ForgeType::Codeberg => "codeberg.org",
+        ForgeType::Tildegit => "tildegit.org",
+        ForgeType::Forgejo => "codeberg.org",
         ForgeType::GitHub => "github.com",
         ForgeType::GitLab => "gitlab.com",
     };
@@ -256,7 +334,7 @@ impl ForgeClient {
     /// Attempt to fetch repository metadata (description, website, topics, license)
     pub fn fetch_repo_metadata(&self, info: &RepoForgeInfo) -> Option<RepoMetadata> {
         let api_url = match info.provider {
-            ForgeType::Codeberg | ForgeType::Forgejo => {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 format!(
                     "https://{}/api/v1/repos/{}/{}",
                     info.host, info.owner, info.repo
@@ -279,7 +357,7 @@ impl ForgeClient {
 
         if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
             match info.provider {
-                ForgeType::Codeberg | ForgeType::Forgejo => {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                     req = req.header("Authorization", &format!("token {}", token));
                 }
                 ForgeType::GitHub => {
@@ -351,7 +429,7 @@ impl ForgeClient {
         limit: usize,
     ) -> Result<Vec<ForgeIssue>, String> {
         let api_url = match info.provider {
-            ForgeType::Codeberg | ForgeType::Forgejo => {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 let s = if state == "all" {
                     "all"
                 } else if state == "closed" {
@@ -401,7 +479,7 @@ impl ForgeClient {
 
         if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
             match info.provider {
-                ForgeType::Codeberg | ForgeType::Forgejo => {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                     req = req.header("Authorization", &format!("token {}", token));
                 }
                 ForgeType::GitHub => {
@@ -443,7 +521,7 @@ impl ForgeClient {
         limit: usize,
     ) -> Result<Vec<ForgePullRequest>, String> {
         let api_url = match info.provider {
-            ForgeType::Codeberg | ForgeType::Forgejo => {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 let s = if state == "all" {
                     "all"
                 } else if state == "closed" {
@@ -493,7 +571,7 @@ impl ForgeClient {
 
         if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
             match info.provider {
-                ForgeType::Codeberg | ForgeType::Forgejo => {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                     req = req.header("Authorization", &format!("token {}", token));
                 }
                 ForgeType::GitHub => {
@@ -545,7 +623,7 @@ impl ForgeClient {
         })?;
 
         let (api_url, payload, auth_header) = match info.provider {
-            ForgeType::Codeberg | ForgeType::Forgejo => {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 let url = format!(
                     "https://{}/api/v1/repos/{}/{}/issues",
                     info.host, info.owner, info.repo
@@ -639,7 +717,7 @@ impl ForgeClient {
         // 1. Optionally post comment before or after closing
         if let Some(msg) = comment {
             let (comment_url, comment_payload, comment_auth) = match info.provider {
-                ForgeType::Codeberg | ForgeType::Forgejo => {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                     let url = format!(
                         "https://{}/api/v1/repos/{}/{}/issues/{}/comments",
                         info.host, info.owner, info.repo, issue_id
@@ -678,7 +756,7 @@ impl ForgeClient {
 
         // 2. Change state to closed
         let (api_url, payload, auth_header, http_method) = match info.provider {
-            ForgeType::Codeberg | ForgeType::Forgejo => {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 let url = format!(
                     "https://{}/api/v1/repos/{}/{}/issues/{}",
                     info.host, info.owner, info.repo, issue_id

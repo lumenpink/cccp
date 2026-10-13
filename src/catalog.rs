@@ -133,15 +133,11 @@ impl CatalogEntry {
         let (provider, host) = match self.forge.to_ascii_lowercase().as_str() {
             "github" => (ForgeType::GitHub, "github.com".to_string()),
             "gitlab" => (ForgeType::GitLab, "gitlab.com".to_string()),
+            "tildegit" | "tildegit.org" => (ForgeType::Tildegit, "tildegit.org".to_string()),
             _ => (ForgeType::Codeberg, "codeberg.org".to_string()),
         };
 
-        RepoForgeInfo {
-            provider,
-            host,
-            owner,
-            repo,
-        }
+        RepoForgeInfo::new(provider, host, owner, repo)
     }
 }
 
@@ -356,12 +352,12 @@ pub fn resolve_target_repo(
     if clean.contains('/') {
         let parts: Vec<&str> = clean.split('/').collect();
         if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
-            return Some(RepoForgeInfo {
-                provider: ForgeType::Codeberg,
-                host: "codeberg.org".to_string(),
-                owner: parts[0].to_string(),
-                repo: parts[1].to_string(),
-            });
+            return Some(RepoForgeInfo::new(
+                ForgeType::Codeberg,
+                "codeberg.org".to_string(),
+                parts[0].to_string(),
+                parts[1].to_string(),
+            ));
         }
     }
 
@@ -388,24 +384,25 @@ pub fn parse_repo_identifier(input: &str) -> Result<RepoForgeInfo, String> {
         let provider = match host.to_ascii_lowercase().as_str() {
             "github.com" => ForgeType::GitHub,
             "gitlab.com" => ForgeType::GitLab,
+            "tildegit.org" => ForgeType::Tildegit,
             _ => ForgeType::Codeberg,
         };
-        return Ok(RepoForgeInfo {
+        return Ok(RepoForgeInfo::new(
             provider,
             host,
-            owner: parts[1].to_string(),
-            repo: parts[2].trim_end_matches(".git").to_string(),
-        });
+            parts[1].to_string(),
+            parts[2].trim_end_matches(".git").to_string(),
+        ));
     }
 
     // 3. Short slug (e.g. 'owner/repo') -> default to Codeberg
     if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
-        return Ok(RepoForgeInfo {
-            provider: ForgeType::Codeberg,
-            host: "codeberg.org".to_string(),
-            owner: parts[0].to_string(),
-            repo: parts[1].trim_end_matches(".git").to_string(),
-        });
+        return Ok(RepoForgeInfo::new(
+            ForgeType::Codeberg,
+            "codeberg.org".to_string(),
+            parts[0].to_string(),
+            parts[1].trim_end_matches(".git").to_string(),
+        ));
     }
 
     // 4. Local repository in ~/src or current directory
@@ -468,18 +465,7 @@ pub fn add_remote_repo(
     let info = parse_repo_identifier(repo_input)?;
     let mut catalog = load_catalog(config, None);
 
-    let forge_name = match info.provider {
-        ForgeType::GitHub => "github",
-        ForgeType::GitLab => "gitlab",
-        ForgeType::Codeberg | ForgeType::Forgejo => {
-            if info.host.eq_ignore_ascii_case("codeberg.org") {
-                "codeberg"
-            } else {
-                "forgejo"
-            }
-        }
-    }
-    .to_string();
+    let forge_name = info.forge_name().to_string();
 
     let slug = format!("{}/{}", info.owner, info.repo);
 
@@ -605,18 +591,7 @@ pub fn scan_and_add_from_src(
             }
         };
 
-        let forge_name = match info.provider {
-            ForgeType::GitHub => "github",
-            ForgeType::GitLab => "gitlab",
-            ForgeType::Codeberg | ForgeType::Forgejo => {
-                if info.host.eq_ignore_ascii_case("codeberg.org") {
-                    "codeberg"
-                } else {
-                    "forgejo"
-                }
-            }
-        }
-        .to_string();
+        let forge_name = info.forge_name().to_string();
 
         let slug = format!("{}/{}", info.owner, info.repo);
 

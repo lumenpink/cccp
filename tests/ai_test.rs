@@ -175,12 +175,12 @@ fn test_is_generative_model_filtering() {
 
 #[test]
 fn test_build_enriched_context() {
-    let forge = cccp::forges::RepoForgeInfo {
-        provider: cccp::forges::ForgeType::Codeberg,
-        host: "codeberg.org".into(),
-        owner: "lumenpink".into(),
-        repo: "cccp".into(),
-    };
+    let forge = cccp::forges::RepoForgeInfo::new(
+        cccp::forges::ForgeType::Codeberg,
+        "codeberg.org".into(),
+        "lumenpink".into(),
+        "cccp".into(),
+    );
     let config = Config {
         commit_types: vec!["feat".into(), "fix".into()],
         commit_scopes: vec!["cli".into(), "ai".into()],
