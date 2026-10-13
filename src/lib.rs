@@ -21,6 +21,7 @@ pub mod i18n;
 pub mod lint;
 pub mod matraca;
 pub mod newrepo;
+pub mod profile;
 pub mod semver_calc;
 pub mod serve;
 pub mod tickets;

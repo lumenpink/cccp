@@ -1878,6 +1878,25 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Profile(cmd)) => {
+            let root_dir = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r.root_dir,
+                Err(_) => match std::env::current_dir() {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                },
+            };
+            match cccp::profile::handle_profile_command(&root_dir, Some(cmd), &theme) {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

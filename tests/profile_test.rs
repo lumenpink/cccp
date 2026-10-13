@@ -1,4 +1,4 @@
-use cccp::profile::{resolve_profile_url, get_active_profile, set_active_profile, KNOWN_PROFILES};
+use cccp::profile::{get_active_profile, resolve_profile_url, set_active_profile, KNOWN_PROFILES};
 use std::fs;
 use tempfile::tempdir;
 
@@ -28,7 +28,8 @@ fn test_set_and_get_active_profile() {
     let root = dir.path();
 
     // Cria GOSTVER inicial
-    let initial_gostver = "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://kollontai.2lp.in/profile.md\"\n";
+    let initial_gostver =
+        "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://kollontai.2lp.in/profile.md\"\n";
     fs::write(root.join("GOSTVER"), initial_gostver).unwrap();
 
     let active = get_active_profile(root).unwrap();
@@ -50,6 +51,8 @@ fn test_set_and_get_active_profile() {
 #[test]
 fn test_known_profiles_list() {
     assert!(!KNOWN_PROFILES.is_empty());
-    assert!(KNOWN_PROFILES.iter().any(|(alias, _)| *alias == "lumen"));
-    assert!(KNOWN_PROFILES.iter().any(|(alias, _)| *alias == "kollontai"));
+    assert!(KNOWN_PROFILES.iter().any(|(alias, _, _)| *alias == "lumen"));
+    assert!(KNOWN_PROFILES
+        .iter()
+        .any(|(alias, _, _)| *alias == "kollontai"));
 }

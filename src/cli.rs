@@ -155,6 +155,29 @@ pub enum Commands {
 
     /// Merge a branch with strict GOST Phase 9 closes tag validation
     Merge(MergeArgs),
+
+    /// Manage canonical GOST profiles (get, list, set)
+    #[command(subcommand)]
+    Profile(ProfileCommand),
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum ProfileCommand {
+    /// Get the active GOST profile URL and alias
+    Get,
+
+    /// List all known canonical GOST profiles
+    List,
+
+    /// Set the active GOST profile in GOSTVER (supports aliases like lumen, kollontai or custom URL)
+    Set(ProfileSetArgs),
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct ProfileSetArgs {
+    /// Profile alias (e.g. lumen, kollontai) or raw profile URL
+    #[arg(required = true)]
+    pub profile: String,
 }
 
 #[derive(Debug, Args, Clone, Default)]
