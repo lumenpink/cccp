@@ -32,6 +32,21 @@ fn test_catalog_entry_to_forge_info() {
     assert_eq!(info2.host, "codeberg.org");
     assert_eq!(info2.owner, "lumenpink");
     assert_eq!(info2.repo, "cccp");
+
+    let tildegit_entry = CatalogEntry {
+        name: "install_i3".into(),
+        forge: "tildegit".into(),
+        slug: "lumen/install_i3".into(),
+        description: "Setup i3wm".into(),
+        is_upstream: false,
+        ..Default::default()
+    };
+    let info3 = tildegit_entry.to_forge_info();
+    assert_eq!(info3.provider, ForgeType::Tildegit);
+    assert_eq!(info3.software, cccp::forges::ForgeSoftware::Forgejo);
+    assert_eq!(info3.host, "tildegit.org");
+    assert_eq!(info3.owner, "lumen");
+    assert_eq!(info3.repo, "install_i3");
 }
 
 #[test]

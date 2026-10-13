@@ -67,6 +67,28 @@ fn test_parse_remote_url_self_hosted_forgejo() {
 }
 
 #[test]
+fn test_parse_remote_url_tildegit_ssh() {
+    let info = parse_remote_url("git@tildegit.org:lumen/install_i3.git").expect("parse failed");
+    assert_eq!(info.provider, ForgeType::Tildegit);
+    assert_eq!(info.software, cccp::forges::ForgeSoftware::Forgejo);
+    assert_eq!(info.host, "tildegit.org");
+    assert_eq!(info.owner, "lumen");
+    assert_eq!(info.repo, "install_i3");
+    assert_eq!(info.forge_name(), "tildegit");
+    assert_eq!(info.software_name(), "forgejo");
+}
+
+#[test]
+fn test_parse_remote_url_tildegit_https() {
+    let info = parse_remote_url("https://tildegit.org/lumen/install_i3.git").expect("parse failed");
+    assert_eq!(info.provider, ForgeType::Tildegit);
+    assert_eq!(info.software, cccp::forges::ForgeSoftware::Forgejo);
+    assert_eq!(info.host, "tildegit.org");
+    assert_eq!(info.owner, "lumen");
+    assert_eq!(info.repo, "install_i3");
+}
+
+#[test]
 fn test_parse_remote_url_invalid() {
     assert!(parse_remote_url("not_a_valid_url").is_none());
     assert!(parse_remote_url("").is_none());
@@ -94,9 +116,16 @@ fn test_resolve_token_environment() {
         Some("gl_secret_token_789".into())
     );
 
+    std::env::set_var("TILDEGIT_TOKEN", "tg_secret_token_321");
+    assert_eq!(
+        resolve_token_for_host("tildegit.org", ForgeType::Tildegit, Some(&empty_cfg)),
+        Some("tg_secret_token_321".into())
+    );
+
     std::env::remove_var("CODEBERG_TOKEN");
     std::env::remove_var("GITHUB_TOKEN");
     std::env::remove_var("GITLAB_TOKEN");
+    std::env::remove_var("TILDEGIT_TOKEN");
 }
 
 #[test]
