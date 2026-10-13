@@ -19,7 +19,20 @@ CCCP acts as an automated commissar for your Git repository, installing and orch
 
 ---
 
-## 2. Inspecting & Auditing Hooks (`cccp hooks`)
+## 2. Versionamento e Auto-Atualização Segura de Hooks
+
+Os hooks instalados pelo CCCP contêm metadados padronizados:
+* `cccp-hook-version`: Versão do pacote CCCP instalador.
+* `cccp-hook-template-version`: Versão lógica do script do template (ex: `1`).
+* `cccp-hook-checksum`: Hash determinístico do conteúdo do script.
+
+### Mecanismo de Integridade Gosplan
+* **Hooks não modificados:** Quando uma nova versão do CCCP ou template é executada, o CCCP auto-atualiza os hooks de forma segura e transparente, eliminando falso-positivos e ruídos no terminal.
+* **Hooks customizados localmente:** Se o desenvolvedor inseriu personalizações locais no hook, o CCCP detecta a divergência do checksum, preserva intactas as alterações locais e exibe um alerta de advertência amigável.
+
+---
+
+## 3. Inspecting & Auditing Hooks (`cccp hooks`)
 
 CCCP includes a built-in inspectorate to audit your installed hooks against canonical standards:
 
@@ -33,7 +46,7 @@ cccp hooks diff
 
 ---
 
-## 3. Post-Push Automation & Custom Scripts
+## 4. Post-Push Automation & Custom Scripts
 
 CCCP allows running custom automation immediately after successful pushes:
 
