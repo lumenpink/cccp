@@ -542,7 +542,24 @@ fn main() -> ExitCode {
                 }
             }
 
-            // 2. Sync agents (AGENTS.md)
+            // 2. Sync GOST cascading profile and specs (.gost/GOST.md)
+            if let Some(root) = repo_root {
+                if root.join("GOSTVER").is_file() {
+                    println!(
+                        "{} Assembling cascading GOST specification (.gost/GOST.md)...",
+                        theme.cyan("★")
+                    );
+                    if let Err(e) = cccp::profile::assemble_gost_specs(root) {
+                        eprintln!(
+                            "{}: Failed to assemble GOST specs: {}",
+                            theme.yellow("Warning"),
+                            e
+                        );
+                    }
+                }
+            }
+
+            // 3. Sync agents (AGENTS.md)
             if sync_all || sync_args.agents {
                 println!("{} Synchronizing AGENTS.md directives...", theme.cyan("★"));
                 if let Err(e) = cccp::agents::cmd_agent_update(None, None, repo_root, &theme) {

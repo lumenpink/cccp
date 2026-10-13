@@ -171,6 +171,9 @@ pub enum ProfileCommand {
 
     /// Set the active GOST profile in GOSTVER (supports aliases like lumen, kollontai or custom URL)
     Set(ProfileSetArgs),
+
+    /// Assemble full cascading GOST specification into .gost/GOST.md including CUSTOM.md overrides
+    Assemble,
 }
 
 #[derive(Debug, Args, Clone)]
