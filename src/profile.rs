@@ -192,8 +192,13 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     if !has_base {
         if let Ok(base_spec) = fetch_document_content("https://gost.2lp.in/SPEC.md") {
             chain.push(("https://gost.2lp.in/SPEC.md".to_string(), base_spec));
-        } else if let Ok(base_spec) = fetch_document_content("https://codeberg.org/lumenpink/gost/raw/branch/main/SPEC.md") {
-            chain.push(("https://codeberg.org/lumenpink/gost/raw/branch/main/SPEC.md".to_string(), base_spec));
+        } else if let Ok(base_spec) =
+            fetch_document_content("https://codeberg.org/lumenpink/gost/raw/branch/main/SPEC.md")
+        {
+            chain.push((
+                "https://codeberg.org/lumenpink/gost/raw/branch/main/SPEC.md".to_string(),
+                base_spec,
+            ));
         } else if let Ok(base_spec) = fetch_document_content("/home/lumen/src/gost/SPEC.md") {
             chain.push(("GOST Central SPEC.md".to_string(), base_spec));
         }
