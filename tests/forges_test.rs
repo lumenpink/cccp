@@ -103,8 +103,7 @@ fn test_parse_remote_url_tildegit_subdomain_and_port() {
 
 #[test]
 fn test_parse_remote_url_tildegit_case_insensitive() {
-    let info = parse_remote_url("HTTPS://TILDEGIT.ORG/Lumen/Install_i3.git")
-        .expect("parse failed");
+    let info = parse_remote_url("HTTPS://TILDEGIT.ORG/Lumen/Install_i3.git").expect("parse failed");
     assert_eq!(info.provider, ForgeType::Tildegit);
     assert_eq!(info.software, cccp::forges::ForgeSoftware::Forgejo);
     assert_eq!(info.owner, "Lumen");
