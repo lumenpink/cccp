@@ -182,12 +182,7 @@ pub fn parse_remote_url(url: &str) -> Option<RepoForgeInfo> {
         ForgeType::Forgejo
     };
 
-    Some(RepoForgeInfo::new(
-        provider,
-        host.to_string(),
-        owner,
-        repo,
-    ))
+    Some(RepoForgeInfo::new(provider, host.to_string(), owner, repo))
 }
 
 /// Detects the remote forge and coordinates from the git repository
