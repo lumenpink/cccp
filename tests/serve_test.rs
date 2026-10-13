@@ -112,7 +112,7 @@ fn test_http_server_request_handling_and_security() {
 
     // Wait for server to become active
     let mut ready = false;
-    for _ in 0..50 {
+    for _ in 0..100 {
         if TcpListener::bind(("127.0.0.1", port)).is_err() {
             ready = true;
             break;
@@ -123,14 +123,14 @@ fn test_http_server_request_handling_and_security() {
 
     let base_url = format!("http://127.0.0.1:{}", port);
 
-    // 1. GET / -> returns index.html (retry up to 10 times to ensure accept queue is active)
+    // 1. GET / -> returns index.html (retry up to 50 times to ensure accept queue is active in virtualized act)
     let mut resp_root = None;
-    for _ in 0..20 {
+    for _ in 0..50 {
         if let Ok(resp) = ureq::get(&format!("{}/", base_url)).call() {
             resp_root = Some(resp);
             break;
         }
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(100));
     }
     let resp_root = resp_root.expect("Server must respond to root GET");
     assert_eq!(resp_root.status(), 200);
