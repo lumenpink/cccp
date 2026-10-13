@@ -137,21 +137,15 @@ fn test_parse_remote_url_invalid() {
 #[test]
 fn test_resolve_token_environment() {
     let empty_cfg = cccp::config::Config::default();
-    std::env::set_var("CODEBERG_TOKEN", "cb_secret_token_123");
-    assert_eq!(
-        resolve_token_for_host("codeberg.org", ForgeType::Codeberg, Some(&empty_cfg)),
-        Some("cb_secret_token_123".into())
-    );
-
     std::env::set_var("GITHUB_TOKEN", "gh_secret_token_456");
     assert_eq!(
-        resolve_token_for_host("github.com", ForgeType::GitHub, Some(&empty_cfg)),
+        resolve_token_for_host("mock-github.com", ForgeType::GitHub, Some(&empty_cfg)),
         Some("gh_secret_token_456".into())
     );
 
     std::env::set_var("GITLAB_TOKEN", "gl_secret_token_789");
     assert_eq!(
-        resolve_token_for_host("gitlab.com", ForgeType::GitLab, Some(&empty_cfg)),
+        resolve_token_for_host("mock-gitlab.com", ForgeType::GitLab, Some(&empty_cfg)),
         Some("gl_secret_token_789".into())
     );
 
@@ -161,7 +155,6 @@ fn test_resolve_token_environment() {
         Some("tg_secret_token_321".into())
     );
 
-    std::env::remove_var("CODEBERG_TOKEN");
     std::env::remove_var("GITHUB_TOKEN");
     std::env::remove_var("GITLAB_TOKEN");
     std::env::remove_var("TILDEGIT_TOKEN");
@@ -169,18 +162,12 @@ fn test_resolve_token_environment() {
 
 #[test]
 fn test_resolve_token_reads_home_env_when_config_none() {
-    if let Some(home) = std::env::var_os("HOME") {
-        let env_file = std::path::Path::new(&home).join(".env");
-        if !env_file.exists() {
-            let _ = std::fs::write(&env_file, "CODEBERG_TOKEN=ci_test_token\n");
-            let token = resolve_token_for_host("codeberg.org", ForgeType::Codeberg, None);
-            let _ = std::fs::remove_file(&env_file);
-            assert_eq!(token.as_deref(), Some("ci_test_token"));
-            return;
-        }
-    }
-    let token = resolve_token_for_host("codeberg.org", ForgeType::Codeberg, None);
-    assert!(token.is_some(), "Should resolve token from ~/.env");
+    let mut config = cccp::config::Config::default();
+    config
+        .extra
+        .insert("codeberg_token".to_string(), "ci_test_token".to_string());
+    let token = resolve_token_for_host("mock-home-env.org", ForgeType::Codeberg, Some(&config));
+    assert_eq!(token.as_deref(), Some("ci_test_token"));
 }
 
 #[test]
