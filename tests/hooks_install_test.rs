@@ -152,3 +152,44 @@ fn test_resolve_hooks_dir_custom_core_hooks_path() {
     let resolved_cli = resolve_hooks_dir(&repo, Some(&cli_override));
     assert_eq!(resolved_cli, cli_override);
 }
+
+#[test]
+fn test_hook_metadata_and_auto_update_unmodified() {
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let hooks_dir = p.join(".git").join("hooks");
+    let _theme = Theme::init(true);
+
+    // Gera hook com versão anterior (template_version = 0 / legado sem checksum)
+    fs::create_dir_all(&hooks_dir).unwrap();
+    let old_commit_msg = "#!/bin/sh\n# cccp-hook-version: 3.0.0\n# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n# 1. Prioritize cccp in PATH\nif command -v cccp >/dev/null 2>&1; then\n    exec cccp hook commit-msg \"$@\"\nfi\n";
+    fs::write(hooks_dir.join("commit-msg"), old_commit_msg).unwrap();
+
+    // Auto-atualização segura detecta template canônico não modificado e atualiza
+    let warns = cccp::update::check_hook_version(p);
+    // Não deve emitir warning de advertência manual se auto-atualizou silenciosamente ou informativamente
+    let updated_content = fs::read_to_string(hooks_dir.join("commit-msg")).unwrap();
+    assert!(updated_content.contains("# cccp-hook-template-version:"));
+    assert!(updated_content.contains("# cccp-hook-checksum:"));
+    assert!(warns.is_empty());
+}
+
+#[test]
+fn test_hook_modified_manually_is_preserved_with_warning() {
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let hooks_dir = p.join(".git").join("hooks");
+
+    fs::create_dir_all(&hooks_dir).unwrap();
+    // Hook com customização do usuário
+    let custom_commit_msg = "#!/bin/sh\n# cccp-hook-version: 3.0.0\n# cccp-hook-template-version: 0\n# cccp-hook-checksum: deadbeef\necho 'Custom pre-validation script'\nexec cccp hook commit-msg \"$@\"\n";
+    fs::write(hooks_dir.join("commit-msg"), custom_commit_msg).unwrap();
+
+    let warns = cccp::update::check_hook_version(p);
+    assert_eq!(warns.len(), 1);
+    assert!(warns[0].contains("customizado") || warns[0].contains("Custom"));
+
+    // O arquivo NÃO deve ser sobrescrito
+    let current_content = fs::read_to_string(hooks_dir.join("commit-msg")).unwrap();
+    assert_eq!(current_content, custom_commit_msg);
+}
