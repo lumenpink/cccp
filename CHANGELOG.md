@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Ticket Review & Submission in CCCP Editor
+- **Direct Ticket Review and Submission (`cccp divan` / `cccp editor`)**: Integra a revisão e submissão de tickets do Divã diretamente no CCCP Editor, suprimindo cartões e listas prolixas de 9 fases no terminal. A primeira linha do buffer é interpretada como título (com validação estrita segundo Conventional Commits) e o restante como corpo. Adiciona barra contextual (`★ [CCCP TICKET EDITOR]`) e atalho contextual de envio (`Ctrl+S Submit` / `F2`), permitindo abortar sem efeitos colaterais com `Ctrl+Q` / `Esc`. (closes #138)
+
 ### Repository Alias Management and Collision Safety
 - **Repository Aliases Management (`cccp catalog alias` / `cccp catalog add -a`)**: Adiciona suporte completo para criação, associação, listagem e remoção de apelidos (*aliases*) para repositórios registrados no catálogo Gosplan. Inclui validação estrita contra colisões de identificador (bloqueando sobreposições com nomes canônicos, slugs e apelidos de outros repositórios), suporte ao argumento `-a, --alias` na adição de repositórios remotos e resolução unificada e transparente em comandos como `divan`, `ticket` e `catalog`. (closes #136)
 
