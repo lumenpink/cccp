@@ -990,3 +990,97 @@ fn test_catalog_table_gost_version_column_and_sorting() {
     assert_eq!(sortable_rev[1].name, "repo_c");
     assert_eq!(sortable_rev[2].name, "repo_a");
 }
+
+#[test]
+fn test_catalog_gost_version_edge_cases_and_mutation() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let path = dir.path();
+
+    // 1. Whitespaces and spaces around equals and inside quotes
+    let gostver_file = path.join("GOSTVER");
+    fs::write(&gostver_file, "  GOST_VERSION  =  \"1.5.0\"  \n").unwrap();
+    assert_eq!(
+        catalog::extract_gost_version(path),
+        Some("1.5.0".to_string())
+    );
+
+    // 2. Empty version value should yield None
+    fs::write(&gostver_file, "GOST_VERSION=\"\"\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), None);
+
+    // 3. Commented out GOST_VERSION
+    fs::write(&gostver_file, "# GOST_VERSION=\"1.4.0\"\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), None);
+
+    // 4. Tie-breaking by name for identical GOST versions and identical None
+    let summaries = vec![
+        catalog::CatalogRepoSummary {
+            name: "zebra".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/zebra".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: None,
+            gost_version: Some("1.4.0".to_string()),
+        },
+        catalog::CatalogRepoSummary {
+            name: "apple".to_string(),
+            forge: "github".to_string(),
+            slug: "org/apple".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: None,
+            gost_version: Some("1.4.0".to_string()),
+        },
+        catalog::CatalogRepoSummary {
+            name: "zulu".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/zulu".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: None,
+            unpushed: 0,
+            status_label: "remote".to_string(),
+            local_path: None,
+            gost_version: None,
+        },
+        catalog::CatalogRepoSummary {
+            name: "alpha_none".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/alpha_none".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: None,
+            unpushed: 0,
+            status_label: "remote".to_string(),
+            local_path: None,
+            gost_version: None,
+        },
+    ];
+
+    // Test sort with alias "gostver"
+    let mut sortable = summaries.clone();
+    let filter = cccp::cli::CatalogFilterArgs {
+        sort: "gostver".to_string(),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut sortable, &filter);
+    assert_eq!(sortable[0].name, "apple");
+    assert_eq!(sortable[1].name, "zebra");
+    assert_eq!(sortable[2].name, "alpha_none");
+    assert_eq!(sortable[3].name, "zulu");
+
+    // 5. Colored table rendering
+    let colored_theme = cccp::cultural::Theme::with_color(true);
+    let colored_table = catalog::format_catalog_table(&summaries, &colored_theme);
+    assert!(colored_table.contains("GOST"));
+    assert!(colored_table.contains("1.4.0"));
+    assert!(colored_table.contains("-"));
+}
+
