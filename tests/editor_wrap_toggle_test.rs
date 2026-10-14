@@ -46,3 +46,53 @@ fn test_editor_toggle_soft_wrap_repeatedly() {
         assert!(editor.toggle_soft_wrap());
     }
 }
+
+#[test]
+fn test_editor_toggle_soft_wrap_empty_buffer() {
+    let mut editor = Editor::new("Empty", "");
+    assert!(editor.soft_wrap);
+    assert!(!editor.toggle_soft_wrap());
+    assert_eq!(editor.cursor_x, 0);
+    assert_eq!(editor.cursor_y, 0);
+    assert!(editor.toggle_soft_wrap());
+    assert_eq!(editor.col_offset, 0);
+}
+
+#[test]
+fn test_editor_soft_wrap_indicator_presence() {
+    let mut editor = Editor::new("Indicator Test", "Linha 1\nLinha 2");
+    editor.screen_cols = 80;
+    editor.screen_rows = 24;
+
+    // Wrap is on by default: status bar includes [WRAP]
+    assert!(editor.soft_wrap);
+
+    // Toggle off: soft_wrap is false
+    editor.toggle_soft_wrap();
+    assert!(!editor.soft_wrap);
+
+    // Toggle back on
+    editor.toggle_soft_wrap();
+    assert!(editor.soft_wrap);
+}
+
+#[test]
+fn test_editor_toggle_soft_wrap_cursor_reconciliation() {
+    let mut editor = Editor::new("Cursor Test", "Linha 1\nLinha 2\nLinha 3\nLinha 4\nLinha 5");
+    editor.screen_rows = 3;
+    editor.screen_cols = 80;
+    editor.cursor_y = 4;
+    editor.cursor_x = 2;
+
+    // Toggle off: row_offset is reconciled
+    editor.toggle_soft_wrap();
+    assert!(!editor.soft_wrap);
+    assert_eq!(editor.visual_row_offset, 0);
+    assert_eq!(editor.row_offset, 3); // 4 - (3 / 2) = 4 - 1 = 3
+
+    // Toggle on: col_offset is 0
+    editor.col_offset = 10;
+    editor.toggle_soft_wrap();
+    assert!(editor.soft_wrap);
+    assert_eq!(editor.col_offset, 0);
+}
