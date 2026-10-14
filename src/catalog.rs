@@ -966,3 +966,34 @@ pub fn filter_and_sort_summaries(
         summaries.reverse();
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BatchPushReport {
+    pub pushed: Vec<String>,
+    pub dry_run: Vec<String>,
+    pub skipped_dirty: Vec<String>,
+    pub skipped_up_to_date: Vec<String>,
+    pub skipped_remote: Vec<String>,
+    pub failed: Vec<(String, String)>,
+}
+
+/// Executes safe batch push for clean repositories with pending unpushed commits
+pub fn batch_push_clean_repos(
+    _summaries: &[CatalogRepoSummary],
+    _dry_run: bool,
+    _theme: &crate::cultural::Theme,
+) -> BatchPushReport {
+    BatchPushReport::default()
+}
+
+/// Gathers summaries and executes batch push for catalog entries
+pub fn batch_push_catalog(
+    entries: &[CatalogEntry],
+    dry_run: bool,
+    theme: &crate::cultural::Theme,
+) -> BatchPushReport {
+    let summaries = summarize_catalog(entries);
+    batch_push_clean_repos(&summaries, dry_run, theme)
+}
+
+

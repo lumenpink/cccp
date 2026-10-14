@@ -671,3 +671,51 @@ fn test_catalog_cli_aliases() {
     let parsed_full = Cli::parse_from(["cccp", "catalog"]);
     assert!(matches!(parsed_full.command, Some(Commands::Catalog(_))));
 }
+
+#[test]
+fn test_batch_push_clean_repos_selection_and_safety() {
+    use cccp::catalog::{batch_push_clean_repos, CatalogRepoSummary};
+    use cccp::cultural::Theme;
+    use std::path::PathBuf;
+
+    let theme = Theme::with_color(false);
+
+    let summaries = vec![
+        CatalogRepoSummary {
+            name: "clean-ahead".into(),
+            is_clean: Some(true),
+            unpushed: 2,
+            local_path: Some(PathBuf::from("/mock/clean-ahead")),
+            ..Default::default()
+        },
+        CatalogRepoSummary {
+            name: "dirty-ahead".into(),
+            is_clean: Some(false),
+            unpushed: 1,
+            local_path: Some(PathBuf::from("/mock/dirty-ahead")),
+            ..Default::default()
+        },
+        CatalogRepoSummary {
+            name: "clean-synced".into(),
+            is_clean: Some(true),
+            unpushed: 0,
+            local_path: Some(PathBuf::from("/mock/clean-synced")),
+            ..Default::default()
+        },
+        CatalogRepoSummary {
+            name: "remote-only".into(),
+            is_clean: None,
+            unpushed: 0,
+            local_path: None,
+            ..Default::default()
+        },
+    ];
+
+    let report_dry = batch_push_clean_repos(&summaries, true, &theme);
+    assert_eq!(report_dry.dry_run, vec!["clean-ahead"]);
+    assert_eq!(report_dry.skipped_dirty, vec!["dirty-ahead"]);
+    assert_eq!(report_dry.skipped_up_to_date, vec!["clean-synced"]);
+    assert_eq!(report_dry.skipped_remote, vec!["remote-only"]);
+    assert!(report_dry.pushed.is_empty());
+}
+
