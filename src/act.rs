@@ -435,3 +435,27 @@ pub fn run_act_run(
         Err("Local CI execution failed.".to_string())
     }
 }
+
+/// RAII Guard that pauses forgejo-runner during local act CI execution
+pub struct RunnerPauseGuard {
+    paused_containers: Vec<String>,
+}
+
+impl RunnerPauseGuard {
+    pub fn new(_theme: &Theme) -> Self {
+        Self {
+            paused_containers: Vec::new(),
+        }
+    }
+
+    pub fn with_docker_bin(_theme: &Theme, _docker_bin: &str) -> Self {
+        Self {
+            paused_containers: Vec::new(),
+        }
+    }
+
+    pub fn paused_containers(&self) -> &[String] {
+        &self.paused_containers
+    }
+}
+

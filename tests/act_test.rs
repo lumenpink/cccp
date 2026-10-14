@@ -1,6 +1,6 @@
 use cccp::act::{
     act_ci_gate, check_prerequisites, find_workflow, format_duration, run_act_log, run_act_status,
-    sanitize_workflow_if_needed,
+    sanitize_workflow_if_needed, RunnerPauseGuard,
 };
 use cccp::cultural::Theme;
 use std::fs;
@@ -261,3 +261,68 @@ fn test_act_ci_gate_failure_rejection() {
     // Gate should fail, rejecting push
     assert_eq!(res, Ok(false));
 }
+
+#[test]
+fn test_runner_pause_guard_bypass_env() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let theme = Theme::with_color(false);
+
+    std::env::set_var("CCCP_NO_PAUSE_RUNNER", "1");
+    let guard = RunnerPauseGuard::new(&theme);
+    std::env::remove_var("CCCP_NO_PAUSE_RUNNER");
+
+    assert!(guard.paused_containers().is_empty());
+}
+
+#[test]
+fn test_runner_pause_guard_missing_docker() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let theme = Theme::with_color(false);
+
+    let guard = RunnerPauseGuard::with_docker_bin(&theme, "/nonexistent/docker/bin");
+    assert!(guard.paused_containers().is_empty());
+}
+
+#[test]
+fn test_runner_pause_guard_lifecycle_mock_docker() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let temp = tempdir().expect("Failed to create tempdir");
+    let theme = Theme::with_color(false);
+
+    let log_file = temp.path().join("docker_calls.log");
+    let mock_docker = temp.path().join("mock_docker.sh");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let script = format!(
+            r#"#!/bin/sh
+cmd="$1"
+sub="$2"
+echo "$@" >> "{}"
+if [ "$cmd" = "ps" ]; then
+    echo "forgejo-runner"
+fi
+exit 0
+"#,
+            log_file.display()
+        );
+        fs::write(&mock_docker, script).unwrap();
+        let mut perms = fs::metadata(&mock_docker).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&mock_docker, perms).unwrap();
+    }
+
+    {
+        let guard = RunnerPauseGuard::with_docker_bin(&theme, mock_docker.to_str().unwrap());
+        assert_eq!(guard.paused_containers(), &["forgejo-runner"]);
+
+        let log = fs::read_to_string(&log_file).unwrap_or_default();
+        assert!(log.contains("pause forgejo-runner"));
+    }
+
+    // After guard is dropped, unpause must have been invoked
+    let log_after = fs::read_to_string(&log_file).unwrap_or_default();
+    assert!(log_after.contains("unpause forgejo-runner"));
+}
+
