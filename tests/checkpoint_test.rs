@@ -120,11 +120,19 @@ fn test_checkpoint_corrupted_json_handled_gracefully() {
             .join(".cache")
             .join("cccp")
             .join("checkpoints");
-        let canon = repo_path.canonicalize().unwrap_or_else(|_| repo_path.to_path_buf());
+        let canon = repo_path
+            .canonicalize()
+            .unwrap_or_else(|_| repo_path.to_path_buf());
         let s = canon.to_string_lossy();
         let sanitized: String = s
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         cache_dir.join(format!("{}.json", sanitized.trim_matches('_')))
     };
@@ -134,7 +142,10 @@ fn test_checkpoint_corrupted_json_handled_gracefully() {
 
     // Loading corrupted checkpoint must not panic, but return Ok(None)
     let res = DivanCheckpoint::load(repo_path).expect("Loading corrupted must not return Err");
-    assert!(res.is_none(), "Corrupted checkpoint must be ignored and return None");
+    assert!(
+        res.is_none(),
+        "Corrupted checkpoint must be ignored and return None"
+    );
 
     // Clearing must succeed
     DivanCheckpoint::clear(repo_path).expect("Clear corrupted must succeed");
