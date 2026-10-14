@@ -113,8 +113,13 @@ impl DivanCheckpoint {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize checkpoint: {}", e))?;
 
-        fs::write(&path, json)
-            .map_err(|e| format!("Failed to write checkpoint file '{}': {}", path.display(), e))?;
+        fs::write(&path, json).map_err(|e| {
+            format!(
+                "Failed to write checkpoint file '{}': {}",
+                path.display(),
+                e
+            )
+        })?;
 
         Ok(())
     }

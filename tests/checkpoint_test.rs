@@ -8,7 +8,8 @@ fn test_checkpoint_prompt_save_load_clear() {
     let repo_path = tmp.path();
 
     // 1. Initially no checkpoint exists
-    let initial = DivanCheckpoint::load(repo_path).expect("Loading non-existent checkpoint must succeed");
+    let initial =
+        DivanCheckpoint::load(repo_path).expect("Loading non-existent checkpoint must succeed");
     assert!(initial.is_none(), "Initial checkpoint must be None");
 
     // 2. Save prompt checkpoint
@@ -64,7 +65,10 @@ fn test_checkpoint_tickets_save_load_and_advance() {
     assert_eq!(loaded.prompt, prompt);
     assert_eq!(loaded.tickets.len(), 2);
     assert_eq!(loaded.current_index, 0);
-    assert_eq!(loaded.tickets[0].title, "feat(export): exportar relatorio em CSV");
+    assert_eq!(
+        loaded.tickets[0].title,
+        "feat(export): exportar relatorio em CSV"
+    );
 
     // 2. Advance to index 1
     DivanCheckpoint::save_tickets(repo_path, prompt, &tickets, 1)

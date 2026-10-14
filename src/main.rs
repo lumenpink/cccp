@@ -755,7 +755,8 @@ fn main() -> ExitCode {
                 }
             }
 
-            let mut resume_from_tickets: Option<(String, Vec<cccp::ai::DecomposedTicket>, usize)> = None;
+            let mut resume_from_tickets: Option<(String, Vec<cccp::ai::DecomposedTicket>, usize)> =
+                None;
 
             if let Ok(Some(cp)) = cccp::checkpoint::DivanCheckpoint::load(&target_dir) {
                 let stage_desc = match cp.stage {
@@ -914,7 +915,12 @@ fn main() -> ExitCode {
                     return ExitCode::SUCCESS;
                 }
 
-                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(&target_dir, &prompt, &tickets, 0);
+                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(
+                    &target_dir,
+                    &prompt,
+                    &tickets,
+                    0,
+                );
                 (prompt, tickets, 0)
             };
 
@@ -931,7 +937,12 @@ fn main() -> ExitCode {
             let mut created_count = 0;
 
             while idx < tickets.len() {
-                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(&target_dir, &prompt, &tickets, idx);
+                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(
+                    &target_dir,
+                    &prompt,
+                    &tickets,
+                    idx,
+                );
 
                 println!(
                     "{} Opening ticket {}/{} in CCCP Editor for review and submission...",

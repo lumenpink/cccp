@@ -1,109 +1,30 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-13 22:58:15 UTC
+> Synced at: 2026-10-14 16:07:49 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#140] fix(cli): atualizar cache de tickets no repositorio alvo em vez do cwd
+## [#148] feat(tickets): suportar comentarios em tickets no cli, divan e sincronizacao
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/140
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/148
 
 ### Description
 ## Description
+Adicionar suporte a comentários em tickets já existentes nos módulos de tickets e no Divan do CCCP, além de sincronizar os comentários ao baixar os tickets via `sync` (`cccp sync` / `cccp ticket`).
 
-Atualmente, ao registrar um novo ticket utilizando as ferramentas `divan` ou `tickets`, o `cccp` realiza a atualização da lista local de tickets no diretório atual de execução (`cwd`). Isso gera inconsistência quando o comando é executado a partir de um repositório diferente do repositório alvo da criação dos tickets, fazendo com que o repositório correto não tenha sua listagem atualizada e o repositório corrente receba atualizações indevidas.
+No Divan, ao interagir sobre um ticket existente para gerar ou refinar um comentário via IA, o contexto enviado ao modelo deve incluir a descrição original do ticket e o histórico de comentários já postados.
+
+Na sincronização (`cccp ticket` / `cccp sync`), baixar os comentários existentes de cada issue e incluí-los no `.antigravity/tickets.md`, respeitando o teto de segurança (ceiling) configurado.
 
 ## Expected Behavior & Acceptance Criteria
-- [ ] A sincronização/atualização da lista de tickets identifica e utiliza explicitamente o diretório/contexto do repositório alvo onde a issue foi criada.
-- [ ] Caso executado fora da pasta do repositório alvo (ou apontando para outro remote/forge), a atualização afeta apenas o repositório correto e não o `cwd`.
-- [ ] Comportamento consistente tanto no fluxo do `divan` quanto no comando `tickets`.
+- [ ] **Forge API Client**: Implementar `fetch_issue_comments` e `create_comment` no `ForgeClient` (suportando Codeberg/Forgejo, GitHub e GitLab).
+- [ ] **CCCP Ticket Comment CLI**: Adicionar comando para submeter comentário a um ticket existente (`cccp ticket comment <id> "mensagem"`).
+- [ ] **Divan Ticket Commenting**: Suportar modo de comentário no Divan direcionado a um ticket existente.
+- [ ] **Divan AI Context**: Enviar o corpo do ticket e comentários anteriores como contexto estruturado no prompt para a IA.
+- [ ] **Sync com Comentários**: Ao executar `cccp ticket` / `cccp sync`, baixar os comentários das issues e formatá-los no `.antigravity/tickets.md` dentro do limite de segurança.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#139] feat(ui): implementar soft wrap no cccp editor
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/139
-
-### Description
-## Description
-Implementar suporte a quebra de linha suave (soft wrap) no motor de renderização do CCCP Editor. O texto deve quebrar visualmente nas margens da janela/terminal para facilitar leitura e navegação, sem inserir quebras de linha (`\n`) reais no arquivo ou buffer subjacente.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Linhas que excedem a largura visível da janela do editor devem sofrer wrap visual nas linhas seguintes da tela.
-- [ ] Nenhuma quebra de linha (`\n` ou `\r\n`) artificial deve ser gravada no texto persistido em arquivo ou passado para o buffer real.
-- [ ] Navegação do cursor (cima, baixo, esquerda, direita) deve responder adequadamente através das linhas virtuais/quebradas.
-- [ ] O comportamento de contagem de linhas reais (ex.: numeração na lateral) deve permanecer alinhado ao buffer real.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#138] feat(cli): integrar revisao e submissao de tickets diretamente no cccp editor
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/138
-
-### Description
-## Description
-Atualmente, a exibição prévia de tickets no terminal ocupa espaço desnecessário mostrando blocos padronizados repetitivos (como as 9 fases GOST) e decoradores visuais. Esta funcionalidade migra a revisão para dentro do CCCP Editor, simplificando o fluxo: o título do ticket ocupa a primeira linha, seguido opcionalmente de uma linha em branco e o corpo do ticket. Ao disparar o comando de envio (ex.: Ctrl+S ajustado ao contexto), o formato é validado e o ticket submetido.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Suprimir a renderização detalhada/eyecandy das 9 fases do GOST no terminal antes da postagem.
-- [ ] Abrir o ticket diretamente em uma instância do CCCP Editor para revisão e ajuste.
-- [ ] Primeira linha do buffer interpretada como título da issue.
-- [ ] O restante do buffer interpretado como corpo da issue (ignorando uma linha em branco opcional separadora entre título e corpo).
-- [ ] Mapear atalho de envio contextual (ex.: `Ctrl+S` submete o ticket em vez de salvar arquivo local comum).
-- [ ] Validar o formato do ticket (título não vazio seguindo Conventional Commits, corpo não vazio) antes de disparar o envio.
-- [ ] Permitir cancelar/abortar a submissão sem publicar nada ao fechar ou rejeitar no editor.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#136] feat(core): permitir a criação de apelidos para repositórios
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/136
-
-### Description
-## Description
-Implementar funcionalidade para definir e resolver apelidos (aliases) para repositórios configurados. Com isso, comandos ou rotinas que recebem o identificador de um repositório podem aceitar tanto o nome canônico quanto seus apelidos cadastrados (ex.: usar `iiab` em vez de `indieinabox`).
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Suporte à configuração de um ou mais aliases para cada repositório no arquivo de configuração/registro de repositórios.
-- [ ] Resolução unificada de nomes: ao buscar por um repositório via alias, o sistema deve resolver com sucesso para a entidade canônica correspondente.
-- [ ] Detecção e rejeição de aliases duplicados ou que entrem em colisão com nomes canônicos de outros repositórios existentes.
-- [ ] Mensagens de erro claras quando um alias não puder ser resolvido ou quando houver conflito de identificador.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de main
 - [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
 - [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
 - [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
@@ -131,6 +52,62 @@ Permitir que o usuário salve rascunhos intencionalmente durante a redação ou 
   - Manter o rascunho e gerar novo ticket;
   - Descartar o rascunho e gerar novo ticket.
 - [ ] Permitir salvar como rascunho tickets já processados pelo Gemini que estejam aguardando aprovação.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
+## [#134] feat(cli): implementar recuperação de estado de sessão após falhas na geração e envio de tickets
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/134
+
+### Description
+## Description
+
+Atualmente, se ocorrer qualquer falha durante a execução do Divã (erro na API do Gemini, timeout, falha de rede ao submeter à forge ou encerramento inesperado do processo), todo o progresso do usuário é perdido. Faz-se necessário implementar um mecanismo automático de checkpoint (estilo swap do Vim) indexado por repositório, garantindo que o último estado com sucesso seja salvo e oferecido para recuperação na próxima inicialização.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Salvar automaticamente checkpoints de estado vinculados ao repositório alvo antes e após chamadas de rede (envio ao Gemini e envio à Forge).
+- [ ] Persistir tickets retornados pelo Gemini que ainda estão pendentes de aprovação pelo usuário.
+- [ ] Ao inicializar o Divã para um repositório com estado não finalizado, exibir prompt perguntando se o usuário deseja restaurar a sessão interrompida.
+- [ ] Ao confirmar a restauração, retomar exatamente do ponto da interrupção (ex.: pular nova chamada ao Gemini se os tickets já haviam sido gerados).
+- [ ] Limpar o checkpoint automático após a conclusão bem-sucedida do envio à Forge.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
+## [#132] feat(cli): implementar quebra automatica de linha padrao e atalho de alternancia no editor
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/132
+
+### Description
+## Description
+O editor de texto do Divan necessita de suporte a quebra automática de linha (soft wrap) ativada por padrão, facilitando a leitura e edição de textos longos no terminal sem rolagem horizontal indesejada, além de fornecer um atalho de teclado para alternar (toggle) o recurso sob demanda.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] O editor deve abrir com a quebra automática de linha (word wrap / soft wrap) ativada por padrão.
+- [ ] Um atalho de teclado dedicado deve ser disponibilizado para alternar o modo de quebra de linha (ligado/desligado).
+- [ ] A interface/barra de status do editor deve indicar claramente o estado atual da quebra de linha e informar o atalho disponível.
+- [ ] A navegação do cursor vertical e horizontal deve respeitar corretamente as linhas lógicas e visuais quando o wrap estiver habilitado ou desabilitado.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
