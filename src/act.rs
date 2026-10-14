@@ -236,8 +236,8 @@ pub fn isolate_test_jobs(content: &str, target_job: Option<&str>) -> String {
     for job in kept_jobs {
         for line in &job.lines {
             let trimmed = line.trim_start();
-            if trimmed.starts_with("needs:") {
-                let needs_val = trimmed["needs:".len()..].trim();
+            if let Some(rest) = trimmed.strip_prefix("needs:") {
+                let needs_val = rest.trim();
                 let cleaned_needs = filter_needs_clause(needs_val, &kept_ids);
                 if let Some(c) = cleaned_needs {
                     let indent = line.len() - trimmed.len();
@@ -265,7 +265,7 @@ pub fn isolate_test_jobs(content: &str, target_job: Option<&str>) -> String {
 /// and isolates test jobs for act compatibility
 pub fn sanitize_workflow_if_needed(wf_path: &Path) -> (PathBuf, Option<tempfile::NamedTempFile>) {
     if let Ok(content) = std::fs::read_to_string(wf_path) {
-        let mut sanitized = content.replace("uses: https://github.com/", "uses: ");
+        let sanitized = content.replace("uses: https://github.com/", "uses: ");
         let isolated = isolate_test_jobs(&sanitized, None);
         if isolated != content {
             if let Ok(mut tmp) = tempfile::Builder::new().suffix(".yml").tempfile() {
