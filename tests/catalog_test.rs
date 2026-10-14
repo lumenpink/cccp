@@ -866,4 +866,3 @@ fn test_batch_assemble_gost_report_formatting() {
     let empty_formatted = format_batch_assemble_report(&empty_report, &theme);
     assert!(empty_formatted.contains("No catalog repositories found to assemble."));
 }
-
