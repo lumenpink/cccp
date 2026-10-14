@@ -153,7 +153,11 @@ impl Editor {
 
     pub fn compute_visual_lines(&self) -> Vec<VisualLine> {
         let mut visual_lines = Vec::new();
-        let cols = if self.screen_cols == 0 { 80 } else { self.screen_cols };
+        let cols = if self.screen_cols == 0 {
+            80
+        } else {
+            self.screen_cols
+        };
 
         for (log_idx, row) in self.rows.iter().enumerate() {
             let num_chars = row.chars().count();
@@ -414,10 +418,7 @@ impl Editor {
                 output.push_str("\x1b[K\r\n");
             }
 
-            (
-                v_row.saturating_sub(self.visual_row_offset) + 1,
-                v_col + 1,
-            )
+            (v_row.saturating_sub(self.visual_row_offset) + 1, v_col + 1)
         } else {
             // 1. Text rows (logical with horizontal scroll)
             for y in 0..self.screen_rows {
@@ -470,7 +471,8 @@ impl Editor {
 
         // 3. Help footer (persistent shortcuts)
         output.push_str("\x1b[1;30;47m");
-        let help = " Ctrl+S Save  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ";
+        let help =
+            " Ctrl+S Save  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ";
         output.push_str(help);
         if self.screen_cols > help.len() {
             for _ in 0..(self.screen_cols - help.len()) {

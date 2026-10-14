@@ -183,4 +183,3 @@ fn test_editor_soft_wrap_cursor_mapping_and_navigation() {
     let out = editor.to_content();
     assert_eq!(out, "0123456789ABCDEFGHIJ01234\nSecond\n");
 }
-
