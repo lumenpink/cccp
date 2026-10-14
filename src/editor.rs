@@ -8,6 +8,9 @@ use crossterm::terminal::{
 };
 use std::io::{self, IsTerminal, Write};
 
+use crate::config::Config;
+use crate::lint::lint_commit_message;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VisualLine {
     pub logical_row: usize,
@@ -28,6 +31,8 @@ pub struct Editor {
     pub dirty: bool,
     pub soft_wrap: bool,
     pub status_msg: String,
+    pub header_prefix: String,
+    pub save_label: String,
 }
 
 impl Editor {
@@ -52,7 +57,17 @@ impl Editor {
             dirty: false,
             soft_wrap: true,
             status_msg: format!("CCCP Editor — {} | Ctrl+S Save | Ctrl+Q Cancel", title),
+            header_prefix: "CCCP EDITOR".to_string(),
+            save_label: "Save".to_string(),
         }
+    }
+
+    pub fn set_header_prefix(&mut self, prefix: &str) {
+        self.header_prefix = prefix.to_string();
+    }
+
+    pub fn set_save_label(&mut self, label: &str) {
+        self.save_label = label.to_string();
     }
 
     pub fn to_content(&self) -> String {
@@ -448,7 +463,8 @@ impl Editor {
         let dirty_flag = if self.dirty { " [+]" } else { "" };
         let wrap_flag = if self.soft_wrap { " [WRAP]" } else { "" };
         let left_status = format!(
-            " ★ [CCCP EDITOR]{} | {}{} - {} lines",
+            " ★ [{}]{} | {}{} - {} lines",
+            self.header_prefix,
             wrap_flag,
             self.title,
             dirty_flag,
@@ -471,9 +487,11 @@ impl Editor {
 
         // 3. Help footer (persistent shortcuts)
         output.push_str("\x1b[1;30;47m");
-        let help =
-            " Ctrl+S Save  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ";
-        output.push_str(help);
+        let help = format!(
+            " Ctrl+S {}  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ",
+            self.save_label
+        );
+        output.push_str(&help);
         if self.screen_cols > help.len() {
             for _ in 0..(self.screen_cols - help.len()) {
                 output.push(' ');
@@ -494,19 +512,16 @@ impl Editor {
     }
 }
 
-/// Edit text interactively using the built-in minimalist terminal editor.
-/// Returns Ok(Some(new_text)) if saved (Ctrl+S / F2), or Ok(None) if canceled (Ctrl+Q / Esc).
-pub fn edit_text(title: &str, initial_content: &str) -> Result<Option<String>, String> {
+/// Internal event loop runner for the interactive terminal editor.
+pub fn run_editor(mut editor: Editor) -> Result<Option<String>, String> {
     if !io::stdin().is_terminal() {
-        return Ok(Some(initial_content.to_string()));
+        return Ok(Some(editor.to_content()));
     }
 
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)
         .map_err(|e| format!("Failed to enter alternate screen: {}", e))?;
     enable_raw_mode().map_err(|e| format!("Failed to enable terminal raw mode: {}", e))?;
-
-    let mut editor = Editor::new(title, initial_content);
 
     let result = loop {
         if let Err(e) = editor.render() {
@@ -572,6 +587,93 @@ pub fn edit_text(title: &str, initial_content: &str) -> Result<Option<String>, S
     let _ = disable_raw_mode();
     let _ = execute!(stdout, LeaveAlternateScreen);
     result
+}
+
+/// Edit text interactively using the built-in minimalist terminal editor.
+/// Returns Ok(Some(new_text)) if saved (Ctrl+S / F2), or Ok(None) if canceled (Ctrl+Q / Esc).
+pub fn edit_text(title: &str, initial_content: &str) -> Result<Option<String>, String> {
+    let editor = Editor::new(title, initial_content);
+    run_editor(editor)
+}
+
+/// Edit ticket interactively using the built-in editor preconfigured with ticket submission layout.
+/// Returns Ok(Some(new_text)) if submitted (Ctrl+S / F2), or Ok(None) if canceled (Ctrl+Q / Esc).
+pub fn edit_ticket(title: &str, initial_content: &str) -> Result<Option<String>, String> {
+    let mut editor = Editor::new(title, initial_content);
+    editor.set_header_prefix("CCCP TICKET EDITOR");
+    editor.set_save_label("Submit");
+    run_editor(editor)
+}
+
+/// Parse raw ticket editor content into (title, body).
+/// First non-empty line is the title.
+/// Remaining lines form the body, ignoring an optional immediate blank separator.
+pub fn parse_ticket_buffer(content: &str) -> Result<(String, String), String> {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return Err("Ticket content cannot be empty".to_string());
+    }
+
+    let mut lines = content.lines();
+    let mut title = "";
+    while let Some(line) = lines.next() {
+        let t = line.trim();
+        if !t.is_empty() {
+            title = t;
+            break;
+        }
+    }
+
+    if title.is_empty() {
+        return Err("Ticket title cannot be empty".to_string());
+    }
+
+    let remaining: Vec<&str> = lines.collect();
+    let body_lines = if let Some(first) = remaining.first() {
+        if first.trim().is_empty() {
+            &remaining[1..]
+        } else {
+            &remaining[..]
+        }
+    } else {
+        &remaining[..]
+    };
+
+    let body = body_lines.join("\n").trim().to_string();
+    if body.is_empty() {
+        return Err("Ticket body cannot be empty".to_string());
+    }
+
+    Ok((title.to_string(), body))
+}
+
+/// Validate ticket title and body before submission.
+/// Title must be non-empty and comply with Conventional Commits.
+/// Body must be non-empty.
+pub fn validate_ticket_submission(
+    title: &str,
+    body: &str,
+    config: &Config,
+) -> Result<(), String> {
+    let trimmed_title = title.trim();
+    if trimmed_title.is_empty() {
+        return Err("Ticket title cannot be empty".to_string());
+    }
+
+    let trimmed_body = body.trim();
+    if trimmed_body.is_empty() {
+        return Err("Ticket body cannot be empty".to_string());
+    }
+
+    let lint = lint_commit_message(trimmed_title, config, false);
+    if !lint.is_valid {
+        return Err(format!(
+            "Ticket title does not comply with Conventional Commits: {}",
+            lint.errors.join(", ")
+        ));
+    }
+
+    Ok(())
 }
 
 /// Open a file in the built-in terminal editor, saving changes if confirmed (Ctrl+S / F2).

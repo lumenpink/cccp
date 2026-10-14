@@ -858,186 +858,183 @@ fn main() -> ExitCode {
             let mut idx = 0;
 
             while idx < tickets.len() {
-                let dest_str = detected_forge
-                    .as_ref()
-                    .map(|f| format!("{} ({}/{})", f.provider, f.owner, f.repo));
-                print!(
-                    "{}",
-                    cccp::ai::render_ticket_card(
-                        &tickets[idx],
-                        idx,
-                        tickets.len(),
-                        dest_str.as_deref(),
-                        &theme
-                    )
+                println!(
+                    "{} Opening ticket {}/{} in CCCP Editor for review and submission...",
+                    theme.yellow("★ [GOSPLAN]"),
+                    idx + 1,
+                    tickets.len()
                 );
 
-                let publish_label = if let Some(ref f) = detected_forge {
-                    format!("Publish to {} ({}/{})", f.provider, f.owner, f.repo)
-                } else {
-                    "Accept".to_string()
-                };
+                let initial_content = format!("{}\n\n{}", tickets[idx].title, tickets[idx].body);
+                let editor_title = format!("Ticket {}/{} — Review & Submit", idx + 1, tickets.len());
 
-                print!(
-                    "  [y] {}  [n] Skip  [t] Edit title  [e] Edit body  [r] Refine with AI  [v] View body  [q] Quit → ",
-                    publish_label
-                );
-                let _ = std::io::stdout().flush();
+                match cccp::editor::edit_ticket(&editor_title, &initial_content) {
+                    Ok(Some(edited)) => {
+                        match cccp::editor::parse_ticket_buffer(&edited) {
+                            Ok((title, body)) => {
+                                match cccp::editor::validate_ticket_submission(&title, &body, &config) {
+                                    Ok(()) => {
+                                        tickets[idx].title = title;
+                                        tickets[idx].body = body;
 
-                let key = cccp::ai::read_single_key().unwrap_or('n');
-                match key {
-                    'y' => {
-                        if diva.dry_run {
-                            println!(
-                                "\n  {}",
-                                theme.dim("[DRY-RUN] Simulation active. Ticket was not published.")
-                            );
-                            idx += 1;
-                            continue;
-                        }
+                                        if diva.dry_run {
+                                            println!(
+                                                "  {} {}",
+                                                theme.green("✓"),
+                                                theme.dim(&format!(
+                                                    "[DRY-RUN] Ticket verified: '{}'. Not published.",
+                                                    tickets[idx].title
+                                                ))
+                                            );
+                                            idx += 1;
+                                            continue;
+                                        }
 
-                        if let Some(ref forge_info) = detected_forge {
-                            println!(
-                                "\n  -> Publishing ticket to {} ({}/{})...",
-                                forge_info.provider, forge_info.owner, forge_info.repo
-                            );
-                            match forge_client.create_issue(
-                                forge_info,
-                                &tickets[idx].title,
-                                &tickets[idx].body,
-                                &tickets[idx].labels,
-                            ) {
-                                Ok(res) => {
-                                    println!(
-                                        "  {} Ticket created: {}",
-                                        theme.green("✓"),
-                                        res.html_url
-                                    );
-                                    let branch = cccp::forges::suggest_branch_name(
-                                        res.number,
-                                        &tickets[idx].title,
-                                    );
-                                    println!("     Suggested branch: {}", theme.cyan(&branch));
-                                    created_count += 1;
-                                    idx += 1;
-                                }
-                                Err(e) => {
-                                    eprintln!(
-                                        "\n  {}: {}",
-                                        theme.red_bold("Error publishing ticket"),
-                                        e
-                                    );
-                                    eprintln!(
-                                        "  You may edit title/body [t/e], retry [y], or skip [n]."
-                                    );
-                                }
-                            }
-                        } else {
-                            println!(
-                                "\n  {}: No git remote or forge detected to publish the ticket.",
-                                theme.yellow("Warning")
-                            );
-                            idx += 1;
-                        }
-                    }
-                    'n' => {
-                        println!("\n  Skipped.");
-                        idx += 1;
-                    }
-                    't' => {
-                        println!("\n  Launching text editor for title...");
-                        match cccp::ai::open_text_editor(&tickets[idx].title, "diva-title") {
-                            Ok(new_title) => {
-                                let trimmed = new_title.trim();
-                                if !trimmed.is_empty() {
-                                    tickets[idx].title = trimmed.to_string();
-                                    println!("  {} Title updated.", theme.green("✓"));
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("  {}: {}", theme.red_bold("Editor error"), e);
-                                if let Ok(inline) = inquire::Text::new("Edit title:")
-                                    .with_initial_value(&tickets[idx].title)
-                                    .prompt()
-                                {
-                                    let trimmed = inline.trim();
-                                    if !trimmed.is_empty() {
-                                        tickets[idx].title = trimmed.to_string();
-                                        println!("  {} Title updated.", theme.green("✓"));
+                                        if let Some(ref forge_info) = detected_forge {
+                                            println!(
+                                                "  -> Publishing ticket to {} ({}/{})...",
+                                                forge_info.provider, forge_info.owner, forge_info.repo
+                                            );
+                                            match forge_client.create_issue(
+                                                forge_info,
+                                                &tickets[idx].title,
+                                                &tickets[idx].body,
+                                                &tickets[idx].labels,
+                                            ) {
+                                                Ok(res) => {
+                                                    println!(
+                                                        "  {} Ticket created: {}",
+                                                        theme.green("✓"),
+                                                        res.html_url
+                                                    );
+                                                    let branch = cccp::forges::suggest_branch_name(
+                                                        res.number,
+                                                        &tickets[idx].title,
+                                                    );
+                                                    println!("     Suggested branch: {}", theme.cyan(&branch));
+                                                    created_count += 1;
+                                                    idx += 1;
+                                                }
+                                                Err(e) => {
+                                                    eprintln!(
+                                                        "\n  {}: {}",
+                                                        theme.red_bold("Error publishing ticket"),
+                                                        e
+                                                    );
+                                                    print!("  [r] Retry in editor  [s] Skip ticket  [q] Quit → ");
+                                                    let _ = std::io::stdout().flush();
+                                                    let key = cccp::ai::read_single_key().unwrap_or('s');
+                                                    if key == 'q' {
+                                                        break;
+                                                    } else if key == 's' {
+                                                        idx += 1;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            println!(
+                                                "\n  {}: No git remote or forge detected to publish the ticket.",
+                                                theme.yellow("Warning")
+                                            );
+                                            idx += 1;
+                                        }
+                                    }
+                                    Err(val_err) => {
+                                        eprintln!(
+                                            "\n  {}: {}",
+                                            theme.red_bold("Invalid ticket format"),
+                                            val_err
+                                        );
+                                        print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
+                                        let _ = std::io::stdout().flush();
+                                        let key = cccp::ai::read_single_key().unwrap_or('e');
+                                        if key == 'q' {
+                                            break;
+                                        } else if key == 's' {
+                                            idx += 1;
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
-                    'e' | 'b' => {
-                        println!("\n  Launching text editor for ticket body...");
-                        match cccp::ai::open_text_editor(&tickets[idx].body, "diva-body") {
-                            Ok(new_body) => {
-                                let trimmed = new_body.trim();
-                                if !trimmed.is_empty() {
-                                    tickets[idx].body = new_body;
-                                    println!("  {} Body updated.", theme.green("✓"));
+                            Err(parse_err) => {
+                                eprintln!(
+                                    "\n  {}: {}",
+                                    theme.red_bold("Ticket parse error"),
+                                    parse_err
+                                );
+                                print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
+                                let _ = std::io::stdout().flush();
+                                let key = cccp::ai::read_single_key().unwrap_or('e');
+                                if key == 'q' {
+                                    break;
+                                } else if key == 's' {
+                                    idx += 1;
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("  {}: {}", theme.red_bold("Editor error"), e);
-                            }
                         }
                     }
-                    'v' | 'f' => {
-                        println!("\n--- FULL TICKET BODY ---");
-                        println!("{}", tickets[idx].body);
-                        println!("------------------------");
-                    }
-                    'r' => {
-                        println!();
-                        print!("  Enter refinement instructions for AI: ");
+                    Ok(None) => {
+                        println!(
+                            "\n  {} Ticket review cancelled by user (not published).",
+                            theme.yellow("Notice")
+                        );
+                        print!("  [e] Reopen in editor  [r] Refine with AI  [s] Skip ticket  [q] Quit → ");
                         let _ = std::io::stdout().flush();
-                        let mut ref_input = String::new();
-                        if std::io::stdin().read_line(&mut ref_input).is_ok()
-                            && !ref_input.trim().is_empty()
-                        {
-                            let refine_prompt = format!(
-                                "Original user report:\n{}\n\nCurrent proposed ticket:\nTitle: {}\nBody:\n{}\n\nRefinement request:\n{}",
-                                prompt,
-                                tickets[idx].title,
-                                tickets[idx].body,
-                                ref_input.trim()
-                            );
-                            println!(
-                                "  {} Refining tickets with {} ({})...",
-                                theme.yellow("★ [GOSPLAN]"),
-                                client.provider,
-                                client.model
-                            );
-                            match client.triage(&refine_prompt, Some(&repo_ctx)) {
-                                Ok(new_tickets) if !new_tickets.is_empty() => {
-                                    println!(
-                                        "  {} Tickets successfully refined! ({} ticket(s))",
-                                        theme.green("✓"),
-                                        new_tickets.len()
+                        let key = cccp::ai::read_single_key().unwrap_or('s');
+                        match key {
+                            'q' => break,
+                            's' => idx += 1,
+                            'r' => {
+                                println!();
+                                print!("  Enter refinement instructions for AI: ");
+                                let _ = std::io::stdout().flush();
+                                let mut ref_input = String::new();
+                                if std::io::stdin().read_line(&mut ref_input).is_ok()
+                                    && !ref_input.trim().is_empty()
+                                {
+                                    let refine_prompt = format!(
+                                        "Original user report:\n{}\n\nCurrent proposed ticket:\nTitle: {}\nBody:\n{}\n\nRefinement request:\n{}",
+                                        prompt,
+                                        tickets[idx].title,
+                                        tickets[idx].body,
+                                        ref_input.trim()
                                     );
-                                    tickets = new_tickets;
-                                    idx = 0;
-                                    continue;
+                                    println!(
+                                        "  {} Refining tickets with {} ({})...",
+                                        theme.yellow("★ [GOSPLAN]"),
+                                        client.provider,
+                                        client.model
+                                    );
+                                    match client.triage(&refine_prompt, Some(&repo_ctx)) {
+                                        Ok(new_tickets) if !new_tickets.is_empty() => {
+                                            println!(
+                                                "  {} Tickets successfully refined! ({} ticket(s))",
+                                                theme.green("✓"),
+                                                new_tickets.len()
+                                            );
+                                            tickets = new_tickets;
+                                            idx = 0;
+                                            continue;
+                                        }
+                                        Ok(_) => eprintln!(
+                                            "  {}: AI returned empty ticket list. Keeping current tickets.",
+                                            theme.yellow("Warning")
+                                        ),
+                                        Err(e) => eprintln!(
+                                            "  {}: AI refinement failed: {}. Keeping current tickets.",
+                                            theme.red_bold("Error"),
+                                            e
+                                        ),
+                                    }
                                 }
-                                Ok(_) => eprintln!(
-                                    "  {}: AI returned empty ticket list. Keeping current tickets.",
-                                    theme.yellow("Warning")
-                                ),
-                                Err(e) => eprintln!(
-                                    "  {}: AI refinement failed: {}. Keeping current tickets.",
-                                    theme.red_bold("Error"),
-                                    e
-                                ),
                             }
+                            _ => {}
                         }
                     }
-                    'q' => {
-                        println!("\n  Triage session cancelled by user.");
-                        return ExitCode::SUCCESS;
+                    Err(e) => {
+                        eprintln!("\n  {}: {}", theme.red_bold("Editor error"), e);
+                        idx += 1;
                     }
-                    _ => continue,
                 }
             }
 
