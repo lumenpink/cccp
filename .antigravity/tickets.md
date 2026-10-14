@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-14 18:30:07 UTC
+> Synced at: 2026-10-14 20:02:49 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#149] feat(api): suportar instancia local de IA para o Divan
@@ -93,32 +93,6 @@ Permitir que o usuário salve rascunhos intencionalmente durante a redação ou 
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
-## [#131] feat(cli): posicionar cursor inicial abaixo do cabecalho no editor do divan
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/131
-
-### Description
-## Description
-Atualmente, ao abrir o editor de texto do Divan, o cursor é posicionado no início do arquivo (linha 1, coluna 1), sobre o cabeçalho explicativo de 4 linhas comentadas. O comportamento desejado é que o cursor seja posicionado automaticamente logo abaixo desse cabeçalho (na linha 5) ao abrir a tela.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Ao inicializar o editor de texto com o cabeçalho padrão de 4 linhas comentadas, o cursor deve iniciar na linha 5 (ou na primeira linha livre após os comentários).
-- [ ] Caso o arquivo/template não possua o cabeçalho de 4 linhas, o cursor deve inicializar de forma segura na primeira posição disponível sem causar erros de índice fora de limites (out of bounds).
-- [ ] O viewport/scroll deve acompanhar a posição inicial do cursor adequadamente.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
 ## [#129] feat(cli): adicionar filtros na listagem para repositórios dirty e com push pendente
 - **Status**: `open`
 - **Labels**: none
@@ -133,6 +107,33 @@ Adicionar opções de filtragem na CLI para inspecionar repositórios de acordo 
 - [ ] Suportar flag (ex: `--unpushed` ou `--pending-push`) para listar unicamente repositórios limpos com commits locais pendentes de push.
 - [ ] Exibir saída estruturada e legível informando contagem de arquivos modificados ou commits ahead correspondentes.
 - [ ] Suportar combinação coerente ou validação de exclusão mútua das flags de filtro.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
+## [#127] feat(cli): atualizar contagem de tickets abertos de repositórios no catálogo
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/127
+
+### Description
+## Description
+Necessidade de atualizar a contagem de tickets abertos armazenada nos metadados dos repositórios do catálogo. O comando deve permitir atualizar todos os repositórios ou apenas itens selecionados, integrando com o comando/fluxo existente de tickets quando aplicável.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Permitir atualizar a contagem de tickets de todos os repositórios cadastrados via comando CLI (ex: `catalog update-tickets --all` ou extensão do comando `ticket`).
+- [ ] Permitir especificar repositórios individuais como argumentos para atualização pontual.
+- [ ] Tratar falhas de conectividade ou autenticação na API do forge de maneira graciosa sem interromper todo o lote.
+- [ ] Refletir e persistir a contagem atualizada no catálogo.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
