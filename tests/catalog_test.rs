@@ -1083,4 +1083,3 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
     assert!(colored_table.contains("1.4.0"));
     assert!(colored_table.contains("-"));
 }
-
