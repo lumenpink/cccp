@@ -616,7 +616,7 @@ pub fn parse_ticket_buffer(content: &str) -> Result<(String, String), String> {
 
     let mut lines = content.lines();
     let mut title = "";
-    while let Some(line) = lines.next() {
+    for line in lines.by_ref() {
         let t = line.trim();
         if !t.is_empty() {
             title = t;
@@ -650,11 +650,7 @@ pub fn parse_ticket_buffer(content: &str) -> Result<(String, String), String> {
 /// Validate ticket title and body before submission.
 /// Title must be non-empty and comply with Conventional Commits.
 /// Body must be non-empty.
-pub fn validate_ticket_submission(
-    title: &str,
-    body: &str,
-    config: &Config,
-) -> Result<(), String> {
+pub fn validate_ticket_submission(title: &str, body: &str, config: &Config) -> Result<(), String> {
     let trimmed_title = title.trim();
     if trimmed_title.is_empty() {
         return Err("Ticket title cannot be empty".to_string());
