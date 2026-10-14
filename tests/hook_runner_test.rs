@@ -432,4 +432,3 @@ fn test_reconcile_merge_version_ignores_repo_without_version_file() {
     assert!(res.is_none());
     assert!(!p.join("VERSION").exists());
 }
-
