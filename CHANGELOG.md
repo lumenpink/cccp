@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Local AI Instance & OpenAI-Compatible Endpoint Support in Divan
+- **Generic Local AI Provider & OpenAI-Compatible Integration (`cccp divan` / `cccp diva`)**: Adiciona suporte completo ao provedor `AiProvider::Local` com interface HTTP padrão OpenAI (`/v1/chat/completions`) no Divã, permitindo utilizar instâncias locais como LocalAI, llama.cpp server, vLLM, LM Studio ou sidecars Gosplan. Inclui resolução de configuração via `.cccprc` e variáveis de ambiente (`LOCAL_AI_HOST`, `OPENAI_BASE_URL`, `LOCAL_AI_MODEL`, etc.), flag de atalho `--local` / `--pl` na CLI, validação de conectividade em `check_access()` e padronização do modelo local padrão para `llama3.2:3b`. (closes #149)
+
 ### Initial Cursor Position Below Comments in Divan Editor
 - **Initial Cursor Positioning Below Header Comments (`cccp divan` / `cccp editor`)**: Posiciona o cursor do editor interativo automaticamente na primeira linha livre após os blocos de comentários de cabeçalho (`#`), poupando o usuário de navegar manualmente linhas de instruções iniciais antes de digitar o prompt de triagem. Reconcilia offsets de tela e viewport de rolagem vertical via `clamp_cursor()`, assegurando fallback seguro e livre de pânico em buffers sem comentários ou puramente comentados. (closes #131)
 
