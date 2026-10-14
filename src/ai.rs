@@ -14,6 +14,7 @@ use std::time::Duration;
 pub enum AiProvider {
     Gemini,
     Ollama,
+    Local,
 }
 
 impl fmt::Display for AiProvider {
@@ -21,6 +22,7 @@ impl fmt::Display for AiProvider {
         match self {
             AiProvider::Gemini => write!(f, "gemini"),
             AiProvider::Ollama => write!(f, "ollama"),
+            AiProvider::Local => write!(f, "local"),
         }
     }
 }
@@ -31,9 +33,10 @@ impl FromStr for AiProvider {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.trim().to_ascii_lowercase().as_str() {
             "gemini" | "google" | "g" | "pg" => Ok(AiProvider::Gemini),
-            "ollama" | "local" | "o" | "po" => Ok(AiProvider::Ollama),
+            "ollama" | "o" | "po" => Ok(AiProvider::Ollama),
+            "local" | "openai" | "localai" | "vllm" | "custom" | "pl" => Ok(AiProvider::Local),
             other => Err(format!(
-                "Unknown AI provider '{}'. Valid providers are 'gemini' and 'ollama'.",
+                "Unknown AI provider '{}'. Valid providers are 'gemini', 'ollama', and 'local'.",
                 other
             )),
         }
@@ -79,9 +82,48 @@ impl AiClient {
             .parse::<AiProvider>()
             .unwrap_or(AiProvider::Gemini);
 
-        let (model, temperature) = match provider {
-            AiProvider::Ollama => (config.ollama_model.clone(), config.ollama_temperature),
-            AiProvider::Gemini => (config.gemini_model.clone(), config.gemini_temperature),
+        let (model, host, temperature, api_key) = match provider {
+            AiProvider::Ollama => (
+                config.ollama_model.clone(),
+                config.ollama_host.clone(),
+                config.ollama_temperature,
+                None,
+            ),
+            AiProvider::Gemini => {
+                let key = config
+                    .gemini_api_key
+                    .clone()
+                    .or_else(|| config.extra.get("gemini_api_key").cloned())
+                    .or_else(|| {
+                        std::env::var("GEMINI_API_KEY")
+                            .or_else(|_| std::env::var("gemini_api_key"))
+                            .or_else(|_| std::env::var("GOOGLE_API_KEY"))
+                            .or_else(|_| std::env::var("google_api_key"))
+                            .ok()
+                    })
+                    .filter(|s| !s.trim().is_empty());
+                (
+                    config.gemini_model.clone(),
+                    config.ollama_host.clone(),
+                    config.gemini_temperature,
+                    key,
+                )
+            }
+            AiProvider::Local => {
+                let key = config
+                    .local_ai_api_key
+                    .clone()
+                    .or_else(|| config.extra.get("local_ai_api_key").cloned())
+                    .or_else(|| std::env::var("LOCAL_AI_KEY").ok())
+                    .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+                    .filter(|s| !s.trim().is_empty());
+                (
+                    config.local_ai_model.clone(),
+                    config.local_ai_host.clone(),
+                    config.local_ai_temperature,
+                    key,
+                )
+            }
         };
 
         let ureq_cfg = ureq::config::Config::builder()
@@ -89,23 +131,10 @@ impl AiClient {
             .build();
         let agent = ureq::Agent::new_with_config(ureq_cfg);
 
-        let api_key = config
-            .gemini_api_key
-            .clone()
-            .or_else(|| config.extra.get("gemini_api_key").cloned())
-            .or_else(|| {
-                std::env::var("GEMINI_API_KEY")
-                    .or_else(|_| std::env::var("gemini_api_key"))
-                    .or_else(|_| std::env::var("GOOGLE_API_KEY"))
-                    .or_else(|_| std::env::var("google_api_key"))
-                    .ok()
-            })
-            .filter(|s| !s.trim().is_empty());
-
         Self {
             provider,
             model,
-            host: config.ollama_host.clone(),
+            host,
             temperature,
             api_key,
             agent,
@@ -138,6 +167,43 @@ impl AiClient {
                     )),
                     Err(e) => Err(format!(
                         "Cannot connect to Ollama at {}: {}. Make sure the Ollama daemon is running ('ollama serve') or switch to Gemini (-pg / --gemini).",
+                        self.host, e
+                    )),
+                }
+            }
+            AiProvider::Local => {
+                let base = self.host.trim_end_matches('/');
+                let ping_url = if base.ends_with("/chat/completions") {
+                    base.to_string()
+                } else if base.ends_with("/v1") {
+                    format!("{}/models", base)
+                } else {
+                    format!("{}/v1/models", base)
+                };
+                let ping_agent = ureq::Agent::new_with_config(
+                    ureq::config::Config::builder()
+                        .timeout_global(Some(Duration::from_secs(3)))
+                        .build(),
+                );
+                let mut req = ping_agent.get(&ping_url);
+                if let Some(ref key) = self.api_key {
+                    req = req.header("Authorization", &format!("Bearer {}", key));
+                }
+                match req.call() {
+                    Ok(resp) if resp.status().is_success() => Ok(()),
+                    Ok(resp) => {
+                        if resp.status().as_u16() == 404 || resp.status().as_u16() == 405 {
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "Local AI server at {} returned HTTP status {}.",
+                                self.host,
+                                resp.status()
+                            ))
+                        }
+                    }
+                    Err(e) => Err(format!(
+                        "Cannot connect to local AI server at {}: {}. Ensure your local AI instance (LocalAI, llama.cpp, vLLM, etc.) is running or check your host configuration.",
                         self.host, e
                     )),
                 }
@@ -190,6 +256,7 @@ impl AiClient {
         match self.provider {
             AiProvider::Ollama => self.triage_ollama(user_text, repo_context),
             AiProvider::Gemini => self.triage_gemini(user_text, repo_context),
+            AiProvider::Local => self.triage_local(user_text, repo_context),
         }
     }
 
@@ -475,6 +542,97 @@ Write the ticket body and descriptions in the language used by the user report, 
             })?;
 
         Self::parse_tickets_json(content_text)
+    }
+
+    /// Parse OpenAI-compatible chat completion JSON response
+    pub fn parse_openai_chat_response(raw_json: &str) -> Result<Vec<DecomposedTicket>, String> {
+        let resp_json: serde_json::Value = serde_json::from_str(raw_json)
+            .map_err(|e| format!("Failed to parse OpenAI JSON envelope: {}", e))?;
+
+        let content_text = resp_json
+            .get("choices")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|choice| choice.get("message"))
+            .and_then(|msg| msg.get("content"))
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| {
+                format!(
+                    "OpenAI chat completion response does not contain 'choices[0].message.content': {}",
+                    raw_json
+                )
+            })?;
+
+        Self::parse_tickets_json(content_text)
+    }
+
+    /// Perform triage using local OpenAI-compatible HTTP endpoint (/v1/chat/completions)
+    fn triage_local(
+        &self,
+        user_text: &str,
+        repo_context: Option<&str>,
+    ) -> Result<Vec<DecomposedTicket>, String> {
+        let base = self.host.trim_end_matches('/');
+        let endpoint = if base.ends_with("/chat/completions") {
+            base.to_string()
+        } else if base.ends_with("/v1") {
+            format!("{}/chat/completions", base)
+        } else {
+            format!("{}/v1/chat/completions", base)
+        };
+
+        let prompt = Self::build_prompt(user_text, repo_context);
+        let payload = serde_json::json!({
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": Self::system_instructions()
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "stream": false,
+            "temperature": self.temperature,
+            "response_format": { "type": "json_object" }
+        });
+
+        let mut req = self.agent.post(&endpoint);
+        if let Some(ref key) = self.api_key {
+            req = req.header("Authorization", &format!("Bearer {}", key));
+        }
+
+        let res = match req.send_json(payload) {
+            Ok(r) => r,
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("Connection refused") || err_str.contains("Connect") {
+                    return Err(format!(
+                        "Failed to connect to local AI server at '{}'. Ensure the server daemon is active or verify your host configuration.",
+                        self.host
+                    ));
+                }
+                return Err(format!("Local AI request failed: {}", e));
+            }
+        };
+
+        let status = res.status();
+        let body_str = res
+            .into_body()
+            .read_to_string()
+            .map_err(|e| format!("Failed to read local AI response body: {}", e))?;
+
+        if !status.is_success() {
+            return Err(format!(
+                "Local AI server returned HTTP {}: {}",
+                status.as_u16(),
+                body_str
+            ));
+        }
+
+        Self::parse_openai_chat_response(&body_str)
     }
 
     /// Extract and parse tickets JSON from raw LLM output

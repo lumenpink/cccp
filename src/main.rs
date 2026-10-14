@@ -690,7 +690,15 @@ fn main() -> ExitCode {
 
             // 5. Fail-fast AI provider and connectivity check
             let mut client = cccp::ai::AiClient::from_config(&config);
-            if diva.ollama {
+            if diva.local {
+                client = client.with_provider(cccp::ai::AiProvider::Local);
+                if diva.model.is_none() {
+                    client = client.with_model(&config.local_ai_model);
+                }
+                if diva.host.is_none() {
+                    client = client.with_host(&config.local_ai_host);
+                }
+            } else if diva.ollama {
                 client = client.with_provider(cccp::ai::AiProvider::Ollama);
                 if diva.model.is_none() {
                     client = client.with_model(&config.ollama_model);
@@ -708,6 +716,7 @@ fn main() -> ExitCode {
                             let default_model = match p {
                                 cccp::ai::AiProvider::Ollama => &config.ollama_model,
                                 cccp::ai::AiProvider::Gemini => &config.gemini_model,
+                                cccp::ai::AiProvider::Local => &config.local_ai_model,
                             };
                             client = client.with_model(default_model);
                         }

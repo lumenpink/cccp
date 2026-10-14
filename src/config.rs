@@ -50,10 +50,18 @@ pub struct Config {
     pub ai_provider: String,
     /// Ollama daemon base URL (default: "http://localhost:11434")
     pub ollama_host: String,
-    /// Ollama model name (default: "llama3.2")
+    /// Ollama model name (default: "llama3.2:3b")
     pub ollama_model: String,
     /// Ollama generation temperature
     pub ollama_temperature: f32,
+    /// Local AI (OpenAI-compatible) base URL (default: "http://localhost:8080/v1")
+    pub local_ai_host: String,
+    /// Local AI model name (default: "llama3.2:3b")
+    pub local_ai_model: String,
+    /// Local AI generation temperature
+    pub local_ai_temperature: f32,
+    /// Local AI API key (optional Bearer token)
+    pub local_ai_api_key: Option<String>,
     /// Gemini model name (default: "gemini-flash-latest")
     pub gemini_model: String,
     /// Gemini API key
@@ -134,8 +142,12 @@ impl Default for Config {
             catalog_file: None,
             ai_provider: "gemini".into(),
             ollama_host: "http://localhost:11434".into(),
-            ollama_model: "llama3.2".into(),
+            ollama_model: "llama3.2:3b".into(),
             ollama_temperature: 0.2,
+            local_ai_host: "http://localhost:8080/v1".into(),
+            local_ai_model: "llama3.2:3b".into(),
+            local_ai_temperature: 0.2,
+            local_ai_api_key: None,
             gemini_model: "gemini-flash-latest".into(),
             gemini_api_key: None,
             gemini_temperature: 0.2,
@@ -281,6 +293,25 @@ impl Config {
                     self.ollama_temperature = t;
                 }
             }
+            "local_ai_host" | "local_host" | "openai_host" | "openai_url" | "openai_base_url" => {
+                self.local_ai_host = val.trim().to_string();
+            }
+            "local_ai_model" | "local_model" | "openai_model" => {
+                self.local_ai_model = val.trim().to_string();
+            }
+            "local_ai_temperature" | "local_temperature" => {
+                if let Ok(t) = val.trim().parse::<f32>() {
+                    self.local_ai_temperature = t;
+                }
+            }
+            "local_ai_api_key" | "local_ai_key" | "openai_api_key" | "openai_key" => {
+                let s = val.trim();
+                self.local_ai_api_key = if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_string())
+                };
+            }
             "gemini_model" => {
                 self.gemini_model = val.trim().to_string();
             }
@@ -301,12 +332,14 @@ impl Config {
                 if let Ok(t) = val.trim().parse::<f32>() {
                     self.ollama_temperature = t;
                     self.gemini_temperature = t;
+                    self.local_ai_temperature = t;
                 }
             }
             "ai_model" | "model" => {
                 let m = val.trim().to_string();
                 self.ollama_model = m.clone();
-                self.gemini_model = m;
+                self.gemini_model = m.clone();
+                self.local_ai_model = m;
             }
             _ => {
                 self.extra.insert(normalized, val.trim().to_string());
@@ -407,6 +440,35 @@ impl Config {
         if let Ok(v) = env::var("GEMINI_TEMPERATURE") {
             if let Ok(t) = v.trim().parse::<f32>() {
                 self.gemini_temperature = t;
+            }
+        }
+        if let Ok(v) = env::var("LOCAL_AI_HOST")
+            .or_else(|_| env::var("CCCP_LOCAL_AI_HOST"))
+            .or_else(|_| env::var("OPENAI_BASE_URL"))
+            .or_else(|_| env::var("OPENAI_URL"))
+        {
+            self.local_ai_host = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("LOCAL_AI_MODEL")
+            .or_else(|_| env::var("CCCP_LOCAL_AI_MODEL"))
+            .or_else(|_| env::var("OPENAI_MODEL"))
+        {
+            self.local_ai_model = v.trim().to_string();
+        }
+        if let Ok(v) = env::var("LOCAL_AI_TEMPERATURE")
+            .or_else(|_| env::var("CCCP_LOCAL_AI_TEMPERATURE"))
+        {
+            if let Ok(t) = v.trim().parse::<f32>() {
+                self.local_ai_temperature = t;
+            }
+        }
+        if let Ok(v) = env::var("LOCAL_AI_KEY")
+            .or_else(|_| env::var("LOCAL_AI_API_KEY"))
+            .or_else(|_| env::var("OPENAI_API_KEY"))
+        {
+            let s = v.trim();
+            if !s.is_empty() {
+                self.local_ai_api_key = Some(s.to_string());
             }
         }
     }

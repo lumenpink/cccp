@@ -742,6 +742,10 @@ pub struct DivanArgs {
     #[arg(short = 'o', long = "ollama", visible_alias = "po")]
     pub ollama: bool,
 
+    /// Quick shortcut to use local OpenAI-compatible AI provider (-l, --local, --pl)
+    #[arg(short = 'l', long = "local", visible_alias = "pl")]
+    pub local: bool,
+
     /// Quick shortcut to use Google Gemini provider (-g, --gemini, --pg)
     #[arg(short = 'g', long = "gemini", visible_alias = "pg")]
     pub gemini: bool,
