@@ -979,11 +979,62 @@ pub struct BatchPushReport {
 
 /// Executes safe batch push for clean repositories with pending unpushed commits
 pub fn batch_push_clean_repos(
-    _summaries: &[CatalogRepoSummary],
-    _dry_run: bool,
+    summaries: &[CatalogRepoSummary],
+    dry_run: bool,
     _theme: &crate::cultural::Theme,
 ) -> BatchPushReport {
-    BatchPushReport::default()
+    let mut report = BatchPushReport::default();
+
+    for summary in summaries {
+        let Some(ref path) = summary.local_path else {
+            report.skipped_remote.push(summary.name.clone());
+            continue;
+        };
+
+        if summary.is_clean.is_none() {
+            report.skipped_remote.push(summary.name.clone());
+            continue;
+        }
+
+        if summary.is_clean != Some(true) {
+            report.skipped_dirty.push(summary.name.clone());
+            continue;
+        }
+
+        if summary.unpushed == 0 {
+            report.skipped_up_to_date.push(summary.name.clone());
+            continue;
+        }
+
+        if dry_run {
+            report.dry_run.push(summary.name.clone());
+        } else {
+            let output = std::process::Command::new("git")
+                .arg("push")
+                .current_dir(path)
+                .output();
+
+            match output {
+                Ok(out) if out.status.success() => {
+                    report.pushed.push(summary.name.clone());
+                }
+                Ok(out) => {
+                    let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+                    let msg = if err.is_empty() {
+                        "git push exited with failure".to_string()
+                    } else {
+                        err
+                    };
+                    report.failed.push((summary.name.clone(), msg));
+                }
+                Err(e) => {
+                    report.failed.push((summary.name.clone(), e.to_string()));
+                }
+            }
+        }
+    }
+
+    report
 }
 
 /// Gathers summaries and executes batch push for catalog entries
@@ -994,6 +1045,97 @@ pub fn batch_push_catalog(
 ) -> BatchPushReport {
     let summaries = summarize_catalog(entries);
     batch_push_clean_repos(&summaries, dry_run, theme)
+}
+
+/// Pretty-formats the batch push report into a constructivist Gosplan summary
+pub fn format_batch_push_report(
+    report: &BatchPushReport,
+    theme: &crate::cultural::Theme,
+) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("{}\n", theme.gold_bold("★ Gosplan Pre-Push Batch Report ★")));
+
+    if !report.dry_run.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.cyan("✦ [DRY-RUN]"),
+            theme.bold("Repositories eligible for push:"),
+            report.dry_run.len()
+        ));
+        for name in &report.dry_run {
+            out.push_str(&format!("  {} {}\n", theme.cyan("→"), name));
+        }
+    }
+
+    if !report.pushed.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.green("✔"),
+            theme.bold("Pushed successfully:"),
+            report.pushed.len()
+        ));
+        for name in &report.pushed {
+            out.push_str(&format!("  {} {}\n", theme.green("✓"), name));
+        }
+    }
+
+    if !report.failed.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.red_bold("✖"),
+            theme.bold("Push failed:"),
+            report.failed.len()
+        ));
+        for (name, err) in &report.failed {
+            out.push_str(&format!("  {} {}: {}\n", theme.red("✗"), name, err));
+        }
+    }
+
+    if !report.skipped_dirty.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.yellow("⚠"),
+            theme.bold("Skipped dirty working trees (uncommitted changes):"),
+            report.skipped_dirty.len()
+        ));
+        for name in &report.skipped_dirty {
+            out.push_str(&format!("  {} {}\n", theme.yellow("!"), name));
+        }
+    }
+
+    if !report.skipped_up_to_date.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.dim("•"),
+            theme.dim("Up-to-date (no unpushed commits):"),
+            report.skipped_up_to_date.len()
+        ));
+        for name in &report.skipped_up_to_date {
+            out.push_str(&format!("  {} {}\n", theme.dim("•"), theme.dim(name)));
+        }
+    }
+
+    if !report.skipped_remote.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.dim("•"),
+            theme.dim("Remote only / unmanaged locally:"),
+            report.skipped_remote.len()
+        ));
+        for name in &report.skipped_remote {
+            out.push_str(&format!("  {} {}\n", theme.dim("•"), theme.dim(name)));
+        }
+    }
+
+    let total_active = report.dry_run.len() + report.pushed.len() + report.failed.len();
+    if total_active == 0 && report.skipped_dirty.is_empty() {
+        out.push_str(&format!(
+            "\n{} All local repositories are up-to-date with remotes.\n",
+            theme.green("✓")
+        ));
+    }
+
+    out
 }
 
 

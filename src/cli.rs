@@ -522,8 +522,16 @@ pub struct ChangelogArgs {
     pub range: Option<String>,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone, Default)]
 pub struct PushArgs {
+    /// Batch push all clean catalog repositories with unpushed commits
+    #[arg(short = 'a', long = "all")]
+    pub all: bool,
+
+    /// Preview repositories without executing push
+    #[arg(short = 'n', long = "dry-run")]
+    pub dry_run: bool,
+
     /// Arguments to forward directly to git push
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub git_args: Vec<String>,
@@ -639,6 +647,12 @@ pub enum CatalogSubcommands {
     List(CatalogFilterArgs),
     /// Create a new compliant GOST repository
     New(InitArgs),
+    /// Push all clean repositories in catalog with pending commits
+    Push {
+        /// Preview repositories without executing push
+        #[arg(short = 'n', long = "dry-run")]
+        dry_run: bool,
+    },
 }
 
 #[derive(Debug, Args, Clone, Default)]

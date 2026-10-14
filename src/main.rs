@@ -1191,17 +1191,31 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Push(push)) => {
-            let mut cmd = std::process::Command::new("git");
-            cmd.arg("push");
-            if !push.git_args.is_empty() {
-                cmd.args(&push.git_args);
-            }
-            match cmd.status() {
-                Ok(status) if status.success() => ExitCode::SUCCESS,
-                Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
-                Err(e) => {
-                    eprintln!("Error executing git push: {}", e);
+            if push.all {
+                let entries = cccp::catalog::load_catalog(Some(&config), None);
+                let report = cccp::catalog::batch_push_catalog(&entries, push.dry_run, &theme);
+                println!("{}", cccp::catalog::format_batch_push_report(&report, &theme));
+                if !report.failed.is_empty() {
                     ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
+            } else {
+                let mut cmd = std::process::Command::new("git");
+                cmd.arg("push");
+                if push.dry_run {
+                    cmd.arg("--dry-run");
+                }
+                if !push.git_args.is_empty() {
+                    cmd.args(&push.git_args);
+                }
+                match cmd.status() {
+                    Ok(status) if status.success() => ExitCode::SUCCESS,
+                    Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
+                    Err(e) => {
+                        eprintln!("Error executing git push: {}", e);
+                        ExitCode::FAILURE
+                    }
                 }
             }
         }
@@ -1508,6 +1522,16 @@ fn main() -> ExitCode {
                         eprintln!("{}: {}", theme.red_bold("Error"), e);
                         ExitCode::FAILURE
                     }
+                }
+            }
+            Some(cli::CatalogSubcommands::Push { dry_run }) => {
+                let entries = cccp::catalog::load_catalog(Some(&config), None);
+                let report = cccp::catalog::batch_push_catalog(&entries, dry_run, &theme);
+                println!("{}", cccp::catalog::format_batch_push_report(&report, &theme));
+                if !report.failed.is_empty() {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
                 }
             }
         },
