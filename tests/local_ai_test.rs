@@ -60,3 +60,37 @@ fn test_parse_openai_completion_response() {
     assert_eq!(tickets[0].title, "feat(core): suporte local");
     assert_eq!(tickets[0].labels, vec!["enhancement".to_string()]);
 }
+
+#[test]
+fn test_parse_openai_completion_with_markdown_fence() {
+    let payload = serde_json::json!({
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "```json\n{\"tickets\": [{\"title\": \"fix(api): corrigir parsing\", \"rationale\": \"Trata markdown fences\", \"labels\": [\"bug\"], \"body\": \"## Description\\nTeste fence\"}]}\n```"
+                }
+            }
+        ]
+    });
+
+    let tickets = AiClient::parse_openai_chat_response(&payload.to_string()).unwrap();
+    assert_eq!(tickets.len(), 1);
+    assert_eq!(tickets[0].title, "fix(api): corrigir parsing");
+}
+
+#[test]
+fn test_parse_openai_completion_malformed_envelope() {
+    // Empty choices
+    let payload = serde_json::json!({ "choices": [] });
+    assert!(AiClient::parse_openai_chat_response(&payload.to_string()).is_err());
+
+    // Missing message content
+    let payload_no_content = serde_json::json!({
+        "choices": [{ "message": { "role": "assistant" } }]
+    });
+    assert!(AiClient::parse_openai_chat_response(&payload_no_content.to_string()).is_err());
+
+    // Invalid JSON envelope
+    assert!(AiClient::parse_openai_chat_response("not-a-json").is_err());
+}
