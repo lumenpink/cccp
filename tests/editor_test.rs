@@ -183,3 +183,69 @@ fn test_editor_soft_wrap_cursor_mapping_and_navigation() {
     let out = editor.to_content();
     assert_eq!(out, "0123456789ABCDEFGHIJ01234\nSecond\n");
 }
+
+#[test]
+fn test_editor_soft_wrap_mutation_edge_cases() {
+    // 1. Exact boundary (len == screen_cols)
+    let mut editor = Editor::new("Boundary", "1234567890");
+    editor.screen_cols = 10;
+    editor.soft_wrap = true;
+    let vlines = editor.compute_visual_lines();
+    assert_eq!(
+        vlines.len(),
+        1,
+        "Exact screen_cols width must produce exactly 1 chunk"
+    );
+    assert_eq!(vlines[0].char_len, 10);
+
+    // 2. Off-by-one boundary (len == screen_cols + 1)
+    let mut editor_plus = Editor::new("Boundary + 1", "12345678901");
+    editor_plus.screen_cols = 10;
+    editor_plus.soft_wrap = true;
+    let vlines_plus = editor_plus.compute_visual_lines();
+    assert_eq!(
+        vlines_plus.len(),
+        2,
+        "screen_cols + 1 must produce 2 chunks"
+    );
+    assert_eq!(vlines_plus[0].char_len, 10);
+    assert_eq!(vlines_plus[1].char_len, 1);
+
+    // 3. UTF-8 multibyte characters (accents, emojis, cyrillic)
+    // 10 chars: "Café ☭ pão" (contains multibyte é, ☭, ã)
+    let utf8_text = "Café ☭ pão!"; // 11 chars
+    let mut editor_utf8 = Editor::new("UTF8", utf8_text);
+    editor_utf8.screen_cols = 5;
+    editor_utf8.soft_wrap = true;
+    let vlines_utf8 = editor_utf8.compute_visual_lines();
+    assert_eq!(vlines_utf8.len(), 3); // 5, 5, 1
+    assert_eq!(vlines_utf8[0].char_len, 5);
+    assert_eq!(vlines_utf8[1].char_len, 5);
+    assert_eq!(vlines_utf8[2].char_len, 1);
+
+    // 4. PageDown and PageUp navigation with soft wrap
+    let mut editor_page = Editor::new(
+        "PageNav",
+        "Line 0\nLine 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6",
+    );
+    editor_page.screen_cols = 80;
+    editor_page.screen_rows = 3;
+    editor_page.soft_wrap = true;
+    editor_page.cursor_y = 0;
+    editor_page.cursor_x = 0;
+
+    editor_page.move_cursor(crossterm::event::KeyCode::PageDown);
+    assert_eq!(editor_page.cursor_y, 3);
+
+    editor_page.move_cursor(crossterm::event::KeyCode::PageUp);
+    assert_eq!(editor_page.cursor_y, 0);
+
+    // 5. Clamping and rendering does not panic with empty lines or wrapped lines
+    let mut empty_editor = Editor::new("Empty", "");
+    empty_editor.screen_cols = 20;
+    empty_editor.screen_rows = 5;
+    empty_editor.soft_wrap = true;
+    empty_editor.clamp_cursor();
+    assert_eq!(empty_editor.cursor_x, 0);
+    assert_eq!(empty_editor.cursor_y, 0);
+}
