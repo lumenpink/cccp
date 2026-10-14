@@ -97,18 +97,179 @@ pub fn find_workflow(repo_root: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Isolates test/verification jobs in workflow YAML, stripping deploy/release jobs for act
-pub fn isolate_test_jobs(content: &str, _target_job: Option<&str>) -> String {
-    content.to_string()
+struct JobBlock {
+    id: String,
+    lines: Vec<String>,
 }
 
-/// Sanitizes Forgejo full GitHub action URLs (`uses: https://github.com/...`) for act compatibility
+fn filter_needs_clause(val: &str, kept_ids: &std::collections::HashSet<&str>) -> Option<String> {
+    let trimmed = val.trim();
+    if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        let inside = &trimmed[1..trimmed.len() - 1];
+        let items: Vec<&str> = inside
+            .split(',')
+            .map(|s| s.trim().trim_matches(|c| c == '\'' || c == '"'))
+            .filter(|s| kept_ids.contains(s))
+            .collect();
+        if items.is_empty() {
+            None
+        } else {
+            Some(format!("[{}]", items.join(", ")))
+        }
+    } else {
+        let single = trimmed.trim_matches(|c| c == '\'' || c == '"');
+        if kept_ids.contains(single) {
+            Some(trimmed.to_string())
+        } else {
+            None
+        }
+    }
+}
+
+/// Isolates test/verification jobs in workflow YAML, stripping deploy/release jobs for act
+pub fn isolate_test_jobs(content: &str, target_job: Option<&str>) -> String {
+    let mut before_jobs = Vec::new();
+    let mut in_jobs = false;
+    let mut after_jobs = Vec::new();
+    let mut jobs: Vec<JobBlock> = Vec::new();
+    let mut current_job: Option<JobBlock> = None;
+
+    for line in content.lines() {
+        if !in_jobs {
+            if line.starts_with("jobs:") {
+                in_jobs = true;
+            } else {
+                before_jobs.push(line.to_string());
+            }
+        } else {
+            // Check if top-level key ends jobs section (indent 0 and not empty/comment)
+            if !line.starts_with(' ') && !line.is_empty() && !line.starts_with('#') {
+                if let Some(j) = current_job.take() {
+                    jobs.push(j);
+                }
+                in_jobs = false;
+                after_jobs.push(line.to_string());
+                continue;
+            }
+
+            // Check if this is a job header (starts with 2 spaces and not 3 or 4)
+            if line.starts_with("  ") && !line.starts_with("   ") {
+                let trimmed = line.trim();
+                if let Some(colon_pos) = trimmed.find(':') {
+                    let job_id = trimmed[..colon_pos].trim();
+                    if !job_id.is_empty() && !job_id.contains(' ') {
+                        if let Some(j) = current_job.take() {
+                            jobs.push(j);
+                        }
+                        current_job = Some(JobBlock {
+                            id: job_id.to_string(),
+                            lines: vec![line.to_string()],
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            // Otherwise, line belongs to current job
+            if let Some(ref mut j) = current_job {
+                j.lines.push(line.to_string());
+            }
+        }
+    }
+
+    if let Some(j) = current_job {
+        jobs.push(j);
+    }
+
+    if jobs.is_empty() {
+        return content.to_string();
+    }
+
+    let is_cd = |id: &str| -> bool {
+        let lower = id.to_ascii_lowercase();
+        if lower.contains("test")
+            || lower.contains("check")
+            || lower.contains("lint")
+            || lower.contains("verify")
+            || lower.contains("audit")
+            || lower.contains("fmt")
+            || lower.contains("clippy")
+        {
+            return false;
+        }
+        lower.contains("deploy")
+            || lower.contains("release")
+            || lower.contains("publish")
+            || lower.contains("upload")
+            || lower.contains("pages")
+            || lower.contains("package")
+            || lower.contains("ship")
+            || lower.contains("notify")
+    };
+
+    let kept_jobs: Vec<&JobBlock> = jobs
+        .iter()
+        .filter(|j| {
+            if let Some(target) = target_job {
+                j.id == target || !is_cd(&j.id)
+            } else {
+                !is_cd(&j.id)
+            }
+        })
+        .collect();
+
+    // If all jobs would be removed, preserve original
+    if kept_jobs.is_empty() {
+        return content.to_string();
+    }
+
+    let kept_ids: std::collections::HashSet<&str> =
+        kept_jobs.iter().map(|j| j.id.as_str()).collect();
+
+    let mut out = String::with_capacity(content.len());
+    for line in before_jobs {
+        out.push_str(&line);
+        out.push('\n');
+    }
+    out.push_str("jobs:\n");
+
+    for job in kept_jobs {
+        for line in &job.lines {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with("needs:") {
+                let needs_val = trimmed["needs:".len()..].trim();
+                let cleaned_needs = filter_needs_clause(needs_val, &kept_ids);
+                if let Some(c) = cleaned_needs {
+                    let indent = line.len() - trimmed.len();
+                    out.push_str(&" ".repeat(indent));
+                    out.push_str("needs: ");
+                    out.push_str(&c);
+                    out.push('\n');
+                }
+            } else {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+
+    for line in after_jobs {
+        out.push_str(&line);
+        out.push('\n');
+    }
+
+    out
+}
+
+/// Sanitizes Forgejo full GitHub action URLs (`uses: https://github.com/...`)
+/// and isolates test jobs for act compatibility
 pub fn sanitize_workflow_if_needed(wf_path: &Path) -> (PathBuf, Option<tempfile::NamedTempFile>) {
     if let Ok(content) = std::fs::read_to_string(wf_path) {
-        if content.contains("uses: https://github.com/") {
-            let sanitized = content.replace("uses: https://github.com/", "uses: ");
+        let mut sanitized = content.replace("uses: https://github.com/", "uses: ");
+        let isolated = isolate_test_jobs(&sanitized, None);
+        if isolated != content {
             if let Ok(mut tmp) = tempfile::Builder::new().suffix(".yml").tempfile() {
-                if tmp.write_all(sanitized.as_bytes()).is_ok() {
+                if tmp.write_all(isolated.as_bytes()).is_ok() {
                     return (tmp.path().to_path_buf(), Some(tmp));
                 }
             }
