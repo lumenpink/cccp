@@ -33,6 +33,7 @@ pub struct Editor {
     pub status_msg: String,
     pub header_prefix: String,
     pub save_label: String,
+    pub draft_handler: Option<Box<dyn FnMut(&str) -> Result<(), String>>>,
 }
 
 impl Editor {
@@ -59,6 +60,7 @@ impl Editor {
             status_msg: format!("CCCP Editor — {} | Ctrl+S Save | Ctrl+Q Cancel", title),
             header_prefix: "CCCP EDITOR".to_string(),
             save_label: "Save".to_string(),
+            draft_handler: None,
         }
     }
 
@@ -78,6 +80,31 @@ impl Editor {
 
     pub fn set_save_label(&mut self, label: &str) {
         self.save_label = label.to_string();
+    }
+
+    /// Sets custom draft save handler triggered via Ctrl+R
+    pub fn set_draft_handler(&mut self, handler: Box<dyn FnMut(&str) -> Result<(), String>>) {
+        self.draft_handler = Some(handler);
+    }
+
+    /// Triggers manual draft saving, invokes draft_handler and updates status bar
+    pub fn trigger_draft(&mut self) -> Result<(), String> {
+        let content = self.to_content();
+        if let Some(ref mut handler) = self.draft_handler {
+            match handler(&content) {
+                Ok(()) => {
+                    self.status_msg = "★ Rascunho salvo com sucesso [Ctrl+R]".to_string();
+                    Ok(())
+                }
+                Err(e) => {
+                    self.status_msg = format!("Erro ao salvar rascunho: {}", e);
+                    Err(e)
+                }
+            }
+        } else {
+            self.status_msg = "★ Rascunho salvo com sucesso [Ctrl+R]".to_string();
+            Ok(())
+        }
     }
 
     /// Toggle soft wrap mode on and off, reconciling scroll offsets cleanly
@@ -554,7 +581,7 @@ impl Editor {
         // 3. Help footer (persistent shortcuts)
         output.push_str("\x1b[1;30;47m");
         let help = format!(
-            " Ctrl+S {}  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ",
+            " Ctrl+S {}  Ctrl+R Rascunho  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ",
             self.save_label
         );
         output.push_str(&help);
@@ -600,6 +627,9 @@ pub fn run_editor(mut editor: Editor) -> Result<Option<String>, String> {
             })) => match (code, modifiers) {
                 (KeyCode::Char('s'), KeyModifiers::CONTROL) | (KeyCode::F(2), _) => {
                     break Ok(Some(editor.to_content()));
+                }
+                (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
+                    let _ = editor.trigger_draft();
                 }
                 (KeyCode::Char('q'), KeyModifiers::CONTROL)
                 | (KeyCode::Char('c'), KeyModifiers::CONTROL)
@@ -675,6 +705,36 @@ pub fn edit_ticket(title: &str, initial_content: &str) -> Result<Option<String>,
 /// Returns Ok(Some(new_text)) if submitted (Ctrl+S / F2), or Ok(None) if canceled (Ctrl+Q / Esc).
 pub fn edit_prompt(title: &str, initial_content: &str) -> Result<Option<String>, String> {
     let editor = Editor::new_prompt(title, initial_content);
+    run_editor(editor)
+}
+
+/// Edit prompt interactively with a custom draft handler triggered by Ctrl+R.
+pub fn edit_prompt_with_draft<F>(
+    title: &str,
+    initial_content: &str,
+    draft_handler: F,
+) -> Result<Option<String>, String>
+where
+    F: FnMut(&str) -> Result<(), String> + 'static,
+{
+    let mut editor = Editor::new_prompt(title, initial_content);
+    editor.set_draft_handler(Box::new(draft_handler));
+    run_editor(editor)
+}
+
+/// Edit ticket interactively with a custom draft handler triggered by Ctrl+R.
+pub fn edit_ticket_with_draft<F>(
+    title: &str,
+    initial_content: &str,
+    draft_handler: F,
+) -> Result<Option<String>, String>
+where
+    F: FnMut(&str) -> Result<(), String> + 'static,
+{
+    let mut editor = Editor::new(title, initial_content);
+    editor.set_header_prefix("CCCP TICKET EDITOR");
+    editor.set_save_label("Submit");
+    editor.set_draft_handler(Box::new(draft_handler));
     run_editor(editor)
 }
 

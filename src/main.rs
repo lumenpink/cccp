@@ -767,52 +767,116 @@ fn main() -> ExitCode {
             let mut resume_from_tickets: Option<(String, Vec<cccp::ai::DecomposedTicket>, usize)> =
                 None;
 
-            if let Ok(Some(cp)) = cccp::checkpoint::DivanCheckpoint::load(&target_dir) {
-                let stage_desc = match cp.stage {
-                    cccp::checkpoint::CheckpointStage::PromptEntered => {
-                        "interrompida antes da chamada à IA (prompt preservado)".to_string()
+            // Check intentional manual drafts first (Ctrl+R / Vim swap style)
+            if let Ok(Some(draft)) = cccp::draft::DivanDraft::load(&target_dir) {
+                let stage_desc = match draft.stage {
+                    cccp::draft::DraftStage::Prompt => {
+                        "rascunho de prompt preliminar".to_string()
                     }
-                    cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
-                        format!("com {} ticket(s) pendente(s) de revisão", cp.tickets.len())
+                    cccp::draft::DraftStage::TicketsReview => {
+                        format!("rascunho com {} ticket(s) pendente(s) de revisão", draft.tickets.len())
                     }
                 };
 
-                let restore_prompt = format!(
-                    "Sessão anterior encontrada para este repositório ({})",
-                    stage_desc
-                );
-
-                let should_restore = if std::io::stdin().is_terminal() {
-                    print!(
-                        "{} {}. Restaurar sessão? [Y/n] → ",
-                        theme.yellow("★ [GOSPLAN]"),
-                        restore_prompt
-                    );
-                    let _ = std::io::stdout().flush();
-                    let key = cccp::ai::read_single_key().unwrap_or('y');
-                    println!();
-                    key != 'n' && key != 'N'
-                } else {
-                    true
-                };
-
-                if should_restore {
+                let choice = if std::io::stdin().is_terminal() {
                     println!(
-                        "  {} {}",
-                        theme.green("✓"),
-                        theme.bold("Sessão anterior restaurada com sucesso.")
+                        "{} Encontrado {} para este repositório.",
+                        theme.yellow("★ [GOSPLAN]"),
+                        stage_desc
                     );
-                    match cp.stage {
+                    loop {
+                        print!("  [c] Continuar rascunho  [m] Manter e novo  [d] Descartar e novo → ");
+                        let _ = std::io::stdout().flush();
+                        let key = cccp::ai::read_single_key().unwrap_or('c');
+                        println!();
+                        match key {
+                            'c' | 'C' => break 'c',
+                            'm' | 'M' => break 'm',
+                            'd' | 'D' => break 'd',
+                            _ => {}
+                        }
+                    }
+                } else {
+                    'c'
+                };
+
+                match choice {
+                    'c' => {
+                        println!(
+                            "  {} {}",
+                            theme.green("✓"),
+                            theme.bold("Rascunho restaurado com sucesso.")
+                        );
+                        match draft.stage {
+                            cccp::draft::DraftStage::Prompt => {
+                                prompt_arg = Some(draft.prompt);
+                            }
+                            cccp::draft::DraftStage::TicketsReview => {
+                                resume_from_tickets =
+                                    Some((draft.prompt, draft.tickets, draft.current_index));
+                            }
+                        }
+                    }
+                    'm' => {
+                        println!("  {} Rascunho mantido no disco.", theme.dim("ℹ"));
+                    }
+                    'd' => {
+                        println!("  {} Rascunho descartado do disco.", theme.dim("ℹ"));
+                        let _ = cccp::draft::DivanDraft::clear(&target_dir);
+                    }
+                    _ => {}
+                }
+            }
+
+            // If no draft was resumed, check unintentional crash checkpoints
+            if resume_from_tickets.is_none() && prompt_arg.is_none() {
+                if let Ok(Some(cp)) = cccp::checkpoint::DivanCheckpoint::load(&target_dir) {
+                    let stage_desc = match cp.stage {
                         cccp::checkpoint::CheckpointStage::PromptEntered => {
-                            prompt_arg = Some(cp.prompt);
+                            "interrompida antes da chamada à IA (prompt preservado)".to_string()
                         }
                         cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
-                            resume_from_tickets = Some((cp.prompt, cp.tickets, cp.current_index));
+                            format!("com {} ticket(s) pendente(s) de revisão", cp.tickets.len())
                         }
+                    };
+
+                    let restore_prompt = format!(
+                        "Sessão anterior encontrada para este repositório ({})",
+                        stage_desc
+                    );
+
+                    let should_restore = if std::io::stdin().is_terminal() {
+                        print!(
+                            "{} {}. Restaurar sessão? [Y/n] → ",
+                            theme.yellow("★ [GOSPLAN]"),
+                            restore_prompt
+                        );
+                        let _ = std::io::stdout().flush();
+                        let key = cccp::ai::read_single_key().unwrap_or('y');
+                        println!();
+                        key != 'n' && key != 'N'
+                    } else {
+                        true
+                    };
+
+                    if should_restore {
+                        println!(
+                            "  {} {}",
+                            theme.green("✓"),
+                            theme.bold("Sessão anterior restaurada com sucesso.")
+                        );
+                        match cp.stage {
+                            cccp::checkpoint::CheckpointStage::PromptEntered => {
+                                prompt_arg = Some(cp.prompt);
+                            }
+                            cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
+                                resume_from_tickets = Some((cp.prompt, cp.tickets, cp.current_index));
+                            }
+                        }
+                    } else {
+                        println!("  {} Sessão anterior descartada.", theme.dim("ℹ"));
+                        let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
                     }
-                } else {
-                    println!("  {} Sessão anterior descartada.", theme.dim("ℹ"));
-                    let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
                 }
             }
 
@@ -845,7 +909,24 @@ fn main() -> ExitCode {
                         "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
                         target_label
                     );
-                    match cccp::editor::edit_prompt("Divan - Triage Prompt", &initial_prompt) {
+                    let target_dir_draft = target_dir.clone();
+                    let draft_saver = move |content: &str| {
+                        let filtered: Vec<&str> = content
+                            .lines()
+                            .filter(|line| !line.trim().starts_with('#'))
+                            .collect();
+                        let prompt_text = filtered.join("\n").trim().to_string();
+                        if !prompt_text.is_empty() {
+                            cccp::draft::DivanDraft::save_prompt(&target_dir_draft, &prompt_text)
+                        } else {
+                            Ok(())
+                        }
+                    };
+                    match cccp::editor::edit_prompt_with_draft(
+                        "Divan - Triage Prompt",
+                        &initial_prompt,
+                        draft_saver,
+                    ) {
                         Ok(Some(edited)) => {
                             let filtered: Vec<&str> = edited
                                 .lines()
@@ -964,7 +1045,29 @@ fn main() -> ExitCode {
                 let editor_title =
                     format!("Ticket {}/{} — Review & Submit", idx + 1, tickets.len());
 
-                match cccp::editor::edit_ticket(&editor_title, &initial_content) {
+                let target_dir_draft = target_dir.clone();
+                let prompt_draft = prompt.clone();
+                let tickets_draft = tickets.clone();
+                let current_idx = idx;
+                let draft_saver = move |content: &str| {
+                    let mut d_tickets = tickets_draft.clone();
+                    if let Ok((t, b)) = cccp::editor::parse_ticket_buffer(content) {
+                        d_tickets[current_idx].title = t;
+                        d_tickets[current_idx].body = b;
+                    }
+                    cccp::draft::DivanDraft::save_tickets(
+                        &target_dir_draft,
+                        &prompt_draft,
+                        &d_tickets,
+                        current_idx,
+                    )
+                };
+
+                match cccp::editor::edit_ticket_with_draft(
+                    &editor_title,
+                    &initial_content,
+                    draft_saver,
+                ) {
                     Ok(Some(edited)) => match cccp::editor::parse_ticket_buffer(&edited) {
                         Ok((title, body)) => {
                             match cccp::editor::validate_ticket_submission(&title, &body, &config) {
@@ -1139,6 +1242,7 @@ fn main() -> ExitCode {
 
             if idx >= tickets.len() {
                 let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
+                let _ = cccp::draft::DivanDraft::clear(&target_dir);
             }
 
             if created_count > 0 {

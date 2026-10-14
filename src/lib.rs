@@ -13,6 +13,7 @@ pub mod config;
 pub mod cultural;
 pub mod cz;
 pub mod deps;
+pub mod draft;
 pub mod editor;
 pub mod forges;
 pub mod git;
