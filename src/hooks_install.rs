@@ -8,8 +8,9 @@ use crate::git::GitRepo;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub const HOOK_NAMES: [&str; 5] = [
+pub const HOOK_NAMES: [&str; 6] = [
     "commit-msg",
+    "pre-commit",
     "pre-push",
     "post-commit",
     "reference-transaction",

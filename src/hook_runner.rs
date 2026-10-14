@@ -335,18 +335,194 @@ pub fn run_post_merge(
 
 /// Handler for the `pre-commit` git hook
 pub fn run_pre_commit(
-    _repo: &GitRepo,
-    _theme: &Theme,
-    _verbose: u8,
+    repo: &GitRepo,
+    theme: &Theme,
+    verbose: u8,
 ) -> Result<i32, String> {
+    if std::env::var("HOOK_ACTIVE").as_deref() == Ok("1") {
+        return Ok(0);
+    }
+
+    let version_file = repo.root_dir.join("VERSION");
+    if !version_file.is_file() {
+        return Ok(0);
+    }
+
+    let config = Config::load_hierarchical(Some(&repo.root_dir));
+    let no_v = config.no_v;
+    let default_base = &config.default_base_version;
+
+    let predicted = crate::semver_calc::calculate_version(repo, default_base, no_v, None)?;
+
+    // For the upcoming commit in pre-commit, the commit count is commits_since_tag + 1
+    let next_commits_count = repo.commits_since_tag.len() + 1;
+    let pre_str = format!("dev.{}", next_commits_count);
+    let build_str = format!("{}.{}", repo.head_date, repo.head_short_id);
+
+    let mut dev_ver = match semver::Version::parse(&predicted.target_version) {
+        Ok(v) => v,
+        Err(e) => {
+            if verbose > 0 {
+                eprintln!(
+                    "{}: Failed to parse target version: {}",
+                    theme.yellow("Warning"),
+                    e
+                );
+            }
+            return Ok(0);
+        }
+    };
+
+    dev_ver.pre = match semver::Prerelease::new(&pre_str) {
+        Ok(p) => p,
+        Err(_) => semver::Prerelease::EMPTY,
+    };
+    dev_ver.build = match semver::BuildMetadata::new(&build_str) {
+        Ok(b) => b,
+        Err(_) => semver::BuildMetadata::EMPTY,
+    };
+
+    let new_version = dev_ver.to_string();
+
+    let current_content = std::fs::read_to_string(&version_file)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    if current_content != new_version {
+        if let Err(e) = std::fs::write(&version_file, format!("{}\n", new_version)) {
+            eprintln!(
+                "{}: Failed to write VERSION file: {}",
+                theme.yellow("Warning"),
+                e
+            );
+            return Ok(0);
+        }
+
+        let status = Command::new("git")
+            .args(["add", "VERSION"])
+            .current_dir(&repo.root_dir)
+            .status();
+
+        match status {
+            Ok(s) if s.success() => {
+                if verbose > 0 {
+                    println!(
+                        "{} Pre-commit: VERSION synchronized to '{}'.",
+                        theme.green("✓"),
+                        new_version
+                    );
+                }
+            }
+            _ => {
+                if verbose > 0 {
+                    eprintln!(
+                        "{}: Failed to stage VERSION file during pre-commit.",
+                        theme.yellow("Warning")
+                    );
+                }
+            }
+        }
+    }
+
     Ok(0)
 }
 
 /// Reconcile VERSION file after a merge if the calculated version diverges from disk
 pub fn reconcile_merge_version(
-    _repo: &GitRepo,
-    _theme: &Theme,
+    repo: &GitRepo,
+    theme: &Theme,
 ) -> Result<Option<String>, String> {
-    Ok(None)
+    let version_file = repo.root_dir.join("VERSION");
+    if !version_file.is_file() {
+        return Ok(None);
+    }
+
+    // Open repository freshly at current state
+    let fresh_repo = GitRepo::open(Some(&repo.root_dir))?;
+
+    // If the latest commit is already a reconciliation commit, do not chain another
+    if fresh_repo
+        .commits_since_tag
+        .first()
+        .map(|c| c.summary.starts_with("chore(version):"))
+        .unwrap_or(false)
+    {
+        return Ok(None);
+    }
+
+    let config = Config::load_hierarchical(Some(&repo.root_dir));
+    let no_v = config.no_v;
+    let default_base = &config.default_base_version;
+
+    let predicted = crate::semver_calc::calculate_version(&fresh_repo, default_base, no_v, None)?;
+
+    let current_content = std::fs::read_to_string(&version_file)
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    // In sequential fast-forward merges, VERSION already matches the calculated state of HEAD
+    if predicted.is_release && current_content == predicted.target_version {
+        return Ok(None);
+    }
+    if !predicted.is_release && current_content == predicted.dev_version {
+        return Ok(None);
+    }
+
+    // Version diverged! Calculate target version for the reconciliation commit
+    let target_version = if predicted.is_release {
+        predicted.target_version.clone()
+    } else {
+        let next_count = fresh_repo.commits_since_tag.len() + 1;
+        let pre_str = format!("dev.{}", next_count);
+        let build_str = format!("{}.{}", fresh_repo.head_date, fresh_repo.head_short_id);
+
+        let mut dev_ver = match semver::Version::parse(&predicted.target_version) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        dev_ver.pre = semver::Prerelease::new(&pre_str).unwrap_or(semver::Prerelease::EMPTY);
+        dev_ver.build =
+            semver::BuildMetadata::new(&build_str).unwrap_or(semver::BuildMetadata::EMPTY);
+        dev_ver.to_string()
+    };
+
+    if current_content == target_version {
+        return Ok(None);
+    }
+
+    // Write reconciled version
+    std::fs::write(&version_file, format!("{}\n", target_version))
+        .map_err(|e| format!("Failed to write VERSION file: {}", e))?;
+
+    let add_status = Command::new("git")
+        .args(["add", "VERSION"])
+        .current_dir(&repo.root_dir)
+        .status()
+        .map_err(|e| format!("Failed to stage VERSION: {}", e))?;
+
+    if !add_status.success() {
+        return Err("git add VERSION failed".to_string());
+    }
+
+    let commit_msg = format!("chore(version): sincronizar VERSION para {}", target_version);
+    let commit_status = Command::new("git")
+        .args(["commit", "-m", &commit_msg])
+        .current_dir(&repo.root_dir)
+        .status()
+        .map_err(|e| format!("Failed to commit reconciled VERSION: {}", e))?;
+
+    if !commit_status.success() {
+        return Err("git commit for VERSION reconciliation failed".to_string());
+    }
+
+    println!(
+        "{} Reconciliado VERSION pós-merge para '{}'.",
+        theme.cyan("★ [GOSPLAN]"),
+        target_version
+    );
+
+    Ok(Some(target_version))
 }
 

@@ -361,6 +361,8 @@ pub struct HookArgs {
 
 #[derive(Debug, Subcommand, Clone)]
 pub enum HookSubcommands {
+    /// Run pre-commit hook actions (automatic VERSION sync into stage)
+    PreCommit,
     /// Run commit-msg hook validation on commit message file
     CommitMsg {
         /// Path to commit message file (e.g. .git/COMMIT_EDITMSG)

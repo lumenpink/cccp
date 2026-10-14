@@ -332,7 +332,7 @@ fn test_reconcile_merge_version_behavior() {
         .status()
         .unwrap();
     Command::new("git")
-        .args(["tag", "v0.1.0"])
+        .args(["tag", "-a", "v0.1.0", "-m", "release 0.1.0"])
         .current_dir(p)
         .status()
         .unwrap();
@@ -360,7 +360,7 @@ fn test_reconcile_merge_version_behavior() {
     );
 
     let version_content = fs::read_to_string(p.join("VERSION")).unwrap();
-    assert!(version_content.contains("0.2.0-dev.1"));
+    assert!(version_content.contains("0.2.0-dev.2"));
 
     // Check that a commit was created with chore(version)
     let log = Command::new("git")

@@ -330,6 +330,23 @@ fn main() -> ExitCode {
                 }
             } else if let Some(ref sub) = hook.hook {
                 match sub {
+                    cli::HookSubcommands::PreCommit => {
+                        let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                            Ok(r) => r,
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                return ExitCode::FAILURE;
+                            }
+                        };
+                        match cccp::hook_runner::run_pre_commit(&repo, &theme, args.verbose) {
+                            Ok(0) => ExitCode::SUCCESS,
+                            Ok(code) => ExitCode::from(code as u8),
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
                     cli::HookSubcommands::CommitMsg {
                         file,
                         source: _,
@@ -1956,6 +1973,14 @@ fn main() -> ExitCode {
                         theme.green("✓"),
                         merge_args.branch
                     );
+                    // Automatically reconcile VERSION if diverged (e.g. parallel branches)
+                    if let Err(e) = cccp::hook_runner::reconcile_merge_version(&repo, &theme) {
+                        eprintln!(
+                            "  {} Notice: Could not reconcile VERSION after merge: {}",
+                            theme.yellow("!"),
+                            e
+                        );
+                    }
                     // Automatically close tickets if not already closed by post-merge hook
                     if !closing_ids.is_empty() {
                         let comment =
