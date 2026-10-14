@@ -1152,11 +1152,43 @@ pub struct BatchAssembleReport {
 
 /// Executes batch GOST specification assembly for resolved repository paths
 pub fn batch_assemble_gost_repos(
-    _repos: &[(&str, Option<&Path>)],
-    _dry_run: bool,
+    repos: &[(&str, Option<&Path>)],
+    dry_run: bool,
     _theme: &crate::cultural::Theme,
 ) -> BatchAssembleReport {
-    BatchAssembleReport::default()
+    let mut report = BatchAssembleReport::default();
+
+    for (name, path_opt) in repos {
+        let Some(path) = path_opt else {
+            report.skipped_remote.push(name.to_string());
+            continue;
+        };
+
+        if !path.exists() {
+            report.skipped_remote.push(name.to_string());
+            continue;
+        }
+
+        if !path.join("GOSTVER").is_file() {
+            report.skipped_no_gostver.push(name.to_string());
+            continue;
+        }
+
+        if dry_run {
+            report.dry_run.push(name.to_string());
+        } else {
+            match crate::profile::assemble_gost_specs(path) {
+                Ok(_) => {
+                    report.assembled.push(name.to_string());
+                }
+                Err(e) => {
+                    report.failed.push((name.to_string(), e.to_string()));
+                }
+            }
+        }
+    }
+
+    report
 }
 
 /// Executes batch GOST specification assembly for catalog repositories
@@ -1178,9 +1210,83 @@ pub fn batch_assemble_gost(
 
 /// Formats the batch assemble report into a constructivist summary
 pub fn format_batch_assemble_report(
-    _report: &BatchAssembleReport,
-    _theme: &crate::cultural::Theme,
+    report: &BatchAssembleReport,
+    theme: &crate::cultural::Theme,
 ) -> String {
-    String::new()
+    let mut out = String::new();
+    out.push_str(&format!(
+        "{}\n",
+        theme.gold_bold("★ Gosplan Batch GOST Assembly Report ★")
+    ));
+
+    if !report.dry_run.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.cyan("✦ [DRY-RUN]"),
+            theme.bold("Repositories eligible for GOST assembly:"),
+            report.dry_run.len()
+        ));
+        for name in &report.dry_run {
+            out.push_str(&format!("  {} {}\n", theme.cyan("→"), name));
+        }
+    }
+
+    if !report.assembled.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.green("✔"),
+            theme.bold("Assembled .gost/GOST.md successfully:"),
+            report.assembled.len()
+        ));
+        for name in &report.assembled {
+            out.push_str(&format!("  {} {}\n", theme.green("✓"), name));
+        }
+    }
+
+    if !report.failed.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.red_bold("✖"),
+            theme.bold("Failed to assemble GOST:"),
+            report.failed.len()
+        ));
+        for (name, err) in &report.failed {
+            out.push_str(&format!("  {} {}: {}\n", theme.red("✗"), name, err));
+        }
+    }
+
+    if !report.skipped_no_gostver.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.dim("•"),
+            theme.dim("Skipped (no GOSTVER defined):"),
+            report.skipped_no_gostver.len()
+        ));
+        for name in &report.skipped_no_gostver {
+            out.push_str(&format!("  {} {}\n", theme.dim("•"), theme.dim(name)));
+        }
+    }
+
+    if !report.skipped_remote.is_empty() {
+        out.push_str(&format!(
+            "\n{} {} ({})\n",
+            theme.dim("•"),
+            theme.dim("Remote only / unmanaged locally:"),
+            report.skipped_remote.len()
+        ));
+        for name in &report.skipped_remote {
+            out.push_str(&format!("  {} {}\n", theme.dim("•"), theme.dim(name)));
+        }
+    }
+
+    let total_active = report.dry_run.len() + report.assembled.len() + report.failed.len();
+    if total_active == 0 && report.skipped_no_gostver.is_empty() && report.skipped_remote.is_empty() {
+        out.push_str(&format!(
+            "\n{} No catalog repositories found to assemble.\n",
+            theme.green("✓")
+        ));
+    }
+
+    out
 }
 

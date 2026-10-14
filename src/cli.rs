@@ -173,7 +173,18 @@ pub enum ProfileCommand {
     Set(ProfileSetArgs),
 
     /// Assemble full cascading GOST specification into .gost/GOST.md including CUSTOM.md overrides
-    Assemble,
+    Assemble(ProfileAssembleArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct ProfileAssembleArgs {
+    /// Batch assemble GOST specifications for all catalog repositories
+    #[arg(short = 'a', long = "all")]
+    pub all: bool,
+
+    /// Preview repositories without executing file generation
+    #[arg(short = 'n', long = "dry-run")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Args, Clone)]
@@ -650,6 +661,13 @@ pub enum CatalogSubcommands {
     /// Push all clean repositories in catalog with pending commits
     Push {
         /// Preview repositories without executing push
+        #[arg(short = 'n', long = "dry-run")]
+        dry_run: bool,
+    },
+    /// Assemble cascading GOST specification (.gost/GOST.md) for catalog repositories
+    #[command(alias = "gost")]
+    Assemble {
+        /// Preview repositories without executing assembly
         #[arg(short = 'n', long = "dry-run")]
         dry_run: bool,
     },

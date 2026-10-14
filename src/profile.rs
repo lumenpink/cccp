@@ -342,19 +342,41 @@ pub fn handle_profile_command(
                 Err(e) => Err(format!("Falha ao atualizar GOSTVER: {}", e)),
             }
         }
-        Some(crate::cli::ProfileCommand::Assemble) => match assemble_gost_specs(root) {
-            Ok(_) => {
-                println!(
-                    "{} Montagem em cascata concluída com sucesso!",
-                    theme.green("✓ [GOSPLAN]")
+        Some(crate::cli::ProfileCommand::Assemble(ref assemble_args)) => {
+            if assemble_args.all {
+                let entries = crate::catalog::load_catalog(None, None);
+                let report = crate::catalog::batch_assemble_gost(
+                    &entries,
+                    assemble_args.dry_run,
+                    theme,
                 );
                 println!(
-                    "  Destino : {}",
-                    theme.green(&root.join(".gost/GOST.md").display().to_string())
+                    "{}",
+                    crate::catalog::format_batch_assemble_report(&report, theme)
                 );
+                if !report.failed.is_empty() {
+                    return Err(format!(
+                        "Falha na montagem de {} repositório(s)",
+                        report.failed.len()
+                    ));
+                }
                 Ok(())
+            } else {
+                match assemble_gost_specs(root) {
+                    Ok(_) => {
+                        println!(
+                            "{} Montagem em cascata concluída com sucesso!",
+                            theme.green("✓ [GOSPLAN]")
+                        );
+                        println!(
+                            "  Destino : {}",
+                            theme.green(&root.join(".gost/GOST.md").display().to_string())
+                        );
+                        Ok(())
+                    }
+                    Err(e) => Err(format!("Falha ao montar perfil em cascata: {}", e)),
+                }
             }
-            Err(e) => Err(format!("Falha ao montar perfil em cascata: {}", e)),
-        },
+        }
     }
 }

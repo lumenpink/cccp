@@ -1540,6 +1540,19 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             }
+            Some(cli::CatalogSubcommands::Assemble { dry_run }) => {
+                let entries = cccp::catalog::load_catalog(Some(&config), None);
+                let report = cccp::catalog::batch_assemble_gost(&entries, dry_run, &theme);
+                println!(
+                    "{}",
+                    cccp::catalog::format_batch_assemble_report(&report, &theme)
+                );
+                if !report.failed.is_empty() {
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
+            }
         },
         Some(Commands::Ci(act_args)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {

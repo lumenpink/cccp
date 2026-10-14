@@ -5,7 +5,7 @@
 
 use cccp::cli::{
     AgentSubcommands, BumpType, CatalogSubcommands, CiSubcommands, Cli, Commands, DepsSubcommands,
-    ForgeActions, HookSubcommands, SpoolSubcommands, VersionFormat,
+    ForgeActions, HookSubcommands, ProfileCommand, SpoolSubcommands, VersionFormat,
 };
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -626,6 +626,31 @@ fn test_push_command_options() {
             _ => panic!("Expected CatalogSubcommands::Push"),
         },
         _ => panic!("Expected Commands::Catalog"),
+    }
+}
+
+#[test]
+fn test_batch_assemble_command_options() {
+    let cli_cat_assemble = Cli::try_parse_from(["cccp", "catalog", "assemble", "--dry-run"])
+        .expect("should parse catalog assemble options");
+    match cli_cat_assemble.command {
+        Some(Commands::Catalog(c)) => match c.action {
+            Some(CatalogSubcommands::Assemble { dry_run }) => {
+                assert!(dry_run);
+            }
+            _ => panic!("Expected CatalogSubcommands::Assemble"),
+        },
+        _ => panic!("Expected Commands::Catalog"),
+    }
+
+    let cli_profile_assemble = Cli::try_parse_from(["cccp", "profile", "assemble", "--all", "-n"])
+        .expect("should parse profile assemble options");
+    match cli_profile_assemble.command {
+        Some(Commands::Profile(ProfileCommand::Assemble(args))) => {
+            assert!(args.all);
+            assert!(args.dry_run);
+        }
+        _ => panic!("Expected Commands::Profile(ProfileCommand::Assemble)"),
     }
 }
 
