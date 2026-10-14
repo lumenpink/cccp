@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Initial Cursor Position Below Comments in Divan Editor
+- **Initial Cursor Positioning Below Header Comments (`cccp divan` / `cccp editor`)**: Posiciona o cursor do editor interativo automaticamente na primeira linha livre após os blocos de comentários de cabeçalho (`#`), poupando o usuário de navegar manualmente linhas de instruções iniciais antes de digitar o prompt de triagem. Reconcilia offsets de tela e viewport de rolagem vertical via `clamp_cursor()`, assegurando fallback seguro e livre de pânico em buffers sem comentários ou puramente comentados. (closes #131)
+
 ### Soft Wrap Default and Toggle in CCCP Editor
 - **Default Soft Wrap and Dedicated Toggle (`cccp editor` / `cccp edit`)**: Garante que o editor abra com quebra automática de linha (*soft wrap*) ativada por padrão, fornecendo método e atalho dedicado `Alt+W` para alternar o modo sob demanda. Reconcilia os offsets de rolagem horizontal e vertical na transição (zerando `col_offset` ao ativar wrap e alinhando `row_offset` ao desativar), com sinalização do indicador `[WRAP]` na barra de status. (closes #132)
 
