@@ -1,9 +1,9 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-14 20:02:49 UTC
+> Synced at: 2026-10-14 22:31:01 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#149] feat(api): suportar instancia local de IA para o Divan
-- **Status**: `open`
+- **Status**: `closed`
 - **Labels**: none
 - **Link**: https://codeberg.org/lumenpink/cccp/issues/149
 
@@ -62,28 +62,54 @@ Na sincronização (`cccp ticket` / `cccp sync`), baixar os comentários existen
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
-## [#135] feat(cli): suportar salvamento manual de rascunhos com atalho e gerenciamento por repositório
-- **Status**: `open`
+## [#147] fix(hook): sincronizar arquivo VERSION automaticamente no pre-commit
+- **Status**: `closed`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/135
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/147
+
+### Description
+### Descrição
+Durante a migração do CCCP para Rust, a atualização automática do arquivo `VERSION` foi perdida. Originalmente, o arquivo `VERSION` era atualizado dinamicamente na fase de `pre-commit` com a versão calculada pelo SemVer 2.0.0 preditivo (ex.: `0.4.0-dev.46+20261014.7c0b89e`), sendo colocado em *stage* (`git add VERSION`) para ser incluído no próprio commit.
+
+Atualmente, o `cccp version` calcula a versão corretamente via AST/grafo do Git, mas o arquivo `VERSION` em disco fica estagnado a menos que o usuário execute manualmente `cccp version -f dev -w`.
+
+### Comportamento Esperado & Critérios de Aceite
+1. O hook `pre-commit` (ou o despachador de hooks do CCCP) deve recalcular a versão com base nos commits e tags existentes e atualizar o arquivo `VERSION`.
+2. Se o arquivo `VERSION` for atualizado durante o `pre-commit`, deve adicioná-lo ao index do Git (`git add VERSION`) de modo limpo e transparente.
+3. Respeitar configurações de formato ou flags para repositórios com ou sem arquivo `VERSION` sob padrão GOST (GOST-03-VERSION-SEMVER).
+4. Cobertura de testes unitários e de integração para a rotina de pre-commit e sincronização do `VERSION`.
+
+### Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `fix/147-pre-commit-version-sync` criada
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação da sincronização no pre-commit
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional do sync no hook pre-commit
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter `-D warnings` e `cargo fmt`
+- [ ] Fase 9 - Close: Changelog atualizado e commit com `(closes #<id>)`
+
+---
+## [#146] feat(catalog): exibir coluna de versao gost na listagem de repositorios do catalogo
+- **Status**: `closed`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/146
 
 ### Description
 ## Description
-
-Permitir que o usuário salve rascunhos intencionalmente durante a redação ou revisão de tickets no Divã para alternar entre diferentes repositórios sem perder o conteúdo digitado. O rascunho deve ser salvo via atalho de teclado (`Ctrl+R`) e associado ao repositório ativo. Ao reabrir o Divã no mesmo repositório, deve ser apresentado um menu de decisão semelhante ao comportamento do Vim para arquivos de swap.
+A listagem do catálogo (`cccp catalog list`) exibe informações sobre Forge, Tickets, Status Git e Caminho Local. No entanto, não apresenta o status de governança GOST de cada repositório (ex.: versão ativa em `GOSTVER`, norma vigente ou status de conformidade). Adicionar uma coluna GOST permite identificar instantaneamente repositórios defasados ou sem governança ativa.
 
 ## Expected Behavior & Acceptance Criteria
-- [ ] Capturar o atalho `Ctrl+R` na interface de entrada de texto para salvar o rascunho atual com feedback visual.
-- [ ] Isolar o armazenamento de rascunhos por repositório (ex.: rascunho de `cccp` não interfere no de `fuxico`).
-- [ ] Ao iniciar o Divã em um repositório que possua rascunho salvo, apresentar as opções:
-  - Continuar o rascunho anterior;
-  - Manter o rascunho e gerar novo ticket;
-  - Descartar o rascunho e gerar novo ticket.
-- [ ] Permitir salvar como rascunho tickets já processados pelo Gemini que estejam aguardando aprovação.
+- [ ] Incluir coluna `GOST` na tabela renderizada por `cccp catalog list`.
+- [ ] Exibir a versão declarada em `GOSTVER` (ex.: `1.4.0`) para repositórios locais com GOST ativo.
+- [ ] Exibir `-` ou indicador visual de ausência para repositórios sem `GOSTVER`.
+- [ ] Suporte a ordenação por versão GOST via flag `--sort gost`.
+- [ ] Testes unitários para renderização de colunas e extração de versão no catálogo.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 2 - Branch: Branch <tipo>/<id>-<slug> criada a partir de develop/main
 - [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
 - [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
 - [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
@@ -93,51 +119,24 @@ Permitir que o usuário salve rascunhos intencionalmente durante a redação ou 
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
-## [#129] feat(cli): adicionar filtros na listagem para repositórios dirty e com push pendente
-- **Status**: `open`
+## [#145] feat(catalog): executar montagem de especificacoes gost em lote para repositorios do catalogo
+- **Status**: `closed`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/129
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/145
 
 ### Description
 ## Description
-Adicionar opções de filtragem na CLI para inspecionar repositórios de acordo com seu estado local de git, permitindo filtrar exclusivamente os repositórios dirty (com alterações locais) ou exclusivamente os limpos com commits pendentes de envio ao remote.
+Atualmente, a montagem da especificação GOST (`.gost/GOST.md`) via cascata de perfis (`cccp profile assemble`) é executada apenas no repositório corrente (`cwd`). Para manter múltiplos repositórios do catálogo sincronizados e em conformidade técnica após atualizações de normas ou perfis, é necessário suportar a execução de assemble em lote (ex.: `cccp catalog assemble` ou `cccp profile assemble --all`).
 
 ## Expected Behavior & Acceptance Criteria
-- [ ] Suportar flag (ex: `--dirty`) para listar unicamente repositórios que possuem modificações staged ou unstaged no working tree.
-- [ ] Suportar flag (ex: `--unpushed` ou `--pending-push`) para listar unicamente repositórios limpos com commits locais pendentes de push.
-- [ ] Exibir saída estruturada e legível informando contagem de arquivos modificados ou commits ahead correspondentes.
-- [ ] Suportar combinação coerente ou validação de exclusão mútua das flags de filtro.
+- [ ] Implementar flag ou comando para montar `.gost/GOST.md` em lote para todos os repositórios locais registrados no catálogo.
+- [ ] Ignorar repositórios sem clone local ou que não possuam arquivo `GOSTVER`.
+- [ ] Exibir relatório consolidado de sucesso/falha por repositório com estética construtivista.
+- [ ] Testes unitários para execução em lote e isolamento entre repositórios.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#127] feat(cli): atualizar contagem de tickets abertos de repositórios no catálogo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/127
-
-### Description
-## Description
-Necessidade de atualizar a contagem de tickets abertos armazenada nos metadados dos repositórios do catálogo. O comando deve permitir atualizar todos os repositórios ou apenas itens selecionados, integrando com o comando/fluxo existente de tickets quando aplicável.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Permitir atualizar a contagem de tickets de todos os repositórios cadastrados via comando CLI (ex: `catalog update-tickets --all` ou extensão do comando `ticket`).
-- [ ] Permitir especificar repositórios individuais como argumentos para atualização pontual.
-- [ ] Tratar falhas de conectividade ou autenticação na API do forge de maneira graciosa sem interromper todo o lote.
-- [ ] Refletir e persistir a contagem atualizada no catálogo.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 2 - Branch: Branch <tipo>/<id>-<slug> criada a partir de develop/main
 - [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
 - [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
 - [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
