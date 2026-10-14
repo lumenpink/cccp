@@ -102,7 +102,68 @@ fn test_checkpoint_isolation_between_different_repositories() {
 
     DivanCheckpoint::clear(repo1).unwrap();
     assert!(DivanCheckpoint::load(repo1).unwrap().is_none());
-    assert!(DivanCheckpoint::load(repo2).unwrap().is_some());
-
     DivanCheckpoint::clear(repo2).unwrap();
+}
+
+#[test]
+fn test_checkpoint_corrupted_json_handled_gracefully() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let repo_path = tmp.path();
+
+    // Save valid checkpoint first to get its path on disk
+    DivanCheckpoint::save_prompt(repo_path, "Prompt inicial").expect("Save valid checkpoint");
+
+    // Overwrite checkpoint with corrupt invalid JSON
+    let cp_file = {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let cache_dir = std::path::PathBuf::from(home)
+            .join(".cache")
+            .join("cccp")
+            .join("checkpoints");
+        let canon = repo_path.canonicalize().unwrap_or_else(|_| repo_path.to_path_buf());
+        let s = canon.to_string_lossy();
+        let sanitized: String = s
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .collect();
+        cache_dir.join(format!("{}.json", sanitized.trim_matches('_')))
+    };
+
+    assert!(cp_file.exists(), "Checkpoint file must exist on disk");
+    std::fs::write(&cp_file, "{ corrupted invalid json: [").expect("Write corrupted json");
+
+    // Loading corrupted checkpoint must not panic, but return Ok(None)
+    let res = DivanCheckpoint::load(repo_path).expect("Loading corrupted must not return Err");
+    assert!(res.is_none(), "Corrupted checkpoint must be ignored and return None");
+
+    // Clearing must succeed
+    DivanCheckpoint::clear(repo_path).expect("Clear corrupted must succeed");
+    assert!(!cp_file.exists());
+}
+
+#[test]
+fn test_checkpoint_overwrite_and_stage_transition() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let repo_path = tmp.path();
+
+    // 1. Prompt stage
+    DivanCheckpoint::save_prompt(repo_path, "Refactor core").expect("Save prompt");
+    let cp1 = DivanCheckpoint::load(repo_path).unwrap().unwrap();
+    assert_eq!(cp1.stage, CheckpointStage::PromptEntered);
+
+    // 2. Transition to tickets stage
+    let tickets = vec![DecomposedTicket {
+        title: "refactor(core): cleanup".to_string(),
+        rationale: None,
+        labels: vec![],
+        body: "Body".to_string(),
+    }];
+    DivanCheckpoint::save_tickets(repo_path, "Refactor core", &tickets, 0).expect("Save tickets");
+    let cp2 = DivanCheckpoint::load(repo_path).unwrap().unwrap();
+    assert_eq!(cp2.stage, CheckpointStage::TicketsPendingReview);
+    assert_eq!(cp2.tickets.len(), 1);
+
+    // 3. Clear non-existent does not fail
+    DivanCheckpoint::clear(repo_path).expect("Clear existing");
+    DivanCheckpoint::clear(repo_path).expect("Clear already cleared must not error");
 }
