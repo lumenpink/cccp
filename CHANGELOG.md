@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Divan Session Checkpointing and Crash Recovery
+- **Session Checkpoints & State Recovery (`cccp divan` / `cccp diva`)**: Adiciona mecanismo automático de checkpoint indexado por repositório em cache de usuário (`$XDG_CACHE_HOME/cccp/checkpoints/`), salvando prompts de triagem e tickets pendentes de revisão gerados pela IA. Detecta sessões não finalizadas na inicialização, permitindo restaurar exatamente do ponto da interrupção (pulando nova chamada à IA caso os tickets já tenham sido gerados) ou descartar, e limpando o checkpoint após conclusão bem-sucedida. (closes #134)
+
 ### Ticket Review & Submission in CCCP Editor
 - **Direct Ticket Review and Submission (`cccp divan` / `cccp editor`)**: Integra a revisão e submissão de tickets do Divã diretamente no CCCP Editor, suprimindo cartões e listas prolixas de 9 fases no terminal. A primeira linha do buffer é interpretada como título (com validação estrita segundo Conventional Commits) e o restante como corpo. Adiciona barra contextual (`★ [CCCP TICKET EDITOR]`) e atalho contextual de envio (`Ctrl+S Submit` / `F2`), permitindo abortar sem efeitos colaterais com `Ctrl+Q` / `Esc`. (closes #138)
 
