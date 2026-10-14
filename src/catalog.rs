@@ -455,19 +455,146 @@ pub fn save_catalog(
     Ok(save_path)
 }
 
+/// Validate whether an alias collides with existing repository names, slugs, or other aliases.
+pub fn validate_alias_collision(
+    target_slug: &str,
+    alias: &str,
+    catalog: &[CatalogEntry],
+) -> Result<(), String> {
+    let clean = alias.trim();
+    if clean.is_empty() {
+        return Err("Apelido não pode ser vazio.".to_string());
+    }
+
+    for entry in catalog {
+        if entry.slug.eq_ignore_ascii_case(target_slug) {
+            if entry.name.eq_ignore_ascii_case(clean) {
+                return Err(format!(
+                    "Conflito: o apelido '{}' coincide com o nome do próprio repositório '{}'.",
+                    clean, entry.name
+                ));
+            }
+            continue;
+        }
+
+        // Collision with canonical name of another repo
+        if entry.name.eq_ignore_ascii_case(clean) {
+            return Err(format!(
+                "Conflito de identificador: o apelido '{}' colide com o nome canônico do repositório '{}' ({}).",
+                clean, entry.name, entry.slug
+            ));
+        }
+
+        // Collision with slug of another repo
+        if entry.slug.eq_ignore_ascii_case(clean) {
+            return Err(format!(
+                "Conflito de identificador: o apelido '{}' colide com o slug do repositório '{}'.",
+                clean, entry.slug
+            ));
+        }
+
+        // Collision with alias of another repo
+        if entry.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean)) {
+            return Err(format!(
+                "Conflito de identificador: o apelido '{}' já está em uso pelo repositório '{}' ({}).",
+                clean, entry.name, entry.slug
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Add one or more aliases to an existing catalog repository, validating collision safety.
+pub fn add_repo_aliases(
+    repo_identifier: &str,
+    new_aliases: &[String],
+    config: Option<&crate::config::Config>,
+) -> Result<CatalogEntry, String> {
+    let clean_id = repo_identifier.trim();
+    let mut catalog = load_catalog(config, None);
+
+    let idx = catalog
+        .iter()
+        .position(|e| {
+            e.slug.eq_ignore_ascii_case(clean_id)
+                || e.name.eq_ignore_ascii_case(clean_id)
+                || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean_id))
+        })
+        .ok_or_else(|| format!("Repositório '{}' não encontrado no catálogo.", clean_id))?;
+
+    let target_slug = catalog[idx].slug.clone();
+
+    // Validate all new aliases
+    for alias in new_aliases {
+        validate_alias_collision(&target_slug, alias, &catalog)?;
+    }
+
+    // Add and deduplicate
+    for alias in new_aliases {
+        let clean_a = alias.trim();
+        if !catalog[idx]
+            .aliases
+            .iter()
+            .any(|a| a.eq_ignore_ascii_case(clean_a))
+        {
+            catalog[idx].aliases.push(clean_a.to_string());
+        }
+    }
+
+    let updated_entry = catalog[idx].clone();
+    save_catalog(&catalog, config)?;
+    Ok(updated_entry)
+}
+
+/// Remove one or more aliases from an existing catalog repository.
+pub fn remove_repo_aliases(
+    repo_identifier: &str,
+    aliases_to_remove: &[String],
+    config: Option<&crate::config::Config>,
+) -> Result<CatalogEntry, String> {
+    let clean_id = repo_identifier.trim();
+    let mut catalog = load_catalog(config, None);
+
+    let idx = catalog
+        .iter()
+        .position(|e| {
+            e.slug.eq_ignore_ascii_case(clean_id)
+                || e.name.eq_ignore_ascii_case(clean_id)
+                || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean_id))
+        })
+        .ok_or_else(|| format!("Repositório '{}' não encontrado no catálogo.", clean_id))?;
+
+    for alias in aliases_to_remove {
+        let clean_a = alias.trim();
+        catalog[idx]
+            .aliases
+            .retain(|a| !a.eq_ignore_ascii_case(clean_a));
+    }
+
+    let updated_entry = catalog[idx].clone();
+    save_catalog(&catalog, config)?;
+    Ok(updated_entry)
+}
+
 /// Add or update a remote repository in the catalog without requiring a prior local clone
 pub fn add_remote_repo(
     repo_input: &str,
     name_override: Option<&str>,
     desc_override: Option<&str>,
+    aliases: &[String],
     config: Option<&crate::config::Config>,
 ) -> Result<(CatalogEntry, PathBuf, bool), String> {
     let info = parse_repo_identifier(repo_input)?;
     let mut catalog = load_catalog(config, None);
 
     let forge_name = info.forge_name().to_string();
-
     let slug = format!("{}/{}", info.owner, info.repo);
+
+    // Validate aliases for collisions
+    for alias in aliases {
+        validate_alias_collision(&slug, alias, &catalog)?;
+    }
 
     // Fetch remote metadata (graceful fallback if unavailable)
     let forge_client = crate::forges::ForgeClient::new();
@@ -504,14 +631,34 @@ pub fn add_remote_repo(
         if !remote_meta.website.is_empty() {
             existing.website = remote_meta.website;
         }
+        for alias in aliases {
+            let clean_a = alias.trim();
+            if !existing
+                .aliases
+                .iter()
+                .any(|a| a.eq_ignore_ascii_case(clean_a))
+            {
+                existing.aliases.push(clean_a.to_string());
+            }
+        }
         entry = existing.clone();
         is_updated = true;
     } else {
+        let mut entry_aliases = Vec::new();
+        for alias in aliases {
+            let clean_a = alias.trim();
+            if !entry_aliases
+                .iter()
+                .any(|a: &String| a.eq_ignore_ascii_case(clean_a))
+            {
+                entry_aliases.push(clean_a.to_string());
+            }
+        }
         entry = CatalogEntry {
             name: entry_name,
             forge: forge_name,
             slug,
-            aliases: Vec::new(),
+            aliases: entry_aliases,
             description: entry_desc,
             topics: remote_meta.topics,
             license: remote_meta.license,

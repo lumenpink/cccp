@@ -733,10 +733,12 @@ fn test_catalog_command_options() {
                 repo,
                 name,
                 description,
+                aliases,
             }) => {
                 assert_eq!(repo, "codeberg.org/lumenpink/joaju");
                 assert_eq!(name.as_deref(), Some("joaju"));
                 assert_eq!(description.as_deref(), Some("Microframework"));
+                assert!(aliases.is_empty());
             }
             _ => panic!("Expected CatalogSubcommands::Add"),
         },

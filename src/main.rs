@@ -1390,11 +1390,13 @@ fn main() -> ExitCode {
                 repo,
                 name,
                 description,
+                aliases,
             }) => {
                 match cccp::catalog::add_remote_repo(
                     &repo,
                     name.as_deref(),
                     description.as_deref(),
+                    &aliases,
                     Some(&config),
                 ) {
                     Ok((entry, path, is_updated)) => {
@@ -1408,6 +1410,9 @@ fn main() -> ExitCode {
                         println!("  • Name:   {}", theme.bold(&entry.name));
                         println!("  • Forge:  {}", entry.forge);
                         println!("  • Slug:   {}", theme.cyan(&entry.slug));
+                        if !entry.aliases.is_empty() {
+                            println!("  • Aliases: {}", theme.yellow(&entry.aliases.join(", ")));
+                        }
                         if !entry.description.is_empty() {
                             println!("  • Desc:   {}", entry.description);
                         }
@@ -1422,6 +1427,174 @@ fn main() -> ExitCode {
                     Err(err) => {
                         eprintln!("{}: {}", theme.red_bold("Error"), err);
                         ExitCode::FAILURE
+                    }
+                }
+            }
+            Some(cli::CatalogSubcommands::Alias(alias_args)) => {
+                match alias_args.action {
+                    Some(cli::CatalogAliasSubcommands::Add { repo, aliases }) => {
+                        match cccp::catalog::add_repo_aliases(&repo, &aliases, Some(&config)) {
+                            Ok(entry) => {
+                                println!(
+                                    "{} Comrade! Added aliases to '{}' ({}):",
+                                    theme.gold_bold("★"),
+                                    theme.bold(&entry.name),
+                                    theme.cyan(&entry.slug)
+                                );
+                                println!(
+                                    "  • Current Aliases: {}",
+                                    theme.yellow(&entry.aliases.join(", "))
+                                );
+                                ExitCode::SUCCESS
+                            }
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    Some(cli::CatalogAliasSubcommands::Remove { repo, aliases }) => {
+                        match cccp::catalog::remove_repo_aliases(&repo, &aliases, Some(&config)) {
+                            Ok(entry) => {
+                                println!(
+                                    "{} Comrade! Removed aliases from '{}' ({}):",
+                                    theme.gold_bold("★"),
+                                    theme.bold(&entry.name),
+                                    theme.cyan(&entry.slug)
+                                );
+                                if entry.aliases.is_empty() {
+                                    println!("  • Current Aliases: {}", theme.dim("(none)"));
+                                } else {
+                                    println!(
+                                        "  • Current Aliases: {}",
+                                        theme.yellow(&entry.aliases.join(", "))
+                                    );
+                                }
+                                ExitCode::SUCCESS
+                            }
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    Some(cli::CatalogAliasSubcommands::List { repo }) => {
+                        let catalog = cccp::catalog::load_catalog(Some(&config), None);
+                        if let Some(ref r) = repo {
+                            let clean_r = r.trim();
+                            if let Some(entry) = catalog.iter().find(|e| {
+                                e.slug.eq_ignore_ascii_case(clean_r)
+                                    || e.name.eq_ignore_ascii_case(clean_r)
+                                    || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean_r))
+                            }) {
+                                println!(
+                                    "{} Repository '{}' ({}):",
+                                    theme.gold_bold("★"),
+                                    theme.bold(&entry.name),
+                                    theme.cyan(&entry.slug)
+                                );
+                                if entry.aliases.is_empty() {
+                                    println!("  • Aliases: {}", theme.dim("(none)"));
+                                } else {
+                                    println!(
+                                        "  • Aliases: {}",
+                                        theme.yellow(&entry.aliases.join(", "))
+                                    );
+                                }
+                                ExitCode::SUCCESS
+                            } else {
+                                eprintln!(
+                                    "{}: Repositório '{}' não encontrado no catálogo.",
+                                    theme.red_bold("Error"),
+                                    clean_r
+                                );
+                                ExitCode::FAILURE
+                            }
+                        } else {
+                            println!("{} Configured Repository Aliases:", theme.gold_bold("★"));
+                            let mut has_any = false;
+                            for entry in &catalog {
+                                if !entry.aliases.is_empty() {
+                                    has_any = true;
+                                    println!(
+                                        "  • {} ({}) -> {}",
+                                        theme.bold(&entry.name),
+                                        theme.cyan(&entry.slug),
+                                        theme.yellow(&entry.aliases.join(", "))
+                                    );
+                                }
+                            }
+                            if !has_any {
+                                println!("  {}", theme.dim("No aliases configured in catalog."));
+                            }
+                            ExitCode::SUCCESS
+                        }
+                    }
+                    None => {
+                        if let Some(ref r) = alias_args.repo {
+                            if !alias_args.aliases.is_empty() {
+                                match cccp::catalog::add_repo_aliases(
+                                    r,
+                                    &alias_args.aliases,
+                                    Some(&config),
+                                ) {
+                                    Ok(entry) => {
+                                        println!(
+                                            "{} Comrade! Associated aliases to '{}' ({}):",
+                                            theme.gold_bold("★"),
+                                            theme.bold(&entry.name),
+                                            theme.cyan(&entry.slug)
+                                        );
+                                        println!(
+                                            "  • Current Aliases: {}",
+                                            theme.yellow(&entry.aliases.join(", "))
+                                        );
+                                        ExitCode::SUCCESS
+                                    }
+                                    Err(e) => {
+                                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                                        ExitCode::FAILURE
+                                    }
+                                }
+                            } else {
+                                let catalog = cccp::catalog::load_catalog(Some(&config), None);
+                                let clean_r = r.trim();
+                                if let Some(entry) = catalog.iter().find(|e| {
+                                    e.slug.eq_ignore_ascii_case(clean_r)
+                                        || e.name.eq_ignore_ascii_case(clean_r)
+                                        || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean_r))
+                                }) {
+                                    println!(
+                                        "{} Repository '{}' ({}):",
+                                        theme.gold_bold("★"),
+                                        theme.bold(&entry.name),
+                                        theme.cyan(&entry.slug)
+                                    );
+                                    if entry.aliases.is_empty() {
+                                        println!("  • Aliases: {}", theme.dim("(none)"));
+                                    } else {
+                                        println!(
+                                            "  • Aliases: {}",
+                                            theme.yellow(&entry.aliases.join(", "))
+                                        );
+                                    }
+                                    ExitCode::SUCCESS
+                                } else {
+                                    eprintln!(
+                                        "{}: Repositório '{}' não encontrado no catálogo.",
+                                        theme.red_bold("Error"),
+                                        clean_r
+                                    );
+                                    ExitCode::FAILURE
+                                }
+                            }
+                        } else {
+                            eprintln!(
+                                "{}: Repositório alvo não fornecido.",
+                                theme.red_bold("Error")
+                            );
+                            ExitCode::FAILURE
+                        }
                     }
                 }
             }

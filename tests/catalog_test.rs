@@ -180,6 +180,7 @@ fn test_add_remote_repo_without_prior_clone() {
         "codeberg.org/lumenpink/newrepo",
         Some("New Repo"),
         Some("A brand new remote repository"),
+        &[],
         Some(&config),
     )
     .unwrap();
@@ -201,6 +202,7 @@ fn test_add_remote_repo_without_prior_clone() {
         "lumenpink/newrepo",
         Some("Updated Name"),
         Some("Updated Description"),
+        &[],
         Some(&config),
     )
     .unwrap();
@@ -1163,8 +1165,9 @@ fn test_alias_collision_detection() {
     let err_name = catalog::add_repo_aliases("aura", &["cccp".to_string()], Some(&config));
     assert!(err_name.is_err());
     let err_msg = err_name.unwrap_err();
+    let lower_msg = err_msg.to_ascii_lowercase();
     assert!(
-        err_msg.contains("cccp") && (err_msg.contains("conflito") || err_msg.contains("colisão") || err_msg.contains("collision")),
+        err_msg.contains("cccp") && (lower_msg.contains("conflito") || lower_msg.contains("colis") || lower_msg.contains("collision")),
         "Error should explain collision with canonical name: {}",
         err_msg
     );
@@ -1173,8 +1176,9 @@ fn test_alias_collision_detection() {
     let err_alias = catalog::add_repo_aliases("aura", &["core".to_string()], Some(&config));
     assert!(err_alias.is_err());
     let err_msg2 = err_alias.unwrap_err();
+    let lower_msg2 = err_msg2.to_ascii_lowercase();
     assert!(
-        err_msg2.contains("core") && (err_msg2.contains("em uso") || err_msg2.contains("já") || err_msg2.contains("already")),
+        err_msg2.contains("core") && (lower_msg2.contains("em uso") || lower_msg2.contains("já") || lower_msg2.contains("already")),
         "Error should explain alias already in use: {}",
         err_msg2
     );
@@ -1183,8 +1187,9 @@ fn test_alias_collision_detection() {
     let err_nonexistent = catalog::add_repo_aliases("ghost_repo", &["gh".to_string()], Some(&config));
     assert!(err_nonexistent.is_err());
     let err_msg3 = err_nonexistent.unwrap_err();
+    let lower_msg3 = err_msg3.to_ascii_lowercase();
     assert!(
-        err_msg3.contains("ghost_repo") && (err_msg3.contains("não encontrado") || err_msg3.contains("not found")),
+        err_msg3.contains("ghost_repo") && (lower_msg3.contains("não encontrado") || lower_msg3.contains("not found")),
         "Error should explain repo not found: {}",
         err_msg3
     );

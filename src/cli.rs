@@ -648,6 +648,10 @@ pub enum CatalogSubcommands {
         /// Optional description for the repository
         #[arg(short = 'd', long = "description")]
         description: Option<String>,
+
+        /// Optional aliases for the repository (e.g. -a core -a cccp-core)
+        #[arg(short = 'a', long = "alias", value_delimiter = ',')]
+        aliases: Vec<String>,
     },
     /// Scan source directory and add all local git repositories to the catalog
     #[command(alias = "add_new")]
@@ -658,6 +662,8 @@ pub enum CatalogSubcommands {
     },
     /// List all catalog repositories with optional filters and sorting
     List(CatalogFilterArgs),
+    /// Manage repository aliases in catalog
+    Alias(CatalogAliasArgs),
     /// Create a new compliant GOST repository
     New(InitArgs),
     /// Push all clean repositories in catalog with pending commits
@@ -672,6 +678,47 @@ pub enum CatalogSubcommands {
         /// Preview repositories without executing assembly
         #[arg(short = 'n', long = "dry-run")]
         dry_run: bool,
+    },
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct CatalogAliasArgs {
+    #[command(subcommand)]
+    pub action: Option<CatalogAliasSubcommands>,
+
+    /// Target repository name or slug
+    pub repo: Option<String>,
+
+    /// Aliases to add (when used without subcommand)
+    #[arg(num_args = 0..)]
+    pub aliases: Vec<String>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum CatalogAliasSubcommands {
+    /// Add one or more aliases to a repository
+    #[command(alias = "set")]
+    Add {
+        /// Target repository name or slug
+        repo: String,
+        /// Aliases to associate
+        #[arg(required = true, num_args = 1..)]
+        aliases: Vec<String>,
+    },
+    /// Remove one or more aliases from a repository
+    #[command(alias = "rm")]
+    Remove {
+        /// Target repository name or slug
+        repo: String,
+        /// Aliases to remove
+        #[arg(required = true, num_args = 1..)]
+        aliases: Vec<String>,
+    },
+    /// List configured aliases for a repository or entire catalog
+    #[command(alias = "ls")]
+    List {
+        /// Optional repository name or slug
+        repo: Option<String>,
     },
 }
 
