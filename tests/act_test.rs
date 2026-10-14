@@ -378,3 +378,49 @@ jobs:
     assert!(!isolated.contains("npm publish"));
 }
 
+#[test]
+fn test_isolate_test_jobs_needs_filtering_and_edge_cases() {
+    // 1. Filtering array needs and removing obsolete needs lines
+    let yaml_needs = r#"name: CI
+jobs:
+  lint:
+    steps:
+      - run: cargo clippy
+  test:
+    needs: [lint, deploy]
+    steps:
+      - run: cargo test
+  extra-check:
+    needs: deploy
+    steps:
+      - run: cargo check
+  deploy:
+    steps:
+      - run: wrangler deploy
+"#;
+
+    let res = isolate_test_jobs(yaml_needs, None);
+    assert!(res.contains("needs: [lint]"));
+    assert!(!res.contains("deploy"));
+    assert!(!res.contains("needs: deploy"));
+
+    // 2. Workflow with only deploy jobs is preserved (fallback to avoid empty jobs)
+    let yaml_only_deploy = r#"name: Deploy Only
+jobs:
+  deploy:
+    steps:
+      - run: echo deploy
+"#;
+    let res_fallback = isolate_test_jobs(yaml_only_deploy, None);
+    assert!(res_fallback.contains("deploy:"));
+
+    // 3. Jobs with test in name are preserved even if they contain keywords
+    let yaml_hybrid = r#"name: Hybrid
+jobs:
+  docker-test:
+    steps:
+      - run: docker test
+"#;
+    let res_hybrid = isolate_test_jobs(yaml_hybrid, None);
+    assert!(res_hybrid.contains("docker-test:"));
+}
