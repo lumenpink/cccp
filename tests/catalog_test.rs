@@ -779,3 +779,32 @@ fn test_batch_push_execution_failure_handling() {
     assert_eq!(report.failed.len(), 1);
     assert_eq!(report.failed[0].0, "fail-repo");
 }
+
+#[test]
+fn test_batch_assemble_gost_selection_and_dry_run() {
+    use cccp::catalog::batch_assemble_gost_repos;
+    use cccp::cultural::Theme;
+    use tempfile::tempdir;
+
+    let theme = Theme::with_color(false);
+
+    // Repo 1: Local with GOSTVER
+    let dir_gost = tempdir().expect("tempdir");
+    std::fs::write(dir_gost.path().join("GOSTVER"), "1.4.0\n").expect("write GOSTVER");
+
+    // Repo 2: Local without GOSTVER
+    let dir_nogost = tempdir().expect("tempdir");
+
+    let repos = vec![
+        ("repo-gost", Some(dir_gost.path())),
+        ("repo-nogost", Some(dir_nogost.path())),
+        ("repo-remote", None),
+    ];
+
+    let report_dry = batch_assemble_gost_repos(&repos, true, &theme);
+    assert_eq!(report_dry.dry_run, vec!["repo-gost"]);
+    assert_eq!(report_dry.skipped_no_gostver, vec!["repo-nogost"]);
+    assert_eq!(report_dry.skipped_remote, vec!["repo-remote"]);
+    assert!(report_dry.assembled.is_empty());
+}
+

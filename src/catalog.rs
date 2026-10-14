@@ -1140,3 +1140,47 @@ pub fn format_batch_push_report(
 
     out
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct BatchAssembleReport {
+    pub assembled: Vec<String>,
+    pub dry_run: Vec<String>,
+    pub skipped_no_gostver: Vec<String>,
+    pub skipped_remote: Vec<String>,
+    pub failed: Vec<(String, String)>,
+}
+
+/// Executes batch GOST specification assembly for resolved repository paths
+pub fn batch_assemble_gost_repos(
+    _repos: &[(&str, Option<&Path>)],
+    _dry_run: bool,
+    _theme: &crate::cultural::Theme,
+) -> BatchAssembleReport {
+    BatchAssembleReport::default()
+}
+
+/// Executes batch GOST specification assembly for catalog repositories
+pub fn batch_assemble_gost(
+    entries: &[CatalogEntry],
+    dry_run: bool,
+    theme: &crate::cultural::Theme,
+) -> BatchAssembleReport {
+    let resolved: Vec<(String, Option<PathBuf>)> = entries
+        .iter()
+        .map(|e| (e.name.clone(), find_local_repo_path(e)))
+        .collect();
+    let borrowed: Vec<(&str, Option<&Path>)> = resolved
+        .iter()
+        .map(|(n, p)| (n.as_str(), p.as_deref()))
+        .collect();
+    batch_assemble_gost_repos(&borrowed, dry_run, theme)
+}
+
+/// Formats the batch assemble report into a constructivist summary
+pub fn format_batch_assemble_report(
+    _report: &BatchAssembleReport,
+    _theme: &crate::cultural::Theme,
+) -> String {
+    String::new()
+}
+
