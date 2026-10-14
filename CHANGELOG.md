@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### GOST Version Column in Catalog Listing
+- **GOST Governance Version Column (`cccp catalog list`)**: Exibe uma coluna dedicada `GOST` na tabela do catálogo Gosplan indicando a versão ativa declarada em `GOSTVER` (ex.: `1.4.0`) para repositórios locais gerenciados, ou `-` para repositórios remotos ou sem governança GOST ativa. Suporta ordenação ascendente e reversa por versão GOST via flag `--sort gost` (com alias `--sort gostver`). (closes #146)
+
 ### Automatic VERSION Synchronization in Pre-Commit and Post-Merge
 - **Automatic VERSION Sync in Pre-Commit & Post-Merge**: Restaura a sincronização automática e contínua do arquivo `VERSION` no hook `pre-commit` com a versão calculada (`dev_version`) colocada em stage para o commit nascente, e adiciona reconciliação inteligente no comando `cccp merge`, gerando um commit dedicado `chore(version)` apenas quando a versão factual do novo HEAD divergir da gravada em disco (cenário de branches paralelas). (closes #147)
 
