@@ -1026,19 +1026,68 @@ fn main() -> ExitCode {
 
             if created_count > 0 {
                 println!();
-                if let Some(ref repo) = git_repo {
+                let target_git_repo = if let Some(ref f) = detected_forge {
+                    let is_current = git_repo
+                        .as_ref()
+                        .and_then(|r| cccp::forges::detect_forge_from_repo(r).ok())
+                        .map(|cf| {
+                            cf.repo.eq_ignore_ascii_case(&f.repo)
+                                && cf.owner.eq_ignore_ascii_case(&f.owner)
+                        })
+                        .unwrap_or(false);
+
+                    if is_current {
+                        git_repo.clone()
+                    } else {
+                        let catalog = cccp::catalog::load_catalog(Some(&config), start_path);
+                        let slug = format!("{}/{}", f.owner, f.repo);
+                        let local_path = catalog
+                            .iter()
+                            .find(|e| {
+                                e.slug.eq_ignore_ascii_case(&slug)
+                                    || e.name.eq_ignore_ascii_case(&f.repo)
+                            })
+                            .and_then(cccp::catalog::find_local_repo_path)
+                            .or_else(|| {
+                                std::env::var("HOME").ok().and_then(|h| {
+                                    let p = std::path::PathBuf::from(h).join("src").join(&f.repo);
+                                    if p.join(".git").exists() {
+                                        Some(p)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            });
+
+                        local_path.and_then(|p| cccp::git::GitRepo::open(Some(&p)).ok())
+                    }
+                } else {
+                    git_repo.clone()
+                };
+
+                if let Some(ref repo) = target_git_repo {
                     println!(
-                        "{} Syncing .antigravity/tickets.md...",
-                        theme.gold_bold("★ [GOSPLAN]")
+                        "{} Syncing .antigravity/tickets.md in {}...",
+                        theme.gold_bold("★ [GOSPLAN]"),
+                        repo.root_dir.display()
                     );
                     let tickets_args = cccp::cli::TicketsArgs {
                         state: "open".to_string(),
                         limit: 30,
-                        remote: None,
+                        remote: detected_forge
+                            .as_ref()
+                            .map(|f| format!("https://{}/{}/{}", f.host, f.owner, f.repo)),
                         output: None,
                         action: None,
                     };
                     let _ = cccp::tickets::sync_tickets(&tickets_args, repo, &config, &theme);
+                } else if let Some(ref f) = detected_forge {
+                    println!(
+                        "{}: Target repository '{}/{}' has no local clone; skipping local .antigravity/tickets.md update.",
+                        theme.yellow("Notice"),
+                        f.owner,
+                        f.repo
+                    );
                 }
                 println!("Session concluded. {} ticket(s) published.", created_count);
             }

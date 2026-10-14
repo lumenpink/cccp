@@ -110,12 +110,61 @@ pub fn days_to_ymd(days_since_epoch: u64) -> (u32, u32, u32) {
 
 /// Resolves target output path for tickets.md, ensuring external repositories are not written into cwd
 pub fn resolve_tickets_output_path(
-    _args: &TicketsArgs,
+    args: &TicketsArgs,
     repo: &GitRepo,
-    _forge_info: &RepoForgeInfo,
+    forge_info: &RepoForgeInfo,
     config: &Config,
 ) -> Result<PathBuf, String> {
-    Ok(repo.root_dir.join(&config.tickets_file))
+    if let Some(ref o) = args.output {
+        return if o.is_absolute() {
+            Ok(o.clone())
+        } else {
+            Ok(repo.root_dir.join(o))
+        };
+    }
+
+    let current_forge = detect_forge_from_repo(repo).ok();
+    let is_same_repo = current_forge
+        .as_ref()
+        .map(|cf| {
+            cf.repo.eq_ignore_ascii_case(&forge_info.repo)
+                && cf.owner.eq_ignore_ascii_case(&forge_info.owner)
+        })
+        .unwrap_or(args.remote.is_none());
+
+    if is_same_repo {
+        Ok(repo.root_dir.join(&config.tickets_file))
+    } else {
+        // Target is a different repository: find local clone
+        let catalog = crate::catalog::load_catalog(Some(config), None);
+        let slug = format!("{}/{}", forge_info.owner, forge_info.repo);
+        let local_target_dir = catalog
+            .iter()
+            .find(|e| {
+                e.slug.eq_ignore_ascii_case(&slug)
+                    || e.name.eq_ignore_ascii_case(&forge_info.repo)
+            })
+            .and_then(crate::catalog::find_local_repo_path)
+            .or_else(|| {
+                std::env::var("HOME").ok().and_then(|h| {
+                    let p = PathBuf::from(h).join("src").join(&forge_info.repo);
+                    if p.join(".git").exists() {
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
+            });
+
+        if let Some(target_dir) = local_target_dir {
+            Ok(target_dir.join(&config.tickets_file))
+        } else {
+            Err(format!(
+                "Target repository '{}/{}' has no local clone found in catalog or ~/src. Refusing to overwrite current repository cache. Use -o/--output to specify a destination file.",
+                forge_info.owner, forge_info.repo
+            ))
+        }
+    }
 }
 
 /// Synchronizes issues from the configured forge into `.antigravity/tickets.md`
