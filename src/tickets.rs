@@ -141,8 +141,7 @@ pub fn resolve_tickets_output_path(
         let local_target_dir = catalog
             .iter()
             .find(|e| {
-                e.slug.eq_ignore_ascii_case(&slug)
-                    || e.name.eq_ignore_ascii_case(&forge_info.repo)
+                e.slug.eq_ignore_ascii_case(&slug) || e.name.eq_ignore_ascii_case(&forge_info.repo)
             })
             .and_then(crate::catalog::find_local_repo_path)
             .or_else(|| {
