@@ -376,4 +376,3 @@ fn test_reconcile_merge_version_behavior() {
     let result2 = reconcile_merge_version(&repo2, &theme).expect("reconcile failed");
     assert!(result2.is_none());
 }
-

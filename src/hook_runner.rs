@@ -334,11 +334,7 @@ pub fn run_post_merge(
 }
 
 /// Handler for the `pre-commit` git hook
-pub fn run_pre_commit(
-    repo: &GitRepo,
-    theme: &Theme,
-    verbose: u8,
-) -> Result<i32, String> {
+pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32, String> {
     if std::env::var("HOOK_ACTIVE").as_deref() == Ok("1") {
         return Ok(0);
     }
@@ -429,10 +425,7 @@ pub fn run_pre_commit(
 }
 
 /// Reconcile VERSION file after a merge if the calculated version diverges from disk
-pub fn reconcile_merge_version(
-    repo: &GitRepo,
-    theme: &Theme,
-) -> Result<Option<String>, String> {
+pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<String>, String> {
     let version_file = repo.root_dir.join("VERSION");
     if !version_file.is_file() {
         return Ok(None);
@@ -506,7 +499,10 @@ pub fn reconcile_merge_version(
         return Err("git add VERSION failed".to_string());
     }
 
-    let commit_msg = format!("chore(version): sincronizar VERSION para {}", target_version);
+    let commit_msg = format!(
+        "chore(version): sincronizar VERSION para {}",
+        target_version
+    );
     let commit_status = Command::new("git")
         .args(["commit", "-m", &commit_msg])
         .current_dir(&repo.root_dir)
@@ -525,4 +521,3 @@ pub fn reconcile_merge_version(
 
     Ok(Some(target_version))
 }
-
