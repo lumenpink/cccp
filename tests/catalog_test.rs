@@ -866,3 +866,105 @@ fn test_batch_assemble_gost_report_formatting() {
     let empty_formatted = format_batch_assemble_report(&empty_report, &theme);
     assert!(empty_formatted.contains("No catalog repositories found to assemble."));
 }
+
+#[test]
+fn test_extract_gost_version() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let path = dir.path();
+
+    // 1. No GOSTVER file
+    assert_eq!(catalog::extract_gost_version(path), None);
+
+    // 2. GOSTVER with double quotes
+    let gostver_file = path.join("GOSTVER");
+    fs::write(&gostver_file, "# Header\nGOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://example.com\"\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), Some("1.4.0".to_string()));
+
+    // 3. GOSTVER with single quotes
+    fs::write(&gostver_file, "GOST_VERSION='2.0.1'\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), Some("2.0.1".to_string()));
+
+    // 4. GOSTVER unquoted
+    fs::write(&gostver_file, "GOST_VERSION=0.9.0\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), Some("0.9.0".to_string()));
+
+    // 5. GOSTVER without GOST_VERSION
+    fs::write(&gostver_file, "# Only comment\nFOO=bar\n").unwrap();
+    assert_eq!(catalog::extract_gost_version(path), None);
+}
+
+#[test]
+fn test_catalog_table_gost_version_column_and_sorting() {
+    let summaries = vec![
+        catalog::CatalogRepoSummary {
+            name: "repo_c".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/repo_c".to_string(),
+            aliases: vec![],
+            ticket_count: 1,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: Some(std::path::PathBuf::from("/path/c")),
+            gost_version: Some("1.4.0".to_string()),
+        },
+        catalog::CatalogRepoSummary {
+            name: "repo_a".to_string(),
+            forge: "github".to_string(),
+            slug: "org/repo_a".to_string(),
+            aliases: vec![],
+            ticket_count: 2,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: Some(std::path::PathBuf::from("/path/a")),
+            gost_version: Some("1.2.0".to_string()),
+        },
+        catalog::CatalogRepoSummary {
+            name: "repo_b".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "org/repo_b".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: None,
+            unpushed: 0,
+            status_label: "remote".to_string(),
+            local_path: None,
+            gost_version: None,
+        },
+    ];
+
+    let theme = cccp::cultural::Theme::with_color(false);
+    let table = catalog::format_catalog_table(&summaries, &theme);
+
+    // Verify header and column contents
+    assert!(table.contains("GOST"), "Header should contain GOST column");
+    assert!(table.contains("1.4.0"), "Table should display 1.4.0");
+    assert!(table.contains("1.2.0"), "Table should display 1.2.0");
+    assert!(table.contains("-"), "Table should display '-' for missing gost version");
+
+    // Test sort by gost
+    let mut sortable = summaries.clone();
+    let filter = cccp::cli::CatalogFilterArgs {
+        sort: "gost".to_string(),
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut sortable, &filter);
+    // Expected order: repo_a (1.2.0), repo_c (1.4.0), repo_b (None)
+    assert_eq!(sortable[0].name, "repo_a");
+    assert_eq!(sortable[1].name, "repo_c");
+    assert_eq!(sortable[2].name, "repo_b");
+
+    // Test reverse sort by gost
+    let mut sortable_rev = summaries.clone();
+    let filter_rev = cccp::cli::CatalogFilterArgs {
+        sort: "gost".to_string(),
+        reverse: true,
+        ..Default::default()
+    };
+    catalog::filter_and_sort_summaries(&mut sortable_rev, &filter_rev);
+    assert_eq!(sortable_rev[0].name, "repo_b");
+    assert_eq!(sortable_rev[1].name, "repo_c");
+    assert_eq!(sortable_rev[2].name, "repo_a");
+}
+
