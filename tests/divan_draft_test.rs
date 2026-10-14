@@ -114,3 +114,94 @@ fn test_editor_draft_shortcut_and_status_feedback() {
     assert!(result.is_ok(), "Draft trigger should succeed");
     assert_eq!(editor.status_msg, "★ Rascunho salvo com sucesso [Ctrl+R]");
 }
+
+#[test]
+fn test_draft_corrupted_json_handled_gracefully() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let repo_path = tmp.path();
+
+    // 1. Salvar draft inicial
+    DivanDraft::save_prompt(repo_path, "Prompt preliminar").expect("Save prompt");
+
+    // 2. Corromper propositalmente o arquivo de draft no cache
+    let canon = repo_path
+        .canonicalize()
+        .unwrap_or_else(|_| repo_path.to_path_buf());
+    let s = canon.to_string_lossy();
+    let sanitized: String = s
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let cache_dir = std::env::var("XDG_CACHE_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            std::path::PathBuf::from(home).join(".cache")
+        })
+        .join("cccp")
+        .join("drafts");
+    let draft_file = cache_dir.join(format!("{}.json", sanitized.trim_matches('_')));
+
+    assert!(draft_file.exists());
+    std::fs::write(&draft_file, "{ corrupted_draft_content: invalid json ").expect("Write corrupt");
+
+    // 3. Load deve retornar Ok(None) sem panicar
+    let res = DivanDraft::load(repo_path);
+    assert!(res.is_ok(), "Loading corrupted draft must not fail");
+    assert!(res.unwrap().is_none(), "Corrupted draft must return None");
+
+    // 4. Limpeza
+    let _ = DivanDraft::clear(repo_path);
+}
+
+#[test]
+fn test_draft_overwrite_and_stage_transition() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let repo_path = tmp.path();
+
+    // 1. Salva prompt
+    DivanDraft::save_prompt(repo_path, "Versão 1 do prompt").expect("Save prompt");
+    let d1 = DivanDraft::load(repo_path).unwrap().unwrap();
+    assert_eq!(d1.stage, DraftStage::Prompt);
+    assert_eq!(d1.prompt, "Versão 1 do prompt");
+
+    // 2. Sobrescreve com tickets
+    let tickets = vec![DecomposedTicket {
+        title: "feat(auth): login oauth".to_string(),
+        rationale: None,
+        labels: vec![],
+        body: "body auth".to_string(),
+    }];
+    DivanDraft::save_tickets(repo_path, "Versão final do prompt", &tickets, 0)
+        .expect("Save tickets");
+
+    let d2 = DivanDraft::load(repo_path).unwrap().unwrap();
+    assert_eq!(d2.stage, DraftStage::TicketsReview);
+    assert_eq!(d2.prompt, "Versão final do prompt");
+    assert_eq!(d2.tickets.len(), 1);
+
+    // 3. Limpeza
+    DivanDraft::clear(repo_path).expect("Clear draft");
+}
+
+#[test]
+fn test_editor_draft_handler_error_propagation() {
+    let mut editor = Editor::new("Test Editor", "Conteúdo teste");
+
+    editor.set_draft_handler(Box::new(|_| Err("Disk quota exceeded".to_string())));
+
+    let res = editor.trigger_draft();
+    assert!(res.is_err(), "Draft handler error must be propagated");
+    assert_eq!(res.unwrap_err(), "Disk quota exceeded");
+    assert!(
+        editor.status_msg.contains("Disk quota exceeded"),
+        "Status msg must inform failure: {}",
+        editor.status_msg
+    );
+}
