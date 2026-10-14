@@ -1106,8 +1106,10 @@ fn test_add_and_remove_repo_aliases() {
     ]"#;
     fs::write(&cat_path, initial_json).unwrap();
 
-    let mut config = cccp::config::Config::default();
-    config.catalog_file = Some(cat_path.to_str().unwrap().to_string());
+    let config = cccp::config::Config {
+        catalog_file: Some(cat_path.to_str().unwrap().to_string()),
+        ..Default::default()
+    };
 
     // 1. Add alias "iiab" to indieinabox
     let updated = catalog::add_repo_aliases(
@@ -1127,12 +1129,9 @@ fn test_add_and_remove_repo_aliases() {
     assert_eq!(resolved.repo, "indieinabox");
 
     // 3. Remove alias "box"
-    let updated_after_rm = catalog::remove_repo_aliases(
-        "indieinabox",
-        &["box".to_string()],
-        Some(&config),
-    )
-    .expect("Should remove alias successfully");
+    let updated_after_rm =
+        catalog::remove_repo_aliases("indieinabox", &["box".to_string()], Some(&config))
+            .expect("Should remove alias successfully");
 
     assert!(!updated_after_rm.aliases.contains(&"box".to_string()));
     assert!(updated_after_rm.aliases.contains(&"iiab".to_string()));
@@ -1158,8 +1157,10 @@ fn test_alias_collision_detection() {
     ]"#;
     fs::write(&cat_path, initial_json).unwrap();
 
-    let mut config = cccp::config::Config::default();
-    config.catalog_file = Some(cat_path.to_str().unwrap().to_string());
+    let config = cccp::config::Config {
+        catalog_file: Some(cat_path.to_str().unwrap().to_string()),
+        ..Default::default()
+    };
 
     // 1. Collision with canonical name of another repo
     let err_name = catalog::add_repo_aliases("aura", &["cccp".to_string()], Some(&config));
@@ -1167,7 +1168,10 @@ fn test_alias_collision_detection() {
     let err_msg = err_name.unwrap_err();
     let lower_msg = err_msg.to_ascii_lowercase();
     assert!(
-        err_msg.contains("cccp") && (lower_msg.contains("conflito") || lower_msg.contains("colis") || lower_msg.contains("collision")),
+        err_msg.contains("cccp")
+            && (lower_msg.contains("conflito")
+                || lower_msg.contains("colis")
+                || lower_msg.contains("collision")),
         "Error should explain collision with canonical name: {}",
         err_msg
     );
@@ -1178,20 +1182,24 @@ fn test_alias_collision_detection() {
     let err_msg2 = err_alias.unwrap_err();
     let lower_msg2 = err_msg2.to_ascii_lowercase();
     assert!(
-        err_msg2.contains("core") && (lower_msg2.contains("em uso") || lower_msg2.contains("já") || lower_msg2.contains("already")),
+        err_msg2.contains("core")
+            && (lower_msg2.contains("em uso")
+                || lower_msg2.contains("já")
+                || lower_msg2.contains("already")),
         "Error should explain alias already in use: {}",
         err_msg2
     );
 
     // 3. Non-existent repo error
-    let err_nonexistent = catalog::add_repo_aliases("ghost_repo", &["gh".to_string()], Some(&config));
+    let err_nonexistent =
+        catalog::add_repo_aliases("ghost_repo", &["gh".to_string()], Some(&config));
     assert!(err_nonexistent.is_err());
     let err_msg3 = err_nonexistent.unwrap_err();
     let lower_msg3 = err_msg3.to_ascii_lowercase();
     assert!(
-        err_msg3.contains("ghost_repo") && (lower_msg3.contains("não encontrado") || lower_msg3.contains("not found")),
+        err_msg3.contains("ghost_repo")
+            && (lower_msg3.contains("não encontrado") || lower_msg3.contains("not found")),
         "Error should explain repo not found: {}",
         err_msg3
     );
 }
-
