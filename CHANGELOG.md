@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Soft Wrap Default and Toggle in CCCP Editor
+- **Default Soft Wrap and Dedicated Toggle (`cccp editor` / `cccp edit`)**: Garante que o editor abra com quebra automática de linha (*soft wrap*) ativada por padrão, fornecendo método e atalho dedicado `Alt+W` para alternar o modo sob demanda. Reconcilia os offsets de rolagem horizontal e vertical na transição (zerando `col_offset` ao ativar wrap e alinhando `row_offset` ao desativar), com sinalização do indicador `[WRAP]` na barra de status. (closes #132)
+
 ### Divan Session Checkpointing and Crash Recovery
 - **Session Checkpoints & State Recovery (`cccp divan` / `cccp diva`)**: Adiciona mecanismo automático de checkpoint indexado por repositório em cache de usuário (`$XDG_CACHE_HOME/cccp/checkpoints/`), salvando prompts de triagem e tickets pendentes de revisão gerados pela IA. Detecta sessões não finalizadas na inicialização, permitindo restaurar exatamente do ponto da interrupção (pulando nova chamada à IA caso os tickets já tenham sido gerados) ou descartar, e limpando o checkpoint após conclusão bem-sucedida. (closes #134)
 
