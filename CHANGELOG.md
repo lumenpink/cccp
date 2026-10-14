@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Manual Session Drafts and Repository Management in Divan
+- **Manual Session Drafts & Repository Isolation (`cccp divan` / `cccp editor`)**: Permite salvar rascunhos manuais e intencionais durante a redação do prompt ou durante a revisão de tickets no editor do Divã acionando o atalho `Ctrl+R`, com feedback visual imediato na barra de status (`★ Rascunho salvo com sucesso [Ctrl+R]`) e atalho documentado no rodapé de ajuda. Isola a persistência em cache do usuário (`$XDG_CACHE_HOME/cccp/drafts/`) por caminho canônico do repositório alvo sem poluir o working tree git. Ao iniciar uma nova sessão em repositório com rascunho salvo, exibe menu de decisão estilo Vim swap file com opções `[c]` Continuar, `[m]` Manter e novo, ou `[d]` Descartar e novo. (closes #135)
+
 ### Local AI Instance & OpenAI-Compatible Endpoint Support in Divan
 - **Generic Local AI Provider & OpenAI-Compatible Integration (`cccp divan` / `cccp diva`)**: Adiciona suporte completo ao provedor `AiProvider::Local` com interface HTTP padrão OpenAI (`/v1/chat/completions`) no Divã, permitindo utilizar instâncias locais como LocalAI, llama.cpp server, vLLM, LM Studio ou sidecars Gosplan. Inclui resolução de configuração via `.cccprc` e variáveis de ambiente (`LOCAL_AI_HOST`, `OPENAI_BASE_URL`, `LOCAL_AI_MODEL`, etc.), flag de atalho `--local` / `--pl` na CLI, validação de conectividade em `check_access()` e padronização do modelo local padrão para `llama3.2:3b`. (closes #149)
 
