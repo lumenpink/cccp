@@ -718,3 +718,65 @@ fn test_batch_push_clean_repos_selection_and_safety() {
     assert_eq!(report_dry.skipped_remote, vec!["remote-only"]);
     assert!(report_dry.pushed.is_empty());
 }
+
+#[test]
+fn test_batch_push_report_formatting_and_edge_cases() {
+    use cccp::catalog::{format_batch_push_report, BatchPushReport};
+    use cccp::cultural::Theme;
+
+    let theme = Theme::with_color(false);
+
+    let mut report = BatchPushReport::default();
+    report.dry_run.push("repo-dry".into());
+    report.pushed.push("repo-pushed".into());
+    report
+        .failed
+        .push(("repo-failed".into(), "network error".into()));
+    report.skipped_dirty.push("repo-dirty".into());
+    report.skipped_up_to_date.push("repo-synced".into());
+    report.skipped_remote.push("repo-remote".into());
+
+    let formatted = format_batch_push_report(&report, &theme);
+    assert!(formatted.contains("Gosplan Pre-Push Batch Report"));
+    assert!(formatted.contains("[DRY-RUN]"));
+    assert!(formatted.contains("repo-dry"));
+    assert!(formatted.contains("Pushed successfully: (1)"));
+    assert!(formatted.contains("repo-pushed"));
+    assert!(formatted.contains("Push failed: (1)"));
+    assert!(formatted.contains("repo-failed: network error"));
+    assert!(formatted.contains("Skipped dirty working trees"));
+    assert!(formatted.contains("repo-dirty"));
+    assert!(formatted.contains("Up-to-date"));
+    assert!(formatted.contains("repo-synced"));
+    assert!(formatted.contains("Remote only"));
+    assert!(formatted.contains("repo-remote"));
+
+    // Case: Empty / all up to date
+    let empty_report = BatchPushReport::default();
+    let empty_formatted = format_batch_push_report(&empty_report, &theme);
+    assert!(empty_formatted.contains("All local repositories are up-to-date with remotes."));
+}
+
+#[test]
+fn test_batch_push_execution_failure_handling() {
+    use cccp::catalog::{batch_push_clean_repos, CatalogRepoSummary};
+    use cccp::cultural::Theme;
+    use std::path::PathBuf;
+
+    let theme = Theme::with_color(false);
+
+    // Non-existent directory should cleanly fail when trying to execute git push
+    let summaries = vec![CatalogRepoSummary {
+        name: "fail-repo".into(),
+        is_clean: Some(true),
+        unpushed: 1,
+        local_path: Some(PathBuf::from("/nonexistent/path/for/failure/test")),
+        ..Default::default()
+    }];
+
+    let report = batch_push_clean_repos(&summaries, false, &theme);
+    assert!(report.pushed.is_empty());
+    assert_eq!(report.failed.len(), 1);
+    assert_eq!(report.failed[0].0, "fail-repo");
+}
+
