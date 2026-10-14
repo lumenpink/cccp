@@ -1293,19 +1293,62 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Tag(tag)) => {
-            println!(
-                "Creating release tag (version: {:?}, title: {:?})...",
-                tag.version, tag.title
-            );
-            ExitCode::SUCCESS
+            let start_path = args.dir.as_deref().map(std::path::Path::new);
+            let repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let repo_root = repo
+                .as_ref()
+                .map(|r| r.root_dir.as_path())
+                .or(start_path)
+                .unwrap_or(std::path::Path::new("."));
+
+            let options = cccp::release::ReleaseTagOptions {
+                version: tag.version.clone(),
+                title: tag.title.clone(),
+                message: tag.message.clone(),
+                no_v: tag.no_v,
+                sign: tag.sign,
+            };
+
+            match cccp::release::execute_release_tag(repo_root, &options) {
+                Ok(tag_name) => {
+                    println!(
+                        "\n{}\n{} Release tag '{}' criada com sucesso e sincronizada com VERSION e CHANGELOG.md.\n\n{}\n  git push origin main && git push origin {}\n",
+                        theme.gold_bold("★ GOSPLAN RELEASE CONCLUÍDA COM SUCESSO ★"),
+                        theme.green("✓"),
+                        tag_name,
+                        theme.cyan("Execute o comando para publicar as alterações no remote:"),
+                        tag_name
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Erro ao criar release tag"), e);
+                    ExitCode::FAILURE
+                }
+            }
         }
         Some(Commands::Changelog(ch)) => {
-            println!(
-                "Generating changelog to {} (dry_run: {})...",
-                ch.output.display(),
-                ch.dry_run
-            );
-            ExitCode::SUCCESS
+            let start_path = args.dir.as_deref().map(std::path::Path::new);
+            let repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let repo_root = repo
+                .as_ref()
+                .map(|r| r.root_dir.as_path())
+                .or(start_path)
+                .unwrap_or(std::path::Path::new("."));
+
+            let options = cccp::release::ChangelogOptions {
+                output: ch.output.clone(),
+                dry_run: ch.dry_run,
+                range: ch.range.clone(),
+            };
+
+            match cccp::release::cmd_changelog(repo_root, &options, &theme) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Erro ao gerar CHANGELOG"), e);
+                    ExitCode::FAILURE
+                }
+            }
         }
         Some(Commands::Push(push)) => {
             if push.all {

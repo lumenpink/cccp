@@ -23,6 +23,7 @@ pub mod lint;
 pub mod matraca;
 pub mod newrepo;
 pub mod profile;
+pub mod release;
 pub mod semver_calc;
 pub mod serve;
 pub mod tickets;
