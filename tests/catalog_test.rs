@@ -1083,3 +1083,110 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
     assert!(colored_table.contains("1.4.0"));
     assert!(colored_table.contains("-"));
 }
+
+#[test]
+fn test_add_and_remove_repo_aliases() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let cat_path = dir.path().join("catalog.json");
+    let initial_json = r#"[
+        {
+            "name": "kvant",
+            "forge": "codeberg",
+            "slug": "lumenpink/kvant",
+            "aliases": ["kv"]
+        },
+        {
+            "name": "indieinabox",
+            "forge": "codeberg",
+            "slug": "lumenpink/indieinabox",
+            "aliases": []
+        }
+    ]"#;
+    fs::write(&cat_path, initial_json).unwrap();
+
+    let mut config = cccp::config::Config::default();
+    config.catalog_file = Some(cat_path.to_str().unwrap().to_string());
+
+    // 1. Add alias "iiab" to indieinabox
+    let updated = catalog::add_repo_aliases(
+        "indieinabox",
+        &["iiab".to_string(), "box".to_string()],
+        Some(&config),
+    )
+    .expect("Should add aliases successfully");
+
+    assert_eq!(updated.name, "indieinabox");
+    assert!(updated.aliases.contains(&"iiab".to_string()));
+    assert!(updated.aliases.contains(&"box".to_string()));
+
+    // 2. Resolve target repo via newly added alias "iiab"
+    let resolved = catalog::resolve_target_repo("iiab", Some(&config), Some(dir.path()))
+        .expect("Should resolve by newly added alias");
+    assert_eq!(resolved.repo, "indieinabox");
+
+    // 3. Remove alias "box"
+    let updated_after_rm = catalog::remove_repo_aliases(
+        "indieinabox",
+        &["box".to_string()],
+        Some(&config),
+    )
+    .expect("Should remove alias successfully");
+
+    assert!(!updated_after_rm.aliases.contains(&"box".to_string()));
+    assert!(updated_after_rm.aliases.contains(&"iiab".to_string()));
+}
+
+#[test]
+fn test_alias_collision_detection() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let cat_path = dir.path().join("catalog.json");
+    let initial_json = r#"[
+        {
+            "name": "cccp",
+            "forge": "codeberg",
+            "slug": "lumenpink/cccp",
+            "aliases": ["core"]
+        },
+        {
+            "name": "aura",
+            "forge": "github",
+            "slug": "Canimandra/aura",
+            "aliases": []
+        }
+    ]"#;
+    fs::write(&cat_path, initial_json).unwrap();
+
+    let mut config = cccp::config::Config::default();
+    config.catalog_file = Some(cat_path.to_str().unwrap().to_string());
+
+    // 1. Collision with canonical name of another repo
+    let err_name = catalog::add_repo_aliases("aura", &["cccp".to_string()], Some(&config));
+    assert!(err_name.is_err());
+    let err_msg = err_name.unwrap_err();
+    assert!(
+        err_msg.contains("cccp") && (err_msg.contains("conflito") || err_msg.contains("colisão") || err_msg.contains("collision")),
+        "Error should explain collision with canonical name: {}",
+        err_msg
+    );
+
+    // 2. Collision with alias of another repo
+    let err_alias = catalog::add_repo_aliases("aura", &["core".to_string()], Some(&config));
+    assert!(err_alias.is_err());
+    let err_msg2 = err_alias.unwrap_err();
+    assert!(
+        err_msg2.contains("core") && (err_msg2.contains("em uso") || err_msg2.contains("já") || err_msg2.contains("already")),
+        "Error should explain alias already in use: {}",
+        err_msg2
+    );
+
+    // 3. Non-existent repo error
+    let err_nonexistent = catalog::add_repo_aliases("ghost_repo", &["gh".to_string()], Some(&config));
+    assert!(err_nonexistent.is_err());
+    let err_msg3 = err_nonexistent.unwrap_err();
+    assert!(
+        err_msg3.contains("ghost_repo") && (err_msg3.contains("não encontrado") || err_msg3.contains("not found")),
+        "Error should explain repo not found: {}",
+        err_msg3
+    );
+}
+
