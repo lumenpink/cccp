@@ -236,6 +236,8 @@ pub fn act_ci_gate(
         && std::env::var("CI").as_deref() != Ok("true")
         && std::env::var("SHELLSPEC").as_deref() != Ok("1");
 
+    let _runner_guard = RunnerPauseGuard::new(theme);
+
     let mut cmd = Command::new(&act_bin);
     cmd.args([
         "-W",
@@ -438,19 +440,69 @@ pub fn run_act_run(
 
 /// RAII Guard that pauses forgejo-runner during local act CI execution
 pub struct RunnerPauseGuard {
+    docker_bin: String,
     paused_containers: Vec<String>,
+    theme: Theme,
 }
 
 impl RunnerPauseGuard {
-    pub fn new(_theme: &Theme) -> Self {
-        Self {
-            paused_containers: Vec::new(),
-        }
+    pub fn new(theme: &Theme) -> Self {
+        let docker_bin = std::env::var("CCCP_DOCKER_BIN").unwrap_or_else(|_| "docker".to_string());
+        Self::with_docker_bin(theme, &docker_bin)
     }
 
-    pub fn with_docker_bin(_theme: &Theme, _docker_bin: &str) -> Self {
+    pub fn with_docker_bin(theme: &Theme, docker_bin: &str) -> Self {
+        let mut paused = Vec::new();
+
+        // Allow bypassing pause via CCCP_NO_PAUSE_RUNNER=1
+        if std::env::var("CCCP_NO_PAUSE_RUNNER").as_deref() == Ok("1") {
+            return Self {
+                docker_bin: docker_bin.to_string(),
+                paused_containers: paused,
+                theme: theme.clone(),
+            };
+        }
+
+        // Query running containers matching forgejo-runner
+        let output = Command::new(docker_bin)
+            .args([
+                "ps",
+                "--filter",
+                "name=forgejo-runner",
+                "--filter",
+                "status=running",
+                "--format",
+                "{{.Names}}",
+            ])
+            .output();
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                for line in String::from_utf8_lossy(&out.stdout).lines() {
+                    let name = line.trim();
+                    if !name.is_empty() {
+                        let pause_res = Command::new(docker_bin).args(["pause", name]).output();
+                        if let Ok(p_out) = pause_res {
+                            if p_out.status.success() {
+                                eprintln!(
+                                    "{}",
+                                    theme.yellow(&format!(
+                                        "[pre-push] ⏸ Pausando {} durante CI local...",
+                                        name
+                                    ))
+                                );
+                                paused.push(name.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Self {
-            paused_containers: Vec::new(),
+            docker_bin: docker_bin.to_string(),
+            paused_containers: paused,
+            theme: theme.clone(),
         }
     }
 
@@ -458,4 +510,20 @@ impl RunnerPauseGuard {
         &self.paused_containers
     }
 }
+
+impl Drop for RunnerPauseGuard {
+    fn drop(&mut self) {
+        for name in &self.paused_containers {
+            let _ = Command::new(&self.docker_bin)
+                .args(["unpause", name])
+                .output();
+            eprintln!(
+                "{}",
+                self.theme
+                    .cyan(&format!("[pre-push] ▶ Retomando {}...", name))
+            );
+        }
+    }
+}
+
 
