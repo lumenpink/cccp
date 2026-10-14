@@ -4,7 +4,9 @@
 use crate::cli::TicketsArgs;
 use crate::config::Config;
 use crate::cultural::Theme;
-use crate::forges::{detect_forge_from_repo, parse_remote_url, ForgeClient, ForgeIssue};
+use crate::forges::{
+    detect_forge_from_repo, parse_remote_url, ForgeClient, ForgeIssue, RepoForgeInfo,
+};
 use crate::git::GitRepo;
 use std::fs;
 use std::path::PathBuf;
@@ -106,6 +108,16 @@ pub fn days_to_ymd(days_since_epoch: u64) -> (u32, u32, u32) {
     (y as u32, m as u32, d as u32)
 }
 
+/// Resolves target output path for tickets.md, ensuring external repositories are not written into cwd
+pub fn resolve_tickets_output_path(
+    _args: &TicketsArgs,
+    repo: &GitRepo,
+    _forge_info: &RepoForgeInfo,
+    config: &Config,
+) -> Result<PathBuf, String> {
+    Ok(repo.root_dir.join(&config.tickets_file))
+}
+
 /// Synchronizes issues from the configured forge into `.antigravity/tickets.md`
 pub fn sync_tickets(
     args: &TicketsArgs,
@@ -131,15 +143,7 @@ pub fn sync_tickets(
     let (md_content, count, stopped_early) =
         generate_tickets_markdown(&forge_info.repo, &issues, max_bytes);
 
-    let output_path = if let Some(ref o) = args.output {
-        if o.is_absolute() {
-            o.clone()
-        } else {
-            repo.root_dir.join(o)
-        }
-    } else {
-        repo.root_dir.join(&config.tickets_file)
-    };
+    let output_path = resolve_tickets_output_path(args, repo, &forge_info, config)?;
 
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)

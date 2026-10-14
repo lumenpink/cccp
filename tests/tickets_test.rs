@@ -1,6 +1,10 @@
-use cccp::forges::ForgeIssue;
+use cccp::cli::TicketsArgs;
+use cccp::config::Config;
+use cccp::forges::{ForgeIssue, RepoForgeInfo};
+use cccp::git::GitRepo;
 use cccp::tickets::{
-    format_ticket_markdown, format_utc_now, generate_tickets_markdown, DEFAULT_MAX_BYTES,
+    format_ticket_markdown, format_utc_now, generate_tickets_markdown, resolve_tickets_output_path,
+    DEFAULT_MAX_BYTES,
 };
 use std::fs;
 use tempfile::tempdir;
@@ -106,3 +110,45 @@ fn test_atomic_file_write_and_read() {
     let read_back = fs::read_to_string(&file_path).unwrap();
     assert_eq!(read_back, content);
 }
+
+#[test]
+fn test_resolve_tickets_output_path_different_repo_rejects_cwd() {
+    let temp = tempdir().unwrap();
+    let current_repo_dir = temp.path().join("current-repo");
+    fs::create_dir_all(&current_repo_dir).unwrap();
+    std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&current_repo_dir)
+        .status()
+        .unwrap();
+
+    let repo = GitRepo::open(Some(&current_repo_dir)).unwrap();
+    let config = Config::default();
+
+    // 1. Same repo / no remote override -> writes to current repo
+    let args_same = TicketsArgs::default();
+    let forge_same = RepoForgeInfo::new(
+        cccp::forges::ForgeType::Codeberg,
+        "codeberg.org".to_string(),
+        "lumenpink".to_string(),
+        "current-repo".to_string(),
+    );
+    let path_same = resolve_tickets_output_path(&args_same, &repo, &forge_same, &config).unwrap();
+    assert_eq!(path_same, current_repo_dir.join(".antigravity/tickets.md"));
+
+    // 2. Different repo with no local clone -> must NOT write to current_repo_dir
+    let args_diff = TicketsArgs {
+        remote: Some("https://codeberg.org/lumenpink/other-repo".to_string()),
+        ..Default::default()
+    };
+    let forge_diff = RepoForgeInfo::new(
+        cccp::forges::ForgeType::Codeberg,
+        "codeberg.org".to_string(),
+        "lumenpink".to_string(),
+        "other-repo".to_string(),
+    );
+    let res = resolve_tickets_output_path(&args_diff, &repo, &forge_diff, &config);
+    assert!(res.is_err(), "Expected error when other-repo has no local clone, but got {:?}", res);
+}
+
+
