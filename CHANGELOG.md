@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Batch Push for Clean Repositories
+- **Safe Batch Push for Clean Repositories (`cccp catalog push` / `cccp push -a`)**: Varre os repositórios registrados no catálogo Gosplan e envia em lote (`git push`) todos os repositórios locais limpos (`clean`) com commits pendentes (`ahead > 0`). Ignora com aviso de segurança repositórios sujos com alterações não commitadas (`dirty`), repositórios já sincronizados e clones remotos ausentes. Suporta `--dry-run` / `-n` para pré-visualização segura. (closes #128)
+
 ### Multi-Repository Ticket Cache Isolation
 - **Target Repository Ticket Cache Isolation**: Garante que tanto o `divan` quanto o comando `cccp ticket` sincronizem e atualizem `.antigravity/tickets.md` estritamente na raiz do repositório alvo (via catálogo ou caminho local), impedindo a poluição indevida do diretório corrente (`cwd`) ao operar sobre repositórios externos. (closes #140)
 
