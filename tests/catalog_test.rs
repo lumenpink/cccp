@@ -1203,3 +1203,76 @@ fn test_alias_collision_detection() {
         err_msg3
     );
 }
+
+#[test]
+fn test_alias_mutation_edge_cases() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let cat_path = dir.path().join("catalog.json");
+    let initial_json = r#"[
+        {
+            "name": "kvant",
+            "forge": "codeberg",
+            "slug": "lumenpink/kvant",
+            "aliases": ["kv"]
+        }
+    ]"#;
+    fs::write(&cat_path, initial_json).unwrap();
+
+    let config = cccp::config::Config {
+        catalog_file: Some(cat_path.to_str().unwrap().to_string()),
+        ..Default::default()
+    };
+
+    // 1. Case-insensitive duplicate rejection
+    let err_dup = catalog::add_repo_aliases("kvant", &["KV".to_string()], Some(&config));
+    assert!(
+        err_dup.is_ok(),
+        "Re-adding own existing alias in different case should be a no-op"
+    );
+    let reloaded = catalog::load_catalog(Some(&config), None);
+    assert_eq!(reloaded[0].aliases.len(), 1);
+
+    // 2. Reject empty or whitespace-only alias
+    let err_empty = catalog::add_repo_aliases("kvant", &["   ".to_string()], Some(&config));
+    assert!(err_empty.is_err(), "Empty alias must be rejected");
+
+    // 3. Reject alias identical to own repo name
+    let err_self_name = catalog::add_repo_aliases("kvant", &["kvant".to_string()], Some(&config));
+    assert!(
+        err_self_name.is_err(),
+        "Alias matching own canonical name must be rejected"
+    );
+
+    // 4. Add remote repo with initial aliases
+    let (entry_new, _, _) = catalog::add_remote_repo(
+        "codeberg.org/lumenpink/nova",
+        Some("nova"),
+        Some("Supernova"),
+        &["nv".to_string(), "star".to_string()],
+        Some(&config),
+    )
+    .expect("Should add remote repo with aliases");
+    assert_eq!(
+        entry_new.aliases,
+        vec!["nv".to_string(), "star".to_string()]
+    );
+
+    // 5. Add remote repo with alias that collides with existing repo alias -> Must fail
+    let err_add_coll = catalog::add_remote_repo(
+        "codeberg.org/lumenpink/pulsar",
+        None,
+        None,
+        &["nv".to_string()],
+        Some(&config),
+    );
+    assert!(
+        err_add_coll.is_err(),
+        "Collision during add_remote_repo must fail"
+    );
+
+    // 6. Removing non-existent alias is graceful
+    let after_rm_ghost =
+        catalog::remove_repo_aliases("kvant", &["nonexistent".to_string()], Some(&config))
+            .expect("Removing non-existent alias should succeed gracefully");
+    assert_eq!(after_rm_ghost.aliases, vec!["kv".to_string()]);
+}
