@@ -605,8 +605,8 @@ fn test_push_command_options() {
         _ => panic!("Expected Commands::Push"),
     }
 
-    let cli_batch = Cli::try_parse_from(["cccp", "push", "-a", "-n"])
-        .expect("should parse batch push options");
+    let cli_batch =
+        Cli::try_parse_from(["cccp", "push", "-a", "-n"]).expect("should parse batch push options");
     match cli_batch.command {
         Some(Commands::Push(p)) => {
             assert!(p.all);
@@ -619,14 +619,12 @@ fn test_push_command_options() {
     let cli_cat_push = Cli::try_parse_from(["cccp", "catalog", "push", "--dry-run"])
         .expect("should parse catalog push options");
     match cli_cat_push.command {
-        Some(Commands::Catalog(c)) => {
-            match c.action {
-                Some(CatalogSubcommands::Push { dry_run }) => {
-                    assert!(dry_run);
-                }
-                _ => panic!("Expected CatalogSubcommands::Push"),
+        Some(Commands::Catalog(c)) => match c.action {
+            Some(CatalogSubcommands::Push { dry_run }) => {
+                assert!(dry_run);
             }
-        }
+            _ => panic!("Expected CatalogSubcommands::Push"),
+        },
         _ => panic!("Expected Commands::Catalog"),
     }
 }

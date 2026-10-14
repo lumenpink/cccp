@@ -1194,7 +1194,10 @@ fn main() -> ExitCode {
             if push.all {
                 let entries = cccp::catalog::load_catalog(Some(&config), None);
                 let report = cccp::catalog::batch_push_catalog(&entries, push.dry_run, &theme);
-                println!("{}", cccp::catalog::format_batch_push_report(&report, &theme));
+                println!(
+                    "{}",
+                    cccp::catalog::format_batch_push_report(&report, &theme)
+                );
                 if !report.failed.is_empty() {
                     ExitCode::FAILURE
                 } else {
@@ -1527,7 +1530,10 @@ fn main() -> ExitCode {
             Some(cli::CatalogSubcommands::Push { dry_run }) => {
                 let entries = cccp::catalog::load_catalog(Some(&config), None);
                 let report = cccp::catalog::batch_push_catalog(&entries, dry_run, &theme);
-                println!("{}", cccp::catalog::format_batch_push_report(&report, &theme));
+                println!(
+                    "{}",
+                    cccp::catalog::format_batch_push_report(&report, &theme)
+                );
                 if !report.failed.is_empty() {
                     ExitCode::FAILURE
                 } else {

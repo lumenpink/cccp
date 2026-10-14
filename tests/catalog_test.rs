@@ -718,4 +718,3 @@ fn test_batch_push_clean_repos_selection_and_safety() {
     assert_eq!(report_dry.skipped_remote, vec!["remote-only"]);
     assert!(report_dry.pushed.is_empty());
 }
-

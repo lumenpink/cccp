@@ -1053,7 +1053,10 @@ pub fn format_batch_push_report(
     theme: &crate::cultural::Theme,
 ) -> String {
     let mut out = String::new();
-    out.push_str(&format!("{}\n", theme.gold_bold("★ Gosplan Pre-Push Batch Report ★")));
+    out.push_str(&format!(
+        "{}\n",
+        theme.gold_bold("★ Gosplan Pre-Push Batch Report ★")
+    ));
 
     if !report.dry_run.is_empty() {
         out.push_str(&format!(
@@ -1137,5 +1140,3 @@ pub fn format_batch_push_report(
 
     out
 }
-
-
