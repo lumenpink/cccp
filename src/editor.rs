@@ -70,6 +70,18 @@ impl Editor {
         self.save_label = label.to_string();
     }
 
+    /// Toggle soft wrap mode on and off, reconciling scroll offsets cleanly
+    pub fn toggle_soft_wrap(&mut self) -> bool {
+        self.soft_wrap = !self.soft_wrap;
+        if self.soft_wrap {
+            self.col_offset = 0;
+        } else {
+            self.visual_row_offset = 0;
+            self.row_offset = self.cursor_y.saturating_sub(self.screen_rows / 2);
+        }
+        self.soft_wrap
+    }
+
     pub fn to_content(&self) -> String {
         let mut content = self.rows.join("\n");
         if !content.is_empty() && !content.ends_with('\n') {
@@ -541,7 +553,7 @@ pub fn run_editor(mut editor: Editor) -> Result<Option<String>, String> {
                     break Ok(None);
                 }
                 (KeyCode::Char('w'), KeyModifiers::ALT) => {
-                    editor.soft_wrap = !editor.soft_wrap;
+                    editor.toggle_soft_wrap();
                 }
                 (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
                     editor.kill_to_end_of_line();
