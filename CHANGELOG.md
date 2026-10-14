@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Automatic VERSION Synchronization in Pre-Commit and Post-Merge
+- **Automatic VERSION Sync in Pre-Commit & Post-Merge**: Restaura a sincronização automática e contínua do arquivo `VERSION` no hook `pre-commit` com a versão calculada (`dev_version`) colocada em stage para o commit nascente, e adiciona reconciliação inteligente no comando `cccp merge`, gerando um commit dedicado `chore(version)` apenas quando a versão factual do novo HEAD divergir da gravada em disco (cenário de branches paralelas). (closes #147)
+
 ### Batch GOST Specification Assembly
 - **Batch GOST Specification Assembly (`cccp catalog assemble` / `cccp profile assemble -a`)**: Varre os repositórios registrados no catálogo Gosplan e compila em lote a especificação canônica `.gost/GOST.md` para todos os repositórios locais que possuem `GOSTVER`. Respeita camadas de herança em cascata (`extends`), perfis ativos e sobreposições locais soberanas (`CUSTOM.md`). Suporta pré-visualização segura com `--dry-run` / `-n`. (closes #145)
 
