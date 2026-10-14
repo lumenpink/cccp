@@ -249,3 +249,68 @@ fn test_editor_soft_wrap_mutation_edge_cases() {
     assert_eq!(empty_editor.cursor_x, 0);
     assert_eq!(empty_editor.cursor_y, 0);
 }
+
+#[test]
+fn test_parse_ticket_buffer_valid() {
+    let raw = "feat(cli): integrar revisao e submissao de tickets\n\n## Description\nDetalhes do ticket aqui.\n";
+    let (title, body) = cccp::editor::parse_ticket_buffer(raw).expect("Must parse valid ticket buffer");
+    assert_eq!(title, "feat(cli): integrar revisao e submissao de tickets");
+    assert_eq!(body, "## Description\nDetalhes do ticket aqui.");
+}
+
+#[test]
+fn test_parse_ticket_buffer_without_blank_separator() {
+    let raw = "fix(divan): corrigir fluxo direto\n## Description\nCorpo direto sem espaco.";
+    let (title, body) = cccp::editor::parse_ticket_buffer(raw).expect("Must parse buffer without blank separator");
+    assert_eq!(title, "fix(divan): corrigir fluxo direto");
+    assert_eq!(body, "## Description\nCorpo direto sem espaco.");
+}
+
+#[test]
+fn test_parse_ticket_buffer_errors() {
+    // Empty buffer
+    assert!(cccp::editor::parse_ticket_buffer("").is_err());
+    assert!(cccp::editor::parse_ticket_buffer("   \n\n  ").is_err());
+
+    // Title only, empty body
+    assert!(cccp::editor::parse_ticket_buffer("feat(editor): only title\n\n").is_err());
+    assert!(cccp::editor::parse_ticket_buffer("feat(editor): only title").is_err());
+}
+
+#[test]
+fn test_validate_ticket_submission_conventional_commits() {
+    let config = cccp::config::Config::default();
+
+    // Valid conventional commit title and non-empty body
+    assert!(cccp::editor::validate_ticket_submission(
+        "feat(cli): submit tickets from editor",
+        "## Description\nValid body content",
+        &config
+    ).is_ok());
+
+    // Invalid non-conventional title
+    let res_invalid_title = cccp::editor::validate_ticket_submission(
+        "Invalid title without conventional commit prefix",
+        "## Description\nValid body content",
+        &config
+    );
+    assert!(res_invalid_title.is_err(), "Non-conventional title must be rejected");
+
+    // Empty body
+    let res_empty_body = cccp::editor::validate_ticket_submission(
+        "feat(cli): submit tickets from editor",
+        "   \n  ",
+        &config
+    );
+    assert!(res_empty_body.is_err(), "Empty body must be rejected");
+}
+
+#[test]
+fn test_editor_contextual_ticket_labels() {
+    let mut editor = Editor::new("Ticket #138", "feat(cli): title\n\nbody");
+    editor.set_header_prefix("CCCP TICKET EDITOR");
+    editor.set_save_label("Submit");
+
+    assert_eq!(editor.header_prefix, "CCCP TICKET EDITOR");
+    assert_eq!(editor.save_label, "Submit");
+}
