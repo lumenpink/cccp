@@ -92,4 +92,3 @@ fn test_position_cursor_viewport_scroll_reconciliation() {
     assert!(editor.cursor_y >= editor.visual_row_offset);
     assert!(editor.cursor_y < editor.visual_row_offset + editor.screen_rows);
 }
-
