@@ -1001,13 +1001,11 @@ pub fn filter_and_sort_summaries(
             summaries.sort_by(|a, b| a.forge.cmp(&b.forge).then_with(|| a.name.cmp(&b.name)));
         }
         "gost" | "gostver" => {
-            summaries.sort_by(|a, b| {
-                match (&a.gost_version, &b.gost_version) {
-                    (Some(va), Some(vb)) => va.cmp(vb).then_with(|| a.name.cmp(&b.name)),
-                    (Some(_), None) => std::cmp::Ordering::Less,
-                    (None, Some(_)) => std::cmp::Ordering::Greater,
-                    (None, None) => a.name.cmp(&b.name),
-                }
+            summaries.sort_by(|a, b| match (&a.gost_version, &b.gost_version) {
+                (Some(va), Some(vb)) => va.cmp(vb).then_with(|| a.name.cmp(&b.name)),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => a.name.cmp(&b.name),
             });
         }
         _ => {

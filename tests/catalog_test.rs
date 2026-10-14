@@ -884,16 +884,29 @@ fn test_extract_gost_version() {
 
     // 2. GOSTVER with double quotes
     let gostver_file = path.join("GOSTVER");
-    fs::write(&gostver_file, "# Header\nGOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://example.com\"\n").unwrap();
-    assert_eq!(catalog::extract_gost_version(path), Some("1.4.0".to_string()));
+    fs::write(
+        &gostver_file,
+        "# Header\nGOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://example.com\"\n",
+    )
+    .unwrap();
+    assert_eq!(
+        catalog::extract_gost_version(path),
+        Some("1.4.0".to_string())
+    );
 
     // 3. GOSTVER with single quotes
     fs::write(&gostver_file, "GOST_VERSION='2.0.1'\n").unwrap();
-    assert_eq!(catalog::extract_gost_version(path), Some("2.0.1".to_string()));
+    assert_eq!(
+        catalog::extract_gost_version(path),
+        Some("2.0.1".to_string())
+    );
 
     // 4. GOSTVER unquoted
     fs::write(&gostver_file, "GOST_VERSION=0.9.0\n").unwrap();
-    assert_eq!(catalog::extract_gost_version(path), Some("0.9.0".to_string()));
+    assert_eq!(
+        catalog::extract_gost_version(path),
+        Some("0.9.0".to_string())
+    );
 
     // 5. GOSTVER without GOST_VERSION
     fs::write(&gostver_file, "# Only comment\nFOO=bar\n").unwrap();
@@ -948,7 +961,10 @@ fn test_catalog_table_gost_version_column_and_sorting() {
     assert!(table.contains("GOST"), "Header should contain GOST column");
     assert!(table.contains("1.4.0"), "Table should display 1.4.0");
     assert!(table.contains("1.2.0"), "Table should display 1.2.0");
-    assert!(table.contains("-"), "Table should display '-' for missing gost version");
+    assert!(
+        table.contains("-"),
+        "Table should display '-' for missing gost version"
+    );
 
     // Test sort by gost
     let mut sortable = summaries.clone();
@@ -974,4 +990,3 @@ fn test_catalog_table_gost_version_column_and_sorting() {
     assert_eq!(sortable_rev[1].name, "repo_c");
     assert_eq!(sortable_rev[2].name, "repo_a");
 }
-
