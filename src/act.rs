@@ -97,6 +97,11 @@ pub fn find_workflow(repo_root: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Isolates test/verification jobs in workflow YAML, stripping deploy/release jobs for act
+pub fn isolate_test_jobs(content: &str, _target_job: Option<&str>) -> String {
+    content.to_string()
+}
+
 /// Sanitizes Forgejo full GitHub action URLs (`uses: https://github.com/...`) for act compatibility
 pub fn sanitize_workflow_if_needed(wf_path: &Path) -> (PathBuf, Option<tempfile::NamedTempFile>) {
     if let Ok(content) = std::fs::read_to_string(wf_path) {

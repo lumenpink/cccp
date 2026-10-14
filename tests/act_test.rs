@@ -1,6 +1,6 @@
 use cccp::act::{
-    act_ci_gate, check_prerequisites, find_workflow, format_duration, run_act_log, run_act_status,
-    sanitize_workflow_if_needed, RunnerPauseGuard,
+    act_ci_gate, check_prerequisites, find_workflow, format_duration, isolate_test_jobs,
+    run_act_log, run_act_status, sanitize_workflow_if_needed, RunnerPauseGuard,
 };
 use cccp::cultural::Theme;
 use std::fs;
@@ -345,3 +345,36 @@ fn test_runner_pause_guard_docker_failure_graceful() {
     let guard = RunnerPauseGuard::with_docker_bin(&theme, mock_docker.to_str().unwrap());
     assert!(guard.paused_containers().is_empty());
 }
+
+#[test]
+fn test_isolate_test_jobs_removes_deploy_and_release() {
+    let yaml = r#"name: CI & CD
+on: [push]
+jobs:
+  test:
+    name: "Rust Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - run: cargo test
+  deploy:
+    name: "Deploy"
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - run: wrangler deploy
+  publish-pkg:
+    name: "Publish"
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm publish
+"#;
+
+    let isolated = isolate_test_jobs(yaml, None);
+    assert!(isolated.contains("test:"));
+    assert!(isolated.contains("cargo test"));
+    assert!(!isolated.contains("deploy:"));
+    assert!(!isolated.contains("wrangler deploy"));
+    assert!(!isolated.contains("publish-pkg:"));
+    assert!(!isolated.contains("npm publish"));
+}
+
