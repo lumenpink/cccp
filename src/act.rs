@@ -459,7 +459,7 @@ impl RunnerPauseGuard {
             return Self {
                 docker_bin: docker_bin.to_string(),
                 paused_containers: paused,
-                theme: theme.clone(),
+                theme: *theme,
             };
         }
 
@@ -502,7 +502,7 @@ impl RunnerPauseGuard {
         Self {
             docker_bin: docker_bin.to_string(),
             paused_containers: paused,
-            theme: theme.clone(),
+            theme: *theme,
         }
     }
 
@@ -525,5 +525,3 @@ impl Drop for RunnerPauseGuard {
         }
     }
 }
-
-

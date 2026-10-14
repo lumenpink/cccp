@@ -325,4 +325,3 @@ exit 0
     let log_after = fs::read_to_string(&log_file).unwrap_or_default();
     assert!(log_after.contains("unpause forgejo-runner"));
 }
-
