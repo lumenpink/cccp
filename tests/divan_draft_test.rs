@@ -112,8 +112,5 @@ fn test_editor_draft_shortcut_and_status_feedback() {
     // Trigger draft action
     let result = editor.trigger_draft();
     assert!(result.is_ok(), "Draft trigger should succeed");
-    assert_eq!(
-        editor.status_msg,
-        "★ Rascunho salvo com sucesso [Ctrl+R]"
-    );
+    assert_eq!(editor.status_msg, "★ Rascunho salvo com sucesso [Ctrl+R]");
 }

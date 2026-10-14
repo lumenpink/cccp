@@ -84,9 +84,8 @@ impl DivanDraft {
     pub fn clear(repo_path: &Path) -> Result<(), String> {
         let path = repo_to_draft_path(repo_path);
         if path.exists() {
-            fs::remove_file(&path).map_err(|e| {
-                format!("Failed to remove draft file '{}': {}", path.display(), e)
-            })?;
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to remove draft file '{}': {}", path.display(), e))?;
         }
         Ok(())
     }

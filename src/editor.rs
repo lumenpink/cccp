@@ -18,6 +18,8 @@ pub struct VisualLine {
     pub char_len: usize,
 }
 
+pub type DraftHandler = Box<dyn FnMut(&str) -> Result<(), String>>;
+
 pub struct Editor {
     pub title: String,
     pub rows: Vec<String>,
@@ -33,7 +35,7 @@ pub struct Editor {
     pub status_msg: String,
     pub header_prefix: String,
     pub save_label: String,
-    pub draft_handler: Option<Box<dyn FnMut(&str) -> Result<(), String>>>,
+    pub draft_handler: Option<DraftHandler>,
 }
 
 impl Editor {
@@ -83,7 +85,7 @@ impl Editor {
     }
 
     /// Sets custom draft save handler triggered via Ctrl+R
-    pub fn set_draft_handler(&mut self, handler: Box<dyn FnMut(&str) -> Result<(), String>>) {
+    pub fn set_draft_handler(&mut self, handler: DraftHandler) {
         self.draft_handler = Some(handler);
     }
 

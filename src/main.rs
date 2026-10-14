@@ -770,11 +770,12 @@ fn main() -> ExitCode {
             // Check intentional manual drafts first (Ctrl+R / Vim swap style)
             if let Ok(Some(draft)) = cccp::draft::DivanDraft::load(&target_dir) {
                 let stage_desc = match draft.stage {
-                    cccp::draft::DraftStage::Prompt => {
-                        "rascunho de prompt preliminar".to_string()
-                    }
+                    cccp::draft::DraftStage::Prompt => "rascunho de prompt preliminar".to_string(),
                     cccp::draft::DraftStage::TicketsReview => {
-                        format!("rascunho com {} ticket(s) pendente(s) de revisão", draft.tickets.len())
+                        format!(
+                            "rascunho com {} ticket(s) pendente(s) de revisão",
+                            draft.tickets.len()
+                        )
                     }
                 };
 
@@ -785,7 +786,9 @@ fn main() -> ExitCode {
                         stage_desc
                     );
                     loop {
-                        print!("  [c] Continuar rascunho  [m] Manter e novo  [d] Descartar e novo → ");
+                        print!(
+                            "  [c] Continuar rascunho  [m] Manter e novo  [d] Descartar e novo → "
+                        );
                         let _ = std::io::stdout().flush();
                         let key = cccp::ai::read_single_key().unwrap_or('c');
                         println!();
@@ -870,7 +873,8 @@ fn main() -> ExitCode {
                                 prompt_arg = Some(cp.prompt);
                             }
                             cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
-                                resume_from_tickets = Some((cp.prompt, cp.tickets, cp.current_index));
+                                resume_from_tickets =
+                                    Some((cp.prompt, cp.tickets, cp.current_index));
                             }
                         }
                     } else {
