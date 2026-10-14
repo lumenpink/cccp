@@ -325,3 +325,23 @@ exit 0
     let log_after = fs::read_to_string(&log_file).unwrap_or_default();
     assert!(log_after.contains("unpause forgejo-runner"));
 }
+
+#[test]
+fn test_runner_pause_guard_docker_failure_graceful() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let temp = tempdir().expect("Failed to create tempdir");
+    let theme = Theme::with_color(false);
+
+    let mock_docker = temp.path().join("mock_docker_fail.sh");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::write(&mock_docker, "#!/bin/sh\nexit 1\n").unwrap();
+        let mut perms = fs::metadata(&mock_docker).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&mock_docker, perms).unwrap();
+    }
+
+    let guard = RunnerPauseGuard::with_docker_bin(&theme, mock_docker.to_str().unwrap());
+    assert!(guard.paused_containers().is_empty());
+}
