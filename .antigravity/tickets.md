@@ -1,7 +1,35 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-14 17:29:47 UTC
+> Synced at: 2026-10-14 18:30:07 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#149] feat(api): suportar instancia local de IA para o Divan
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/149
+
+### Description
+## Description
+Atualmente o módulo de inteligência artificial (`src/ai.rs`) interage com provedores remotos pré-definidos. É necessário possibilitar o uso de instâncias locais de IA (por exemplo, Ollama, LocalAI ou qualquer servidor HTTP com endpoint compatível com OpenAI) para processar as requisições do Divã do Gosplan sem dependência de chaves de API proprietárias externas.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Suporte a configuração de endpoint customizado de IA (URL base, modelo e chave opcional) via `src/config.rs` e variáveis de ambiente.
+- [ ] `AiProvider` em `src/ai.rs` estendido para aceitar o modo local/customizado (ex: `Local` ou endpoint OpenAI-compatible).
+- [ ] `AiClient::check_access()` valida conectividade com a URL local configurada antes de enviar prompts.
+- [ ] Tratamento adequado de erros de conexão e timeouts quando a instância local não estiver respondendo.
+- [ ] Compatibilidade mantida com os prompts de extração e formato de resposta `DecomposedTicket`.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
 ## [#148] feat(tickets): suportar comentarios em tickets no cli, divan e sincronizacao
 - **Status**: `open`
 - **Labels**: none
@@ -52,33 +80,6 @@ Permitir que o usuário salve rascunhos intencionalmente durante a redação ou 
   - Manter o rascunho e gerar novo ticket;
   - Descartar o rascunho e gerar novo ticket.
 - [ ] Permitir salvar como rascunho tickets já processados pelo Gemini que estejam aguardando aprovação.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#132] feat(cli): implementar quebra automatica de linha padrao e atalho de alternancia no editor
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/132
-
-### Description
-## Description
-O editor de texto do Divan necessita de suporte a quebra automática de linha (soft wrap) ativada por padrão, facilitando a leitura e edição de textos longos no terminal sem rolagem horizontal indesejada, além de fornecer um atalho de teclado para alternar (toggle) o recurso sob demanda.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] O editor deve abrir com a quebra automática de linha (word wrap / soft wrap) ativada por padrão.
-- [ ] Um atalho de teclado dedicado deve ser disponibilizado para alternar o modo de quebra de linha (ligado/desligado).
-- [ ] A interface/barra de status do editor deve indicar claramente o estado atual da quebra de linha e informar o atalho disponível.
-- [ ] A navegação do cursor vertical e horizontal deve respeitar corretamente as linhas lógicas e visuais quando o wrap estiver habilitado ou desabilitado.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
