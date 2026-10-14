@@ -101,3 +101,86 @@ fn test_editor_buffer_file_io() {
     let saved = std::fs::read_to_string(temp.path()).expect("Read failed");
     assert_eq!(saved, "!Initial content\nSecond line\n");
 }
+
+#[test]
+fn test_editor_soft_wrap_visual_lines_computation() {
+    let content = "0123456789ABCDEFGHIJ01234\n\nHello";
+    let mut editor = Editor::new("Test Wrap", content);
+    editor.screen_cols = 10;
+    editor.soft_wrap = true;
+
+    let vlines = editor.compute_visual_lines();
+    assert_eq!(vlines.len(), 5);
+
+    // Line 0 chunks
+    assert_eq!(vlines[0].logical_row, 0);
+    assert_eq!(vlines[0].char_start, 0);
+    assert_eq!(vlines[0].char_len, 10);
+
+    assert_eq!(vlines[1].logical_row, 0);
+    assert_eq!(vlines[1].char_start, 10);
+    assert_eq!(vlines[1].char_len, 10);
+
+    assert_eq!(vlines[2].logical_row, 0);
+    assert_eq!(vlines[2].char_start, 20);
+    assert_eq!(vlines[2].char_len, 5);
+
+    // Line 1 (empty)
+    assert_eq!(vlines[3].logical_row, 1);
+    assert_eq!(vlines[3].char_start, 0);
+    assert_eq!(vlines[3].char_len, 0);
+
+    // Line 2 (5 chars)
+    assert_eq!(vlines[4].logical_row, 2);
+    assert_eq!(vlines[4].char_start, 0);
+    assert_eq!(vlines[4].char_len, 5);
+
+    // Without soft wrap: 1 visual line per logical line
+    editor.soft_wrap = false;
+    let no_wrap_lines = editor.compute_visual_lines();
+    assert_eq!(no_wrap_lines.len(), 3);
+}
+
+#[test]
+fn test_editor_soft_wrap_cursor_mapping_and_navigation() {
+    let content = "0123456789ABCDEFGHIJ01234\nSecond";
+    let mut editor = Editor::new("Test Nav", content);
+    editor.screen_cols = 10;
+    editor.soft_wrap = true;
+
+    let vlines = editor.compute_visual_lines();
+
+    // Map (y:0, x:0) -> visual line 0, visual col 0
+    editor.cursor_y = 0;
+    editor.cursor_x = 0;
+    assert_eq!(editor.cursor_to_visual_pos(&vlines), (0, 0));
+
+    // Map (y:0, x:15) -> visual line 1, visual col 5
+    editor.cursor_x = 15;
+    assert_eq!(editor.cursor_to_visual_pos(&vlines), (1, 5));
+
+    // Map (y:0, x:22) -> visual line 2, visual col 2
+    editor.cursor_x = 22;
+    assert_eq!(editor.cursor_to_visual_pos(&vlines), (2, 2));
+
+    // Navigation: Down inside long logical line
+    editor.cursor_y = 0;
+    editor.cursor_x = 3; // (visual 0, col 3)
+    editor.move_cursor(crossterm::event::KeyCode::Down);
+    assert_eq!(editor.cursor_y, 0);
+    assert_eq!(editor.cursor_x, 13); // (visual 1, col 3)
+
+    editor.move_cursor(crossterm::event::KeyCode::Down);
+    assert_eq!(editor.cursor_y, 0);
+    assert_eq!(editor.cursor_x, 23); // (visual 2, col 3)
+
+    // Up inside long logical line
+    editor.move_cursor(crossterm::event::KeyCode::Up);
+    assert_eq!(editor.cursor_y, 0);
+    assert_eq!(editor.cursor_x, 13); // back to (visual 1, col 3)
+
+    // Buffer preservation: to_content() has no inserted newlines
+    let out = editor.to_content();
+    assert_eq!(out, "0123456789ABCDEFGHIJ01234\nSecond\n");
+}
+
