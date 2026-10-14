@@ -345,11 +345,8 @@ pub fn handle_profile_command(
         Some(crate::cli::ProfileCommand::Assemble(ref assemble_args)) => {
             if assemble_args.all {
                 let entries = crate::catalog::load_catalog(None, None);
-                let report = crate::catalog::batch_assemble_gost(
-                    &entries,
-                    assemble_args.dry_run,
-                    theme,
-                );
+                let report =
+                    crate::catalog::batch_assemble_gost(&entries, assemble_args.dry_run, theme);
                 println!(
                     "{}",
                     crate::catalog::format_batch_assemble_report(&report, theme)

@@ -1280,7 +1280,8 @@ pub fn format_batch_assemble_report(
     }
 
     let total_active = report.dry_run.len() + report.assembled.len() + report.failed.len();
-    if total_active == 0 && report.skipped_no_gostver.is_empty() && report.skipped_remote.is_empty() {
+    if total_active == 0 && report.skipped_no_gostver.is_empty() && report.skipped_remote.is_empty()
+    {
         out.push_str(&format!(
             "\n{} No catalog repositories found to assemble.\n",
             theme.green("✓")
@@ -1289,4 +1290,3 @@ pub fn format_batch_assemble_report(
 
     out
 }
-

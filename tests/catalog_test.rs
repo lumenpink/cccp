@@ -807,4 +807,3 @@ fn test_batch_assemble_gost_selection_and_dry_run() {
     assert_eq!(report_dry.skipped_remote, vec!["repo-remote"]);
     assert!(report_dry.assembled.is_empty());
 }
-
