@@ -54,3 +54,42 @@ fn test_new_prompt_editor_configuration() {
     assert_eq!(editor.cursor_y, 2);
     assert_eq!(editor.cursor_x, 0);
 }
+
+#[test]
+fn test_position_cursor_after_indented_comments() {
+    let content = "   # Comentario com espacos antes\n\t# Comentario com tab\nLinha util";
+    let mut editor = Editor::new("Test", content);
+    editor.position_cursor_after_comments();
+
+    assert_eq!(editor.cursor_y, 2);
+    assert_eq!(editor.cursor_x, 0);
+    assert_eq!(editor.rows[editor.cursor_y], "Linha util");
+}
+
+#[test]
+fn test_position_cursor_single_comment_line() {
+    let content = "# Apenas uma linha comentada";
+    let mut editor = Editor::new("Test", content);
+    editor.position_cursor_after_comments();
+
+    assert_eq!(editor.cursor_y, 1);
+    assert_eq!(editor.cursor_x, 0);
+    assert_eq!(editor.rows.len(), 2);
+    assert_eq!(editor.rows[1], "");
+}
+
+#[test]
+fn test_position_cursor_viewport_scroll_reconciliation() {
+    let content = "# 1\n# 2\n# 3\n# 4\n# 5\n\nPrompt";
+    let mut editor = Editor::new("Test", content);
+    editor.screen_rows = 3;
+    editor.position_cursor_after_comments();
+
+    // Cursor is on line 5 (""), so visual_row_offset must have scrolled to keep cursor visible
+    assert_eq!(editor.cursor_y, 5);
+    assert_eq!(editor.cursor_x, 0);
+    assert!(editor.visual_row_offset > 0);
+    assert!(editor.cursor_y >= editor.visual_row_offset);
+    assert!(editor.cursor_y < editor.visual_row_offset + editor.screen_rows);
+}
+
