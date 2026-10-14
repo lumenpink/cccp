@@ -4,7 +4,7 @@ use cccp::config::Config;
 #[test]
 fn test_ai_provider_parsing_and_display() {
     assert_eq!("ollama".parse::<AiProvider>().unwrap(), AiProvider::Ollama);
-    assert_eq!("local".parse::<AiProvider>().unwrap(), AiProvider::Ollama);
+    assert_eq!("local".parse::<AiProvider>().unwrap(), AiProvider::Local);
     assert_eq!("gemini".parse::<AiProvider>().unwrap(), AiProvider::Gemini);
     assert_eq!("google".parse::<AiProvider>().unwrap(), AiProvider::Gemini);
 
@@ -12,6 +12,7 @@ fn test_ai_provider_parsing_and_display() {
 
     assert_eq!(AiProvider::Ollama.to_string(), "ollama");
     assert_eq!(AiProvider::Gemini.to_string(), "gemini");
+    assert_eq!(AiProvider::Local.to_string(), "local");
 }
 
 #[test]
