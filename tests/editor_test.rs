@@ -327,18 +327,21 @@ fn test_parse_and_validate_mutation_edge_cases() {
 
     // 1. Multiple leading blank lines before title
     let raw_leading = "\n\n   \nfeat(core): title after leading blanks\n\nBody content";
-    let (t1, b1) = cccp::editor::parse_ticket_buffer(raw_leading).expect("Should handle leading blank lines");
+    let (t1, b1) =
+        cccp::editor::parse_ticket_buffer(raw_leading).expect("Should handle leading blank lines");
     assert_eq!(t1, "feat(core): title after leading blanks");
     assert_eq!(b1, "Body content");
 
     // 2. Multiple blank lines separating title and body
     let raw_multiblank = "feat(ui): cool title\n\n\n\nParagraph 1\n\nParagraph 2";
-    let (t2, b2) = cccp::editor::parse_ticket_buffer(raw_multiblank).expect("Should handle multiple blank lines");
+    let (t2, b2) = cccp::editor::parse_ticket_buffer(raw_multiblank)
+        .expect("Should handle multiple blank lines");
     assert_eq!(t2, "feat(ui): cool title");
     assert_eq!(b2, "Paragraph 1\n\nParagraph 2");
 
     // 3. UTF-8 accents and symbols in title and body
-    let raw_utf8 = "feat(i18n): suporte a caracteres acentuados ☭\n\nDescrição detalhada com acentuação.";
+    let raw_utf8 =
+        "feat(i18n): suporte a caracteres acentuados ☭\n\nDescrição detalhada com acentuação.";
     let (t3, b3) = cccp::editor::parse_ticket_buffer(raw_utf8).expect("Should handle utf8");
     assert!(cccp::editor::validate_ticket_submission(&t3, &b3, &config).is_ok());
 
@@ -348,14 +351,26 @@ fn test_parse_and_validate_mutation_edge_cases() {
     assert!(cccp::editor::validate_ticket_submission(&t4, &b4, &config).is_ok());
 
     // 5. Subject ending with period must be rejected by validator
-    let res_dot = cccp::editor::validate_ticket_submission("feat(api): title ends with dot.", "Body", &config);
-    assert!(res_dot.is_err(), "Subject ending with dot must fail validation");
+    let res_dot = cccp::editor::validate_ticket_submission(
+        "feat(api): title ends with dot.",
+        "Body",
+        &config,
+    );
+    assert!(
+        res_dot.is_err(),
+        "Subject ending with dot must fail validation"
+    );
 
     // 6. Empty scope parentheses 'feat(): title' must be rejected
-    let res_empty_scope = cccp::editor::validate_ticket_submission("feat(): title", "Body", &config);
+    let res_empty_scope =
+        cccp::editor::validate_ticket_submission("feat(): title", "Body", &config);
     assert!(res_empty_scope.is_err(), "Empty scope must fail validation");
 
     // 7. Unmatched parenthesis 'feat(scope: title' must be rejected
-    let res_unmatched = cccp::editor::validate_ticket_submission("feat(scope: title", "Body", &config);
-    assert!(res_unmatched.is_err(), "Unmatched scope paren must fail validation");
+    let res_unmatched =
+        cccp::editor::validate_ticket_submission("feat(scope: title", "Body", &config);
+    assert!(
+        res_unmatched.is_err(),
+        "Unmatched scope paren must fail validation"
+    );
 }

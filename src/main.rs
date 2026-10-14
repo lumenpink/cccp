@@ -866,113 +866,116 @@ fn main() -> ExitCode {
                 );
 
                 let initial_content = format!("{}\n\n{}", tickets[idx].title, tickets[idx].body);
-                let editor_title = format!("Ticket {}/{} — Review & Submit", idx + 1, tickets.len());
+                let editor_title =
+                    format!("Ticket {}/{} — Review & Submit", idx + 1, tickets.len());
 
                 match cccp::editor::edit_ticket(&editor_title, &initial_content) {
-                    Ok(Some(edited)) => {
-                        match cccp::editor::parse_ticket_buffer(&edited) {
-                            Ok((title, body)) => {
-                                match cccp::editor::validate_ticket_submission(&title, &body, &config) {
-                                    Ok(()) => {
-                                        tickets[idx].title = title;
-                                        tickets[idx].body = body;
+                    Ok(Some(edited)) => match cccp::editor::parse_ticket_buffer(&edited) {
+                        Ok((title, body)) => {
+                            match cccp::editor::validate_ticket_submission(&title, &body, &config) {
+                                Ok(()) => {
+                                    tickets[idx].title = title;
+                                    tickets[idx].body = body;
 
-                                        if diva.dry_run {
-                                            println!(
-                                                "  {} {}",
-                                                theme.green("✓"),
-                                                theme.dim(&format!(
-                                                    "[DRY-RUN] Ticket verified: '{}'. Not published.",
-                                                    tickets[idx].title
-                                                ))
-                                            );
-                                            idx += 1;
-                                            continue;
-                                        }
+                                    if diva.dry_run {
+                                        println!(
+                                            "  {} {}",
+                                            theme.green("✓"),
+                                            theme.dim(&format!(
+                                                "[DRY-RUN] Ticket verified: '{}'. Not published.",
+                                                tickets[idx].title
+                                            ))
+                                        );
+                                        idx += 1;
+                                        continue;
+                                    }
 
-                                        if let Some(ref forge_info) = detected_forge {
-                                            println!(
-                                                "  -> Publishing ticket to {} ({}/{})...",
-                                                forge_info.provider, forge_info.owner, forge_info.repo
-                                            );
-                                            match forge_client.create_issue(
-                                                forge_info,
-                                                &tickets[idx].title,
-                                                &tickets[idx].body,
-                                                &tickets[idx].labels,
-                                            ) {
-                                                Ok(res) => {
-                                                    println!(
-                                                        "  {} Ticket created: {}",
-                                                        theme.green("✓"),
-                                                        res.html_url
-                                                    );
-                                                    let branch = cccp::forges::suggest_branch_name(
-                                                        res.number,
-                                                        &tickets[idx].title,
-                                                    );
-                                                    println!("     Suggested branch: {}", theme.cyan(&branch));
-                                                    created_count += 1;
+                                    if let Some(ref forge_info) = detected_forge {
+                                        println!(
+                                            "  -> Publishing ticket to {} ({}/{})...",
+                                            forge_info.provider, forge_info.owner, forge_info.repo
+                                        );
+                                        match forge_client.create_issue(
+                                            forge_info,
+                                            &tickets[idx].title,
+                                            &tickets[idx].body,
+                                            &tickets[idx].labels,
+                                        ) {
+                                            Ok(res) => {
+                                                println!(
+                                                    "  {} Ticket created: {}",
+                                                    theme.green("✓"),
+                                                    res.html_url
+                                                );
+                                                let branch = cccp::forges::suggest_branch_name(
+                                                    res.number,
+                                                    &tickets[idx].title,
+                                                );
+                                                println!(
+                                                    "     Suggested branch: {}",
+                                                    theme.cyan(&branch)
+                                                );
+                                                created_count += 1;
+                                                idx += 1;
+                                            }
+                                            Err(e) => {
+                                                eprintln!(
+                                                    "\n  {}: {}",
+                                                    theme.red_bold("Error publishing ticket"),
+                                                    e
+                                                );
+                                                print!("  [r] Retry in editor  [s] Skip ticket  [q] Quit → ");
+                                                let _ = std::io::stdout().flush();
+                                                let key =
+                                                    cccp::ai::read_single_key().unwrap_or('s');
+                                                if key == 'q' {
+                                                    break;
+                                                } else if key == 's' {
                                                     idx += 1;
                                                 }
-                                                Err(e) => {
-                                                    eprintln!(
-                                                        "\n  {}: {}",
-                                                        theme.red_bold("Error publishing ticket"),
-                                                        e
-                                                    );
-                                                    print!("  [r] Retry in editor  [s] Skip ticket  [q] Quit → ");
-                                                    let _ = std::io::stdout().flush();
-                                                    let key = cccp::ai::read_single_key().unwrap_or('s');
-                                                    if key == 'q' {
-                                                        break;
-                                                    } else if key == 's' {
-                                                        idx += 1;
-                                                    }
-                                                }
                                             }
-                                        } else {
-                                            println!(
+                                        }
+                                    } else {
+                                        println!(
                                                 "\n  {}: No git remote or forge detected to publish the ticket.",
                                                 theme.yellow("Warning")
                                             );
-                                            idx += 1;
-                                        }
-                                    }
-                                    Err(val_err) => {
-                                        eprintln!(
-                                            "\n  {}: {}",
-                                            theme.red_bold("Invalid ticket format"),
-                                            val_err
-                                        );
-                                        print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
-                                        let _ = std::io::stdout().flush();
-                                        let key = cccp::ai::read_single_key().unwrap_or('e');
-                                        if key == 'q' {
-                                            break;
-                                        } else if key == 's' {
-                                            idx += 1;
-                                        }
+                                        idx += 1;
                                     }
                                 }
-                            }
-                            Err(parse_err) => {
-                                eprintln!(
-                                    "\n  {}: {}",
-                                    theme.red_bold("Ticket parse error"),
-                                    parse_err
-                                );
-                                print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
-                                let _ = std::io::stdout().flush();
-                                let key = cccp::ai::read_single_key().unwrap_or('e');
-                                if key == 'q' {
-                                    break;
-                                } else if key == 's' {
-                                    idx += 1;
+                                Err(val_err) => {
+                                    eprintln!(
+                                        "\n  {}: {}",
+                                        theme.red_bold("Invalid ticket format"),
+                                        val_err
+                                    );
+                                    print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
+                                    let _ = std::io::stdout().flush();
+                                    let key = cccp::ai::read_single_key().unwrap_or('e');
+                                    if key == 'q' {
+                                        break;
+                                    } else if key == 's' {
+                                        idx += 1;
+                                    }
                                 }
                             }
                         }
-                    }
+                        Err(parse_err) => {
+                            eprintln!(
+                                "\n  {}: {}",
+                                theme.red_bold("Ticket parse error"),
+                                parse_err
+                            );
+                            print!("  [e] Reopen in editor  [s] Skip ticket  [q] Quit → ");
+                            let _ = std::io::stdout().flush();
+                            let key = cccp::ai::read_single_key().unwrap_or('e');
+                            if key == 'q' {
+                                break;
+                            } else if key == 's' {
+                                idx += 1;
+                            }
+                        }
+                    },
                     Ok(None) => {
                         println!(
                             "\n  {} Ticket review cancelled by user (not published).",
