@@ -779,4 +779,3 @@ fn test_batch_push_execution_failure_handling() {
     assert_eq!(report.failed.len(), 1);
     assert_eq!(report.failed[0].0, "fail-repo");
 }
-
