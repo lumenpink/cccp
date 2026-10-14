@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Batch GOST Specification Assembly
+- **Batch GOST Specification Assembly (`cccp catalog assemble` / `cccp profile assemble -a`)**: Varre os repositórios registrados no catálogo Gosplan e compila em lote a especificação canônica `.gost/GOST.md` para todos os repositórios locais que possuem `GOSTVER`. Respeita camadas de herança em cascata (`extends`), perfis ativos e sobreposições locais soberanas (`CUSTOM.md`). Suporta pré-visualização segura com `--dry-run` / `-n`. (closes #145)
+
 ### Batch Push for Clean Repositories
 - **Safe Batch Push for Clean Repositories (`cccp catalog push` / `cccp push -a`)**: Varre os repositórios registrados no catálogo Gosplan e envia em lote (`git push`) todos os repositórios locais limpos (`clean`) com commits pendentes (`ahead > 0`). Ignora com aviso de segurança repositórios sujos com alterações não commitadas (`dirty`), repositórios já sincronizados e clones remotos ausentes. Suporta `--dry-run` / `-n` para pré-visualização segura. (closes #128)
 
