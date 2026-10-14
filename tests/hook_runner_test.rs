@@ -376,3 +376,60 @@ fn test_reconcile_merge_version_behavior() {
     let result2 = reconcile_merge_version(&repo2, &theme).expect("reconcile failed");
     assert!(result2.is_none());
 }
+
+#[test]
+fn test_hook_pre_commit_ignores_repo_without_version_file() {
+    use cccp::hook_runner::run_pre_commit;
+
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let theme = Theme::init(true);
+
+    // Initial commit WITHOUT a VERSION file
+    fs::write(p.join("README.md"), "# Test\n").unwrap();
+    Command::new("git")
+        .args(["add", "README.md"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore: initial"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    let repo = GitRepo::open(Some(p)).expect("open repo");
+    let code = run_pre_commit(&repo, &theme, 0).expect("pre-commit hook failed");
+    assert_eq!(code, 0);
+
+    // VERSION file must NOT have been created
+    assert!(!p.join("VERSION").exists());
+}
+
+#[test]
+fn test_reconcile_merge_version_ignores_repo_without_version_file() {
+    use cccp::hook_runner::reconcile_merge_version;
+
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let theme = Theme::init(true);
+
+    // Commit without VERSION
+    fs::write(p.join("README.md"), "# Test\n").unwrap();
+    Command::new("git")
+        .args(["add", "README.md"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore: initial"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    let repo = GitRepo::open(Some(p)).expect("open repo");
+    let res = reconcile_merge_version(&repo, &theme).expect("reconcile failed");
+    assert!(res.is_none());
+    assert!(!p.join("VERSION").exists());
+}
+
