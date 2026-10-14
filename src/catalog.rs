@@ -702,6 +702,28 @@ pub fn count_open_tickets(repo_dir: &Path) -> usize {
     0
 }
 
+/// Extracts declared GOST version (e.g. "1.4.0") from the GOSTVER file in a repository directory
+pub fn extract_gost_version(repo_dir: &Path) -> Option<String> {
+    let gostver_path = repo_dir.join("GOSTVER");
+    if !gostver_path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(gostver_path).ok()?;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') || !trimmed.starts_with("GOST_VERSION") {
+            continue;
+        }
+        if let Some((_, val)) = trimmed.split_once('=') {
+            let clean = val.trim().trim_matches(|c| c == '"' || c == '\'');
+            if !clean.is_empty() {
+                return Some(clean.to_string());
+            }
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CatalogRepoSummary {
     pub name: String,
@@ -713,6 +735,7 @@ pub struct CatalogRepoSummary {
     pub unpushed: usize,
     pub status_label: String, // "clean", "clean [↑4]", "dirty", "dirty [↑2]", "remote"
     pub local_path: Option<PathBuf>,
+    pub gost_version: Option<String>,
 }
 
 /// Gather live status (clean/dirty, unpushed commits, open tickets) for catalog entries
@@ -739,6 +762,8 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                     (0, None, 0, "remote".to_string())
                 };
 
+            let gost_version = local_path.as_deref().and_then(extract_gost_version);
+
             CatalogRepoSummary {
                 name: entry.name.clone(),
                 forge: entry.forge.clone(),
@@ -749,6 +774,7 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                 unpushed,
                 status_label,
                 local_path,
+                gost_version,
             }
         })
         .collect()
@@ -781,12 +807,14 @@ pub fn format_catalog_table(
 
     let h_repo = "REPOSITORY";
     let h_forge = "FORGE";
+    let h_gost = "GOST";
     let h_tickets = "TICKETS";
     let h_status = "STATUS";
     let h_path = "LOCAL PATH";
 
     let mut w_repo = h_repo.chars().count();
     let mut w_forge = h_forge.chars().count();
+    let mut w_gost = h_gost.chars().count();
     let mut w_tickets = h_tickets.chars().count();
     let mut w_status = h_status.chars().count();
     let mut w_path = h_path.chars().count();
@@ -797,8 +825,10 @@ pub fn format_catalog_table(
         } else {
             format!("{} [{}]", s.name, s.aliases.join(", "))
         };
+        let gost_str = s.gost_version.as_deref().unwrap_or("-");
         w_repo = w_repo.max(repo_display.chars().count());
         w_forge = w_forge.max(s.forge.chars().count());
+        w_gost = w_gost.max(gost_str.chars().count());
         w_tickets = w_tickets.max(s.ticket_count.to_string().chars().count());
         w_status = w_status.max(s.status_label.chars().count());
         w_path = w_path.max(format_path(&s.local_path).chars().count());
@@ -808,9 +838,10 @@ pub fn format_catalog_table(
 
     // Top border
     out.push_str(&format!(
-        "┌─{repo}─┬─{forge}─┬─{tickets}─┬─{status}─┬─{path}─┐\n",
+        "┌─{repo}─┬─{forge}─┬─{gost}─┬─{tickets}─┬─{status}─┬─{path}─┐\n",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
+        gost = "─".repeat(w_gost),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -819,16 +850,19 @@ pub fn format_catalog_table(
     // Header row
     let pad_r = " ".repeat(w_repo.saturating_sub(h_repo.chars().count()));
     let pad_f = " ".repeat(w_forge.saturating_sub(h_forge.chars().count()));
+    let pad_g = " ".repeat(w_gost.saturating_sub(h_gost.chars().count()));
     let pad_t = " ".repeat(w_tickets.saturating_sub(h_tickets.chars().count()));
     let pad_s = " ".repeat(w_status.saturating_sub(h_status.chars().count()));
     let pad_p = " ".repeat(w_path.saturating_sub(h_path.chars().count()));
 
     out.push_str(&format!(
-        "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+        "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
         theme.bold(h_repo),
         pad_r,
         theme.bold(h_forge),
         pad_f,
+        theme.bold(h_gost),
+        pad_g,
         pad_t,
         theme.bold(h_tickets),
         theme.bold(h_status),
@@ -839,9 +873,10 @@ pub fn format_catalog_table(
 
     // Separator
     out.push_str(&format!(
-        "├─{repo}─┼─{forge}─┼─{tickets}─┼─{status}─┼─{path}─┤\n",
+        "├─{repo}─┼─{forge}─┼─{gost}─┼─{tickets}─┼─{status}─┼─{path}─┤\n",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
+        gost = "─".repeat(w_gost),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -856,9 +891,11 @@ pub fn format_catalog_table(
         };
         let path_str = format_path(&s.local_path);
         let tickets_str = s.ticket_count.to_string();
+        let gost_display = s.gost_version.as_deref().unwrap_or("-");
 
         let pad_repo = " ".repeat(w_repo.saturating_sub(repo_display.chars().count()));
         let pad_forge = " ".repeat(w_forge.saturating_sub(s.forge.chars().count()));
+        let pad_gost = " ".repeat(w_gost.saturating_sub(gost_display.chars().count()));
         let pad_tickets = " ".repeat(w_tickets.saturating_sub(tickets_str.chars().count()));
         let pad_status = " ".repeat(w_status.saturating_sub(s.status_label.chars().count()));
         let pad_path = " ".repeat(w_path.saturating_sub(path_str.chars().count()));
@@ -879,6 +916,11 @@ pub fn format_catalog_table(
 
         let styled_repo = theme.bold(&repo_display);
         let styled_forge = theme.cyan(&s.forge);
+        let styled_gost = if s.gost_version.is_some() {
+            theme.cyan(gost_display)
+        } else {
+            theme.dim(gost_display)
+        };
         let styled_path = if path_str == "-" {
             theme.dim(&path_str)
         } else {
@@ -886,11 +928,13 @@ pub fn format_catalog_table(
         };
 
         out.push_str(&format!(
-            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
             styled_repo,
             pad_repo,
             styled_forge,
             pad_forge,
+            styled_gost,
+            pad_gost,
             pad_tickets,
             styled_tickets,
             styled_status,
@@ -902,9 +946,10 @@ pub fn format_catalog_table(
 
     // Bottom border
     out.push_str(&format!(
-        "└─{repo}─┴─{forge}─┴─{tickets}─┴─{status}─┴─{path}─┘",
+        "└─{repo}─┴─{forge}─┴─{gost}─┴─{tickets}─┴─{status}─┴─{path}─┘",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
+        gost = "─".repeat(w_gost),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -954,6 +999,16 @@ pub fn filter_and_sort_summaries(
         }
         "forge" => {
             summaries.sort_by(|a, b| a.forge.cmp(&b.forge).then_with(|| a.name.cmp(&b.name)));
+        }
+        "gost" | "gostver" => {
+            summaries.sort_by(|a, b| {
+                match (&a.gost_version, &b.gost_version) {
+                    (Some(va), Some(vb)) => va.cmp(vb).then_with(|| a.name.cmp(&b.name)),
+                    (Some(_), None) => std::cmp::Ordering::Less,
+                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                    (None, None) => a.name.cmp(&b.name),
+                }
+            });
         }
         _ => {
             // Default "name"

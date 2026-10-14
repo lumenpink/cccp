@@ -339,6 +339,7 @@ fn test_format_catalog_table_rendering() {
             unpushed: 2,
             status_label: "clean [↑2]".to_string(),
             local_path: Some(std::path::PathBuf::from("/home/user/src/cccp")),
+            gost_version: Some("1.4.0".to_string()),
         },
         catalog::CatalogRepoSummary {
             name: "remote_tool".to_string(),
@@ -350,6 +351,7 @@ fn test_format_catalog_table_rendering() {
             unpushed: 0,
             status_label: "remote".to_string(),
             local_path: None,
+            gost_version: None,
         },
     ];
 
@@ -358,11 +360,13 @@ fn test_format_catalog_table_rendering() {
 
     assert!(table.contains("REPOSITORY"));
     assert!(table.contains("FORGE"));
+    assert!(table.contains("GOST"));
     assert!(table.contains("TICKETS"));
     assert!(table.contains("STATUS"));
     assert!(table.contains("LOCAL PATH"));
     assert!(table.contains("cccp"));
     assert!(table.contains("codeberg"));
+    assert!(table.contains("1.4.0"));
     assert!(table.contains("clean [↑2]"));
     assert!(table.contains("remote_tool"));
     assert!(table.contains("github"));
@@ -382,6 +386,7 @@ fn test_filter_and_sort_catalog() {
             unpushed: 0,
             status_label: "clean".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/beta")),
+            gost_version: Some("1.4.0".to_string()),
         },
         catalog::CatalogRepoSummary {
             name: "alpha".to_string(),
@@ -393,6 +398,7 @@ fn test_filter_and_sort_catalog() {
             unpushed: 3,
             status_label: "dirty [↑3]".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/alpha")),
+            gost_version: Some("1.0.0".to_string()),
         },
         catalog::CatalogRepoSummary {
             name: "gamma".to_string(),
@@ -404,6 +410,7 @@ fn test_filter_and_sort_catalog() {
             unpushed: 0,
             status_label: "remote".to_string(),
             local_path: None,
+            gost_version: None,
         },
     ];
 

@@ -600,7 +600,7 @@ pub struct CatalogFilterArgs {
     #[arg(short = 't', long = "tickets", alias = "min-tickets")]
     pub min_tickets: Option<usize>,
 
-    /// Sort repositories by field ('name', 'tickets', 'status', 'forge')
+    /// Sort repositories by field ('name', 'tickets', 'status', 'forge', 'gost')
     #[arg(long = "sort", default_value = "name")]
     pub sort: String,
 
