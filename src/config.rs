@@ -455,8 +455,8 @@ impl Config {
         {
             self.local_ai_model = v.trim().to_string();
         }
-        if let Ok(v) = env::var("LOCAL_AI_TEMPERATURE")
-            .or_else(|_| env::var("CCCP_LOCAL_AI_TEMPERATURE"))
+        if let Ok(v) =
+            env::var("LOCAL_AI_TEMPERATURE").or_else(|_| env::var("CCCP_LOCAL_AI_TEMPERATURE"))
         {
             if let Ok(t) = v.trim().parse::<f32>() {
                 self.local_ai_temperature = t;

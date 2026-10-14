@@ -24,10 +24,12 @@ fn test_config_local_ai_defaults() {
 
 #[test]
 fn test_ai_client_from_config_with_local_provider() {
-    let mut config = Config::default();
-    config.ai_provider = "local".to_string();
-    config.local_ai_host = "http://127.0.0.1:5000/v1".to_string();
-    config.local_ai_model = "my-custom-model".to_string();
+    let config = Config {
+        ai_provider: "local".to_string(),
+        local_ai_host: "http://127.0.0.1:5000/v1".to_string(),
+        local_ai_model: "my-custom-model".to_string(),
+        ..Default::default()
+    };
 
     let client = AiClient::from_config(&config);
     assert_eq!(client.provider, AiProvider::Local);
