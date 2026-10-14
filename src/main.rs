@@ -619,6 +619,13 @@ fn main() -> ExitCode {
 
             // 2. Resolve target forge and repository
             let git_repo = cccp::git::GitRepo::open(args.dir.as_deref()).ok();
+            let target_dir: std::path::PathBuf = if let Some(ref r) = git_repo {
+                r.root_dir.clone()
+            } else if let Some(ref p) = args.dir {
+                std::path::PathBuf::from(p)
+            } else {
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+            };
             let mut detected_forge = if let Some(ref target) = target_repo_arg {
                 match cccp::catalog::resolve_target_repo(target, Some(&config), start_path) {
                     Some(info) => Some(info),
@@ -748,57 +755,56 @@ fn main() -> ExitCode {
                 }
             }
 
-            // 6. Resolve prompt (interactive if empty)
-            let prompt = if let Some(p) = prompt_arg.take() {
-                p
-            } else if std::io::stdin().is_terminal() {
-                let target_label = if let Some(ref f) = detected_forge {
-                    format!("{} ({}/{})", f.provider, f.owner, f.repo)
-                } else {
-                    "standalone".to_string()
+            let mut resume_from_tickets: Option<(String, Vec<cccp::ai::DecomposedTicket>, usize)> = None;
+
+            if let Ok(Some(cp)) = cccp::checkpoint::DivanCheckpoint::load(&target_dir) {
+                let stage_desc = match cp.stage {
+                    cccp::checkpoint::CheckpointStage::PromptEntered => {
+                        "interrompida antes da chamada à IA (prompt preservado)".to_string()
+                    }
+                    cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
+                        format!("com {} ticket(s) pendente(s) de revisão", cp.tickets.len())
+                    }
                 };
-                let initial_prompt = format!(
-                    "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
-                    target_label
+
+                let restore_prompt = format!(
+                    "Sessão anterior encontrada para este repositório ({})",
+                    stage_desc
                 );
-                match cccp::editor::edit_text("Divan - Triage Prompt", &initial_prompt) {
-                    Ok(Some(edited)) => {
-                        let filtered: Vec<&str> = edited
-                            .lines()
-                            .filter(|line| !line.trim().starts_with('#'))
-                            .collect();
-                        let prompt_text = filtered.join("\n").trim().to_string();
-                        if prompt_text.is_empty() {
-                            eprintln!(
-                                "{}: No description provided. Exiting.",
-                                theme.yellow("Notice")
-                            );
-                            return ExitCode::SUCCESS;
-                        }
-                        prompt_text
-                    }
-                    _ => {
-                        eprintln!(
-                            "{}: No description provided. Exiting.",
-                            theme.yellow("Notice")
-                        );
-                        return ExitCode::SUCCESS;
-                    }
-                }
-            } else {
-                let mut line = String::new();
-                std::io::stdin().read_line(&mut line).unwrap_or_default();
-                let trimmed = line.trim().to_string();
-                if trimmed.is_empty() {
-                    eprintln!(
-                        "{}: Please provide a description or problem report for triage.",
-                        theme.red_bold("Error")
+
+                let should_restore = if std::io::stdin().is_terminal() {
+                    print!(
+                        "{} {}. Restaurar sessão? [Y/n] → ",
+                        theme.yellow("★ [GOSPLAN]"),
+                        restore_prompt
                     );
-                    eprintln!("Usage: cccp diva [OPTIONS] [REPO] [REPORT]");
-                    return ExitCode::FAILURE;
+                    let _ = std::io::stdout().flush();
+                    let key = cccp::ai::read_single_key().unwrap_or('y');
+                    println!();
+                    key != 'n' && key != 'N'
+                } else {
+                    true
+                };
+
+                if should_restore {
+                    println!(
+                        "  {} {}",
+                        theme.green("✓"),
+                        theme.bold("Sessão anterior restaurada com sucesso.")
+                    );
+                    match cp.stage {
+                        cccp::checkpoint::CheckpointStage::PromptEntered => {
+                            prompt_arg = Some(cp.prompt);
+                        }
+                        cccp::checkpoint::CheckpointStage::TicketsPendingReview => {
+                            resume_from_tickets = Some((cp.prompt, cp.tickets, cp.current_index));
+                        }
+                    }
+                } else {
+                    println!("  {} Sessão anterior descartada.", theme.dim("ℹ"));
+                    let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
                 }
-                trimmed
-            };
+            }
 
             let repo_ctx = cccp::ai::build_enriched_context_with_provider(
                 git_repo.as_ref(),
@@ -807,42 +813,110 @@ fn main() -> ExitCode {
                 Some(client.provider),
             );
 
-            let mut tickets = if diva.direct {
+            let (prompt, mut tickets, mut idx) = if let Some((p, t, i)) = resume_from_tickets {
                 println!(
-                    "{}",
-                    theme.yellow(
-                        "★ [GOSPLAN] Direct mode enabled (--direct): skipping AI triage stage."
-                    )
-                );
-                vec![cccp::ai::DecomposedTicket {
-                    title: prompt.clone(),
-                    rationale: Some("Direct mode - created without AI triage".to_string()),
-                    labels: vec!["triage".to_string()],
-                    body: format!("## Description\n{}\n", prompt),
-                }]
-            } else {
-                println!(
-                    "{} Consulting {} ({}) for ticket decomposition...",
+                    "{} Retomando revisão a partir do ticket {}/{}...",
                     theme.yellow("★ [GOSPLAN]"),
-                    theme.cyan(&client.provider.to_string()),
-                    theme.yellow(&client.model)
+                    i + 1,
+                    t.len()
                 );
-                match client.triage(&prompt, Some(&repo_ctx)) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                (p, t, i)
+            } else {
+                // 6. Resolve prompt (interactive if empty)
+                let prompt = if let Some(p) = prompt_arg.take() {
+                    p
+                } else if std::io::stdin().is_terminal() {
+                    let target_label = if let Some(ref f) = detected_forge {
+                        format!("{} ({}/{})", f.provider, f.owner, f.repo)
+                    } else {
+                        "standalone".to_string()
+                    };
+                    let initial_prompt = format!(
+                        "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
+                        target_label
+                    );
+                    match cccp::editor::edit_text("Divan - Triage Prompt", &initial_prompt) {
+                        Ok(Some(edited)) => {
+                            let filtered: Vec<&str> = edited
+                                .lines()
+                                .filter(|line| !line.trim().starts_with('#'))
+                                .collect();
+                            let prompt_text = filtered.join("\n").trim().to_string();
+                            if prompt_text.is_empty() {
+                                eprintln!(
+                                    "{}: No description provided. Exiting.",
+                                    theme.yellow("Notice")
+                                );
+                                return ExitCode::SUCCESS;
+                            }
+                            prompt_text
+                        }
+                        _ => {
+                            eprintln!(
+                                "{}: No description provided. Exiting.",
+                                theme.yellow("Notice")
+                            );
+                            return ExitCode::SUCCESS;
+                        }
+                    }
+                } else {
+                    let mut line = String::new();
+                    std::io::stdin().read_line(&mut line).unwrap_or_default();
+                    let trimmed = line.trim().to_string();
+                    if trimmed.is_empty() {
+                        eprintln!(
+                            "{}: Please provide a description or problem report for triage.",
+                            theme.red_bold("Error")
+                        );
+                        eprintln!("Usage: cccp diva [OPTIONS] [REPO] [REPORT]");
                         return ExitCode::FAILURE;
                     }
-                }
-            };
+                    trimmed
+                };
 
-            if tickets.is_empty() {
-                println!(
-                    "{} No tickets were identified by the AI model.",
-                    theme.yellow("★ [GOSPLAN]")
-                );
-                return ExitCode::SUCCESS;
-            }
+                let _ = cccp::checkpoint::DivanCheckpoint::save_prompt(&target_dir, &prompt);
+
+                let tickets = if diva.direct {
+                    println!(
+                        "{}",
+                        theme.yellow(
+                            "★ [GOSPLAN] Direct mode enabled (--direct): skipping AI triage stage."
+                        )
+                    );
+                    vec![cccp::ai::DecomposedTicket {
+                        title: prompt.clone(),
+                        rationale: Some("Direct mode - created without AI triage".to_string()),
+                        labels: vec!["triage".to_string()],
+                        body: format!("## Description\n{}\n", prompt),
+                    }]
+                } else {
+                    println!(
+                        "{} Consulting {} ({}) for ticket decomposition...",
+                        theme.yellow("★ [GOSPLAN]"),
+                        theme.cyan(&client.provider.to_string()),
+                        theme.yellow(&client.model)
+                    );
+                    match client.triage(&prompt, Some(&repo_ctx)) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                };
+
+                if tickets.is_empty() {
+                    let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
+                    println!(
+                        "{} No tickets were identified by the AI model.",
+                        theme.yellow("★ [GOSPLAN]")
+                    );
+                    return ExitCode::SUCCESS;
+                }
+
+                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(&target_dir, &prompt, &tickets, 0);
+                (prompt, tickets, 0)
+            };
 
             println!();
             println!(
@@ -855,9 +929,10 @@ fn main() -> ExitCode {
 
             let forge_client = cccp::forges::ForgeClient::new();
             let mut created_count = 0;
-            let mut idx = 0;
 
             while idx < tickets.len() {
+                let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(&target_dir, &prompt, &tickets, idx);
+
                 println!(
                     "{} Opening ticket {}/{} in CCCP Editor for review and submission...",
                     theme.yellow("★ [GOSPLAN]"),
@@ -1017,6 +1092,7 @@ fn main() -> ExitCode {
                                             );
                                             tickets = new_tickets;
                                             idx = 0;
+                                            let _ = cccp::checkpoint::DivanCheckpoint::save_tickets(&target_dir, &prompt, &tickets, 0);
                                             continue;
                                         }
                                         Ok(_) => eprintln!(
@@ -1039,6 +1115,10 @@ fn main() -> ExitCode {
                         idx += 1;
                     }
                 }
+            }
+
+            if idx >= tickets.len() {
+                let _ = cccp::checkpoint::DivanCheckpoint::clear(&target_dir);
             }
 
             if created_count > 0 {
