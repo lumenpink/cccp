@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Soft Wrap Support in CCCP Editor
+- **Soft Wrap Rendering & Cursor Mapping (`cccp editor` / `cccp edit`)**: Implementa motor de quebra suave de linha (*soft wrap*) com mapeamento bidirecional de coordenadas entre buffer real e linhas visuais da tela. Linhas com largura superior às colunas do terminal são visualmente divididas sem inserir caracteres `\n` no buffer real ou disco. Suporta navegação vertical/horizontal fluida através dos chunks visuais, rolagem vertical contínua, indicador `[WRAP]` na barra de status e alternância via atalho `Alt+W`. (closes #139)
+
 ### GOST Version Column in Catalog Listing
 - **GOST Governance Version Column (`cccp catalog list`)**: Exibe uma coluna dedicada `GOST` na tabela do catálogo Gosplan indicando a versão ativa declarada em `GOSTVER` (ex.: `1.4.0`) para repositórios locais gerenciados, ou `-` para repositórios remotos ou sem governança GOST ativa. Suporta ordenação ascendente e reversa por versão GOST via flag `--sort gost` (com alias `--sort gostver`). (closes #146)
 
