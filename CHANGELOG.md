@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Multi-Repository Ticket Cache Isolation
+- **Target Repository Ticket Cache Isolation**: Garante que tanto o `divan` quanto o comando `cccp ticket` sincronizem e atualizem `.antigravity/tickets.md` estritamente na raiz do repositório alvo (via catálogo ou caminho local), impedindo a poluição indevida do diretório corrente (`cwd`) ao operar sobre repositórios externos. (closes #140)
+
 ### Local CI Runner & Pre-Push Pause Optimization
 - **Isolate Test Jobs in Local CI (`act`)**: Filtra e isola exclusivamente jobs de teste/verificação (`test`, `lint`, `check`), descartando jobs de deploy, release e publicação do workflow temporário passado ao `act`, limpando dependências `needs:` obsoletas e evitando falhas de validação de CD no pre-push hook. (closes #130)
 - **Auto-pause forgejo-runner during local CI (`act`)**: Congela via `docker pause` o container daemon do `forgejo-runner` durante a execução do CI local (pre-push hook e `cccp act run`), descongelando-o deterministicamente ao término via guard RAII para evitar contenção de CPU e RAM no host. (closes #144)
