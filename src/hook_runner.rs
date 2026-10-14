@@ -332,3 +332,21 @@ pub fn run_post_merge(
 
     Ok(0)
 }
+
+/// Handler for the `pre-commit` git hook
+pub fn run_pre_commit(
+    _repo: &GitRepo,
+    _theme: &Theme,
+    _verbose: u8,
+) -> Result<i32, String> {
+    Ok(0)
+}
+
+/// Reconcile VERSION file after a merge if the calculated version diverges from disk
+pub fn reconcile_merge_version(
+    _repo: &GitRepo,
+    _theme: &Theme,
+) -> Result<Option<String>, String> {
+    Ok(None)
+}
+
