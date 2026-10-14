@@ -148,7 +148,47 @@ fn test_resolve_tickets_output_path_different_repo_rejects_cwd() {
         "other-repo".to_string(),
     );
     let res = resolve_tickets_output_path(&args_diff, &repo, &forge_diff, &config);
-    assert!(res.is_err(), "Expected error when other-repo has no local clone, but got {:?}", res);
+    assert!(
+        res.is_err(),
+        "Expected error when other-repo has no local clone, but got {:?}",
+        res
+    );
 }
 
+#[test]
+fn test_resolve_tickets_output_path_explicit_output_override() {
+    let temp = tempdir().unwrap();
+    let current_repo_dir = temp.path().join("current-repo");
+    fs::create_dir_all(&current_repo_dir).unwrap();
+    std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&current_repo_dir)
+        .status()
+        .unwrap();
 
+    let repo = GitRepo::open(Some(&current_repo_dir)).unwrap();
+    let config = Config::default();
+
+    let explicit_file = temp.path().join("custom").join("my-tickets.md");
+    let args = TicketsArgs {
+        output: Some(explicit_file.clone()),
+        ..Default::default()
+    };
+    let forge = RepoForgeInfo::new(
+        cccp::forges::ForgeType::Codeberg,
+        "codeberg.org".to_string(),
+        "lumenpink".to_string(),
+        "any-repo".to_string(),
+    );
+
+    let resolved = resolve_tickets_output_path(&args, &repo, &forge, &config).unwrap();
+    assert_eq!(resolved, explicit_file);
+
+    // Relative output path resolves relative to repo root
+    let args_rel = TicketsArgs {
+        output: Some(std::path::PathBuf::from("docs/issues.md")),
+        ..Default::default()
+    };
+    let resolved_rel = resolve_tickets_output_path(&args_rel, &repo, &forge, &config).unwrap();
+    assert_eq!(resolved_rel, current_repo_dir.join("docs/issues.md"));
+}
