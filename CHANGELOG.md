@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Local CI Runner & Pre-Push Pause Optimization
+- **Auto-pause forgejo-runner during local CI (`act`)**: Congela via `docker pause` o container daemon do `forgejo-runner` durante a execução do CI local (pre-push hook e `cccp act run`), descongelando-o deterministicamente ao término via guard RAII para evitar contenção de CPU e RAM no host. (closes #144)
+
 ### Automated Merge Ticket Closing & Merge Lock Gate
 - **Merge Lock Gate (`cccp merge <branch>`)**: Bloqueia a integração de branches que não contêm commits com a tag canônica `(closes #<id>)`, garantindo conformidade irrestrita com a Fase 9 do GOST DD-TDD. (closes #133)
 - **Post-Merge Git Hook (`post-merge`)**: Hook nativo de Git que inspeciona `ORIG_HEAD..HEAD`, identifica tags `(closes #<id>)` e encerra automaticamente as issues na API remota do forge. (closes #133)
