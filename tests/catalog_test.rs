@@ -807,3 +807,63 @@ fn test_batch_assemble_gost_selection_and_dry_run() {
     assert_eq!(report_dry.skipped_remote, vec!["repo-remote"]);
     assert!(report_dry.assembled.is_empty());
 }
+
+#[test]
+fn test_batch_assemble_gost_execution_and_file_creation() {
+    use cccp::catalog::batch_assemble_gost_repos;
+    use cccp::cultural::Theme;
+    use tempfile::tempdir;
+
+    let theme = Theme::with_color(false);
+
+    let dir = tempdir().expect("tempdir");
+    std::fs::write(dir.path().join("GOSTVER"), "1.4.0\n").expect("write GOSTVER");
+
+    let repos = vec![("repo-exec", Some(dir.path()))];
+
+    let report = batch_assemble_gost_repos(&repos, false, &theme);
+    assert_eq!(report.assembled, vec!["repo-exec"]);
+    assert!(report.failed.is_empty());
+    assert!(report.dry_run.is_empty());
+
+    let target_file = dir.path().join(".gost/GOST.md");
+    assert!(target_file.is_file());
+    let content = std::fs::read_to_string(target_file).expect("read GOST.md");
+    assert!(content.contains("ГОСТ / GOSPLAN"));
+}
+
+#[test]
+fn test_batch_assemble_gost_report_formatting() {
+    use cccp::catalog::{format_batch_assemble_report, BatchAssembleReport};
+    use cccp::cultural::Theme;
+
+    let theme = Theme::with_color(false);
+
+    let mut report = BatchAssembleReport::default();
+    report.dry_run.push("repo-dry".into());
+    report.assembled.push("repo-assembled".into());
+    report
+        .failed
+        .push(("repo-fail".into(), "disk error".into()));
+    report.skipped_no_gostver.push("repo-nogost".into());
+    report.skipped_remote.push("repo-remote".into());
+
+    let formatted = format_batch_assemble_report(&report, &theme);
+    assert!(formatted.contains("Gosplan Batch GOST Assembly Report"));
+    assert!(formatted.contains("[DRY-RUN]"));
+    assert!(formatted.contains("repo-dry"));
+    assert!(formatted.contains("Assembled .gost/GOST.md successfully: (1)"));
+    assert!(formatted.contains("repo-assembled"));
+    assert!(formatted.contains("Failed to assemble GOST: (1)"));
+    assert!(formatted.contains("repo-fail: disk error"));
+    assert!(formatted.contains("Skipped (no GOSTVER defined): (1)"));
+    assert!(formatted.contains("repo-nogost"));
+    assert!(formatted.contains("Remote only / unmanaged locally: (1)"));
+    assert!(formatted.contains("repo-remote"));
+
+    // Case: Empty report
+    let empty_report = BatchAssembleReport::default();
+    let empty_formatted = format_batch_assemble_report(&empty_report, &theme);
+    assert!(empty_formatted.contains("No catalog repositories found to assemble."));
+}
+
