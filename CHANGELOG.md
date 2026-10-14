@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Repository Alias Management and Collision Safety
+- **Repository Aliases Management (`cccp catalog alias` / `cccp catalog add -a`)**: Adiciona suporte completo para criação, associação, listagem e remoção de apelidos (*aliases*) para repositórios registrados no catálogo Gosplan. Inclui validação estrita contra colisões de identificador (bloqueando sobreposições com nomes canônicos, slugs e apelidos de outros repositórios), suporte ao argumento `-a, --alias` na adição de repositórios remotos e resolução unificada e transparente em comandos como `divan`, `ticket` e `catalog`. (closes #136)
+
 ### Soft Wrap Support in CCCP Editor
 - **Soft Wrap Rendering & Cursor Mapping (`cccp editor` / `cccp edit`)**: Implementa motor de quebra suave de linha (*soft wrap*) com mapeamento bidirecional de coordenadas entre buffer real e linhas visuais da tela. Linhas com largura superior às colunas do terminal são visualmente divididas sem inserir caracteres `\n` no buffer real ou disco. Suporta navegação vertical/horizontal fluida através dos chunks visuais, rolagem vertical contínua, indicador `[WRAP]` na barra de status e alternância via atalho `Alt+W`. (closes #139)
 
