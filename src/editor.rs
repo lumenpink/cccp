@@ -8,6 +8,13 @@ use crossterm::terminal::{
 };
 use std::io::{self, IsTerminal, Write};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VisualLine {
+    pub logical_row: usize,
+    pub char_start: usize,
+    pub char_len: usize,
+}
+
 pub struct Editor {
     pub title: String,
     pub rows: Vec<String>,
@@ -15,9 +22,11 @@ pub struct Editor {
     pub cursor_y: usize,
     pub row_offset: usize,
     pub col_offset: usize,
+    pub visual_row_offset: usize,
     pub screen_cols: usize,
     pub screen_rows: usize,
     pub dirty: bool,
+    pub soft_wrap: bool,
     pub status_msg: String,
 }
 
@@ -37,9 +46,11 @@ impl Editor {
             cursor_y: 0,
             row_offset: 0,
             col_offset: 0,
+            visual_row_offset: 0,
             screen_cols: cols as usize,
             screen_rows,
             dirty: false,
+            soft_wrap: true,
             status_msg: format!("CCCP Editor — {} | Ctrl+S Save | Ctrl+Q Cancel", title),
         }
     }
@@ -140,55 +151,190 @@ impl Editor {
         }
     }
 
-    pub fn move_cursor(&mut self, key: KeyCode) {
-        match key {
-            KeyCode::Left => {
-                if self.cursor_x > 0 {
-                    self.cursor_x -= 1;
-                } else if self.cursor_y > 0 {
-                    self.cursor_y -= 1;
-                    self.cursor_x = self.rows[self.cursor_y].chars().count();
+    pub fn compute_visual_lines(&self) -> Vec<VisualLine> {
+        let mut visual_lines = Vec::new();
+        let cols = if self.screen_cols == 0 { 80 } else { self.screen_cols };
+
+        for (log_idx, row) in self.rows.iter().enumerate() {
+            let num_chars = row.chars().count();
+            if !self.soft_wrap || num_chars <= cols {
+                visual_lines.push(VisualLine {
+                    logical_row: log_idx,
+                    char_start: 0,
+                    char_len: num_chars,
+                });
+            } else {
+                let mut start = 0;
+                while start < num_chars {
+                    let len = (num_chars - start).min(cols);
+                    visual_lines.push(VisualLine {
+                        logical_row: log_idx,
+                        char_start: start,
+                        char_len: len,
+                    });
+                    start += len;
                 }
             }
-            KeyCode::Right => {
-                let line_len = if self.cursor_y < self.rows.len() {
-                    self.rows[self.cursor_y].chars().count()
-                } else {
-                    0
-                };
-                if self.cursor_x < line_len {
-                    self.cursor_x += 1;
-                } else if self.cursor_y + 1 < self.rows.len() {
-                    self.cursor_y += 1;
+        }
+
+        if visual_lines.is_empty() {
+            visual_lines.push(VisualLine {
+                logical_row: 0,
+                char_start: 0,
+                char_len: 0,
+            });
+        }
+
+        visual_lines
+    }
+
+    pub fn cursor_to_visual_pos(&self, visual_lines: &[VisualLine]) -> (usize, usize) {
+        if visual_lines.is_empty() {
+            return (0, 0);
+        }
+
+        let mut candidate_v_idx = 0;
+        let mut candidate_v_col = 0;
+
+        for (v_idx, vl) in visual_lines.iter().enumerate() {
+            if vl.logical_row == self.cursor_y {
+                if self.cursor_x >= vl.char_start {
+                    let is_last_chunk_for_row = v_idx + 1 == visual_lines.len()
+                        || visual_lines[v_idx + 1].logical_row != self.cursor_y;
+
+                    if self.cursor_x < vl.char_start + vl.char_len || is_last_chunk_for_row {
+                        let col = (self.cursor_x - vl.char_start).min(vl.char_len);
+                        return (v_idx, col);
+                    }
+                }
+                candidate_v_idx = v_idx;
+                candidate_v_col = self.cursor_x.saturating_sub(vl.char_start);
+            }
+        }
+
+        (candidate_v_idx, candidate_v_col)
+    }
+
+    pub fn move_cursor(&mut self, key: KeyCode) {
+        if self.soft_wrap {
+            let vlines = self.compute_visual_lines();
+            let (curr_v_row, curr_v_col) = self.cursor_to_visual_pos(&vlines);
+
+            match key {
+                KeyCode::Left => {
+                    if self.cursor_x > 0 {
+                        self.cursor_x -= 1;
+                    } else if self.cursor_y > 0 {
+                        self.cursor_y -= 1;
+                        self.cursor_x = self.rows[self.cursor_y].chars().count();
+                    }
+                }
+                KeyCode::Right => {
+                    let line_len = if self.cursor_y < self.rows.len() {
+                        self.rows[self.cursor_y].chars().count()
+                    } else {
+                        0
+                    };
+                    if self.cursor_x < line_len {
+                        self.cursor_x += 1;
+                    } else if self.cursor_y + 1 < self.rows.len() {
+                        self.cursor_y += 1;
+                        self.cursor_x = 0;
+                    }
+                }
+                KeyCode::Up => {
+                    if curr_v_row > 0 {
+                        let target_v_row = curr_v_row - 1;
+                        let target_vl = &vlines[target_v_row];
+                        self.cursor_y = target_vl.logical_row;
+                        let clamped_col = curr_v_col.min(target_vl.char_len);
+                        self.cursor_x = target_vl.char_start + clamped_col;
+                    }
+                }
+                KeyCode::Down => {
+                    if curr_v_row + 1 < vlines.len() {
+                        let target_v_row = curr_v_row + 1;
+                        let target_vl = &vlines[target_v_row];
+                        self.cursor_y = target_vl.logical_row;
+                        let clamped_col = curr_v_col.min(target_vl.char_len);
+                        self.cursor_x = target_vl.char_start + clamped_col;
+                    }
+                }
+                KeyCode::Home => {
                     self.cursor_x = 0;
                 }
-            }
-            KeyCode::Up => {
-                if self.cursor_y > 0 {
-                    self.cursor_y -= 1;
+                KeyCode::End => {
+                    if self.cursor_y < self.rows.len() {
+                        self.cursor_x = self.rows[self.cursor_y].chars().count();
+                    }
                 }
-            }
-            KeyCode::Down => {
-                if self.cursor_y + 1 < self.rows.len() {
-                    self.cursor_y += 1;
+                KeyCode::PageUp => {
+                    let target_v_row = curr_v_row.saturating_sub(self.screen_rows);
+                    let target_vl = &vlines[target_v_row];
+                    self.cursor_y = target_vl.logical_row;
+                    let clamped_col = curr_v_col.min(target_vl.char_len);
+                    self.cursor_x = target_vl.char_start + clamped_col;
                 }
-            }
-            KeyCode::Home => {
-                self.cursor_x = 0;
-            }
-            KeyCode::End => {
-                if self.cursor_y < self.rows.len() {
-                    self.cursor_x = self.rows[self.cursor_y].chars().count();
+                KeyCode::PageDown => {
+                    let target_v_row =
+                        (curr_v_row + self.screen_rows).min(vlines.len().saturating_sub(1));
+                    let target_vl = &vlines[target_v_row];
+                    self.cursor_y = target_vl.logical_row;
+                    let clamped_col = curr_v_col.min(target_vl.char_len);
+                    self.cursor_x = target_vl.char_start + clamped_col;
                 }
+                _ => {}
             }
-            KeyCode::PageUp => {
-                self.cursor_y = self.cursor_y.saturating_sub(self.screen_rows);
+        } else {
+            match key {
+                KeyCode::Left => {
+                    if self.cursor_x > 0 {
+                        self.cursor_x -= 1;
+                    } else if self.cursor_y > 0 {
+                        self.cursor_y -= 1;
+                        self.cursor_x = self.rows[self.cursor_y].chars().count();
+                    }
+                }
+                KeyCode::Right => {
+                    let line_len = if self.cursor_y < self.rows.len() {
+                        self.rows[self.cursor_y].chars().count()
+                    } else {
+                        0
+                    };
+                    if self.cursor_x < line_len {
+                        self.cursor_x += 1;
+                    } else if self.cursor_y + 1 < self.rows.len() {
+                        self.cursor_y += 1;
+                        self.cursor_x = 0;
+                    }
+                }
+                KeyCode::Up => {
+                    if self.cursor_y > 0 {
+                        self.cursor_y -= 1;
+                    }
+                }
+                KeyCode::Down => {
+                    if self.cursor_y + 1 < self.rows.len() {
+                        self.cursor_y += 1;
+                    }
+                }
+                KeyCode::Home => {
+                    self.cursor_x = 0;
+                }
+                KeyCode::End => {
+                    if self.cursor_y < self.rows.len() {
+                        self.cursor_x = self.rows[self.cursor_y].chars().count();
+                    }
+                }
+                KeyCode::PageUp => {
+                    self.cursor_y = self.cursor_y.saturating_sub(self.screen_rows);
+                }
+                KeyCode::PageDown => {
+                    self.cursor_y =
+                        (self.cursor_y + self.screen_rows).min(self.rows.len().saturating_sub(1));
+                }
+                _ => {}
             }
-            KeyCode::PageDown => {
-                self.cursor_y =
-                    (self.cursor_y + self.screen_rows).min(self.rows.len().saturating_sub(1));
-            }
-            _ => {}
         }
     }
 
@@ -209,18 +355,30 @@ impl Editor {
             self.cursor_x = line_len;
         }
 
-        if self.cursor_y < self.row_offset {
-            self.row_offset = self.cursor_y;
-        }
-        if self.cursor_y >= self.row_offset + self.screen_rows {
-            self.row_offset = self.cursor_y - self.screen_rows + 1;
-        }
+        if self.soft_wrap {
+            let vlines = self.compute_visual_lines();
+            let (v_row, _) = self.cursor_to_visual_pos(&vlines);
+            if v_row < self.visual_row_offset {
+                self.visual_row_offset = v_row;
+            }
+            if v_row >= self.visual_row_offset + self.screen_rows {
+                self.visual_row_offset = v_row - self.screen_rows + 1;
+            }
+            self.col_offset = 0;
+        } else {
+            if self.cursor_y < self.row_offset {
+                self.row_offset = self.cursor_y;
+            }
+            if self.cursor_y >= self.row_offset + self.screen_rows {
+                self.row_offset = self.cursor_y - self.screen_rows + 1;
+            }
 
-        if self.cursor_x < self.col_offset {
-            self.col_offset = self.cursor_x;
-        }
-        if self.cursor_x >= self.col_offset + self.screen_cols {
-            self.col_offset = self.cursor_x - self.screen_cols + 1;
+            if self.cursor_x < self.col_offset {
+                self.col_offset = self.cursor_x;
+            }
+            if self.cursor_x >= self.col_offset + self.screen_cols {
+                self.col_offset = self.cursor_x - self.screen_cols + 1;
+            }
         }
     }
 
@@ -234,28 +392,63 @@ impl Editor {
         // Hide cursor and position at top-left
         output.push_str("\x1b[?25l\x1b[H");
 
-        // 1. Text rows
-        for y in 0..self.screen_rows {
-            let file_row = y + self.row_offset;
-            if file_row < self.rows.len() {
-                let row_str = &self.rows[file_row];
-                let chars: Vec<char> = row_str.chars().collect();
-                if chars.len() > self.col_offset {
-                    let end_idx = (self.col_offset + self.screen_cols).min(chars.len());
-                    let slice: String = chars[self.col_offset..end_idx].iter().collect();
-                    output.push_str(&slice);
+        let (cursor_screen_y, cursor_screen_x) = if self.soft_wrap {
+            let vlines = self.compute_visual_lines();
+            let (v_row, v_col) = self.cursor_to_visual_pos(&vlines);
+
+            // 1. Text rows (visual)
+            for y in 0..self.screen_rows {
+                let v_idx = y + self.visual_row_offset;
+                if v_idx < vlines.len() {
+                    let vl = &vlines[v_idx];
+                    let row_str = &self.rows[vl.logical_row];
+                    let chars: Vec<char> = row_str.chars().collect();
+                    if vl.char_len > 0 && vl.char_start < chars.len() {
+                        let end = (vl.char_start + vl.char_len).min(chars.len());
+                        let slice: String = chars[vl.char_start..end].iter().collect();
+                        output.push_str(&slice);
+                    }
+                } else {
+                    output.push('~');
                 }
-            } else {
-                output.push('~');
+                output.push_str("\x1b[K\r\n");
             }
-            output.push_str("\x1b[K\r\n");
-        }
+
+            (
+                v_row.saturating_sub(self.visual_row_offset) + 1,
+                v_col + 1,
+            )
+        } else {
+            // 1. Text rows (logical with horizontal scroll)
+            for y in 0..self.screen_rows {
+                let file_row = y + self.row_offset;
+                if file_row < self.rows.len() {
+                    let row_str = &self.rows[file_row];
+                    let chars: Vec<char> = row_str.chars().collect();
+                    if chars.len() > self.col_offset {
+                        let end_idx = (self.col_offset + self.screen_cols).min(chars.len());
+                        let slice: String = chars[self.col_offset..end_idx].iter().collect();
+                        output.push_str(&slice);
+                    }
+                } else {
+                    output.push('~');
+                }
+                output.push_str("\x1b[K\r\n");
+            }
+
+            (
+                self.cursor_y.saturating_sub(self.row_offset) + 1,
+                self.cursor_x.saturating_sub(self.col_offset) + 1,
+            )
+        };
 
         // 2. Status bar (reverse video)
         output.push_str("\x1b[7m");
         let dirty_flag = if self.dirty { " [+]" } else { "" };
+        let wrap_flag = if self.soft_wrap { " [WRAP]" } else { "" };
         let left_status = format!(
-            " ★ [CCCP EDITOR] | {}{} - {} lines",
+            " ★ [CCCP EDITOR]{} | {}{} - {} lines",
+            wrap_flag,
             self.title,
             dirty_flag,
             self.rows.len()
@@ -277,7 +470,7 @@ impl Editor {
 
         // 3. Help footer (persistent shortcuts)
         output.push_str("\x1b[1;30;47m");
-        let help = " Ctrl+S Save  Ctrl+Q / Esc Cancel  Arrows Navigate  Ctrl+K Cut Line ";
+        let help = " Ctrl+S Save  Ctrl+Q / Esc Cancel  Alt+W Wrap  Arrows Navigate  Ctrl+K Cut Line ";
         output.push_str(help);
         if self.screen_cols > help.len() {
             for _ in 0..(self.screen_cols - help.len()) {
@@ -287,8 +480,6 @@ impl Editor {
         output.push_str("\x1b[0m");
 
         // 4. Place hardware cursor
-        let cursor_screen_y = self.cursor_y - self.row_offset + 1;
-        let cursor_screen_x = self.cursor_x - self.col_offset + 1;
         output.push_str(&format!(
             "\x1b[{};{}H\x1b[?25h",
             cursor_screen_y, cursor_screen_x
@@ -331,6 +522,9 @@ pub fn edit_text(title: &str, initial_content: &str) -> Result<Option<String>, S
                 | (KeyCode::Char('c'), KeyModifiers::CONTROL)
                 | (KeyCode::Esc, _) => {
                     break Ok(None);
+                }
+                (KeyCode::Char('w'), KeyModifiers::ALT) => {
+                    editor.soft_wrap = !editor.soft_wrap;
                 }
                 (KeyCode::Char('k'), KeyModifiers::CONTROL) => {
                     editor.kill_to_end_of_line();
