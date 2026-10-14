@@ -62,6 +62,16 @@ impl Editor {
         }
     }
 
+    /// Creates an editor instance configured for Divan prompt entry,
+    /// with cursor positioned after initial comments.
+    pub fn new_prompt(title: &str, initial_content: &str) -> Self {
+        let mut editor = Self::new(title, initial_content);
+        editor.set_header_prefix("CCCP PROMPT EDITOR");
+        editor.set_save_label("Triage");
+        editor.position_cursor_after_comments();
+        editor
+    }
+
     pub fn set_header_prefix(&mut self, prefix: &str) {
         self.header_prefix = prefix.to_string();
     }
@@ -80,6 +90,50 @@ impl Editor {
             self.row_offset = self.cursor_y.saturating_sub(self.screen_rows / 2);
         }
         self.soft_wrap
+    }
+
+    /// Positions cursor on the first free/editable line immediately after initial comment blocks ('#').
+    /// If all lines are comments, appends a blank line and positions on it.
+    /// If there are no comments at the top, preserves position at (0, 0).
+    pub fn position_cursor_after_comments(&mut self) {
+        if self.rows.is_empty() {
+            self.cursor_x = 0;
+            self.cursor_y = 0;
+            return;
+        }
+
+        let starts_with_comment = self
+            .rows
+            .first()
+            .map(|l| l.trim_start().starts_with('#'))
+            .unwrap_or(false);
+
+        if !starts_with_comment {
+            self.cursor_x = 0;
+            self.cursor_y = 0;
+            self.clamp_cursor();
+            return;
+        }
+
+        let mut last_comment_idx = 0;
+        for (i, row) in self.rows.iter().enumerate() {
+            if row.trim_start().starts_with('#') {
+                last_comment_idx = i;
+            } else {
+                break;
+            }
+        }
+
+        let target_idx = last_comment_idx + 1;
+        if target_idx < self.rows.len() {
+            self.cursor_y = target_idx;
+        } else {
+            self.rows.push(String::new());
+            self.cursor_y = self.rows.len() - 1;
+        }
+
+        self.cursor_x = 0;
+        self.clamp_cursor();
     }
 
     pub fn to_content(&self) -> String {
@@ -614,6 +668,13 @@ pub fn edit_ticket(title: &str, initial_content: &str) -> Result<Option<String>,
     let mut editor = Editor::new(title, initial_content);
     editor.set_header_prefix("CCCP TICKET EDITOR");
     editor.set_save_label("Submit");
+    run_editor(editor)
+}
+
+/// Edit prompt interactively using the built-in editor with cursor positioned after initial comments.
+/// Returns Ok(Some(new_text)) if submitted (Ctrl+S / F2), or Ok(None) if canceled (Ctrl+Q / Esc).
+pub fn edit_prompt(title: &str, initial_content: &str) -> Result<Option<String>, String> {
+    let editor = Editor::new_prompt(title, initial_content);
     run_editor(editor)
 }
 

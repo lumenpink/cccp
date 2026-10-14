@@ -45,10 +45,12 @@ fn test_position_cursor_after_comments_empty_buffer() {
 }
 
 #[test]
-fn test_edit_prompt_signature() {
-    // Calling edit_prompt in non-terminal mode should return Ok(Some(...)) with the content
-    let content = "# Header comment\n\nMeu prompt";
-    let res = cccp::editor::edit_prompt("Test Prompt", content);
-    assert!(res.is_ok());
-    assert_eq!(res.unwrap(), Some(content.to_string()));
+fn test_new_prompt_editor_configuration() {
+    let content = "# Header comment\n# Another comment\n\nMeu prompt";
+    let editor = Editor::new_prompt("Test Prompt", content);
+
+    assert_eq!(editor.header_prefix, "CCCP PROMPT EDITOR");
+    assert_eq!(editor.save_label, "Triage");
+    assert_eq!(editor.cursor_y, 2);
+    assert_eq!(editor.cursor_x, 0);
 }

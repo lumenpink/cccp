@@ -836,7 +836,7 @@ fn main() -> ExitCode {
                         "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
                         target_label
                     );
-                    match cccp::editor::edit_text("Divan - Triage Prompt", &initial_prompt) {
+                    match cccp::editor::edit_prompt("Divan - Triage Prompt", &initial_prompt) {
                         Ok(Some(edited)) => {
                             let filtered: Vec<&str> = edited
                                 .lines()
