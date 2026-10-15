@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Repository Open Tickets Synchronization in Catalog
+- **Catalog Open Tickets Synchronization (`cccp catalog update-tickets` / `cccp catalog sync-tickets`)**: Permite consultar e atualizar a contagem de tickets abertos armazenada nos metadados dos repositórios do Catálogo do Estado (`open_tickets`), suportando atualização em lote de todo o catálogo com a flag `-a, --all` ou repositórios específicos por slug, nome ou alias. Integra com as APIs remotas de forges (Codeberg, GitHub, GitLab, Forgejo) através do `ForgeClient`, oferecendo fallback gracioso para inventários locais (`tickets.md` / `.antigravity/tickets.md`) ou contagens prévias em caso de ausência de rede, persistindo as contagens atualizadas no `catalog.json` e refletindo diretamente na listagem do catálogo. (closes #127)
+
 ### Repository Removal from Catalog
 - **Catalog Repository Removal (`cccp catalog remove` / `cccp catalog rm`)**: Permite remover entradas do Catálogo do Estado Gosplan através do subcomando CLI `cccp catalog remove <repo>` (ou atalho `cccp catalog rm <repo>`), identificando o repositório de forma flexível por slug, nome canônico ou apelidos registrados (com comparação insensível a maiúsculas/minúsculas). Valida existência prévia retornando erro claro com código de saída 1 caso o alvo não exista, e atualiza o arquivo de catálogo persistido com feedback formatado. (closes #126)
 
