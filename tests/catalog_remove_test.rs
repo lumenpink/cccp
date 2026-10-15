@@ -8,8 +8,10 @@ use tempfile::tempdir;
 fn test_remove_repo_by_slug_name_and_alias() {
     let tmp = tempdir().expect("Failed to create tempdir");
     let catalog_path = tmp.path().join("catalog.json");
-    let mut config = Config::default();
-    config.catalog_file = Some(catalog_path.to_string_lossy().to_string());
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     // 1. Cadastra 2 repositórios de teste
     let (entry1, _, _) = add_remote_repo(
@@ -56,8 +58,10 @@ fn test_remove_repo_by_slug_name_and_alias() {
 fn test_remove_nonexistent_repo_returns_error() {
     let tmp = tempdir().expect("Failed to create tempdir");
     let catalog_path = tmp.path().join("catalog.json");
-    let mut config = Config::default();
-    config.catalog_file = Some(catalog_path.to_string_lossy().to_string());
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     let res = remove_repo_from_catalog("fantasma", Some(&config));
     assert!(res.is_err());
