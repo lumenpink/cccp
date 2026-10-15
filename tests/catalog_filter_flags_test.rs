@@ -46,7 +46,10 @@ fn test_cli_parsing_unpushed_flag_and_alias() {
 #[test]
 fn test_cli_conflict_dirty_and_unpushed() {
     let result = Cli::try_parse_from(["cccp", "catalog", "list", "--dirty", "--unpushed"]);
-    assert!(result.is_err(), "Using --dirty and --unpushed together must be rejected");
+    assert!(
+        result.is_err(),
+        "Using --dirty and --unpushed together must be rejected"
+    );
 }
 
 #[test]
