@@ -522,8 +522,7 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else if let Some(cli::TicketAction::Comment { id, ref message }) = tickets.action {
-                if let Err(e) =
-                    cccp::tickets::comment_ticket(&repo, id, message.as_deref(), &theme)
+                if let Err(e) = cccp::tickets::comment_ticket(&repo, id, message.as_deref(), &theme)
                 {
                     eprintln!("{}: {}", theme.red_bold("Error"), e);
                     ExitCode::FAILURE

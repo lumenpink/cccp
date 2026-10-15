@@ -880,7 +880,10 @@ impl ForgeClient {
             .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
         let status = resp.status();
         if !status.is_success() {
-            return Err(format!("Forge comments API returned error status {}", status));
+            return Err(format!(
+                "Forge comments API returned error status {}",
+                status
+            ));
         }
 
         let json_val: serde_json::Value = resp

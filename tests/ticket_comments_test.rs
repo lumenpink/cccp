@@ -113,10 +113,7 @@ fn test_cli_parsing_ticket_comment_action() {
         Some(Commands::Ticket(t)) => match t.action {
             Some(TicketAction::Comment { id, message }) => {
                 assert_eq!(id, 148);
-                assert_eq!(
-                    message.as_deref(),
-                    Some("Atualização técnica do progresso")
-                );
+                assert_eq!(message.as_deref(), Some("Atualização técnica do progresso"));
             }
             _ => panic!("Expected TicketAction::Comment"),
         },
@@ -126,13 +123,7 @@ fn test_cli_parsing_ticket_comment_action() {
 
 #[test]
 fn test_cli_parsing_divan_comment_flag() {
-    let parsed = Cli::parse_from([
-        "cccp",
-        "divan",
-        "-c",
-        "148",
-        "Sugerir testes de integração",
-    ]);
+    let parsed = Cli::parse_from(["cccp", "divan", "-c", "148", "Sugerir testes de integração"]);
 
     match parsed.command {
         Some(Commands::Divan(d)) => {
