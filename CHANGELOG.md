@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Ticket Comments Support in CLI, Divan, and Sync
+- **Ticket Comments Lifecycle & Context Integration (`cccp ticket comment` / `cccp divan -c` / `cccp sync`)**: Adiciona suporte completo ao ciclo de vida de comentários em tickets nas forges suportadas (Codeberg, Forgejo, GitHub e GitLab). Implementa o subcomando CLI `cccp ticket comment <id> [-m "texto"]` com fallback para o editor interativo quando a mensagem não for especificada via flag. Adiciona o modo comentário no Divã (`cccp divan -c <id>`), estruturando o contexto da IA com o corpo da issue e histórico cronológico de comentários para propor respostas técnicas revisáveis no editor antes do envio. Enriquece a sincronização de tickets (`cccp ticket` / `cccp sync`), baixando e formatando comentários em seções estruturadas no `.antigravity/tickets.md` com respeito estrito ao teto de 10 KB. (closes #148)
+
 ### Manual Session Drafts and Repository Management in Divan
 - **Manual Session Drafts & Repository Isolation (`cccp divan` / `cccp editor`)**: Permite salvar rascunhos manuais e intencionais durante a redação do prompt ou durante a revisão de tickets no editor do Divã acionando o atalho `Ctrl+R`, com feedback visual imediato na barra de status (`★ Rascunho salvo com sucesso [Ctrl+R]`) e atalho documentado no rodapé de ajuda. Isola a persistência em cache do usuário (`$XDG_CACHE_HOME/cccp/drafts/`) por caminho canônico do repositório alvo sem poluir o working tree git. Ao iniciar uma nova sessão em repositório com rascunho salvo, exibe menu de decisão estilo Vim swap file com opções `[c]` Continuar, `[m]` Manter e novo, ou `[d]` Descartar e novo. (closes #135)
 
