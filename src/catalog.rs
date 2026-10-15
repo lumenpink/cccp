@@ -1608,9 +1608,10 @@ pub fn update_catalog_tickets(
                     target_indices.push(idx);
                 }
             } else {
-                report
-                    .failed
-                    .push((query.clone(), format!("Repository '{}' not found in catalog", query)));
+                report.failed.push((
+                    query.clone(),
+                    format!("Repository '{}' not found in catalog", query),
+                ));
             }
         }
     } else {
@@ -1679,4 +1680,3 @@ pub fn update_catalog_tickets(
 
     Ok(report)
 }
-

@@ -2193,12 +2193,7 @@ fn main() -> ExitCode {
                             );
                         }
                         for (target, err) in &report.failed {
-                            eprintln!(
-                                "  {} Failed for '{}': {}",
-                                theme.red("✗"),
-                                target,
-                                err
-                            );
+                            eprintln!("  {} Failed for '{}': {}", theme.red("✗"), target, err);
                         }
                         if report.updated.is_empty() && !report.failed.is_empty() {
                             ExitCode::FAILURE

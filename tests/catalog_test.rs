@@ -228,6 +228,7 @@ fn test_catalog_entry_serialization_full_fields() {
         license: "GPL-3.0".into(),
         website: "https://example.org".into(),
         is_upstream: false,
+        open_tickets: None,
     };
 
     let serialized = serde_json::to_string_pretty(&vec![entry.clone()]).unwrap();
