@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Repository Removal from Catalog
+- **Catalog Repository Removal (`cccp catalog remove` / `cccp catalog rm`)**: Permite remover entradas do Catálogo do Estado Gosplan através do subcomando CLI `cccp catalog remove <repo>` (ou atalho `cccp catalog rm <repo>`), identificando o repositório de forma flexível por slug, nome canônico ou apelidos registrados (com comparação insensível a maiúsculas/minúsculas). Valida existência prévia retornando erro claro com código de saída 1 caso o alvo não exista, e atualiza o arquivo de catálogo persistido com feedback formatado. (closes #126)
+
 ### Ticket Comments Support in CLI, Divan, and Sync
 - **Ticket Comments Lifecycle & Context Integration (`cccp ticket comment` / `cccp divan -c` / `cccp sync`)**: Adiciona suporte completo ao ciclo de vida de comentários em tickets nas forges suportadas (Codeberg, Forgejo, GitHub e GitLab). Implementa o subcomando CLI `cccp ticket comment <id> [-m "texto"]` com fallback para o editor interativo quando a mensagem não for especificada via flag. Adiciona o modo comentário no Divã (`cccp divan -c <id>`), estruturando o contexto da IA com o corpo da issue e histórico cronológico de comentários para propor respostas técnicas revisáveis no editor antes do envio. Enriquece a sincronização de tickets (`cccp ticket` / `cccp sync`), baixando e formatando comentários em seções estruturadas no `.antigravity/tickets.md` com respeito estrito ao teto de 10 KB. (closes #148)
 
