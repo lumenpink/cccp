@@ -121,4 +121,3 @@ fn test_remove_repo_case_insensitive() {
     let entries = load_catalog(Some(&config), None);
     assert!(entries.is_empty());
 }
-
