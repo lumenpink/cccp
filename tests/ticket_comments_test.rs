@@ -134,3 +134,109 @@ fn test_cli_parsing_divan_comment_flag() {
         _ => panic!("Expected Commands::Divan"),
     }
 }
+
+#[test]
+fn test_parse_comments_json_different_forge_schemas() {
+    use cccp::forges::parse_comments_json;
+
+    // 1. Array vazio
+    let empty_json = serde_json::json!([]);
+    let empty_res = parse_comments_json(&empty_json).expect("Empty array must succeed");
+    assert!(empty_res.is_empty());
+
+    // 2. Não-array deve falhar com erro
+    let invalid_json = serde_json::json!({ "error": "not an array" });
+    assert!(parse_comments_json(&invalid_json).is_err());
+
+    // 3. Schema Forgejo / Codeberg
+    let forgejo_json = serde_json::json!([
+        {
+            "id": 1,
+            "user": { "username": "camarada" },
+            "body": "Primeiro comentário",
+            "created_at": "2026-10-14T10:00:00Z"
+        }
+    ]);
+    let comments_forgejo = parse_comments_json(&forgejo_json).unwrap();
+    assert_eq!(comments_forgejo.len(), 1);
+    assert_eq!(comments_forgejo[0].author, "camarada");
+    assert_eq!(comments_forgejo[0].body, "Primeiro comentário");
+
+    // 4. Schema GitHub (user.login)
+    let github_json = serde_json::json!([
+        {
+            "id": 2,
+            "user": { "login": "octocat" },
+            "body": "Comentário do GitHub",
+            "created_at": "2026-10-14T11:00:00Z"
+        }
+    ]);
+    let comments_github = parse_comments_json(&github_json).unwrap();
+    assert_eq!(comments_github.len(), 1);
+    assert_eq!(comments_github[0].author, "octocat");
+    assert_eq!(comments_github[0].body, "Comentário do GitHub");
+
+    // 5. Schema GitLab (author.username e note)
+    let gitlab_json = serde_json::json!([
+        {
+            "id": 3,
+            "author": { "username": "gitlab_user" },
+            "note": "Comentário do GitLab (note)",
+            "created_at": "2026-10-14T12:00:00Z"
+        }
+    ]);
+    let comments_gitlab = parse_comments_json(&gitlab_json).unwrap();
+    assert_eq!(comments_gitlab.len(), 1);
+    assert_eq!(comments_gitlab[0].author, "gitlab_user");
+    assert_eq!(comments_gitlab[0].body, "Comentário do GitLab (note)");
+}
+
+#[test]
+fn test_create_comment_missing_token_returns_error() {
+    use cccp::forges::{ForgeClient, ForgeType, RepoForgeInfo};
+
+    let client = ForgeClient::new();
+    let info = RepoForgeInfo::new(
+        ForgeType::GitHub,
+        "api.github.com".to_string(),
+        "unauthenticated".to_string(),
+        "no-token-repo".to_string(),
+    );
+
+    // Sem token configurado no ambiente para este repo falso, deve retornar erro sem pânico
+    let res = client.create_comment(&info, 42, "Teste sem autenticação");
+    assert!(res.is_err());
+    let err_msg = res.unwrap_err();
+    assert!(
+        err_msg.contains("No authentication token found")
+            || err_msg.contains("failed")
+            || err_msg.contains("HTTP"),
+        "Mensagem de erro deve ser clara: {}",
+        err_msg
+    );
+}
+
+#[test]
+fn test_format_ticket_markdown_multiline_comments_indentation() {
+    let issue = ForgeIssue {
+        number: 42,
+        title: "feat(tickets): multiline comment".to_string(),
+        state: "open".to_string(),
+        author: "tester".to_string(),
+        labels: vec![],
+        body: "".to_string(),
+        html_url: "https://codeberg.org/test/repo/issues/42".to_string(),
+        created_at: "2026-10-14T15:00:00Z".to_string(),
+        comments: vec![ForgeComment {
+            id: 99,
+            author: "reviewer".to_string(),
+            body: "Linha 1 do feedback\nLinha 2 do feedback\nLinha 3".to_string(),
+            created_at: "2026-10-14T15:30:00Z".to_string(),
+        }],
+    };
+
+    let md = format_ticket_markdown(&issue);
+    assert!(md.contains("_No description provided._"));
+    assert!(md.contains("### Comments (1)"));
+    assert!(md.contains("  Linha 1 do feedback\n  Linha 2 do feedback\n  Linha 3"));
+}
