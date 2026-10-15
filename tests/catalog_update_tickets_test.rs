@@ -116,3 +116,42 @@ fn test_update_catalog_tickets_fallback_and_persistence() {
     assert_eq!(updated1.open_tickets, Some(2));
     assert_eq!(updated2.open_tickets, None);
 }
+
+#[test]
+fn test_update_catalog_tickets_not_found_repo() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let catalog_path = tmp.path().join("catalog.json");
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+
+    add_remote_repo(
+        "git@codeberg.org:lumenpink/present-repo.git",
+        Some("Present Repo"),
+        Some("Desc"),
+        &["present".to_string()],
+        Some(&config),
+    )
+    .expect("Add repo failed");
+
+    let report = update_catalog_tickets(&["inexistente".to_string()], false, Some(&config))
+        .expect("Should return report");
+    assert!(report.updated.is_empty());
+    assert_eq!(report.failed.len(), 1);
+    assert_eq!(report.failed[0].0, "inexistente");
+}
+
+#[test]
+fn test_update_catalog_tickets_empty_catalog() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let catalog_path = tmp.path().join("catalog.json");
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+
+    let res = update_catalog_tickets(&[], true, Some(&config));
+    assert!(res.is_err());
+    assert!(res.unwrap_err().contains("empty"));
+}
