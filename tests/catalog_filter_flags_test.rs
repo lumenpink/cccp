@@ -113,3 +113,28 @@ fn test_filter_and_sort_dirty_and_unpushed() {
     assert_eq!(list_unpushed.len(), 1);
     assert_eq!(list_unpushed[0].name, "repo-clean-unpushed");
 }
+
+#[test]
+fn test_catalog_filter_args_merge_preserves_dirty_and_unpushed() {
+    let base = CatalogFilterArgs {
+        dirty: true,
+        ..Default::default()
+    };
+    let sub = CatalogFilterArgs {
+        unpushed: false,
+        min_tickets: Some(2),
+        ..Default::default()
+    };
+    let merged = base.merge(&sub);
+    assert!(merged.dirty);
+    assert_eq!(merged.min_tickets, Some(2));
+
+    let base2 = CatalogFilterArgs::default();
+    let sub2 = CatalogFilterArgs {
+        unpushed: true,
+        ..Default::default()
+    };
+    let merged2 = base2.merge(&sub2);
+    assert!(merged2.unpushed);
+    assert!(!merged2.dirty);
+}
