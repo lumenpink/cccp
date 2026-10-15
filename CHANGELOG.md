@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Dirty and Unpushed Repository Filters in Catalog Listing
+- **Catalog Status Filters for Dirty and Pending Push (`cccp catalog list --dirty` / `cccp catalog list --unpushed`)**: Adiciona flags dedicadas na CLI para filtragem rápida dos repositórios do Catálogo Gosplan de acordo com o estado do git local: `--dirty` filtra exclusivamente repositórios com alterações não commitadas no working tree, enquanto `--unpushed` (ou `--pending-push`) filtra exclusivamente repositórios limpos com commits locais pendentes de envio upstream. Inclui validação de exclusão mútua (`conflicts_with`), suporte completo na mesclagem de opções de filtro e exibição detalhada com contagem de arquivos modificados (`dirty [n*]`) e commits ahead (`clean [↑n]`). (closes #129)
+
 ### Repository Open Tickets Synchronization in Catalog
 - **Catalog Open Tickets Synchronization (`cccp catalog update-tickets` / `cccp catalog sync-tickets`)**: Permite consultar e atualizar a contagem de tickets abertos armazenada nos metadados dos repositórios do Catálogo do Estado (`open_tickets`), suportando atualização em lote de todo o catálogo com a flag `-a, --all` ou repositórios específicos por slug, nome ou alias. Integra com as APIs remotas de forges (Codeberg, GitHub, GitLab, Forgejo) através do `ForgeClient`, oferecendo fallback gracioso para inventários locais (`tickets.md` / `.antigravity/tickets.md`) ou contagens prévias em caso de ausência de rede, persistindo as contagens atualizadas no `catalog.json` e refletindo diretamente na listagem do catálogo. (closes #127)
 
