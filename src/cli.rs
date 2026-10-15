@@ -697,6 +697,17 @@ pub enum CatalogSubcommands {
         #[arg(required = true)]
         repo: String,
     },
+    /// Update open ticket count for repositories in the catalog
+    #[command(alias = "sync-tickets")]
+    UpdateTickets {
+        /// Repositories to update (slug, name, or alias)
+        #[arg(num_args = 0..)]
+        repos: Vec<String>,
+
+        /// Update all repositories in the catalog
+        #[arg(short = 'a', long = "all")]
+        all: bool,
+    },
 }
 
 #[derive(Debug, Args, Clone)]

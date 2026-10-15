@@ -2175,6 +2175,43 @@ fn main() -> ExitCode {
                     }
                 }
             }
+            Some(cli::CatalogSubcommands::UpdateTickets { repos, all }) => {
+                match cccp::catalog::update_catalog_tickets(&repos, all, Some(&config)) {
+                    Ok(report) => {
+                        println!(
+                            "{} Comrade! Updated ticket count for {} repository(ies):",
+                            theme.gold_bold("★"),
+                            report.updated.len()
+                        );
+                        for entry in &report.updated {
+                            println!(
+                                "  {} {} ({}) -> {} open ticket(s)",
+                                theme.gold_bold("•"),
+                                theme.bold(&entry.name),
+                                theme.cyan(&entry.slug),
+                                theme.bold(&entry.open_tickets.unwrap_or(0).to_string())
+                            );
+                        }
+                        for (target, err) in &report.failed {
+                            eprintln!(
+                                "  {} Failed for '{}': {}",
+                                theme.red("✗"),
+                                target,
+                                err
+                            );
+                        }
+                        if report.updated.is_empty() && !report.failed.is_empty() {
+                            ExitCode::FAILURE
+                        } else {
+                            ExitCode::SUCCESS
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
         },
         Some(Commands::Ci(act_args)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {

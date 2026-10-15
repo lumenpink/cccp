@@ -26,6 +26,8 @@ pub struct CatalogEntry {
     pub website: String,
     #[serde(default)]
     pub is_upstream: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open_tickets: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -48,6 +50,10 @@ struct RawCatalogEntry {
     pub website: String,
     #[serde(default)]
     pub is_upstream: bool,
+    #[serde(default)]
+    pub open_tickets: Option<usize>,
+    #[serde(default)]
+    pub tickets: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -94,6 +100,7 @@ impl From<RawCatalogEntry> for CatalogEntry {
             license: raw.license,
             website: raw.website,
             is_upstream: raw.is_upstream,
+            open_tickets: raw.open_tickets.or(raw.tickets),
         }
     }
 }
@@ -664,6 +671,7 @@ pub fn add_remote_repo(
             license: remote_meta.license,
             website: remote_meta.website,
             is_upstream: false,
+            open_tickets: None,
         };
         catalog.push(entry.clone());
         is_updated = false;
@@ -796,6 +804,7 @@ pub fn scan_and_add_from_src(
             license: remote_meta.license,
             website: remote_meta.website,
             is_upstream: false,
+            open_tickets: None,
         };
 
         catalog.push(entry.clone());
@@ -814,6 +823,14 @@ pub fn scan_and_add_from_src(
 
 /// Locate local clone path for a catalog entry if it exists on disk
 pub fn find_local_repo_path(entry: &CatalogEntry) -> Option<PathBuf> {
+    find_local_repo_path_with_config(entry, None)
+}
+
+/// Locate local clone path for a catalog entry, optionally checking paths relative to the catalog file
+pub fn find_local_repo_path_with_config(
+    entry: &CatalogEntry,
+    config: Option<&crate::config::Config>,
+) -> Option<PathBuf> {
     // 1. Current directory if matches slug, name, or any alias
     if let Ok(cur) = std::env::current_dir() {
         if cur.join(".git").exists() {
@@ -830,21 +847,42 @@ pub fn find_local_repo_path(entry: &CatalogEntry) -> Option<PathBuf> {
         }
     }
 
-    // 2. ~/src/<entry.name>
+    // 2. Directory co-located with catalog.json if known
+    if let Some(cat_path) = find_catalog_path(config, None) {
+        if let Some(parent) = cat_path.parent() {
+            let p1 = parent.join(&entry.name);
+            if p1.join(".git").exists() || p1.join(".antigravity").exists() {
+                return Some(p1);
+            }
+            let repo_part = entry.slug.split('/').nth(1).unwrap_or(&entry.slug);
+            let p2 = parent.join(repo_part);
+            if p2.join(".git").exists() || p2.join(".antigravity").exists() {
+                return Some(p2);
+            }
+            for alias in &entry.aliases {
+                let pa = parent.join(alias);
+                if pa.join(".git").exists() || pa.join(".antigravity").exists() {
+                    return Some(pa);
+                }
+            }
+        }
+    }
+
+    // 3. ~/src/<entry.name>
     if let Ok(home) = std::env::var("HOME") {
         let p1 = PathBuf::from(&home).join("src").join(&entry.name);
         if p1.join(".git").exists() {
             return Some(p1);
         }
 
-        // 3. ~/src/<repo> (from slug owner/repo)
+        // 4. ~/src/<repo> (from slug owner/repo)
         let repo_part = entry.slug.split('/').nth(1).unwrap_or(&entry.slug);
         let p2 = PathBuf::from(&home).join("src").join(repo_part);
         if p2.join(".git").exists() {
             return Some(p2);
         }
 
-        // 4. ~/src/<alias>
+        // 5. ~/src/<alias>
         for alias in &entry.aliases {
             let pa = PathBuf::from(&home).join("src").join(alias);
             if pa.join(".git").exists() {
@@ -925,7 +963,12 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
             let local_path = find_local_repo_path(entry);
             let (ticket_count, is_clean, unpushed, status_label) =
                 if let Some(ref path) = local_path {
-                    let tickets = count_open_tickets(path);
+                    let local_tickets = count_open_tickets(path);
+                    let tickets = if local_tickets > 0 {
+                        local_tickets
+                    } else {
+                        entry.open_tickets.unwrap_or(0)
+                    };
                     if let Some(st) = crate::git::inspect_local_status(path) {
                         let label = match (st.is_clean, st.ahead) {
                             (true, 0) => "clean".to_string(),
@@ -938,7 +981,12 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                         (tickets, None, 0, "unknown".to_string())
                     }
                 } else {
-                    (0, None, 0, "remote".to_string())
+                    (
+                        entry.open_tickets.unwrap_or(0),
+                        None,
+                        0,
+                        "remote".to_string(),
+                    )
                 };
 
             let gost_version = local_path.as_deref().and_then(extract_gost_version);
@@ -1522,3 +1570,113 @@ pub fn format_batch_assemble_report(
 
     out
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateTicketsReport {
+    pub updated: Vec<CatalogEntry>,
+    pub failed: Vec<(String, String)>,
+}
+
+/// Update open ticket count for specified repositories or all repositories in catalog
+pub fn update_catalog_tickets(
+    target_repos: &[String],
+    all: bool,
+    config: Option<&crate::config::Config>,
+) -> Result<UpdateTicketsReport, String> {
+    let mut entries = load_catalog(config, None);
+    if entries.is_empty() {
+        return Err("Catalog is empty".to_string());
+    }
+
+    let client = crate::forges::ForgeClient::new();
+    let mut report = UpdateTicketsReport::default();
+    let mut modified = false;
+
+    let mut target_indices: Vec<usize> = Vec::new();
+    if all {
+        target_indices = (0..entries.len()).collect();
+    } else if !target_repos.is_empty() {
+        for query in target_repos {
+            let q_clean = query.trim().to_ascii_lowercase();
+            let found = entries.iter().position(|e| {
+                e.slug.to_ascii_lowercase() == q_clean
+                    || e.name.to_ascii_lowercase() == q_clean
+                    || e.aliases.iter().any(|a| a.to_ascii_lowercase() == q_clean)
+            });
+            if let Some(idx) = found {
+                if !target_indices.contains(&idx) {
+                    target_indices.push(idx);
+                }
+            } else {
+                report
+                    .failed
+                    .push((query.clone(), format!("Repository '{}' not found in catalog", query)));
+            }
+        }
+    } else {
+        // Tenta identificar se o repositório atual está no catálogo
+        if let Ok(cur) = std::env::current_dir() {
+            let found = entries.iter().position(|e| {
+                if let Some(local) = find_local_repo_path_with_config(e, config) {
+                    if let (Ok(c_can), Ok(l_can)) = (cur.canonicalize(), local.canonicalize()) {
+                        return c_can == l_can;
+                    }
+                }
+                false
+            });
+            if let Some(idx) = found {
+                target_indices.push(idx);
+            } else {
+                return Err(
+                    "No repository specified and current directory is not in catalog. Specify repositories or use --all."
+                        .to_string(),
+                );
+            }
+        } else {
+            return Err("No repository specified. Specify repositories or use --all.".to_string());
+        }
+    }
+
+    for idx in target_indices {
+        let entry = &mut entries[idx];
+        let forge_info = entry.to_forge_info();
+        let mut ticket_count = None;
+
+        // 1. Tenta buscar da forge remota se configurada
+        if !forge_info.owner.is_empty() && !forge_info.repo.is_empty() {
+            if let Ok(issues) = client.fetch_issues(&forge_info, "open", 100) {
+                ticket_count = Some(issues.len());
+            }
+        }
+
+        // 2. Se a forge remota falhou ou não retornou, tenta o clone local
+        if ticket_count.is_none() {
+            if let Some(path) = find_local_repo_path_with_config(entry, config) {
+                let local_count = count_open_tickets(&path);
+                if local_count > 0 || entry.open_tickets.is_none() {
+                    ticket_count = Some(local_count);
+                }
+            }
+        }
+
+        if let Some(count) = ticket_count {
+            entry.open_tickets = Some(count);
+            report.updated.push(entry.clone());
+            modified = true;
+        } else if entry.open_tickets.is_some() {
+            report.updated.push(entry.clone());
+        } else {
+            report.failed.push((
+                entry.slug.clone(),
+                "Could not retrieve tickets from remote forge or local clone".to_string(),
+            ));
+        }
+    }
+
+    if modified {
+        save_catalog(&entries, config)?;
+    }
+
+    Ok(report)
+}
+
