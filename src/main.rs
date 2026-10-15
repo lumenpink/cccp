@@ -521,6 +521,15 @@ fn main() -> ExitCode {
                 } else {
                     ExitCode::SUCCESS
                 }
+            } else if let Some(cli::TicketAction::Comment { id, ref message }) = tickets.action {
+                if let Err(e) =
+                    cccp::tickets::comment_ticket(&repo, id, message.as_deref(), &theme)
+                {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                } else {
+                    ExitCode::SUCCESS
+                }
             } else if let Err(e) = cccp::tickets::sync_tickets(&tickets, &repo, &config, &theme) {
                 eprintln!("{}: {}", theme.red_bold("Error"), e);
                 ExitCode::FAILURE
@@ -890,6 +899,163 @@ fn main() -> ExitCode {
                 &config,
                 Some(client.provider),
             );
+
+            // Handle Divan comment mode on existing ticket
+            if let Some(target_issue_num) = diva.comment {
+                let forge_info = match detected_forge {
+                    Some(ref f) => f.clone(),
+                    None => {
+                        eprintln!(
+                            "{}: Cannot comment on ticket #{}: No remote git forge detected for repository '{}'.",
+                            theme.red_bold("Error"),
+                            target_issue_num,
+                            target_repo_arg.as_deref().unwrap_or("current")
+                        );
+                        return ExitCode::FAILURE;
+                    }
+                };
+
+                println!(
+                    "{} Loading ticket #{} and comments from {} ({}/{})...",
+                    theme.cyan("★ [GOSPLAN]"),
+                    target_issue_num,
+                    forge_info.provider,
+                    forge_info.owner,
+                    forge_info.repo
+                );
+
+                let forge_client = cccp::forges::ForgeClient::new();
+                let issue_comments = forge_client
+                    .fetch_issue_comments(&forge_info, target_issue_num)
+                    .unwrap_or_default();
+
+                let mut issue_ctx = format!(
+                    "Target Ticket #{} on {} ({}/{})\n",
+                    target_issue_num, forge_info.provider, forge_info.owner, forge_info.repo
+                );
+
+                if !issue_comments.is_empty() {
+                    issue_ctx.push_str(&format!(
+                        "\nPrevious Comments ({}):\n",
+                        issue_comments.len()
+                    ));
+                    for c in &issue_comments {
+                        issue_ctx.push_str(&format!(
+                            "- @{} ({}):\n  {}\n",
+                            c.author, c.created_at, c.body
+                        ));
+                    }
+                }
+
+                let user_prompt = if let Some(p) = prompt_arg.take() {
+                    p
+                } else if std::io::stdin().is_terminal() {
+                    let initial = format!(
+                        "# The Divan — Comment on Ticket #{}\n# {}\n# Describe what you want the AI to analyze, propose or draft for this ticket.\n# Lines starting with '#' will be ignored.\n\n",
+                        target_issue_num,
+                        issue_ctx.replace('\n', "\n# ")
+                    );
+                    match cccp::editor::edit_prompt("Divan - Ticket Comment Prompt", &initial) {
+                        Ok(Some(edited)) => {
+                            let filtered: Vec<&str> = edited
+                                .lines()
+                                .filter(|l| !l.trim().starts_with('#'))
+                                .collect();
+                            filtered.join("\n").trim().to_string()
+                        }
+                        _ => {
+                            eprintln!(
+                                "{}: No comment instructions provided. Exiting.",
+                                theme.yellow("Notice")
+                            );
+                            return ExitCode::SUCCESS;
+                        }
+                    }
+                } else {
+                    let mut line = String::new();
+                    std::io::stdin().read_line(&mut line).unwrap_or_default();
+                    line.trim().to_string()
+                };
+
+                if user_prompt.is_empty() {
+                    eprintln!(
+                        "{}: No comment instructions provided. Exiting.",
+                        theme.yellow("Notice")
+                    );
+                    return ExitCode::SUCCESS;
+                }
+
+                let ai_prompt = format!(
+                    "You are a helpful software engineering assistant in the CCCP (Conventional Commits Compliance Program).\n\
+                     The user wants to comment on ticket #{} in repository {}.\n\n\
+                     {}\n\n\
+                     User request/question regarding this ticket:\n\
+                     {}\n\n\
+                     Draft a clear, concise, constructive technical comment response directly addressing the user request in the context of this ticket.",
+                    target_issue_num, forge_info.repo, issue_ctx, user_prompt
+                );
+
+                println!(
+                    "{} Consulting {} ({}) to generate comment for ticket #{}...",
+                    theme.yellow("★ [GOSPLAN]"),
+                    theme.cyan(&client.provider.to_string()),
+                    theme.yellow(&client.model),
+                    target_issue_num
+                );
+
+                let generated_body = match client.triage(&ai_prompt, Some(&repo_ctx)) {
+                    Ok(tickets) if !tickets.is_empty() => tickets[0].body.clone(),
+                    _ => user_prompt.clone(),
+                };
+
+                let editor_title = format!("Ticket #{} — Review Comment", target_issue_num);
+                let edited_comment = if std::io::stdin().is_terminal() {
+                    match cccp::editor::edit_text(&editor_title, &generated_body) {
+                        Ok(Some(c)) => c.trim().to_string(),
+                        _ => {
+                            println!("  {} Comment aborted by user.", theme.dim("ℹ"));
+                            return ExitCode::SUCCESS;
+                        }
+                    }
+                } else {
+                    generated_body.trim().to_string()
+                };
+
+                if edited_comment.is_empty() {
+                    eprintln!("{}: Comment is empty. Exiting.", theme.yellow("Notice"));
+                    return ExitCode::SUCCESS;
+                }
+
+                if diva.dry_run {
+                    println!(
+                        "  {} [DRY-RUN] Comment verified for ticket #{}. Not published:\n{}",
+                        theme.green("✓"),
+                        target_issue_num,
+                        edited_comment
+                    );
+                    return ExitCode::SUCCESS;
+                }
+
+                println!(
+                    "  -> Publishing comment to ticket #{} on {}...",
+                    target_issue_num, forge_info.provider
+                );
+                match forge_client.create_comment(&forge_info, target_issue_num, &edited_comment) {
+                    Ok(c) => {
+                        println!(
+                            "  {} Comment posted successfully to ticket #{} (comment ID: {}).",
+                            theme.green("✓"),
+                            target_issue_num,
+                            c.id
+                        );
+                        return ExitCode::SUCCESS;
+                    }
+                    Err(e) => {
+                        eprintln!("{}: Failed to post comment: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
 
             let (prompt, mut tickets, mut idx) = if let Some((p, t, i)) = resume_from_tickets {
                 println!(

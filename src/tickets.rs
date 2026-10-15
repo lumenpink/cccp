@@ -9,6 +9,7 @@ use crate::forges::{
 };
 use crate::git::GitRepo;
 use std::fs;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 
 pub const DEFAULT_MAX_BYTES: usize = 10240; // 10 KB safety ceiling
@@ -36,9 +37,24 @@ pub fn format_ticket_markdown(issue: &ForgeIssue) -> String {
         issue.body.trim()
     };
 
+    let comments_section = if issue.comments.is_empty() {
+        String::new()
+    } else {
+        let mut s = format!("\n\n### Comments ({})\n", issue.comments.len());
+        for c in &issue.comments {
+            s.push_str(&format!(
+                "- **@{}** ({}):\n  {}\n",
+                c.author,
+                c.created_at,
+                c.body.trim().replace('\n', "\n  ")
+            ));
+        }
+        s
+    };
+
     format!(
-        "## [#{}] {}\n- **Status**: `{}`\n- **Labels**: {}\n- **Link**: {}\n\n### Description\n{}\n\n---\n",
-        issue.number, issue.title, issue.state, labels_str, issue.html_url, desc
+        "## [#{}] {}\n- **Status**: `{}`\n- **Labels**: {}\n- **Link**: {}\n\n### Description\n{}{}\n\n---\n",
+        issue.number, issue.title, issue.state, labels_str, issue.html_url, desc, comments_section
     )
 }
 
@@ -185,7 +201,14 @@ pub fn sync_tickets(
     );
 
     let client = ForgeClient::new();
-    let issues = client.fetch_issues(&forge_info, &args.state, args.limit)?;
+    let mut issues = client.fetch_issues(&forge_info, &args.state, args.limit)?;
+
+    // Populate comments for each synchronized issue
+    for issue in &mut issues {
+        if let Ok(comments) = client.fetch_issue_comments(&forge_info, issue.number) {
+            issue.comments = comments;
+        }
+    }
 
     let max_bytes = DEFAULT_MAX_BYTES;
     let (md_content, count, stopped_early) =
@@ -268,4 +291,87 @@ pub fn close_tickets(
     }
 
     Ok(())
+}
+
+/// Posts a comment to a specific issue on the remote forge
+pub fn comment_ticket(
+    repo: &GitRepo,
+    id: u64,
+    message: Option<&str>,
+    theme: &Theme,
+) -> Result<(), String> {
+    let forge_info = detect_forge_from_repo(repo)?;
+    let client = ForgeClient::new();
+
+    let comment_body = if let Some(m) = message {
+        let trimmed = m.trim().to_string();
+        if trimmed.is_empty() {
+            return Err("Comment message cannot be empty".to_string());
+        }
+        trimmed
+    } else if std::io::stdin().is_terminal() {
+        let initial_header = format!(
+            "# Comment on ticket #{} on {} ({}/{})\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit, or Ctrl+Q (Esc) to cancel.\n\n",
+            id, forge_info.provider, forge_info.owner, forge_info.repo
+        );
+        let title = format!("CCCP Comment — Ticket #{}", id);
+        match crate::editor::edit_text(&title, &initial_header) {
+            Ok(Some(edited)) => {
+                let filtered: Vec<&str> = edited
+                    .lines()
+                    .filter(|l| !l.trim().starts_with('#'))
+                    .collect();
+                let body = filtered.join("\n").trim().to_string();
+                if body.is_empty() {
+                    return Err("Comment message cannot be empty".to_string());
+                }
+                body
+            }
+            Ok(None) => {
+                println!("  {} Comment aborted by user.", theme.dim("ℹ"));
+                return Ok(());
+            }
+            Err(e) => return Err(format!("Editor error: {}", e)),
+        }
+    } else {
+        let mut line = String::new();
+        std::io::stdin()
+            .read_line(&mut line)
+            .map_err(|e| format!("Failed to read stdin: {}", e))?;
+        let trimmed = line.trim().to_string();
+        if trimmed.is_empty() {
+            return Err("Comment message cannot be empty".to_string());
+        }
+        trimmed
+    };
+
+    println!(
+        "{} Posting comment to ticket #{} on {} ({}/{})...",
+        theme.cyan("★"),
+        id,
+        forge_info.provider,
+        forge_info.owner,
+        forge_info.repo
+    );
+
+    match client.create_comment(&forge_info, id, &comment_body) {
+        Ok(comment) => {
+            println!(
+                "  {} Comment posted successfully to ticket #{} (comment ID: {}).",
+                theme.green("✓"),
+                id,
+                comment.id
+            );
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!(
+                "  {} Failed to post comment to ticket #{}: {}",
+                theme.red("✗"),
+                id,
+                e
+            );
+            Err(e)
+        }
+    }
 }

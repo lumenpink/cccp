@@ -96,6 +96,14 @@ impl RepoForgeInfo {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ForgeComment {
+    pub id: u64,
+    pub author: String,
+    pub body: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForgeIssue {
     pub number: u64,
@@ -106,6 +114,8 @@ pub struct ForgeIssue {
     pub body: String,
     pub html_url: String,
     pub created_at: String,
+    #[serde(default)]
+    pub comments: Vec<ForgeComment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -816,6 +826,158 @@ impl ForgeClient {
 
         Ok(())
     }
+
+    /// Fetch comments for a specific issue from the remote forge
+    pub fn fetch_issue_comments(
+        &self,
+        info: &RepoForgeInfo,
+        issue_id: u64,
+    ) -> Result<Vec<ForgeComment>, String> {
+        let api_url = match info.provider {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                format!(
+                    "https://{}/api/v1/repos/{}/{}/issues/{}/comments",
+                    info.host, info.owner, info.repo, issue_id
+                )
+            }
+            ForgeType::GitHub => {
+                format!(
+                    "https://api.github.com/repos/{}/{}/issues/{}/comments",
+                    info.owner, info.repo, issue_id
+                )
+            }
+            ForgeType::GitLab => {
+                let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                format!(
+                    "https://{}/api/v4/projects/{}/issues/{}/notes",
+                    info.host, enc_path, issue_id
+                )
+            }
+        };
+
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
+            match info.provider {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                    req = req.header("Authorization", &format!("token {}", token));
+                }
+                ForgeType::GitHub => {
+                    req = req.header("Authorization", &format!("Bearer {}", token));
+                }
+                ForgeType::GitLab => {
+                    req = req.header("PRIVATE-TOKEN", &token);
+                }
+            }
+        }
+
+        let mut resp = req
+            .call()
+            .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(format!("Forge comments API returned error status {}", status));
+        }
+
+        let json_val: serde_json::Value = resp
+            .body_mut()
+            .read_json()
+            .map_err(|e| format!("Failed to parse JSON response from {}: {}", info.host, e))?;
+
+        parse_comments_json(&json_val)
+    }
+
+    /// Post a new comment to an existing issue on the remote forge
+    pub fn create_comment(
+        &self,
+        info: &RepoForgeInfo,
+        issue_id: u64,
+        body: &str,
+    ) -> Result<ForgeComment, String> {
+        let token = resolve_token_for_host(&info.host, info.provider, None).ok_or_else(|| {
+            format!(
+                "No authentication token found for forge {} ({}). Set {} in ~/.env, .cccprc, or environment.",
+                info.provider,
+                info.host,
+                host_to_token_env_var(&info.host)
+            )
+        })?;
+
+        let (api_url, payload, auth_header) = match info.provider {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                let url = format!(
+                    "https://{}/api/v1/repos/{}/{}/issues/{}/comments",
+                    info.host, info.owner, info.repo, issue_id
+                );
+                let p = serde_json::json!({ "body": body });
+                (url, p, ("Authorization", format!("token {}", token)))
+            }
+            ForgeType::GitHub => {
+                let url = format!(
+                    "https://api.github.com/repos/{}/{}/issues/{}/comments",
+                    info.owner, info.repo, issue_id
+                );
+                let p = serde_json::json!({ "body": body });
+                (url, p, ("Authorization", format!("Bearer {}", token)))
+            }
+            ForgeType::GitLab => {
+                let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                let url = format!(
+                    "https://{}/api/v4/projects/{}/issues/{}/notes",
+                    info.host, enc_path, issue_id
+                );
+                let p = serde_json::json!({ "body": body });
+                (url, p, ("PRIVATE-TOKEN", token))
+            }
+        };
+
+        let req = self
+            .agent
+            .post(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json")
+            .header(auth_header.0, &auth_header.1);
+
+        let mut resp = req
+            .send_json(payload)
+            .map_err(|e| format!("HTTP POST request to {} failed: {}", api_url, e))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let body_err = resp.body_mut().read_to_string().unwrap_or_default();
+            return Err(format!("Forge returned HTTP {}: {}", status, body_err));
+        }
+
+        let json_val: serde_json::Value = resp
+            .body_mut()
+            .read_json()
+            .map_err(|e| format!("Failed to parse response from {}: {}", info.host, e))?;
+
+        let id = json_val.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+        let author = json_val
+            .get("user")
+            .and_then(|u| u.get("login").or_else(|| u.get("username")))
+            .or_else(|| json_val.get("author").and_then(|a| a.get("username")))
+            .and_then(|v| v.as_str())
+            .unwrap_or("you")
+            .to_string();
+        let created_at = json_val
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+
+        Ok(ForgeComment {
+            id,
+            author,
+            body: body.to_string(),
+            created_at,
+        })
+    }
 }
 
 /// Information returned after creating an issue on a remote forge
@@ -929,10 +1091,47 @@ pub fn parse_issues_json(
             body,
             html_url,
             created_at,
+            comments: Vec::new(),
         });
     }
 
     Ok(issues)
+}
+
+/// Parses comments JSON array across different forge schemas
+pub fn parse_comments_json(val: &serde_json::Value) -> Result<Vec<ForgeComment>, String> {
+    let arr = val
+        .as_array()
+        .ok_or_else(|| "Expected JSON array of comments".to_string())?;
+    let mut comments = Vec::new();
+    for item in arr {
+        let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+        let author = item
+            .get("user")
+            .and_then(|u| u.get("login").or_else(|| u.get("username")))
+            .or_else(|| item.get("author").and_then(|a| a.get("username")))
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+        let body = item
+            .get("body")
+            .or_else(|| item.get("note"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let created_at = item
+            .get("created_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        comments.push(ForgeComment {
+            id,
+            author,
+            body,
+            created_at,
+        });
+    }
+    Ok(comments)
 }
 
 /// Parses pull requests JSON array across different forge schemas

@@ -19,6 +19,7 @@ fn sample_issue(number: u64, title: &str, body: &str, labels: Vec<&str>) -> Forg
         body: body.to_string(),
         html_url: format!("https://codeberg.org/lumenpink/cccp/issues/{}", number),
         created_at: "2026-09-30T10:00:00Z".to_string(),
+        comments: Vec::new(),
     }
 }
 

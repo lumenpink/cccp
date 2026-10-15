@@ -1,4 +1,4 @@
-use cccp::cli::{Cli, Commands, DivanArgs, TicketAction};
+use cccp::cli::{Cli, Commands, TicketAction};
 use cccp::forges::{ForgeComment, ForgeIssue};
 use cccp::tickets::{format_ticket_markdown, generate_tickets_markdown};
 use clap::Parser;

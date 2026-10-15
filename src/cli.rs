@@ -428,6 +428,17 @@ pub enum TicketAction {
         #[arg(short = 'm', long = "comment")]
         comment: Option<String>,
     },
+
+    /// Post a comment to an existing ticket on the remote forge
+    Comment {
+        /// Ticket ID to comment on (e.g. 148)
+        #[arg(required = true)]
+        id: u64,
+
+        /// Comment message content (if not provided, opens in CCCP editor)
+        #[arg(short = 'm', long = "message")]
+        message: Option<String>,
+    },
 }
 
 pub type TicketsArgs = TicketArgs;
@@ -769,6 +780,10 @@ pub struct DivanArgs {
     /// Dry run: display decomposed tickets without publishing to remote forge
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+
+    /// Target issue/ticket ID to comment on or interact with
+    #[arg(short = 'c', long = "comment")]
+    pub comment: Option<u64>,
 }
 
 pub type DivaArgs = DivanArgs;
