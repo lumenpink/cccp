@@ -690,6 +690,13 @@ pub enum CatalogSubcommands {
         #[arg(short = 'n', long = "dry-run")]
         dry_run: bool,
     },
+    /// Remove a repository from the catalog by name, slug, or alias
+    #[command(alias = "rm")]
+    Remove {
+        /// Repository name, slug, or alias to remove from catalog
+        #[arg(required = true)]
+        repo: String,
+    },
 }
 
 #[derive(Debug, Args, Clone)]

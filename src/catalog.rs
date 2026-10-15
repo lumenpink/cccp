@@ -673,6 +673,38 @@ pub fn add_remote_repo(
     Ok((entry, save_path, is_updated))
 }
 
+/// Remove a repository from the catalog matching by slug, name, or alias (case-insensitive)
+pub fn remove_repo_from_catalog(
+    identifier: &str,
+    config: Option<&crate::config::Config>,
+) -> Result<(CatalogEntry, PathBuf), String> {
+    let clean = identifier.trim();
+    if clean.is_empty() {
+        return Err("Repository identifier cannot be empty".to_string());
+    }
+
+    let mut catalog = load_catalog(config, None);
+    let initial_len = catalog.len();
+
+    let pos = catalog.iter().position(|e| {
+        e.slug.eq_ignore_ascii_case(clean)
+            || e.name.eq_ignore_ascii_case(clean)
+            || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean))
+    });
+
+    match pos {
+        Some(index) => {
+            let removed = catalog.remove(index);
+            let save_path = save_catalog(&catalog, config)?;
+            Ok((removed, save_path))
+        }
+        None => Err(format!(
+            "Repository '{}' not found in catalog (checked name, slug, and aliases across {} repositories)",
+            clean, initial_len
+        )),
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct BatchAddResult {
     pub total_scanned: usize,

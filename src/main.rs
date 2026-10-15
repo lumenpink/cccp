@@ -2157,6 +2157,24 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             }
+            Some(cli::CatalogSubcommands::Remove { repo }) => {
+                match cccp::catalog::remove_repo_from_catalog(&repo, Some(&config)) {
+                    Ok((entry, path)) => {
+                        println!(
+                            "{} Comrade! Removed repository '{}' ({}) from State Catalog ({})",
+                            theme.gold_bold("★"),
+                            theme.bold(&entry.name),
+                            theme.cyan(&entry.slug),
+                            path.display()
+                        );
+                        ExitCode::SUCCESS
+                    }
+                    Err(err) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), err);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
         },
         Some(Commands::Ci(act_args)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
