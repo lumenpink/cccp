@@ -970,11 +970,23 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                         entry.open_tickets.unwrap_or(0)
                     };
                     if let Some(st) = crate::git::inspect_local_status(path) {
-                        let label = match (st.is_clean, st.ahead) {
-                            (true, 0) => "clean".to_string(),
-                            (true, n) => format!("clean [↑{}]", n),
-                            (false, 0) => "dirty".to_string(),
-                            (false, n) => format!("dirty [↑{}]", n),
+                        let label = match (st.is_clean, st.ahead, st.modified_files) {
+                            (true, 0, _) => "clean".to_string(),
+                            (true, n, _) => format!("clean [↑{}]", n),
+                            (false, 0, m) => {
+                                if m > 0 {
+                                    format!("dirty [{}*]", m)
+                                } else {
+                                    "dirty".to_string()
+                                }
+                            }
+                            (false, n, m) => {
+                                if m > 0 {
+                                    format!("dirty [{}* ↑{}]", m, n)
+                                } else {
+                                    format!("dirty [↑{}]", n)
+                                }
+                            }
                         };
                         (tickets, Some(st.is_clean), st.ahead, label)
                     } else {
@@ -1190,6 +1202,14 @@ pub fn filter_and_sort_summaries(
     summaries: &mut Vec<CatalogRepoSummary>,
     filter: &crate::cli::CatalogFilterArgs,
 ) {
+    // 0. Filter by direct flags: --dirty and --unpushed
+    if filter.dirty {
+        summaries.retain(|s| s.is_clean == Some(false));
+    }
+    if filter.unpushed {
+        summaries.retain(|s| s.is_clean == Some(true) && s.unpushed > 0);
+    }
+
     // 1. Filter by status
     if let Some(ref st_filter) = filter.status {
         let clean_st = st_filter.trim().to_ascii_lowercase();

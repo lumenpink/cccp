@@ -607,6 +607,14 @@ pub struct CatalogFilterArgs {
     #[arg(short = 's', long = "status")]
     pub status: Option<String>,
 
+    /// Filter exclusively dirty repositories (with unstaged or staged modifications)
+    #[arg(long = "dirty", conflicts_with = "unpushed")]
+    pub dirty: bool,
+
+    /// Filter exclusively clean repositories with commits pending push
+    #[arg(long = "unpushed", alias = "pending-push", conflicts_with = "dirty")]
+    pub unpushed: bool,
+
     /// Filter repositories with minimum number of open tickets
     #[arg(short = 't', long = "tickets", alias = "min-tickets")]
     pub min_tickets: Option<usize>,
@@ -624,6 +632,8 @@ impl CatalogFilterArgs {
     pub fn merge(&self, sub: &CatalogFilterArgs) -> Self {
         Self {
             status: sub.status.clone().or_else(|| self.status.clone()),
+            dirty: sub.dirty || self.dirty,
+            unpushed: sub.unpushed || self.unpushed,
             min_tickets: sub.min_tickets.or(self.min_tickets),
             sort: if sub.sort != "name" {
                 sub.sort.clone()

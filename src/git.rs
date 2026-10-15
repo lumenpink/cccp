@@ -353,6 +353,7 @@ pub struct LocalRepoStatus {
     pub ahead: usize,
     pub behind: usize,
     pub branch: Option<String>,
+    pub modified_files: usize,
 }
 
 /// Inspect local git status (cleanliness, ahead/behind upstream count, branch)
@@ -409,13 +410,15 @@ pub fn inspect_local_status(repo_dir: &Path) -> Option<LocalRepoStatus> {
         }
     }
 
-    let is_clean = lines.next().is_none();
+    let modified_files = lines.count();
+    let is_clean = modified_files == 0;
 
     Some(LocalRepoStatus {
         is_clean,
         ahead,
         behind,
         branch,
+        modified_files,
     })
 }
 
