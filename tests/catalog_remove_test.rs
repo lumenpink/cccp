@@ -94,3 +94,31 @@ fn test_cli_parsing_catalog_remove_and_rm_alias() {
         _ => panic!("Expected Commands::Catalog"),
     }
 }
+
+#[test]
+fn test_remove_repo_case_insensitive() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let catalog_path = tmp.path().join("catalog.json");
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+
+    add_remote_repo(
+        "git@codeberg.org:lumenpink/my-cased-repo.git",
+        Some("My Cased Repo"),
+        Some("Desc"),
+        &["MyAlias".to_string()],
+        Some(&config),
+    )
+    .expect("Add repo failed");
+
+    // Remove usando alias com case diferente
+    let (removed, _) = remove_repo_from_catalog("myalias", Some(&config))
+        .expect("Remove by lowercase alias failed");
+    assert_eq!(removed.name, "My Cased Repo");
+
+    let entries = load_catalog(Some(&config), None);
+    assert!(entries.is_empty());
+}
+
