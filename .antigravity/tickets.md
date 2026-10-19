@@ -1,21 +1,22 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-15 01:30:05 UTC
+> Synced at: 2026-10-19 10:14:22 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#129] feat(cli): adicionar filtros na listagem para repositórios dirty e com push pendente
+## [#153] feat(core): suporte para remover itens do catálogo com remoção opcional de diretório limpo
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/129
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/153
 
 ### Description
 ## Description
-Adicionar opções de filtragem na CLI para inspecionar repositórios de acordo com seu estado local de git, permitindo filtrar exclusivamente os repositórios dirty (com alterações locais) ou exclusivamente os limpos com commits pendentes de envio ao remote.
+Implementar suporte à remoção de itens registrados no catálogo. A operação deve permitir opcionalmente remover o diretório correspondente do sistema de arquivos, contanto que o diretório esteja em estado limpo (clean / sem alterações não commitadas ou arquivos não rastreados), prevenindo perda acidental de dados.
 
 ## Expected Behavior & Acceptance Criteria
-- [ ] Suportar flag (ex: `--dirty`) para listar unicamente repositórios que possuem modificações staged ou unstaged no working tree.
-- [ ] Suportar flag (ex: `--unpushed` ou `--pending-push`) para listar unicamente repositórios limpos com commits locais pendentes de push.
-- [ ] Exibir saída estruturada e legível informando contagem de arquivos modificados ou commits ahead correspondentes.
-- [ ] Suportar combinação coerente ou validação de exclusão mútua das flags de filtro.
+- [ ] Possibilidade de remover um item específico do catálogo.
+- [ ] Opção (flag/parâmetro) para solicitar a deleção do diretório físico correspondente.
+- [ ] Validação estrita de segurança: o diretório só deve ser deletado se estiver estritamente limpo (sem modificações locais não salvas/pendentes).
+- [ ] Lançamento de erro claro e interrupção segura caso a deleção do diretório seja requisitada mas o estado não esteja limpo (abortando sem apagar o diretório).
+- [ ] Manter consistência do catálogo caso ocorra falha durante o processo.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
@@ -29,20 +30,21 @@ Adicionar opções de filtragem na CLI para inspecionar repositórios de acordo 
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
-## [#127] feat(cli): atualizar contagem de tickets abertos de repositórios no catálogo
+## [#152] feat(core): suporte para remover itens do catálogo com remoção opcional de diretório limpo
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/127
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/152
 
 ### Description
 ## Description
-Necessidade de atualizar a contagem de tickets abertos armazenada nos metadados dos repositórios do catálogo. O comando deve permitir atualizar todos os repositórios ou apenas itens selecionados, integrando com o comando/fluxo existente de tickets quando aplicável.
+Implementar suporte à remoção de itens registrados no catálogo. A operação deve permitir opcionalmente remover o diretório correspondente do sistema de arquivos, contanto que o diretório esteja em estado limpo (clean / sem alterações não commitadas ou arquivos não rastreados), prevenindo perda acidental de dados.
 
 ## Expected Behavior & Acceptance Criteria
-- [ ] Permitir atualizar a contagem de tickets de todos os repositórios cadastrados via comando CLI (ex: `catalog update-tickets --all` ou extensão do comando `ticket`).
-- [ ] Permitir especificar repositórios individuais como argumentos para atualização pontual.
-- [ ] Tratar falhas de conectividade ou autenticação na API do forge de maneira graciosa sem interromper todo o lote.
-- [ ] Refletir e persistir a contagem atualizada no catálogo.
+- [ ] Possibilidade de remover um item específico do catálogo.
+- [ ] Opção (flag/parâmetro) para solicitar a deleção do diretório físico correspondente.
+- [ ] Validação estrita de segurança: o diretório só deve ser deletado se estiver estritamente limpo (sem modificações locais não salvas/pendentes).
+- [ ] Lançamento de erro claro e interrupção segura caso a deleção do diretório seja requisitada mas o estado não esteja limpo (abortando sem apagar o diretório).
+- [ ] Manter consistência do catálogo caso ocorra falha durante o processo.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
@@ -56,30 +58,29 @@ Necessidade de atualizar a contagem de tickets abertos armazenada nos metadados 
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
-## [#126] feat(cli): implementar remoção de itens do catálogo
+## [#151] feat(catalog): atualizar contagem de tickets de todos os repos no catalogo
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/126
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/151
 
 ### Description
-## Description
-Atualmente não há comando ou mecanismo direto na CLI para remover repositórios ou entradas já cadastradas no catálogo. É necessário implementar um comando (ex: `catalog remove` ou `catalog rm`) que desvincule/remova itens por identificador, caminho ou nome.
+## Contexto
+Atualmente, o comando `cccp catalog list` exibe a contagem de tickets dos repositórios cadastrados a partir do cache `catalog.json`. Quando tickets são resolvidos ou criados nas forjas remotas, o catálogo permanece com valores desatualizados até que cada repositório seja sincronizado individualmente.
 
-## Expected Behavior & Acceptance Criteria
-- [ ] Disponibilizar comando na CLI para remover itens do catálogo passando identificador ou caminho do repositório.
-- [ ] Suportar flag ou confirmação interativa antes da exclusão permanente da entrada no catálogo.
-- [ ] Retornar erro explicativo caso o item solicitado para remoção não exista no catálogo.
-- [ ] Atualizar o arquivo/base de dados do catálogo persistindo as alterações.
+## Requisitos e Critérios de Aceite
+- Implementar subcomando ou opção no `cccp catalog` (ex: `cccp catalog sync` ou flag em `cccp sync -c`) para auditar/sincronizar a contagem de tickets de todos os repositórios cadastrados no `catalog.json`.
+- Executar a varredura com degradação graciosa em caso de forjas offline ou repositórios remotos não clonados.
+- Atualizar `catalog.json` atomicamente refletindo o estado fiel do ecossistema.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+- [ ] Fase 2 - Branch: Branch dedicada por ticket
+- [ ] Fase 3 - Doc/Spec: Especificação do comando de atualização de tickets no catálogo
+- [ ] Fase 4 - Red: Teste falho validando a sincronização em lote
+- [ ] Fase 5 - Green: Implementação da atualização em lote no cccp catalog
+- [ ] Fase 6 - Refactor: Eliminação de duplicações e código idiomático
+- [ ] Fase 7 - Mutation: Testes de mutação e resiliência
+- [ ] Fase 8 - Quality Gate: Validação estrita
+- [ ] Fase 9 - Close: Finalização e fechamento com (closes #<id>)
 
 ---
