@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Direct Remote Forge Ticket Count Synchronization in Catalog
+- **Direct Remote Forge Ticket Count Sync (`cccp catalog sync` / `cccp sync --catalog-tickets`)**: Permite sincronizar em lote a contagem de tickets abertos de todos os repositórios cadastrados no Catálogo do Estado Gosplan (`catalog.json`) através de requisições diretas às APIs REST remotas (Codeberg, Forgejo, Gitea, GitHub e GitLab) via `ForgeClient`, sem nenhuma dependência de utilitários locais (`tea`, `gh`, `glab`) e mesmo para repositórios não clonados em disco. Implementa o método leve `fetch_open_issues_count` com consulta otimizada aos metadados das forjas, o subcomando `cccp catalog sync` (com execução global padrão ao ser chamado sem argumentos), suporte à flag `--catalog-tickets` no comando `cccp sync`, degradação graciosa com preservação do cache em caso de forjas offline e persistência atômica no catálogo. (closes #151)
+
 ### Safe Catalog Repository Removal with Clean Directory Deletion
 - **Catalog Safe Removal with Clean Directory Purge (`cccp catalog remove --delete-dir` / `cccp catalog rm --rm-dir`)**: Estende o comando de remoção de repositórios do Catálogo Gosplan com suporte opcional à deleção física do diretório local do repositório em disco (`--delete-dir` ou `--rm-dir`). Implementa validação estrita de segurança e falha atômica: se o diretório local possuir arquivos modificados, alterações não rastreadas (*untracked*) ou commits pendentes de envio upstream (`ahead > 0`), a operação inteira aborta com erro, preservando intactos tanto o diretório em disco quanto a entrada no `catalog.json`. Em caso de sucesso, exclui o diretório e atualiza o catálogo de forma consistente com feedback formatado Gosplan. (closes #152)
 
