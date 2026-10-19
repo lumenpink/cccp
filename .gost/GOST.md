@@ -354,44 +354,44 @@ Todo pipeline de CI **DEVE** declarar seus estágios em jobs estritamente separa
   - **DEVE** condicionar execução ao branch principal (`if: github.ref == 'refs/heads/main'`)
   - Publica artefatos, documentação estática ou binários de release
 
-A separação explícita garante que o gate de pre-push local (Seção 9.2) possa executar exclusivamente o job `test` sem acidentalmente disparar deploys, e que cada estágio seja inspecionável de forma independente nos logs de CI.
+A separação explícita garante que os estágios de validação ocorram de forma isolada, e que cada etapa seja inspecionável nos logs de CI.
 
-* **Deploy Exclusivo via Esteira Automatizada de CI/CD:** Todo e qualquer deploy de aplicações, serviços, daemons e documentação **DEVE** ocorrer exclusivamente através da esteira remota de CI/CD da forja (Forgejo Actions / GitHub Actions) a partir da branch principal devidamente integrada. É **TERMINANTEMENTE PROIBIDO** realizar deploys manuais ou ad-hoc a partir da máquina local do desenvolvedor ou de agentes de inteligência artificial (sendo expressamente vedada a execução local de comandos de deploy contra servidores ou ambientes de produção).
+* **Compilação Soberana Exclusiva na Esteira e Proibição de Builds de Release Locais:** Todo e qualquer binário final de distribuição, pacote executável ou artefato de release **DEVE** ser compilado exclusivamente através da esteira automatizada de CI/CD (Forgejo Actions / GitHub Actions) em containers herméticos a partir da branch principal integrada. É **TERMINANTEMENTE PROIBIDO** compilar releases pesadas (`cargo build --release`, cross-compilação ou empacotamento para distribuição) no ambiente local de desenvolvimento. A estação local de trabalho destina-se estritamente às fases ágeis de especificação, testes unitários rápidos, formatação (`fmt`), linter (`clippy`) e inspeção de tipos, operando obrigatoriamente com limite conservador de concorrência (`jobs = 1` no compilador).
+* **Deploy Exclusivo via Esteira Automatizada de CI/CD:** Todo e qualquer deploy de aplicações, serviços, daemons e documentação **DEVE** ocorrer exclusivamente através da esteira remota de CI/CD da forja a partir da branch principal devidamente integrada. É **TERMINANTEMENTE PROIBIDO** realizar deploys manuais ou ad-hoc a partir da máquina local do desenvolvedor ou de agentes de inteligência artificial.
 
-### 9.2 Gate de Pre-Push: CI Local com Infraestrutura Idêntica
-O problema do "passa localmente, quebra no CI" origina-se da divergência entre o ambiente local do desenvolvedor e o ambiente de execução do pipeline. Para eliminar essa divergência:
+### 9.2 Gate Leve de Pre-Push e Gate Pré-Tag com `act`
+Para harmonizar agilidade no desenvolvimento local com rigor máximo nas entregas:
 
-* Os repositórios **DEVERIAM** configurar um *pre-push gate* que execute o job `test` do pipeline em um ambiente **bit-for-bit idêntico** ao da forja remota, antes de permitir o `git push`.
-* O gate é executado como hook `pre-push` do Git, bloqueando o push em caso de falha.
-* O ambiente de execução local **DEVE** ser o mesmo container/VM utilizado pelo runner de CI remoto.
+1. **Pre-Push Leve e Instantâneo:** O hook `pre-push` executado pelo Git **NÃO DEVE** disparar executores de containers pesados (`act`) durante o fluxo diário de trabalho. O `pre-push` atua estritamente como um gate de conformidade semântica leve: valida a sincronia do arquivo `VERSION`, integridade de referências a tickets e consistência de tags Git, permitindo `git push` imediato.
+2. **Gate Pré-Tag com `act` (Auditoria de Release):** O gate de validação em container via `act` (com infraestrutura idêntica ao runner remoto) **DEVE** ser acionado exclusivamente como **Gate Pré-Tag** no comando de criação de release (`cccp tag`). Nenhuma tag de release estável pode ser selada ou assinada sem aprovação integral prévia na auditoria do container.
 
-#### Propriedades do Gate de Pre-Push
-1. **Idempotência:** A execução local do job `test` deve produzir resultados idênticos à execução remota.
-2. **Isolamento de Publicação:** O gate **NUNCA DEVE** executar jobs de deploy, publish ou release — apenas `test`.
-3. **Registro Persistente:** A saída completa de cada execução do gate **DEVE** ser armazenada em logs nomeados e datados para rastreabilidade e diagnóstico.
-4. **Feedback Vivo:** O gate **DEVERIA** exibir progresso em tempo real (step atual, tempo decorrido) sem poluir o histórico do terminal.
-5. **Bypass Consciente:** O bypass do gate (`git push --no-verify`) **DEVE** ser sempre possível e documentado como opção explícita e consciente — nunca automático.
+### 9.3 Degradação Graciosa do Gate Pré-Tag
+Se o ambiente de execução de containers (Docker daemon ou socket) não estiver disponível no momento do `cccp tag`, o gate **DEVE**:
+- Emitir aviso claro indicando a ausência do executor local.
+- Permitir bypass consciente exclusivamente mediante confirmação explícita do desenvolvedor (`--force` ou `--skip-ci`), registrando a exceção nos logs.
 
-### 9.3 Degradação Graciosa do Gate
-Se o ambiente de execução local não estiver disponível (ex: Docker não iniciado, executor não instalado), o gate **DEVE**:
-- Emitir aviso claro indicando que o gate foi ignorado
-- **Nunca** bloquear o push por ausência do executor local
-- Registrar o bypass involuntário para rastreabilidade
+### 9.4 Distribuição Canônica Soberana na Banca e Armazenamento em R2
 
-### 9.4 Armazenamento Canônico de Artefatos em Object Storage (Cloudflare R2) e Higiene de Deploy
+Para preservar as forjas Git (Codeberg/Forgejo) contra inchaço (*bloat*) e garantir distribuição atômica resiliente:
 
-Para preservar a integridade, performance e quotas de armazenamento das forjas Git (Codeberg/Forgejo) e garantir distribuição estável e escalável:
-
-1. **Proibição de Bloat na Forja Git:**
-   - Binários compilados (executáveis `musl`, bibliotecas compartilhadas, instaladores `.apk`, executáveis `.exe`), pacotes pesados e tarballs de release **NÃO DEVEM** ser hospedados nas releases da forja Git nem comitados no histórico do repositório.
-2. **Armazenamento Canônico em Object Storage (Cloudflare R2):**
-   - Todos os artefatos de release e instaladores compilados **DEVEM** ser publicados diretamente em Object Storage compatível com S3 (prioritariamente **Cloudflare R2**).
-   - Acesso e distribuição devem ocorrer via CDN global sem cobrança de taxa de saída (*egress-free*) sob o domínio unificado do projeto (`*.2lp.in`).
-   - Artefatos no R2 devem suportar *HTTP Range Requests* (RFC 7233) para streaming e download parcial, acompanhados de hashes criptográficos (`checksums.sha256`).
-3. **Higiene de Branches de Publicação / Pages (Stateless Single-Commit & Force Push):**
-   - Quando a publicação de documentação estática envolver espelhamento em branch Git dedicado (ex: branch `pages` no Codeberg Pages ou GitHub Pages), o pipeline **NÃO DEVE** acumular commits históricos de builds sucessivos.
-   - O pipeline **DEVE** verificar e purgar commits antigos de build criando uma árvore órfã isolada (`--orphan`), contendo rigorosamente um único commit limpo do snapshot atual (`docs(site): deploy [skip ci]`).
-   - A publicação remota no branch de deploy **DEVE** ser efetuada via **`git push --force origin <temp>:pages`**, mantendo o repositório leve e livre de inchaço (*bloat*) histórico.
+1. **A Banca como Vitrine e Repositório Soberano Oficial:**
+   - A **Banca** (`https://banca.2lp.in/downloads/`) é a autoridade canônica soberana para catálogo, consulta e distribuição de binários, ferramentas CLI e instaladores do ecossistema.
+   - Todo software executável distribuído **DEVE** disponibilizar subcomando de auto-atualização atômica (`<app> update` e `<app> check-update`) que consome o catálogo oficial da Banca.
+2. **Proibição Absoluta de Bloat na Forja Git:**
+   - Binários compilados, executáveis estáticos (`musl`), bibliotecas, instaladores e tarballs de release **NUNCA DEVEM** ser hospedados nas releases da forja Git nem comitados no histórico do repositório.
+3. **Armazenamento Canônico em Object Storage (Cloudflare R2):**
+   - Todos os artefatos de release compilados pela esteira **DEVEM** ser publicados diretamente em Object Storage (Cloudflare R2) sob o domínio unificado `*.2lp.in`.
+   - Acesso e distribuição ocorrem via CDN global sem cobrança de taxa de saída (*egress-free*), com suporte a *HTTP Range Requests* (RFC 7233) e hashes criptográficos (`sha256`).
+4. **Política de Retenção Estrita (5 Stables e 10 Nightlies):**
+   - As esteiras de CI/CD **DEVEM** impor rotina de limpeza automatizada mantendo estritamente no storage:
+     - **Canal Estável (`stable`)**: Até **5 versões estáveis** mais recentes, mantendo um alias simbólico fixo apontando para a última versão (`stable-latest`).
+     - **Canal Nightly (`nightly`)**: Até **10 compilações atômicas de commit** mais recentes, mantendo um alias simbólico fixo apontando para a última compilação (`nightly-latest`).
+   - Versões que ultrapassem o teto de retenção devem ser expurgadas automaticamente do bucket.
+5. **Manifesto Atômico `index.json`:**
+   - A esteira **DEVE** gerar e atualizar atomicamente um manifesto `index.json` por aplicação na raiz de seu diretório no storage (`downloads/<app>/index.json`), contendo metadados de versões, datas, arquiteturas suportadas e hashes, servindo como fonte da verdade para updaters de terminal e interfaces web.
+6. **Higiene de Branches de Publicação / Pages (Stateless Single-Commit & Force Push):**
+   - Quando a publicação de documentação estática envolver espelhamento em branch Git dedicado (ex: branch `pages`), o pipeline **NÃO DEVE** acumular commits históricos de builds sucessivos.
+   - O pipeline **DEVE** purgar commits antigos criando uma árvore órfã isolada (`--orphan`), contendo rigorosamente um único commit limpo do snapshot atual (`docs(site): deploy [skip ci]`), publicado via `git push --force origin <temp>:pages`.
 
 ---
 
@@ -880,30 +880,28 @@ O ecossistema adota um pipeline estrito onde **erros de linter e desvios de form
 * **Higiene Universal de Editores:**
   - Arquivo `.editorconfig` na raiz de todo repositório para impor LF, UTF-8, ausência de trailing whitespaces e indentação correta.
 
-### 5.8 Gate de Pre-Push com `act` (CI Local Idêntico)
-O ecossistema Kollontai usa **`act`** — executor local de Forgejo/GitHub Actions baseado em Docker — para rodar o job `test` do pipeline em um ambiente **bit-for-bit idêntico** ao do Forgejo antes de cada `git push`.
+### 5.8 Gate Pré-Tag com `act` (Validação de Release)
+O ecossistema Kollontai usa **`act`** — executor local de Forgejo/GitHub Actions baseado em Docker — para rodar a suíte completa de validação do pipeline em um ambiente **bit-for-bit idêntico** ao do Forgejo antes de cada criação oficial de tag estável (`cccp tag`). O hook `pre-push` ordinário permanece leve e livre do `act`.
 
 #### Ferramenta
 * **`act`** ([`nektos/act`](https://github.com/nektos/act)): lê `.forgejo/workflows/ci.yml` e executa os jobs dentro dos mesmos containers Docker usados pelo Forgejo Actions.
-* **Pré-requisito:** Docker em execução na máquina de desenvolvimento (sempre presente no ecossistema Kollontai).
+* **Pré-requisito:** Docker em execução na máquina de desenvolvimento no momento da criação de release tags.
 
-#### Comportamento do Hook `pre-push`
+#### Comportamento no `cccp tag`
 ```
-git push
-  └─► pre-push hook (instalado por cccp install)
+cccp tag <versão>
+  └─► Gate Pré-Tag
         ├─ Verifica se act + Docker estão disponíveis
-        │    └─ Não disponíveis: emite aviso, NÃO bloqueia push
         ├─ Executa: act -j test --no-pull
-        │    └─ Saída completa → .git/act-logs/<data>_<hora>_<branch>_<sha-curto>.log
+        │    └─ Saída completa → .git/act-logs/<data>_<hora>_<tag>.log
         ├─ Mostra: spinner vivo + step atual + tempo decorrido
-        └─ Exit 0: push prossegue  |  Exit 1: push abortado + resumo + path do log
+        └─ Exit 0: release tag criada com sucesso  |  Exit 1: criação abortada
 ```
 
 #### Formato dos Logs
 ```
 .git/act-logs/
-  2026-09-24_09-41_feat-42-rate-limit_a4b3c2d.log
-  2026-09-24_08-17_main_cd62fd5.log
+  2026-09-24_09-41_v1.5.0.log
 ```
 * Diretório `.git/act-logs/` é automaticamente ignorado pelo git.
 * Consulta rápida ao log mais recente: `cccp act log`
