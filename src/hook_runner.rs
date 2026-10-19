@@ -217,7 +217,10 @@ pub fn run_pre_push(
     }
 
     if verbose > 0 {
-        println!("{} pre-push semantic checks passed successfully.", theme.green("✓"));
+        println!(
+            "{} pre-push semantic checks passed successfully.",
+            theme.green("✓")
+        );
     }
     Ok(0)
 }

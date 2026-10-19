@@ -265,13 +265,8 @@ pub fn execute_release_tag(
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
             .unwrap_or_else(|_| "HEAD".to_string());
 
-        let ci_ok = crate::act::act_ci_gate(
-            repo_root,
-            "origin",
-            &branch,
-            &theme,
-            0,
-        ).map_err(|e| format!("Erro no Gate Pré-Tag: {e}"))?;
+        let ci_ok = crate::act::act_ci_gate(repo_root, "origin", &branch, &theme, 0)
+            .map_err(|e| format!("Erro no Gate Pré-Tag: {e}"))?;
 
         if !ci_ok {
             return Err("Gate Pré-Tag falhou: a suíte de validação em container rejeitou a release. Corrija as falhas antes de gerar a tag ou defina CCCP_SKIP_PRE_TAG_CI=1.".to_string());
