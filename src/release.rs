@@ -255,6 +255,29 @@ pub fn execute_release_tag(
     let changelog_file = repo_root.join("CHANGELOG.md");
     let _ = update_changelog_file(&changelog_file, &changelog_section);
 
+    // Pre-Tag Gate: Auditoria rigorosa de CI em container antes de selar a release estável
+    if std::env::var("CCCP_SKIP_PRE_TAG_CI").as_deref() != Ok("1") {
+        let theme = Theme::init(true);
+        let branch = Command::new("git")
+            .args(["symbolic-ref", "--short", "HEAD"])
+            .current_dir(repo_root)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|_| "HEAD".to_string());
+
+        let ci_ok = crate::act::act_ci_gate(
+            repo_root,
+            "origin",
+            &branch,
+            &theme,
+            0,
+        ).map_err(|e| format!("Erro no Gate Pré-Tag: {e}"))?;
+
+        if !ci_ok {
+            return Err("Gate Pré-Tag falhou: a suíte de validação em container rejeitou a release. Corrija as falhas antes de gerar a tag ou defina CCCP_SKIP_PRE_TAG_CI=1.".to_string());
+        }
+    }
+
     // 4. Git add & commit
     let mut add_cmd = Command::new("git");
     add_cmd.args(["add", "VERSION"]).current_dir(repo_root);

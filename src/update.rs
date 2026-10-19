@@ -41,6 +41,18 @@ pub fn get_update_cache_file() -> PathBuf {
     PathBuf::from(".cache/cccp/update_cache")
 }
 
+/// Returns the official Banca distribution endpoints: (stable_url, nightly_url, version_url)
+pub fn get_distribution_endpoints(channel: &str) -> (String, String, String) {
+    let stable = "https://banca.2lp.in/downloads/cccp/stable-latest/cccp".to_string();
+    let nightly = "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp".to_string();
+    let ver = if channel == "nightly" {
+        "https://banca.2lp.in/downloads/cccp/nightly-version".to_string()
+    } else {
+        "https://banca.2lp.in/downloads/cccp/version".to_string()
+    };
+    (stable, nightly, ver)
+}
+
 /// Compares two version strings according to SemVer precedence.
 /// Returns true if `remote` is newer than `current`.
 pub fn semver_is_newer(remote: &str, current: &str) -> bool {
@@ -279,11 +291,7 @@ pub fn check_auto_update(_config: &Config) -> Result<Option<String>, Box<dyn std
         .unwrap_or_else(|| "stable".to_string());
 
     if now.saturating_sub(last_check) >= interval_sec {
-        let ver_url = if channel == "nightly" {
-            "https://cccp.2lp.in/nightly/version"
-        } else {
-            "https://cccp.2lp.in/version"
-        };
+        let (_s, _n, ver_url) = get_distribution_endpoints(&channel);
 
         let ureq_cfg = ureq::config::Config::builder()
             .timeout_global(Some(Duration::from_secs(2)))
@@ -402,11 +410,7 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
         );
     }
 
-    let ver_url = if channel == "nightly" {
-        "https://cccp.2lp.in/nightly/version"
-    } else {
-        "https://cccp.2lp.in/version"
-    };
+    let (_stable_url, _nightly_url, ver_url) = get_distribution_endpoints(&channel);
 
     let ureq_cfg = ureq::config::Config::builder()
         .timeout_global(Some(Duration::from_secs(3)))
@@ -414,22 +418,10 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
     let agent = ureq::Agent::new_with_config(ureq_cfg);
 
     let mut remote_ver = String::new();
-    if let Ok(resp) = agent.get(ver_url).call() {
+    if let Ok(resp) = agent.get(&ver_url).call() {
         if let Ok(body) = resp.into_body().read_to_string() {
             if !body.trim().is_empty() {
                 remote_ver = extract_version_from_response(&body);
-            }
-        }
-    }
-
-    // Fallback to Codeberg releases if main distribution url failed
-    if remote_ver.is_empty() {
-        let codeberg_url = "https://codeberg.org/api/v1/repos/lumenpink/cccp/releases/latest";
-        if let Ok(resp) = agent.get(codeberg_url).call() {
-            if let Ok(body) = resp.into_body().read_to_string() {
-                if !body.trim().is_empty() {
-                    remote_ver = extract_version_from_response(&body);
-                }
             }
         }
     }
@@ -558,26 +550,14 @@ pub fn cmd_update(args: &UpdateArgs) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // Determine download URL
-    let (download_url, fallback_url) = if is_pinned_now {
+    // Determine download URL from official Banca distribution
+    let download_url = if is_pinned_now {
         let pin = current_pin.unwrap_or_else(get_current_version);
-        (
-            format!("https://cccp.2lp.in/releases/v{}/cccp", pin),
-            format!(
-                "https://codeberg.org/lumenpink/cccp/raw/tag/v{}/bin/cccp",
-                pin
-            ),
-        )
+        format!("https://banca.2lp.in/downloads/cccp/releases/v{}/cccp", pin)
     } else if channel == "nightly" {
-        (
-            "https://cccp.2lp.in/nightly/cccp".to_string(),
-            "https://codeberg.org/lumenpink/cccp/raw/branch/main/bin/cccp".to_string(),
-        )
+        "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp".to_string()
     } else {
-        (
-            "https://cccp.2lp.in/cccp".to_string(),
-            "https://codeberg.org/lumenpink/cccp/raw/branch/main/bin/cccp".to_string(),
-        )
+        "https://banca.2lp.in/downloads/cccp/stable-latest/cccp".to_string()
     };
 
     let target = if let Some(ref t) = args.target {
@@ -621,18 +601,6 @@ pub fn cmd_update(args: &UpdateArgs) -> Result<(), Box<dyn std::error::Error>> {
             if !bytes.is_empty() {
                 download_bytes = bytes;
                 downloaded = true;
-            }
-        }
-    }
-
-    if !downloaded {
-        if let Ok(resp) = agent.get(&fallback_url).call() {
-            if let Ok(bytes) = resp.into_body().read_to_vec() {
-                if !bytes.is_empty() {
-                    println!("Notice: Downloaded from fallback mirror.");
-                    download_bytes = bytes;
-                    downloaded = true;
-                }
             }
         }
     }

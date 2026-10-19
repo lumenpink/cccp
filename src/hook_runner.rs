@@ -183,33 +183,43 @@ pub fn run_pre_push(
         return Ok(1);
     }
 
-    // Run Act local CI gate if applicable
-    let branch = Command::new("git")
-        .args(["symbolic-ref", "--short", "HEAD"])
-        .current_dir(&repo.root_dir)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_else(|_| "HEAD".to_string());
+    // The pre-push hook is a lightweight, instantaneous semantic verification gate.
+    // Heavy containerized CI (act) is strictly decoupled from regular git push and
+    // executed exclusively as a Pre-Tag Gate during `cccp tag`.
+    // Act is only run during pre-push if explicitly forced via CCCP_ACT_FORCE=1.
+    if std::env::var("CCCP_ACT_FORCE").as_deref() == Ok("1") {
+        let branch = Command::new("git")
+            .args(["symbolic-ref", "--short", "HEAD"])
+            .current_dir(&repo.root_dir)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|_| "HEAD".to_string());
 
-    match crate::act::act_ci_gate(
-        &repo.root_dir,
-        remote.unwrap_or("origin"),
-        &branch,
-        theme,
-        verbose,
-    ) {
-        Ok(true) => {
-            if verbose > 0 {
-                println!("{} pre-push checks passed successfully.", theme.green("✓"));
+        return match crate::act::act_ci_gate(
+            &repo.root_dir,
+            remote.unwrap_or("origin"),
+            &branch,
+            theme,
+            verbose,
+        ) {
+            Ok(true) => {
+                if verbose > 0 {
+                    println!("{} pre-push CI gate passed successfully.", theme.green("✓"));
+                }
+                Ok(0)
             }
-            Ok(0)
-        }
-        Ok(false) => Ok(1),
-        Err(e) => {
-            eprintln!("{}: {}", theme.red_bold("Error"), e);
-            Ok(1)
-        }
+            Ok(false) => Ok(1),
+            Err(e) => {
+                eprintln!("{}: {}", theme.red_bold("Error"), e);
+                Ok(1)
+            }
+        };
     }
+
+    if verbose > 0 {
+        println!("{} pre-push semantic checks passed successfully.", theme.green("✓"));
+    }
+    Ok(0)
 }
 
 /// Handler for the `post-commit` git hook
