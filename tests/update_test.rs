@@ -309,3 +309,14 @@ fn test_cmd_check_update_runs() {
         env::remove_var("CCCP_VERSION");
     }
 }
+
+#[test]
+fn test_distribution_urls_banca_and_no_codeberg() {
+    let (stable_url, nightly_url, ver_url) = cccp::update::get_distribution_endpoints("stable");
+    assert!(stable_url.contains("banca.2lp.in"), "Stable URL must point to banca.2lp.in: {}", stable_url);
+    assert!(!stable_url.contains("codeberg.org"), "Stable URL must NOT contain codeberg: {}", stable_url);
+    assert!(nightly_url.contains("banca.2lp.in"), "Nightly URL must point to banca.2lp.in: {}", nightly_url);
+    assert!(!nightly_url.contains("codeberg.org"), "Nightly URL must NOT contain codeberg: {}", nightly_url);
+    assert!(ver_url.contains("banca.2lp.in"), "Version URL must point to banca.2lp.in: {}", ver_url);
+    assert!(!ver_url.contains("codeberg.org"), "Version URL must NOT contain codeberg: {}", ver_url);
+}
