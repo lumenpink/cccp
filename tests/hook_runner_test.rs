@@ -464,7 +464,10 @@ fn test_hook_pre_push_skips_act_by_default() {
     .trim()
     .to_string();
 
-    let stdin_input = format!("refs/heads/main {} refs/heads/main {}\n", head_sha, head_sha);
+    let stdin_input = format!(
+        "refs/heads/main {} refs/heads/main {}\n",
+        head_sha, head_sha
+    );
 
     let repo = GitRepo::open(Some(p)).unwrap();
 

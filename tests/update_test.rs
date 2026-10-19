@@ -321,10 +321,7 @@ fn test_distribution_urls_banca_and_no_codeberg() {
         nightly_url,
         "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp"
     );
-    assert_eq!(
-        ver_url,
-        "https://banca.2lp.in/downloads/cccp/version"
-    );
+    assert_eq!(ver_url, "https://banca.2lp.in/downloads/cccp/version");
     assert!(!stable_url.contains("codeberg.org"));
     assert!(!nightly_url.contains("codeberg.org"));
     assert!(!ver_url.contains("codeberg.org"));
