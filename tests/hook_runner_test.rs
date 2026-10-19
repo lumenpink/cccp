@@ -432,3 +432,60 @@ fn test_reconcile_merge_version_ignores_repo_without_version_file() {
     assert!(res.is_none());
     assert!(!p.join("VERSION").exists());
 }
+
+#[test]
+fn test_hook_pre_push_skips_act_by_default() {
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let theme = Theme::init(true);
+    let config = Config::default();
+
+    fs::write(p.join("VERSION"), "1.0.0\n").unwrap();
+    Command::new("git")
+        .args(["add", "VERSION"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore: release 1.0.0"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    let head_sha = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(p)
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+
+    let stdin_input = format!("refs/heads/main {} refs/heads/main {}\n", head_sha, head_sha);
+
+    let repo = GitRepo::open(Some(p)).unwrap();
+
+    // Ensure CCCP_ACT_FORCE is unset
+    let old_force = std::env::var("CCCP_ACT_FORCE").ok();
+    std::env::remove_var("CCCP_ACT_FORCE");
+
+    let code = run_pre_push(
+        Some("origin"),
+        Some("git@codeberg.org:test/repo.git"),
+        Some(&stdin_input),
+        &repo,
+        &config,
+        &theme,
+        1,
+    )
+    .unwrap();
+
+    if let Some(v) = old_force {
+        std::env::set_var("CCCP_ACT_FORCE", v);
+    }
+
+    assert_eq!(code, 0);
+}
