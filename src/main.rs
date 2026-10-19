@@ -2157,16 +2157,28 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             }
-            Some(cli::CatalogSubcommands::Remove { repo }) => {
-                match cccp::catalog::remove_repo_from_catalog(&repo, Some(&config)) {
-                    Ok((entry, path)) => {
-                        println!(
-                            "{} Comrade! Removed repository '{}' ({}) from State Catalog ({})",
-                            theme.gold_bold("★"),
-                            theme.bold(&entry.name),
-                            theme.cyan(&entry.slug),
-                            path.display()
-                        );
+            Some(cli::CatalogSubcommands::Remove { repo, delete_dir }) => {
+                match cccp::catalog::remove_repo_from_catalog_ext(&repo, delete_dir, Some(&config))
+                {
+                    Ok((entry, path, purged_dir)) => {
+                        if let Some(dir) = purged_dir {
+                            println!(
+                                "{} Comrade! Removed repository '{}' ({}) from State Catalog ({}) and purged clean directory ({})",
+                                theme.gold_bold("★"),
+                                theme.bold(&entry.name),
+                                theme.cyan(&entry.slug),
+                                path.display(),
+                                theme.green(&dir.display().to_string())
+                            );
+                        } else {
+                            println!(
+                                "{} Comrade! Removed repository '{}' ({}) from State Catalog ({})",
+                                theme.gold_bold("★"),
+                                theme.bold(&entry.name),
+                                theme.cyan(&entry.slug),
+                                path.display()
+                            );
+                        }
                         ExitCode::SUCCESS
                     }
                     Err(err) => {

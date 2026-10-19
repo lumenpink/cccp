@@ -686,6 +686,16 @@ pub fn remove_repo_from_catalog(
     identifier: &str,
     config: Option<&crate::config::Config>,
 ) -> Result<(CatalogEntry, PathBuf), String> {
+    let (entry, save_path, _) = remove_repo_from_catalog_ext(identifier, false, config)?;
+    Ok((entry, save_path))
+}
+
+/// Remove a repository from the catalog, optionally deleting its local directory if clean
+pub fn remove_repo_from_catalog_ext(
+    identifier: &str,
+    delete_dir: bool,
+    config: Option<&crate::config::Config>,
+) -> Result<(CatalogEntry, PathBuf, Option<PathBuf>), String> {
     let clean = identifier.trim();
     if clean.is_empty() {
         return Err("Repository identifier cannot be empty".to_string());
@@ -700,17 +710,56 @@ pub fn remove_repo_from_catalog(
             || e.aliases.iter().any(|a| a.eq_ignore_ascii_case(clean))
     });
 
-    match pos {
-        Some(index) => {
-            let removed = catalog.remove(index);
-            let save_path = save_catalog(&catalog, config)?;
-            Ok((removed, save_path))
+    let index = match pos {
+        Some(idx) => idx,
+        None => {
+            return Err(format!(
+                "Repository '{}' not found in catalog (checked name, slug, and aliases across {} repositories)",
+                clean, initial_len
+            ))
         }
-        None => Err(format!(
-            "Repository '{}' not found in catalog (checked name, slug, and aliases across {} repositories)",
-            clean, initial_len
-        )),
+    };
+
+    let target_entry = &catalog[index];
+    let local_path = find_local_repo_path_with_config(target_entry, config);
+
+    let mut purged_path = None;
+    if delete_dir {
+        if let Some(ref path) = local_path {
+            if path.exists() {
+                // Strict cleanliness verification
+                if let Some(status) = crate::git::inspect_local_status(path) {
+                    if !status.is_clean || status.ahead > 0 {
+                        return Err(format!(
+                            "Cannot delete repository directory '{}': repository is not clean (modified/untracked files: {}, unpushed commits: {}). Entire operation aborted.",
+                            path.display(),
+                            status.modified_files,
+                            status.ahead
+                        ));
+                    }
+                } else {
+                    return Err(format!(
+                        "Cannot delete repository directory '{}': failed to inspect git status. Entire operation aborted.",
+                        path.display()
+                    ));
+                }
+
+                // If clean, remove directory
+                fs::remove_dir_all(path).map_err(|e| {
+                    format!(
+                        "Failed to remove repository directory '{}': {}. Entire operation aborted.",
+                        path.display(),
+                        e
+                    )
+                })?;
+                purged_path = Some(path.clone());
+            }
+        }
     }
+
+    let removed = catalog.remove(index);
+    let save_path = save_catalog(&catalog, config)?;
+    Ok((removed, save_path, purged_path))
 }
 
 #[derive(Debug, Clone, Default)]

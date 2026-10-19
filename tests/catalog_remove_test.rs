@@ -77,7 +77,7 @@ fn test_cli_parsing_catalog_remove_and_rm_alias() {
     let parsed_remove = Cli::parse_from(["cccp", "catalog", "remove", "meu-repo"]);
     match parsed_remove.command {
         Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::Remove { repo }) => {
+            Some(CatalogSubcommands::Remove { repo, .. }) => {
                 assert_eq!(repo, "meu-repo");
             }
             _ => panic!("Expected CatalogSubcommands::Remove"),
@@ -88,7 +88,7 @@ fn test_cli_parsing_catalog_remove_and_rm_alias() {
     let parsed_rm = Cli::parse_from(["cccp", "catalog", "rm", "outro-repo"]);
     match parsed_rm.command {
         Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::Remove { repo }) => {
+            Some(CatalogSubcommands::Remove { repo, .. }) => {
                 assert_eq!(repo, "outro-repo");
             }
             _ => panic!("Expected CatalogSubcommands::Remove via alias rm"),
@@ -218,9 +218,8 @@ fn test_remove_repo_with_clean_dir_deletes_directory_and_catalog() {
     assert_eq!(initial.len(), 1);
 
     // Remove com delete_dir = true em repo limpo
-    let (removed, _, deleted_path) =
-        remove_repo_from_catalog_ext("CleanRepo", true, Some(&config))
-            .expect("Clean repo removal should succeed");
+    let (removed, _, deleted_path) = remove_repo_from_catalog_ext("CleanRepo", true, Some(&config))
+        .expect("Clean repo removal should succeed");
     assert_eq!(removed.name, "CleanRepo");
     assert!(deleted_path.is_some());
     assert_eq!(deleted_path.unwrap(), repo_dir);
@@ -263,7 +262,9 @@ fn test_remove_repo_with_dirty_dir_fails_atomically() {
     assert!(res.is_err(), "Operation MUST fail when repo is not clean");
     let err_msg = res.unwrap_err();
     assert!(
-        err_msg.to_lowercase().contains("clean") || err_msg.to_lowercase().contains("dirty") || err_msg.to_lowercase().contains("modified"),
+        err_msg.to_lowercase().contains("clean")
+            || err_msg.to_lowercase().contains("dirty")
+            || err_msg.to_lowercase().contains("modified"),
         "Error message must mention cleanliness/modifications: {}",
         err_msg
     );
@@ -271,10 +272,85 @@ fn test_remove_repo_with_dirty_dir_fails_atomically() {
     // Validação da FALHA ATÔMICA:
     // 1. O diretório físico continua intacto
     assert!(repo_dir.exists(), "Dirty directory MUST NOT be deleted");
-    assert!(repo_dir.join("DIRTY.txt").exists(), "Dirty files must be preserved");
+    assert!(
+        repo_dir.join("DIRTY.txt").exists(),
+        "Dirty files must be preserved"
+    );
 
     // 2. O catálogo NÃO foi alterado
     let entries = load_catalog(Some(&config), None);
-    assert_eq!(entries.len(), 1, "Catalog entry MUST NOT be removed if operation failed");
+    assert_eq!(
+        entries.len(),
+        1,
+        "Catalog entry MUST NOT be removed if operation failed"
+    );
     assert_eq!(entries[0].name, "DirtyRepo");
+}
+
+#[test]
+fn test_remove_remote_only_repo_with_delete_dir_flag() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let catalog_path = tmp.path().join("catalog.json");
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+
+    // Repo apenas remoto (sem clone local)
+    add_remote_repo(
+        "git@codeberg.org:lumenpink/RemoteOnly.git",
+        Some("RemoteOnly"),
+        Some("Desc"),
+        &[],
+        Some(&config),
+    )
+    .expect("Add repo failed");
+
+    let initial = load_catalog(Some(&config), None);
+    assert_eq!(initial.len(), 1);
+
+    // Remoção com delete_dir = true quando não há diretório local deve ter sucesso no catálogo e retornar None para purged_path
+    let (removed, _, purged_path) = remove_repo_from_catalog_ext("RemoteOnly", true, Some(&config))
+        .expect("Removal of remote-only repo should succeed");
+    assert_eq!(removed.name, "RemoteOnly");
+    assert!(purged_path.is_none());
+
+    let entries = load_catalog(Some(&config), None);
+    assert!(entries.is_empty());
+}
+
+#[test]
+fn test_remove_repo_without_delete_dir_preserves_dirty_directory() {
+    let tmp = tempdir().expect("Failed to create tempdir");
+    let catalog_path = tmp.path().join("catalog.json");
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+
+    let repo_dir = tmp.path().join("DirtyRepoPreserved");
+    setup_temp_git_repo(&repo_dir, true);
+    assert!(repo_dir.exists());
+
+    add_remote_repo(
+        "git@codeberg.org:lumenpink/DirtyRepoPreserved.git",
+        Some("DirtyRepoPreserved"),
+        Some("Desc"),
+        &[],
+        Some(&config),
+    )
+    .expect("Add repo failed");
+
+    // delete_dir = false deve remover do catálogo mantendo o diretório intacto mesmo dirty
+    let (removed, _, purged_path) =
+        remove_repo_from_catalog_ext("DirtyRepoPreserved", false, Some(&config))
+            .expect("Removal without delete_dir should succeed");
+    assert_eq!(removed.name, "DirtyRepoPreserved");
+    assert!(purged_path.is_none());
+
+    assert!(repo_dir.exists());
+    assert!(repo_dir.join("DIRTY.txt").exists());
+
+    let entries = load_catalog(Some(&config), None);
+    assert!(entries.is_empty());
 }

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Safe Catalog Repository Removal with Clean Directory Deletion
+- **Catalog Safe Removal with Clean Directory Purge (`cccp catalog remove --delete-dir` / `cccp catalog rm --rm-dir`)**: Estende o comando de remoção de repositórios do Catálogo Gosplan com suporte opcional à deleção física do diretório local do repositório em disco (`--delete-dir` ou `--rm-dir`). Implementa validação estrita de segurança e falha atômica: se o diretório local possuir arquivos modificados, alterações não rastreadas (*untracked*) ou commits pendentes de envio upstream (`ahead > 0`), a operação inteira aborta com erro, preservando intactos tanto o diretório em disco quanto a entrada no `catalog.json`. Em caso de sucesso, exclui o diretório e atualiza o catálogo de forma consistente com feedback formatado Gosplan. (closes #152)
+
 ### Dirty and Unpushed Repository Filters in Catalog Listing
 - **Catalog Status Filters for Dirty and Pending Push (`cccp catalog list --dirty` / `cccp catalog list --unpushed`)**: Adiciona flags dedicadas na CLI para filtragem rápida dos repositórios do Catálogo Gosplan de acordo com o estado do git local: `--dirty` filtra exclusivamente repositórios com alterações não commitadas no working tree, enquanto `--unpushed` (ou `--pending-push`) filtra exclusivamente repositórios limpos com commits locais pendentes de envio upstream. Inclui validação de exclusão mútua (`conflicts_with`), suporte completo na mesclagem de opções de filtro e exibição detalhada com contagem de arquivos modificados (`dirty [n*]`) e commits ahead (`clean [↑n]`). (closes #129)
 

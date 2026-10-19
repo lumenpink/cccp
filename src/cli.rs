@@ -706,6 +706,10 @@ pub enum CatalogSubcommands {
         /// Repository name, slug, or alias to remove from catalog
         #[arg(required = true)]
         repo: String,
+
+        /// Also delete the local repository directory if it is completely clean
+        #[arg(long = "delete-dir", alias = "rm-dir")]
+        delete_dir: bool,
     },
     /// Update open ticket count for repositories in the catalog
     #[command(alias = "sync-tickets")]
