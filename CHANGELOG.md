@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Pipeline Compilation and Banca Binary Distribution
+- **Pipeline Compilation & Banca Artifact Delivery (`cccp update` / `cccp check-update` / `cccp tag` / `cccp hook`)**: Adequação completa do CCCP à diretiva GOST v1.5.0 para compilação estrita na esteira e distribuição de binários pela Banca (`https://banca.2lp.in/downloads/cccp/`). Elimina a execução onerosa de `act` no git `pre-push` por padrão (mantendo apenas verificação semântica instantânea ou via `CCCP_ACT_FORCE=1`), transpondo a auditoria de CI em container exclusivamente como Pre-Tag Gate durante o comando `cccp tag`. Remove dependência e fallbacks a releases do Codeberg no mecanismo de auto-update, garantindo consumo atômico soberano dos canais estável e nightly da Banca. (closes #156)
+
 ### Direct Remote Forge Ticket Count Synchronization in Catalog
 - **Direct Remote Forge Ticket Count Sync (`cccp catalog sync` / `cccp sync --catalog-tickets`)**: Permite sincronizar em lote a contagem de tickets abertos de todos os repositórios cadastrados no Catálogo do Estado Gosplan (`catalog.json`) através de requisições diretas às APIs REST remotas (Codeberg, Forgejo, Gitea, GitHub e GitLab) via `ForgeClient`, sem nenhuma dependência de utilitários locais (`tea`, `gh`, `glab`) e mesmo para repositórios não clonados em disco. Implementa o método leve `fetch_open_issues_count` com consulta otimizada aos metadados das forjas, o subcomando `cccp catalog sync` (com execução global padrão ao ser chamado sem argumentos), suporte à flag `--catalog-tickets` no comando `cccp sync`, degradação graciosa com preservação do cache em caso de forjas offline e persistência atômica no catálogo. (closes #151)
 
