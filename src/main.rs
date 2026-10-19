@@ -613,6 +613,26 @@ fn main() -> ExitCode {
                 }
             }
 
+            // 5. Sync catalog ticket counts
+            if sync_args.catalog_tickets {
+                println!(
+                    "{} Synchronizing catalog ticket counts across all repositories...",
+                    theme.cyan("★")
+                );
+                match cccp::catalog::update_catalog_tickets(&[], true, Some(&config)) {
+                    Ok(report) => {
+                        println!(
+                            "  Catalog ticket counts updated for {} repository(ies).",
+                            report.updated.len()
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        success = false;
+                    }
+                }
+            }
+
             if success {
                 ExitCode::SUCCESS
             } else {
@@ -2188,7 +2208,8 @@ fn main() -> ExitCode {
                 }
             }
             Some(cli::CatalogSubcommands::UpdateTickets { repos, all }) => {
-                match cccp::catalog::update_catalog_tickets(&repos, all, Some(&config)) {
+                let sync_all = all || repos.is_empty();
+                match cccp::catalog::update_catalog_tickets(&repos, sync_all, Some(&config)) {
                     Ok(report) => {
                         println!(
                             "{} Comrade! Updated ticket count for {} repository(ies):",

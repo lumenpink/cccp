@@ -1714,8 +1714,8 @@ pub fn update_catalog_tickets(
 
         // 1. Tenta buscar da forge remota se configurada
         if !forge_info.owner.is_empty() && !forge_info.repo.is_empty() {
-            if let Ok(issues) = client.fetch_issues(&forge_info, "open", 100) {
-                ticket_count = Some(issues.len());
+            if let Ok(count) = client.fetch_open_issues_count(&forge_info) {
+                ticket_count = Some(count);
             }
         }
 

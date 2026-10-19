@@ -457,6 +457,10 @@ pub struct SyncArgs {
     #[arg(short = 'c', long = "catalog")]
     pub catalog: bool,
 
+    /// Synchronize ticket counts for all repositories in the catalog
+    #[arg(long = "catalog-tickets")]
+    pub catalog_tickets: bool,
+
     /// Force full synchronization / overwrite
     #[arg(short = 'f', long = "force")]
     pub force: bool,
@@ -712,7 +716,7 @@ pub enum CatalogSubcommands {
         delete_dir: bool,
     },
     /// Update open ticket count for repositories in the catalog
-    #[command(alias = "sync-tickets")]
+    #[command(alias = "sync-tickets", alias = "sync")]
     UpdateTickets {
         /// Repositories to update (slug, name, or alias)
         #[arg(num_args = 0..)]

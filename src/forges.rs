@@ -433,6 +433,72 @@ impl ForgeClient {
         })
     }
 
+    /// Attempt to fetch open issues count for the repository directly via forge API
+    pub fn fetch_open_issues_count(&self, info: &RepoForgeInfo) -> Result<usize, String> {
+        let api_url = match info.provider {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                format!(
+                    "https://{}/api/v1/repos/{}/{}",
+                    info.host, info.owner, info.repo
+                )
+            }
+            ForgeType::GitHub => {
+                format!("https://api.github.com/repos/{}/{}", info.owner, info.repo)
+            }
+            ForgeType::GitLab => {
+                let enc = format!("{}%2F{}", info.owner, info.repo);
+                format!("https://{}/api/v4/projects/{}", info.host, enc)
+            }
+        };
+
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
+            match info.provider {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                    req = req.header("Authorization", &format!("token {}", token));
+                }
+                ForgeType::GitHub => {
+                    req = req.header("Authorization", &format!("Bearer {}", token));
+                }
+                ForgeType::GitLab => {
+                    req = req.header("PRIVATE-TOKEN", &token);
+                }
+            }
+        }
+
+        match req.call() {
+            Ok(resp) => {
+                let status = resp.status();
+                if status == 429 || status == 403 {
+                    return Err(format!(
+                        "Rate limit exceeded on {}. Configure an authentication token or retry later.",
+                        info.host
+                    ));
+                }
+                if resp.status().is_success() {
+                    if let Ok(body) = resp.into_body().read_json::<serde_json::Value>() {
+                        if let Some(count) = body.get("open_issues_count").and_then(|v| v.as_u64()) {
+                            return Ok(count as usize);
+                        }
+                    }
+                }
+                // Fallback to fetch_issues if metadata didn't have the field
+                self.fetch_issues(info, "open", 100).map(|v| v.len())
+            }
+            Err(e) => {
+                // If metadata endpoint failed, try fallback to fetch_issues or propagate error
+                self.fetch_issues(info, "open", 100)
+                    .map(|v| v.len())
+                    .map_err(|_| format!("Failed to fetch open issues count from {}: {}", api_url, e))
+            }
+        }
+    }
+
     /// Fetch issues from the specified forge repository
     pub fn fetch_issues(
         &self,
