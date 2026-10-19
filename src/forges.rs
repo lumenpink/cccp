@@ -482,7 +482,8 @@ impl ForgeClient {
                 }
                 if resp.status().is_success() {
                     if let Ok(body) = resp.into_body().read_json::<serde_json::Value>() {
-                        if let Some(count) = body.get("open_issues_count").and_then(|v| v.as_u64()) {
+                        if let Some(count) = body.get("open_issues_count").and_then(|v| v.as_u64())
+                        {
                             return Ok(count as usize);
                         }
                     }
@@ -494,7 +495,9 @@ impl ForgeClient {
                 // If metadata endpoint failed, try fallback to fetch_issues or propagate error
                 self.fetch_issues(info, "open", 100)
                     .map(|v| v.len())
-                    .map_err(|_| format!("Failed to fetch open issues count from {}: {}", api_url, e))
+                    .map_err(|_| {
+                        format!("Failed to fetch open issues count from {}: {}", api_url, e)
+                    })
             }
         }
     }
