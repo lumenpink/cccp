@@ -1175,7 +1175,10 @@ pub fn format_catalog_ci_details(
     theme: &crate::cultural::Theme,
 ) -> String {
     let mut out = String::new();
-    out.push_str(&format!("\n{} CI Pipeline Details:\n", theme.gold_bold("★")));
+    out.push_str(&format!(
+        "\n{} CI Pipeline Details:\n",
+        theme.gold_bold("★")
+    ));
     let mut any_ci = false;
     for s in summaries {
         if s.ci_status.is_empty() {
