@@ -105,3 +105,120 @@ fn test_removed_root_commands_are_rejected() {
     assert!(Cli::try_parse_from(["cccp", "check-update"]).is_err());
     assert!(Cli::try_parse_from(["cccp", "comrades"]).is_err());
 }
+
+#[test]
+fn test_mutation_root_help_slim_and_canonical() {
+    use clap::CommandFactory;
+    let help = Cli::command().render_help().to_string();
+
+    // Canonical commands must be present
+    assert!(help.contains("ticket"));
+    assert!(help.contains("repo"));
+    assert!(help.contains("sync"));
+    assert!(help.contains("check"));
+    assert!(help.contains("version"));
+    assert!(help.contains("gen-version"));
+
+    // Removed commands must not appear in root commands list
+    let lines: Vec<&str> = help.lines().collect();
+    let command_lines: Vec<&str> = lines
+        .iter()
+        .filter(|line| line.starts_with("  ") && !line.starts_with("    "))
+        .copied()
+        .collect();
+
+    for cmd in &[
+        "editor",
+        "ci",
+        "serve",
+        "comrades",
+        "set-av",
+        "check-update",
+        "audit",
+        "catalog",
+    ] {
+        assert!(
+            !command_lines
+                .iter()
+                .any(|l| l.trim_start().starts_with(cmd)),
+            "Removed command '{}' must not appear in help root subcommands list",
+            cmd
+        );
+    }
+}
+
+#[test]
+fn test_mutation_version_flags_strictness() {
+    // cccp version rejects SemVer bump and write flags (UnknownArgument)
+    let err = Cli::try_parse_from(["cccp", "version", "--bump", "patch"]).unwrap_err();
+    assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+
+    let err = Cli::try_parse_from(["cccp", "version", "-b", "major"]).unwrap_err();
+    assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+
+    let err = Cli::try_parse_from(["cccp", "version", "-w"]).unwrap_err();
+    assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+
+    // cccp version supports format output (e.g. json or text)
+    let ver_json = Cli::try_parse_from(["cccp", "version", "-f", "json"]).unwrap();
+    match ver_json.command {
+        Some(Commands::Version(args)) => {
+            assert_eq!(args.format, "json");
+        }
+        _ => panic!("Expected Version"),
+    }
+
+    // cccp gen-version accepts bump and format
+    let ok = Cli::try_parse_from(["cccp", "gen-version", "-b", "patch", "-f", "json"]).unwrap();
+    match ok.command {
+        Some(Commands::GenVersion(args)) => {
+            assert_eq!(args.bump, Some(BumpType::Patch));
+            assert_eq!(args.format, cccp::cli::VersionFormat::Json);
+        }
+        _ => panic!("Expected GenVersion"),
+    }
+}
+
+#[test]
+fn test_mutation_repo_default_and_subcommands() {
+    // cccp repo without subcommands has action None (defaults to list)
+    let parsed_root_repo = Cli::try_parse_from(["cccp", "repo"]).unwrap();
+    match parsed_root_repo.command {
+        Some(Commands::Repo(r)) => {
+            assert!(r.action.is_none());
+        }
+        _ => panic!("Expected Commands::Repo"),
+    }
+
+    // cccp repo sync-tickets parses correctly
+    let parsed_sync_t = Cli::try_parse_from(["cccp", "repo", "sync-tickets", "repo1"]).unwrap();
+    match parsed_sync_t.command {
+        Some(Commands::Repo(r)) => match r.action {
+            Some(RepoSubcommands::UpdateTickets { repos, all }) => {
+                assert_eq!(repos, vec!["repo1"]);
+                assert!(!all);
+            }
+            _ => panic!("Expected UpdateTickets"),
+        },
+        _ => panic!("Expected Commands::Repo"),
+    }
+}
+
+#[test]
+fn test_mutation_update_check_flag() {
+    let parsed = Cli::try_parse_from(["cccp", "update", "--check"]).unwrap();
+    match parsed.command {
+        Some(Commands::Update(up)) => {
+            assert!(up.check);
+        }
+        _ => panic!("Expected Commands::Update"),
+    }
+
+    let parsed_no_check = Cli::try_parse_from(["cccp", "update"]).unwrap();
+    match parsed_no_check.command {
+        Some(Commands::Update(up)) => {
+            assert!(!up.check);
+        }
+        _ => panic!("Expected Commands::Update"),
+    }
+}
