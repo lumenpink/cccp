@@ -1683,7 +1683,7 @@ mod tests {
         let args = Cli::parse_from(["cccp", "update", "--channel", "nightly", "--pin", "3.0.0"]);
         match args.command {
             Some(Commands::Update(up)) => {
-                assert_eq!(up.channel, "nightly");
+                assert_eq!(up.channel.as_deref(), Some("nightly"));
                 assert_eq!(up.pin.as_deref(), Some("3.0.0"));
                 assert!(!up.unpin);
             }
