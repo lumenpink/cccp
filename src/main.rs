@@ -2094,6 +2094,9 @@ fn main() -> ExitCode {
 
                     if catalog_args.filter.status.is_some()
                         || catalog_args.filter.min_tickets.is_some()
+                        || catalog_args.filter.ci.is_some()
+                        || catalog_args.filter.dirty
+                        || catalog_args.filter.unpushed
                     {
                         println!(
                             "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
@@ -2110,6 +2113,10 @@ fn main() -> ExitCode {
                     }
                     let table = cccp::catalog::format_catalog_table(&summaries, &theme);
                     println!("{}", table);
+                    if catalog_args.filter.ci_details {
+                        let details = cccp::catalog::format_catalog_ci_details(&summaries, &theme);
+                        print!("{}", details);
+                    }
                 }
                 ExitCode::SUCCESS
             }
@@ -2123,7 +2130,12 @@ fn main() -> ExitCode {
                     let mut summaries = cccp::catalog::summarize_catalog(&entries);
                     cccp::catalog::filter_and_sort_summaries(&mut summaries, &merged_filter);
 
-                    if merged_filter.status.is_some() || merged_filter.min_tickets.is_some() {
+                    if merged_filter.status.is_some()
+                        || merged_filter.min_tickets.is_some()
+                        || merged_filter.ci.is_some()
+                        || merged_filter.dirty
+                        || merged_filter.unpushed
+                    {
                         println!(
                             "{} Gosplan State Catalog ({} of {} repositories matching filter):\n",
                             theme.gold_bold("★"),
@@ -2139,6 +2151,10 @@ fn main() -> ExitCode {
                     }
                     let table = cccp::catalog::format_catalog_table(&summaries, &theme);
                     println!("{}", table);
+                    if merged_filter.ci_details {
+                        let details = cccp::catalog::format_catalog_ci_details(&summaries, &theme);
+                        print!("{}", details);
+                    }
                 }
                 ExitCode::SUCCESS
             }

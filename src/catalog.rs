@@ -1021,6 +1021,7 @@ pub struct CatalogRepoSummary {
     pub status_label: String, // "clean", "clean [↑4]", "dirty", "dirty [↑2]", "remote"
     pub local_path: Option<PathBuf>,
     pub gost_version: Option<String>,
+    pub ci_status: Vec<CiPipelineStatus>,
 }
 
 /// Gather live status (clean/dirty, unpushed commits, open tickets) for catalog entries
@@ -1071,6 +1072,22 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
 
             let gost_version = local_path.as_deref().and_then(extract_gost_version);
 
+            let ci_status = if !entry.ci_status.is_empty() {
+                entry.ci_status.clone()
+            } else if let Some(ref path) = local_path {
+                let ci_file = path.join(".antigravity").join("ci_status.json");
+                if ci_file.is_file() {
+                    std::fs::read_to_string(&ci_file)
+                        .ok()
+                        .and_then(|c| serde_json::from_str::<Vec<CiPipelineStatus>>(&c).ok())
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
             CatalogRepoSummary {
                 name: entry.name.clone(),
                 forge: entry.forge.clone(),
@@ -1082,9 +1099,127 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                 status_label,
                 local_path,
                 gost_version,
+                ci_status,
             }
         })
         .collect()
+}
+
+/// Helper to summarize CI pipeline execution state into a short label and styling key
+pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
+    if ci.is_empty() {
+        return ("-".to_string(), "dim");
+    }
+    let total = ci.len();
+    let failed = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "failure" || st == "fail" || st == "error"
+        })
+        .count();
+    let running = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "pending" || st == "running" || st == "waiting" || st == "progress"
+        })
+        .count();
+
+    if failed > 0 {
+        let text = if total > 1 {
+            format!("✗ fail ({}/{})", failed, total)
+        } else {
+            "✗ fail".to_string()
+        };
+        (text, "red")
+    } else if running > 0 {
+        let text = if total > 1 {
+            format!("⏳ pending ({}/{})", running, total)
+        } else {
+            "⏳ pending".to_string()
+        };
+        (text, "yellow")
+    } else {
+        let text = if total > 1 {
+            format!("✓ pass ({})", total)
+        } else {
+            "✓ pass".to_string()
+        };
+        (text, "green")
+    }
+}
+
+fn ci_rank(status: &[CiPipelineStatus]) -> usize {
+    if status.is_empty() {
+        return 3;
+    }
+    if status.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "failure" || st == "fail" || st == "error"
+    }) {
+        return 0;
+    }
+    if status.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "pending" || st == "running" || st == "waiting" || st == "progress"
+    }) {
+        return 1;
+    }
+    2
+}
+
+/// Format expanded CI pipeline execution details for display under catalog list
+pub fn format_catalog_ci_details(
+    summaries: &[CatalogRepoSummary],
+    theme: &crate::cultural::Theme,
+) -> String {
+    let mut out = String::new();
+    out.push_str(&format!("\n{} CI Pipeline Details:\n", theme.gold_bold("★")));
+    let mut any_ci = false;
+    for s in summaries {
+        if s.ci_status.is_empty() {
+            continue;
+        }
+        any_ci = true;
+        out.push_str(&format!(
+            "\n  {} ({}) [{}]:\n",
+            theme.bold(&s.name),
+            theme.cyan(&s.slug),
+            theme.dim(&s.forge)
+        ));
+        for p in &s.ci_status {
+            let st = p.status.to_ascii_lowercase();
+            let (icon, styled_status) = if st == "success" || st == "pass" {
+                ("✓", theme.green(&p.status))
+            } else if st == "failure" || st == "fail" || st == "error" {
+                ("✗", theme.red_bold(&p.status))
+            } else if st == "pending" || st == "running" || st == "waiting" {
+                ("⏳", theme.yellow(&p.status))
+            } else {
+                ("•", theme.dim(&p.status))
+            };
+
+            let mut line = format!("    {} {} - {}", icon, styled_status, theme.bold(&p.name));
+            if let Some(ref desc) = p.description {
+                line.push_str(&format!(" ({})", desc));
+            }
+            if let Some(ref updated) = p.updated_at {
+                line.push_str(&format!(" [{}]", theme.dim(updated)));
+            }
+            if let Some(ref url) = p.target_url {
+                line.push_str(&format!(" -> {}", theme.dim(url)));
+            }
+            out.push_str(&format!("{}\n", line));
+        }
+    }
+    if !any_ci {
+        out.push_str(&format!(
+            "  {}\n",
+            theme.dim("No CI pipelines recorded for displayed repositories.")
+        ));
+    }
+    out
 }
 
 /// Pretty-format catalog repository summaries into a Gosplan table
@@ -1115,6 +1250,7 @@ pub fn format_catalog_table(
     let h_repo = "REPOSITORY";
     let h_forge = "FORGE";
     let h_gost = "GOST";
+    let h_ci = "CI";
     let h_tickets = "TICKETS";
     let h_status = "STATUS";
     let h_path = "LOCAL PATH";
@@ -1122,6 +1258,7 @@ pub fn format_catalog_table(
     let mut w_repo = h_repo.chars().count();
     let mut w_forge = h_forge.chars().count();
     let mut w_gost = h_gost.chars().count();
+    let mut w_ci = h_ci.chars().count();
     let mut w_tickets = h_tickets.chars().count();
     let mut w_status = h_status.chars().count();
     let mut w_path = h_path.chars().count();
@@ -1133,9 +1270,11 @@ pub fn format_catalog_table(
             format!("{} [{}]", s.name, s.aliases.join(", "))
         };
         let gost_str = s.gost_version.as_deref().unwrap_or("-");
+        let (ci_text, _) = format_ci_summary(&s.ci_status);
         w_repo = w_repo.max(repo_display.chars().count());
         w_forge = w_forge.max(s.forge.chars().count());
         w_gost = w_gost.max(gost_str.chars().count());
+        w_ci = w_ci.max(ci_text.chars().count());
         w_tickets = w_tickets.max(s.ticket_count.to_string().chars().count());
         w_status = w_status.max(s.status_label.chars().count());
         w_path = w_path.max(format_path(&s.local_path).chars().count());
@@ -1145,10 +1284,11 @@ pub fn format_catalog_table(
 
     // Top border
     out.push_str(&format!(
-        "┌─{repo}─┬─{forge}─┬─{gost}─┬─{tickets}─┬─{status}─┬─{path}─┐\n",
+        "┌─{repo}─┬─{forge}─┬─{gost}─┬─{ci}─┬─{tickets}─┬─{status}─┬─{path}─┐\n",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
         gost = "─".repeat(w_gost),
+        ci = "─".repeat(w_ci),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -1158,18 +1298,21 @@ pub fn format_catalog_table(
     let pad_r = " ".repeat(w_repo.saturating_sub(h_repo.chars().count()));
     let pad_f = " ".repeat(w_forge.saturating_sub(h_forge.chars().count()));
     let pad_g = " ".repeat(w_gost.saturating_sub(h_gost.chars().count()));
+    let pad_c = " ".repeat(w_ci.saturating_sub(h_ci.chars().count()));
     let pad_t = " ".repeat(w_tickets.saturating_sub(h_tickets.chars().count()));
     let pad_s = " ".repeat(w_status.saturating_sub(h_status.chars().count()));
     let pad_p = " ".repeat(w_path.saturating_sub(h_path.chars().count()));
 
     out.push_str(&format!(
-        "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+        "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
         theme.bold(h_repo),
         pad_r,
         theme.bold(h_forge),
         pad_f,
         theme.bold(h_gost),
         pad_g,
+        theme.bold(h_ci),
+        pad_c,
         pad_t,
         theme.bold(h_tickets),
         theme.bold(h_status),
@@ -1180,10 +1323,11 @@ pub fn format_catalog_table(
 
     // Separator
     out.push_str(&format!(
-        "├─{repo}─┼─{forge}─┼─{gost}─┼─{tickets}─┼─{status}─┼─{path}─┤\n",
+        "├─{repo}─┼─{forge}─┼─{gost}─┼─{ci}─┼─{tickets}─┼─{status}─┼─{path}─┤\n",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
         gost = "─".repeat(w_gost),
+        ci = "─".repeat(w_ci),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -1199,10 +1343,12 @@ pub fn format_catalog_table(
         let path_str = format_path(&s.local_path);
         let tickets_str = s.ticket_count.to_string();
         let gost_display = s.gost_version.as_deref().unwrap_or("-");
+        let (ci_text, ci_style) = format_ci_summary(&s.ci_status);
 
         let pad_repo = " ".repeat(w_repo.saturating_sub(repo_display.chars().count()));
         let pad_forge = " ".repeat(w_forge.saturating_sub(s.forge.chars().count()));
         let pad_gost = " ".repeat(w_gost.saturating_sub(gost_display.chars().count()));
+        let pad_ci = " ".repeat(w_ci.saturating_sub(ci_text.chars().count()));
         let pad_tickets = " ".repeat(w_tickets.saturating_sub(tickets_str.chars().count()));
         let pad_status = " ".repeat(w_status.saturating_sub(s.status_label.chars().count()));
         let pad_path = " ".repeat(w_path.saturating_sub(path_str.chars().count()));
@@ -1221,6 +1367,13 @@ pub fn format_catalog_table(
             theme.dim(&tickets_str)
         };
 
+        let styled_ci = match ci_style {
+            "green" => theme.green(&ci_text),
+            "red" => theme.red_bold(&ci_text),
+            "yellow" => theme.yellow(&ci_text),
+            _ => theme.dim(&ci_text),
+        };
+
         let styled_repo = theme.bold(&repo_display);
         let styled_forge = theme.cyan(&s.forge);
         let styled_gost = if s.gost_version.is_some() {
@@ -1235,13 +1388,15 @@ pub fn format_catalog_table(
         };
 
         out.push_str(&format!(
-            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
+            "│ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │ {}{} │\n",
             styled_repo,
             pad_repo,
             styled_forge,
             pad_forge,
             styled_gost,
             pad_gost,
+            styled_ci,
+            pad_ci,
             pad_tickets,
             styled_tickets,
             styled_status,
@@ -1253,10 +1408,11 @@ pub fn format_catalog_table(
 
     // Bottom border
     out.push_str(&format!(
-        "└─{repo}─┴─{forge}─┴─{gost}─┴─{tickets}─┴─{status}─┴─{path}─┘",
+        "└─{repo}─┴─{forge}─┴─{gost}─┴─{ci}─┴─{tickets}─┴─{status}─┴─{path}─┘",
         repo = "─".repeat(w_repo),
         forge = "─".repeat(w_forge),
         gost = "─".repeat(w_gost),
+        ci = "─".repeat(w_ci),
         tickets = "─".repeat(w_tickets),
         status = "─".repeat(w_status),
         path = "─".repeat(w_path)
@@ -1295,7 +1451,40 @@ pub fn filter_and_sort_summaries(
         summaries.retain(|s| s.ticket_count >= min_t);
     }
 
-    // 3. Sort
+    // 3. Filter by CI status
+    if let Some(ref ci_filter) = filter.ci {
+        let target = ci_filter.trim().to_ascii_lowercase();
+        summaries.retain(|s| {
+            let has_fail = s.ci_status.iter().any(|p| {
+                let st = p.status.to_ascii_lowercase();
+                st == "failure" || st == "fail" || st == "error"
+            });
+            let has_running = s.ci_status.iter().any(|p| {
+                let st = p.status.to_ascii_lowercase();
+                st == "pending" || st == "running" || st == "waiting" || st == "progress"
+            });
+            let is_all_pass = !s.ci_status.is_empty()
+                && !has_fail
+                && !has_running
+                && s.ci_status.iter().all(|p| {
+                    let st = p.status.to_ascii_lowercase();
+                    st == "success" || st == "pass"
+                });
+
+            match target.as_str() {
+                "pass" | "success" => is_all_pass,
+                "fail" | "failure" => has_fail,
+                "pending" | "running" => has_running && !has_fail,
+                "none" => s.ci_status.is_empty(),
+                other => s.ci_status.iter().any(|p| {
+                    p.status.to_ascii_lowercase().contains(other)
+                        || p.name.to_ascii_lowercase().contains(other)
+                }),
+            }
+        });
+    }
+
+    // 4. Sort
     let sort_field = filter.sort.trim().to_ascii_lowercase();
     match sort_field.as_str() {
         "tickets" => {
@@ -1315,6 +1504,13 @@ pub fn filter_and_sort_summaries(
         "forge" => {
             summaries.sort_by(|a, b| a.forge.cmp(&b.forge).then_with(|| a.name.cmp(&b.name)));
         }
+        "ci" => {
+            summaries.sort_by(|a, b| {
+                ci_rank(&a.ci_status)
+                    .cmp(&ci_rank(&b.ci_status))
+                    .then_with(|| a.name.cmp(&b.name))
+            });
+        }
         "gost" | "gostver" => {
             summaries.sort_by(|a, b| match (&a.gost_version, &b.gost_version) {
                 (Some(va), Some(vb)) => va.cmp(vb).then_with(|| a.name.cmp(&b.name)),
@@ -1329,7 +1525,7 @@ pub fn filter_and_sort_summaries(
         }
     }
 
-    // 4. Reverse
+    // 5. Reverse
     if filter.reverse {
         summaries.reverse();
     }

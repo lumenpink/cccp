@@ -623,7 +623,15 @@ pub struct CatalogFilterArgs {
     #[arg(short = 't', long = "tickets", alias = "min-tickets")]
     pub min_tickets: Option<usize>,
 
-    /// Sort repositories by field ('name', 'tickets', 'status', 'forge', 'gost')
+    /// Filter repositories by CI status ('pass'/'success', 'fail'/'failure', 'pending'/'running', 'none')
+    #[arg(long = "ci")]
+    pub ci: Option<String>,
+
+    /// Display detailed CI pipeline execution status for each repository
+    #[arg(long = "ci-details")]
+    pub ci_details: bool,
+
+    /// Sort repositories by field ('name', 'tickets', 'status', 'forge', 'gost', 'ci')
     #[arg(long = "sort", default_value = "name")]
     pub sort: String,
 
@@ -639,6 +647,8 @@ impl CatalogFilterArgs {
             dirty: sub.dirty || self.dirty,
             unpushed: sub.unpushed || self.unpushed,
             min_tickets: sub.min_tickets.or(self.min_tickets),
+            ci: sub.ci.clone().or_else(|| self.ci.clone()),
+            ci_details: sub.ci_details || self.ci_details,
             sort: if sub.sort != "name" {
                 sub.sort.clone()
             } else {

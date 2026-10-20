@@ -66,6 +66,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             status_label: "clean".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
         CatalogRepoSummary {
             name: "repo-clean-unpushed".to_string(),
@@ -78,6 +79,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             status_label: "clean [↑2]".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
         CatalogRepoSummary {
             name: "repo-dirty".to_string(),
@@ -90,6 +92,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             status_label: "dirty [1*]".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
     ];
 

@@ -9,10 +9,21 @@ use clap::Parser;
 fn test_cli_parsing_ci_filter_and_details_flags() {
     let parsed = Cli::parse_from(["cccp", "catalog", "list", "--ci", "fail", "--ci-details"]);
     match parsed.command {
+        Some(Commands::Catalog(c)) => match c.action {
+            Some(cccp::cli::CatalogSubcommands::List(filter)) => {
+                assert_eq!(filter.ci.as_deref(), Some("fail"));
+                assert!(filter.ci_details);
+            }
+            _ => panic!("Expected CatalogSubcommands::List"),
+        },
+        _ => panic!("Expected Commands::Catalog"),
+    }
+
+    let parsed_root = Cli::parse_from(["cccp", "catalog", "--ci", "success", "--ci-details"]);
+    match parsed_root.command {
         Some(Commands::Catalog(c)) => {
-            let filter = c.filter;
-            assert_eq!(filter.ci.as_deref(), Some("fail"));
-            assert!(filter.ci_details);
+            assert_eq!(c.filter.ci.as_deref(), Some("success"));
+            assert!(c.filter.ci_details);
         }
         _ => panic!("Expected Commands::Catalog"),
     }

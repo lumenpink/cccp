@@ -344,6 +344,7 @@ fn test_format_catalog_table_rendering() {
             status_label: "clean [↑2]".to_string(),
             local_path: Some(std::path::PathBuf::from("/home/user/src/cccp")),
             gost_version: Some("1.4.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "remote_tool".to_string(),
@@ -356,6 +357,7 @@ fn test_format_catalog_table_rendering() {
             status_label: "remote".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
     ];
 
@@ -391,6 +393,7 @@ fn test_filter_and_sort_catalog() {
             status_label: "clean".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/beta")),
             gost_version: Some("1.4.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "alpha".to_string(),
@@ -403,6 +406,7 @@ fn test_filter_and_sort_catalog() {
             status_label: "dirty [↑3]".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/alpha")),
             gost_version: Some("1.0.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "gamma".to_string(),
@@ -415,6 +419,7 @@ fn test_filter_and_sort_catalog() {
             status_label: "remote".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
     ];
 
@@ -931,6 +936,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             status_label: "clean".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/c")),
             gost_version: Some("1.4.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "repo_a".to_string(),
@@ -943,6 +949,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             status_label: "clean".to_string(),
             local_path: Some(std::path::PathBuf::from("/path/a")),
             gost_version: Some("1.2.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "repo_b".to_string(),
@@ -955,6 +962,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             status_label: "remote".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
     ];
 
@@ -1029,6 +1037,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             status_label: "clean".to_string(),
             local_path: None,
             gost_version: Some("1.4.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "apple".to_string(),
@@ -1041,6 +1050,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             status_label: "clean".to_string(),
             local_path: None,
             gost_version: Some("1.4.0".to_string()),
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "zulu".to_string(),
@@ -1053,6 +1063,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             status_label: "remote".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
         catalog::CatalogRepoSummary {
             name: "alpha_none".to_string(),
@@ -1065,6 +1076,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             status_label: "remote".to_string(),
             local_path: None,
             gost_version: None,
+            ci_status: Vec::new(),
         },
     ];
 
