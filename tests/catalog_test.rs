@@ -229,6 +229,7 @@ fn test_catalog_entry_serialization_full_fields() {
         website: "https://example.org".into(),
         is_upstream: false,
         open_tickets: None,
+        ci_status: Vec::new(),
     };
 
     let serialized = serde_json::to_string_pretty(&vec![entry.clone()]).unwrap();
