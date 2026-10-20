@@ -191,7 +191,8 @@ fn test_version_command_options() {
 #[test]
 fn test_gen_version_command_options() {
     // Default format is Clean
-    let cli = Cli::try_parse_from(["cccp", "gen-version"]).expect("should parse gen-version default");
+    let cli =
+        Cli::try_parse_from(["cccp", "gen-version"]).expect("should parse gen-version default");
     match cli.command {
         Some(Commands::GenVersion(v)) => {
             assert_eq!(v.format, VersionFormat::Clean);
@@ -710,8 +711,8 @@ fn test_check_command_options() {
 
 #[test]
 fn test_soviet_comrades_flag() {
-    let cli =
-        Cli::try_parse_from(["cccp", "soviet", "--comrades"]).expect("should parse soviet comrades");
+    let cli = Cli::try_parse_from(["cccp", "soviet", "--comrades"])
+        .expect("should parse soviet comrades");
     match cli.command {
         Some(Commands::Soviet(s)) => {
             assert!(s.comrades);
@@ -766,14 +767,8 @@ fn test_repo_command_options() {
     }
 
     // Repo AddNew
-    let cli = Cli::try_parse_from([
-        "cccp",
-        "repo",
-        "add-new",
-        "--from-src",
-        "/home/lumen/src",
-    ])
-    .expect("should parse repo add-new");
+    let cli = Cli::try_parse_from(["cccp", "repo", "add-new", "--from-src", "/home/lumen/src"])
+        .expect("should parse repo add-new");
     match cli.command {
         Some(Commands::Repo(c)) => match c.action {
             Some(RepoSubcommands::AddNew { from_src }) => {

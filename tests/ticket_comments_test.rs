@@ -123,7 +123,14 @@ fn test_cli_parsing_ticket_comment_action() {
 
 #[test]
 fn test_cli_parsing_divan_comment_flag() {
-    let parsed = Cli::parse_from(["cccp", "ticket", "divan", "-c", "148", "Sugerir testes de integração"]);
+    let parsed = Cli::parse_from([
+        "cccp",
+        "ticket",
+        "divan",
+        "-c",
+        "148",
+        "Sugerir testes de integração",
+    ]);
 
     match parsed.command {
         Some(Commands::Ticket(t)) => match t.action {

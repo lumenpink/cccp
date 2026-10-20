@@ -418,8 +418,10 @@ pub fn create_ticket_cli(
                 let initial = "# Enter ticket title on the first line.\n# Remaining lines will be the ticket body.\n# Lines starting with '#' will be ignored.\n\n";
                 match crate::editor::edit_text("CCCP New Ticket", initial) {
                     Ok(Some(edited)) => {
-                        let lines: Vec<&str> =
-                            edited.lines().filter(|l| !l.trim().starts_with('#')).collect();
+                        let lines: Vec<&str> = edited
+                            .lines()
+                            .filter(|l| !l.trim().starts_with('#'))
+                            .collect();
                         let first = lines
                             .iter()
                             .find(|l| !l.trim().is_empty())
@@ -523,7 +525,10 @@ pub fn list_local_tickets(repo: &GitRepo, theme: &Theme) -> Result<(), String> {
     }
 
     if tickets.is_empty() {
-        println!("{} No tickets currently open in tickets.md.", theme.green("★"));
+        println!(
+            "{} No tickets currently open in tickets.md.",
+            theme.green("★")
+        );
         return Ok(());
     }
 
