@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Continuous Integration Pipeline Status Visualization and Filtering in Catalog
+- **Catalog CI Pipeline Status Visualization & Filters (`cccp catalog list --ci <status>` / `--ci-details` / `--sort ci`)**: Apresenta de forma visual e padronizada a coluna `CI` na tabela do Catálogo Gosplan (`cccp catalog list`), com indicadores semânticos (`✓ pass`, `✗ fail`, `⏳ pending`, `-`) calculados a partir das esteiras sincronizadas no catálogo ou em cache local (`.antigravity/ci_status.json`). Introduz suporte ao filtro `--ci <pass|fail|pending|none>`, flag `--ci-details` para exibição expandida com nomes, status, datas e URLs de cada pipeline, e ordenação por prioridade de atenção via `--sort ci` (falhas no topo, seguidas de pendências e sucessos). (closes #155)
+
 ### Continuous Integration Pipeline Status Collection and Sync
 - **CI Pipeline Status Collection & Sync (`cccp ticket` / `cccp sync` / `cccp catalog sync`)**: Adiciona coleta e sincronização contínua do status de execução da esteira de CI mais recente para todas as esteiras e fluxos configurados na forja remota (Codeberg, Forgejo, GitHub, GitLab) via `ForgeClient::fetch_ci_status`. Persiste os metadados das pipelines no cache local (`.antigravity/ci_status.json`) e na estrutura do catálogo (`CatalogEntry::ci_status`) de forma atômica e resiliente, com degradação graciosa em caso de ausência de esteiras ou falhas de conectividade. (closes #154)
 
