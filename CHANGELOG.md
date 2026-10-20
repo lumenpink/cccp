@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Domain-Driven CLI Consolidation and Standardization
+- **Domain-Driven CLI Architecture & Command Consolidation (`cccp ticket` / `cccp repo` / `cccp sync` / `cccp check` / `cccp version` / `cccp gen-version`)**: Refatora e consolida a interface de linha de comando (`cccp`) orientada a domínios de negócio claros, reduzindo o menu de ajuda de 31 para 14 comandos canônicos essenciais:
+  - **Domínio `ticket`**: Unifica todas as operações com tickets sob `cccp ticket` (`list`, `new`, `divan`, `sync`, `close`, `comment`). Permite criação direta de tickets na forja remota sem abrir editor via flags CLI (`cccp ticket new -t/--title -b/--body -l/--label -r/--remote`) essencial para agentes e automações, além de absorver o Divã (`cccp ticket divan`).
+  - **Domínio `repo`**: Absorve operações de governança e inventário do catálogo e criação (`cccp repo init`, `list`, `add`, `rm`, `status`, `sync-tickets`, `assemble`).
+  - **Comando `sync`**: Mantido na raiz como orquestrador único de sincronização completa de ecossistema (tickets da forja, especificação GOST via `GOSTVER`, diretivas `AGENTS.md` e catálogo).
+  - **Separação de `version` e `gen-version`**: `cccp version` agora exibe as versões instaladas (binário CCCP, especificação GOST e versão do projeto) com suporte a `-f json/text`, enquanto `cccp gen-version` executa o cálculo preditivo SemVer 2.0.0 via histórico git com suporte a `--bump` e `--write`.
+  - **Padronização Canônica e Limpeza da Raiz**: Padroniza `cccp check [--strict]` como comando canônico de qualidade GOST (eliminando aliases confusos `audit` e `gost`), remove comandos obsoletos da raiz (`editor`, `ci`, `serve`), absorve `set-av` em `cccp agent set`, `check-update` em `cccp update --check`, e camaradas em `cccp soviet --comrades`. (closes #156)
+
 ### Continuous Integration Pipeline Status Visualization and Filtering in Catalog
 - **Catalog CI Pipeline Status Visualization & Filters (`cccp catalog list --ci <status>` / `--ci-details` / `--sort ci`)**: Apresenta de forma visual e padronizada a coluna `CI` na tabela do Catálogo Gosplan (`cccp catalog list`), com indicadores semânticos (`✓ pass`, `✗ fail`, `⏳ pending`, `-`) calculados a partir das esteiras sincronizadas no catálogo ou em cache local (`.antigravity/ci_status.json`). Introduz suporte ao filtro `--ci <pass|fail|pending|none>`, flag `--ci-details` para exibição expandida com nomes, status, datas e URLs de cada pipeline, e ordenação por prioridade de atenção via `--sort ci` (falhas no topo, seguidas de pendências e sucessos). (closes #155)
 
