@@ -236,7 +236,7 @@ fn test_cmd_update_pinning_and_validation() {
 
     // Invalid channel fails
     let args_invalid = UpdateArgs {
-        channel: "invalid_channel".to_string(),
+        channel: Some("invalid_channel".to_string()),
         pin: None,
         unpin: false,
         target: None,
@@ -245,7 +245,7 @@ fn test_cmd_update_pinning_and_validation() {
 
     // Pinning to current version succeeds without download
     let args_pin_default = UpdateArgs {
-        channel: "stable".to_string(),
+        channel: Some("stable".to_string()),
         pin: Some("".to_string()),
         unpin: false,
         target: None,
@@ -255,7 +255,7 @@ fn test_cmd_update_pinning_and_validation() {
 
     // Once pinned, standard update is blocked
     let args_standard = UpdateArgs {
-        channel: "stable".to_string(),
+        channel: Some("stable".to_string()),
         pin: None,
         unpin: false,
         target: None,
@@ -267,7 +267,7 @@ fn test_cmd_update_pinning_and_validation() {
 
     // Unpin clears pin
     let args_unpin = UpdateArgs {
-        channel: "stable".to_string(),
+        channel: Some("stable".to_string()),
         pin: None,
         unpin: true,
         target: None,
@@ -315,11 +315,11 @@ fn test_distribution_urls_banca_and_no_codeberg() {
     let (stable_url, nightly_url, ver_url) = cccp::update::get_distribution_endpoints("stable");
     assert_eq!(
         stable_url,
-        "https://banca.2lp.in/downloads/cccp/stable-latest/cccp"
+        "https://banca.2lp.in/downloads/cccp/cccp-stable"
     );
     assert_eq!(
         nightly_url,
-        "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp"
+        "https://banca.2lp.in/downloads/cccp/cccp-nightly"
     );
     assert_eq!(ver_url, "https://banca.2lp.in/downloads/cccp/version");
     assert!(!stable_url.contains("codeberg.org"));

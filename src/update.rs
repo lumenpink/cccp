@@ -43,14 +43,29 @@ pub fn get_update_cache_file() -> PathBuf {
 
 /// Returns the official Banca distribution endpoints: (stable_url, nightly_url, version_url)
 pub fn get_distribution_endpoints(channel: &str) -> (String, String, String) {
-    let stable = "https://banca.2lp.in/downloads/cccp/stable-latest/cccp".to_string();
-    let nightly = "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp".to_string();
+    let stable = "https://banca.2lp.in/downloads/cccp/cccp-stable".to_string();
+    let nightly = "https://banca.2lp.in/downloads/cccp/cccp-nightly".to_string();
     let ver = if channel == "nightly" {
         "https://banca.2lp.in/downloads/cccp/nightly-version".to_string()
     } else {
         "https://banca.2lp.in/downloads/cccp/version".to_string()
     };
     (stable, nightly, ver)
+}
+
+/// Helper: resolve distribution channel taking into account explicit argument, environment, and config
+pub fn resolve_channel(channel_override: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
+    let cfg = config::Config::load_hierarchical(None);
+    let raw = if let Some(ch) = channel_override {
+        ch.to_string()
+    } else if let Ok(v) = env::var("UPDATE_CHANNEL").or_else(|_| env::var("CCCP_UPDATE_CHANNEL")) {
+        v.trim().to_string()
+    } else {
+        cfg.channel
+    };
+    let clean = raw.trim().to_ascii_lowercase();
+    config::Config::validate_channel(&clean)?;
+    Ok(clean)
 }
 
 /// Compares two version strings according to SemVer precedence.
@@ -285,10 +300,12 @@ pub fn check_auto_update(_config: &Config) -> Result<Option<String>, Box<dyn std
         }
     }
 
+    let cfg = config::Config::load_hierarchical(None);
     let channel = env::var("UPDATE_CHANNEL")
+        .or_else(|_| env::var("CCCP_UPDATE_CHANNEL"))
         .ok()
         .filter(|c| !c.trim().is_empty())
-        .unwrap_or_else(|| "stable".to_string());
+        .unwrap_or(cfg.channel);
 
     if now.saturating_sub(last_check) >= interval_sec {
         let (_s, _n, ver_url) = get_distribution_endpoints(&channel);
@@ -370,11 +387,7 @@ fn extract_version_from_response(raw: &str) -> String {
 /// Check update status command: `cccp check-update`.
 pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
     let curr_ver = get_current_version();
-    let channel = channel_override
-        .map(|s| s.to_string())
-        .or_else(|| env::var("UPDATE_CHANNEL").ok())
-        .filter(|c| !c.trim().is_empty())
-        .unwrap_or_else(|| "stable".to_string());
+    let channel = resolve_channel(channel_override)?;
 
     let pinned = env::var("PINNED_VERSION")
         .ok()
@@ -466,14 +479,7 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
 
 /// Executes CCCP update or pin configuration.
 pub fn cmd_update(args: &UpdateArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let channel = args.channel.trim();
-    if channel != "stable" && channel != "nightly" {
-        return Err(format!(
-            "Invalid update channel '{}'. Choose 'stable' or 'nightly'.",
-            channel
-        )
-        .into());
-    }
+    let channel = resolve_channel(args.channel.as_deref())?;
 
     let global_cfg = config::get_or_create_global_config_path();
 
@@ -555,9 +561,9 @@ pub fn cmd_update(args: &UpdateArgs) -> Result<(), Box<dyn std::error::Error>> {
         let pin = current_pin.unwrap_or_else(get_current_version);
         format!("https://banca.2lp.in/downloads/cccp/releases/v{}/cccp", pin)
     } else if channel == "nightly" {
-        "https://banca.2lp.in/downloads/cccp/nightly-latest/cccp".to_string()
+        "https://banca.2lp.in/downloads/cccp/cccp-nightly".to_string()
     } else {
-        "https://banca.2lp.in/downloads/cccp/stable-latest/cccp".to_string()
+        "https://banca.2lp.in/downloads/cccp/cccp-stable".to_string()
     };
 
     let target = if let Some(ref t) = args.target {

@@ -1250,8 +1250,8 @@ impl From<CockpitArgs> for crate::web::CockpitOptions {
 #[derive(Debug, Args, Clone, Default)]
 pub struct UpdateArgs {
     /// Release channel to track (stable or nightly)
-    #[arg(short = 'c', long = "channel", default_value = "stable")]
-    pub channel: String,
+    #[arg(short = 'c', long = "channel")]
+    pub channel: Option<String>,
 
     /// Pin version to prevent updates (or pin to specified version)
     #[arg(short = 'p', long = "pin", num_args = 0..=1, default_missing_value = "")]

@@ -68,6 +68,8 @@ pub struct Config {
     pub gemini_api_key: Option<String>,
     /// Gemini generation temperature
     pub gemini_temperature: f32,
+    /// Distribution update channel ("stable" or "nightly", default: "stable")
+    pub channel: String,
     /// Arbitrary configuration variables (e.g. agent_var_*, type_desc_*, custom directives)
     pub extra: HashMap<String, String>,
 }
@@ -151,6 +153,7 @@ impl Default for Config {
             gemini_model: "gemini-flash-latest".into(),
             gemini_api_key: None,
             gemini_temperature: 0.2,
+            channel: "stable".into(),
             extra: HashMap::new(),
         }
     }
@@ -341,6 +344,9 @@ impl Config {
                 self.gemini_model = m.clone();
                 self.local_ai_model = m;
             }
+            "channel" | "update_channel" => {
+                self.channel = val.trim().to_ascii_lowercase();
+            }
             _ => {
                 self.extra.insert(normalized, val.trim().to_string());
             }
@@ -471,6 +477,25 @@ impl Config {
                 self.local_ai_api_key = Some(s.to_string());
             }
         }
+        if let Ok(v) = env::var("UPDATE_CHANNEL").or_else(|_| env::var("CCCP_UPDATE_CHANNEL")) {
+            let s = v.trim();
+            if !s.is_empty() {
+                self.channel = s.to_ascii_lowercase();
+            }
+        }
+    }
+
+    /// Validates whether the given channel name is acceptable ("stable" or "nightly")
+    pub fn validate_channel(channel: &str) -> Result<(), String> {
+        let c = channel.trim().to_ascii_lowercase();
+        if c == "stable" || c == "nightly" {
+            Ok(())
+        } else {
+            Err(format!(
+                "Invalid update channel '{}'. Choose 'stable' or 'nightly'.",
+                channel
+            ))
+        }
     }
 }
 
@@ -510,8 +535,12 @@ pub fn find_local_config_path(start_dir: Option<&Path>) -> Option<PathBuf> {
         if candidate.is_file() {
             return Some(candidate);
         }
+        let candidate_rs = current.join(".cccprs");
+        if candidate_rs.is_file() {
+            return Some(candidate_rs);
+        }
         if current.join(".git").exists() {
-            // Reached git root without finding .cccprc
+            // Reached git root without finding .cccprc or .cccprs
             return None;
         }
         if !current.pop() {
