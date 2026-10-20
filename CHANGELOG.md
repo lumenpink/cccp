@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Canonical Version Injection and GOSTVER Display Sanitization
+- **Canonical Version Injection from `VERSION` & Clean GOSTVER Parsing (`cccp version` / `cccp -V` / `cccp update`)**: Injeta a versão canônica e autoritativa do repositório (extraída de `VERSION` via `build.rs` em tempo de compilação com fallback para `CARGO_PKG_VERSION`) no binário `cccp`, garantindo que `cccp version`, `cccp -V`, `cccp --version` e `get_current_version()` reportem a versão real reconciliada (ex.: `3.2.0-dev.220+...`) em vez da tag estática desatualizada no `Cargo.toml`. Adicionalmente, higieniza a leitura do arquivo `GOSTVER` no comando `cccp version` para extrair estritamente o valor de `GOST_VERSION="..."` (ex.: `1.5.0`), eliminando a exibição incorreta do arquivo multilinha bruto. (closes #158)
+
 ### Domain-Driven CLI Consolidation and Standardization
 - **Domain-Driven CLI Architecture & Command Consolidation (`cccp ticket` / `cccp repo` / `cccp sync` / `cccp check` / `cccp version` / `cccp gen-version`)**: Refatora e consolida a interface de linha de comando (`cccp`) orientada a domínios de negócio claros, reduzindo o menu de ajuda de 31 para 14 comandos canônicos essenciais:
   - **Domínio `ticket`**: Unifica todas as operações com tickets sob `cccp ticket` (`list`, `new`, `divan`, `sync`, `close`, `comment`). Permite criação direta de tickets na forja remota sem abrir editor via flags CLI (`cccp ticket new -t/--title -b/--body -l/--label -r/--remote`) essencial para agentes e automações, além de absorver o Divã (`cccp ticket divan`).
