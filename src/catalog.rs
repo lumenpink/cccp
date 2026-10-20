@@ -8,6 +8,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct CiPipelineStatus {
+    pub name: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(from = "RawCatalogEntry")]
 pub struct CatalogEntry {
     pub name: String,
@@ -28,6 +40,8 @@ pub struct CatalogEntry {
     pub is_upstream: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open_tickets: Option<usize>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ci_status: Vec<CiPipelineStatus>,
 }
 
 #[derive(Deserialize)]
@@ -54,6 +68,8 @@ struct RawCatalogEntry {
     pub open_tickets: Option<usize>,
     #[serde(default)]
     pub tickets: Option<usize>,
+    #[serde(default)]
+    pub ci_status: Vec<CiPipelineStatus>,
 }
 
 #[derive(Deserialize)]
@@ -101,6 +117,7 @@ impl From<RawCatalogEntry> for CatalogEntry {
             website: raw.website,
             is_upstream: raw.is_upstream,
             open_tickets: raw.open_tickets.or(raw.tickets),
+            ci_status: raw.ci_status,
         }
     }
 }
@@ -672,6 +689,7 @@ pub fn add_remote_repo(
             website: remote_meta.website,
             is_upstream: false,
             open_tickets: None,
+            ci_status: Vec::new(),
         };
         catalog.push(entry.clone());
         is_updated = false;
@@ -854,6 +872,7 @@ pub fn scan_and_add_from_src(
             website: remote_meta.website,
             is_upstream: false,
             open_tickets: None,
+            ci_status: Vec::new(),
         };
 
         catalog.push(entry.clone());
@@ -1725,6 +1744,16 @@ pub fn update_catalog_tickets(
                 let local_count = count_open_tickets(&path);
                 if local_count > 0 || entry.open_tickets.is_none() {
                     ticket_count = Some(local_count);
+                }
+            }
+        }
+
+        // 3. Sincroniza status das esteiras de CI
+        if !forge_info.owner.is_empty() && !forge_info.repo.is_empty() {
+            if let Ok(ci) = client.fetch_ci_status(&forge_info, Some("main")) {
+                if !ci.is_empty() {
+                    entry.ci_status = ci;
+                    modified = true;
                 }
             }
         }

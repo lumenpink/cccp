@@ -502,6 +502,123 @@ impl ForgeClient {
         }
     }
 
+    /// Attempt to fetch CI pipeline statuses for the repository ref
+    pub fn fetch_ci_status(
+        &self,
+        info: &RepoForgeInfo,
+        git_ref: Option<&str>,
+    ) -> Result<Vec<crate::catalog::CiPipelineStatus>, String> {
+        let r = git_ref.unwrap_or("main");
+        let api_url = match info.provider {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                format!(
+                    "https://{}/api/v1/repos/{}/{}/commits/{}/statuses",
+                    info.host, info.owner, info.repo, r
+                )
+            }
+            ForgeType::GitHub => {
+                format!(
+                    "https://api.github.com/repos/{}/{}/commits/{}/statuses",
+                    info.owner, info.repo, r
+                )
+            }
+            ForgeType::GitLab => {
+                let enc = format!("{}%2F{}", info.owner, info.repo);
+                format!(
+                    "https://{}/api/v4/projects/{}/pipelines?ref={}&per_page=5",
+                    info.host, enc, r
+                )
+            }
+        };
+
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
+            match info.provider {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                    req = req.header("Authorization", &format!("token {}", token));
+                }
+                ForgeType::GitHub => {
+                    req = req.header("Authorization", &format!("Bearer {}", token));
+                }
+                ForgeType::GitLab => {
+                    req = req.header("PRIVATE-TOKEN", &token);
+                }
+            }
+        }
+
+        let resp = req
+            .call()
+            .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Forge API returned status {}", resp.status()));
+        }
+
+        let body: serde_json::Value = resp
+            .into_body()
+            .read_json()
+            .map_err(|e| format!("Failed to parse JSON from {}: {}", api_url, e))?;
+
+        let mut pipelines = Vec::new();
+
+        if let Some(arr) = body.as_array() {
+            let mut seen = std::collections::HashSet::new();
+            for item in arr {
+                let name = item
+                    .get("context")
+                    .or_else(|| item.get("name"))
+                    .or_else(|| item.get("ref"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("CI")
+                    .to_string();
+
+                if seen.contains(&name) {
+                    continue;
+                }
+                seen.insert(name.clone());
+
+                let status = item
+                    .get("status")
+                    .or_else(|| item.get("state"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                let description = item
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                let target_url = item
+                    .get("target_url")
+                    .or_else(|| item.get("web_url"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                let updated_at = item
+                    .get("updated_at")
+                    .or_else(|| item.get("created_at"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                pipelines.push(crate::catalog::CiPipelineStatus {
+                    name,
+                    status,
+                    description,
+                    target_url,
+                    updated_at,
+                });
+            }
+        }
+
+        Ok(pipelines)
+    }
+
     /// Fetch issues from the specified forge repository
     pub fn fetch_issues(
         &self,

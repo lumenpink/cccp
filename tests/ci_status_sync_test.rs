@@ -1,4 +1,4 @@
-use cccp::catalog::{CatalogEntry, CiPipelineStatus};
+use cccp::catalog::CatalogEntry;
 use cccp::forges::{ForgeClient, ForgeType, RepoForgeInfo};
 
 #[test]

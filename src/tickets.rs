@@ -231,6 +231,24 @@ pub fn sync_tickets(
 
     let bytes_written = md_content.len();
 
+    // Sincroniza status de CI da última execução de todas as esteiras
+    if let Ok(ci_statuses) = client.fetch_ci_status(&forge_info, Some("main")) {
+        if !ci_statuses.is_empty() {
+            let ci_path = repo.root_dir.join(".antigravity").join("ci_status.json");
+            if let Ok(json) = serde_json::to_string_pretty(&ci_statuses) {
+                let _ = fs::write(&ci_path, json);
+            }
+            let mut catalog = crate::catalog::load_catalog(Some(config), None);
+            let slug = format!("{}/{}", forge_info.owner, forge_info.repo);
+            if let Some(entry) = catalog.iter_mut().find(|e| {
+                e.slug.eq_ignore_ascii_case(&slug) || e.name.eq_ignore_ascii_case(&forge_info.repo)
+            }) {
+                entry.ci_status = ci_statuses;
+                let _ = crate::catalog::save_catalog(&catalog, Some(config));
+            }
+        }
+    }
+
     println!(
         "Done! Synced {} complete ticket(s) into {} ({} / {} bytes).",
         count,
