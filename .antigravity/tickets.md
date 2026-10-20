@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-20 01:40:08 UTC
+> Synced at: 2026-10-20 09:46:42 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#156] refactor(cli): padronizar comandos, remover aliases e unificar fluxo de tickets e sync
@@ -19,32 +19,6 @@ Revisar e consolidar todos os comandos da CLI (`cccp`), eliminando inconsistênc
 - [ ] O conflito entre `tickets` e `sync` é resolvido (definição clara de responsabilidade de cada um ou unificação/depreciação de um deles).
 - [ ] O output de `cccp --help` e os subcomandos refletem uma estrutura limpa e sem duplicidades.
 - [ ] Testes de CLI cobrem todos os comandos canônicos e garantem a remoção dos aliases obsoletos.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#155] feat(ui): exibir status da última execução de CI no catálogo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/155
-
-### Description
-## Description
-Exibir no catálogo o status da última execução das esteiras de CI sincronizadas para cada projeto/repositório.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Os cards ou itens do catálogo devem conter indicadores visuais de status (ex: sucesso, falha, pendente, em execução) para as esteiras de CI.
-- [ ] Possibilidade de visualizar detalhes ou tooltip com a data/hora e o nome de cada esteira avaliada.
-- [ ] Manter consistência visual com o tema e padrões de layout existentes.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
