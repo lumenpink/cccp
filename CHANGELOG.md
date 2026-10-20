@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Continuous Integration Pipeline Status Collection and Sync
+- **CI Pipeline Status Collection & Sync (`cccp ticket` / `cccp sync` / `cccp catalog sync`)**: Adiciona coleta e sincronização contínua do status de execução da esteira de CI mais recente para todas as esteiras e fluxos configurados na forja remota (Codeberg, Forgejo, GitHub, GitLab) via `ForgeClient::fetch_ci_status`. Persiste os metadados das pipelines no cache local (`.antigravity/ci_status.json`) e na estrutura do catálogo (`CatalogEntry::ci_status`) de forma atômica e resiliente, com degradação graciosa em caso de ausência de esteiras ou falhas de conectividade. (closes #154)
+
 ### Banca Distribution Endpoints Migration and Configurable Update Channels
 - **Banca Channels Migration & Config Support (`cccp update` / `cccp check-update` / `.cccprc`)**: Migra os endpoints de distribuição remota de binários para a infraestrutura soberana da Banca (`https://banca.2lp.in/downloads/cccp/cccp-stable` e `cccp-nightly`). Introduz suporte ao canal de distribuição configurável no arquivo de governança do projeto (`.cccprc` ou `.cccprs`) através da chave `channel = stable|nightly`, mantendo precedência com flags CLI (`-c, --channel`) e variáveis de ambiente (`UPDATE_CHANNEL`). Adiciona validação estrita que rejeita canais desconhecidos com mensagem de erro explícita e resolução graciosa e transparente no updater. (closes #157)
 
