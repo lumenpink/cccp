@@ -54,7 +54,9 @@ pub fn get_distribution_endpoints(channel: &str) -> (String, String, String) {
 }
 
 /// Helper: resolve distribution channel taking into account explicit argument, environment, and config
-pub fn resolve_channel(channel_override: Option<&str>) -> Result<String, Box<dyn std::error::Error>> {
+pub fn resolve_channel(
+    channel_override: Option<&str>,
+) -> Result<String, Box<dyn std::error::Error>> {
     let cfg = config::Config::load_hierarchical(None);
     let raw = if let Some(ch) = channel_override {
         ch.to_string()
