@@ -38,3 +38,42 @@ GOST_LANGUAGES="rust"
     let extracted = cccp::catalog::extract_gost_version(dir.path());
     assert_eq!(extracted.as_deref(), Some("1.5.0"));
 }
+
+#[test]
+fn test_mutation_gostver_parsing_edge_cases() {
+    use std::fs;
+    use tempfile::tempdir;
+
+    let dir = tempdir().unwrap();
+
+    // Single quotes
+    fs::write(dir.path().join("GOSTVER"), "GOST_VERSION='1.4.0'\n").unwrap();
+    assert_eq!(
+        cccp::catalog::extract_gost_version(dir.path()).as_deref(),
+        Some("1.4.0")
+    );
+
+    // Empty file
+    fs::write(dir.path().join("GOSTVER"), "").unwrap();
+    assert_eq!(cccp::catalog::extract_gost_version(dir.path()), None);
+
+    // No GOST_VERSION key
+    fs::write(dir.path().join("GOSTVER"), "PROFILE=default\n").unwrap();
+    assert_eq!(cccp::catalog::extract_gost_version(dir.path()), None);
+}
+
+#[test]
+fn test_mutation_cli_command_version_matches_canonical() {
+    use clap::CommandFactory;
+
+    let clap_ver = cccp::cli::Cli::command()
+        .get_version()
+        .map(|s| s.to_string());
+    let expected = env!("CCCP_CANONICAL_VERSION");
+
+    assert_eq!(
+        clap_ver.as_deref(),
+        Some(expected),
+        "Clap metadata version (-V/--version) must match CCCP_CANONICAL_VERSION"
+    );
+}
