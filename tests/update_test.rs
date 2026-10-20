@@ -49,7 +49,11 @@ fn test_get_current_version_env_override() {
     assert_eq!(get_current_version(), "2.0.0");
 
     env::remove_var("CCCP_VERSION");
-    assert_eq!(get_current_version(), env!("CARGO_PKG_VERSION"));
+    let canonical = std::fs::read_to_string("VERSION")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    assert_eq!(get_current_version(), canonical);
 
     if let Some(v) = old_v {
         env::set_var("CCCP_VERSION", v);

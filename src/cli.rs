@@ -9,7 +9,7 @@ use std::path::PathBuf;
 #[command(
     name = "cccp",
     author = "Lumen Pink <hi@lumen.pink>",
-    version,
+    version = env!("CCCP_CANONICAL_VERSION"),
     about = "★ CCCP - Conventional Commits Compliance Program ★",
     long_about = "Conventional Commits Compliance Program (CCCP)\n\
                   High-performance, standalone Git tool for Conventional Commits enforcement,\n\

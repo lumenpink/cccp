@@ -13,13 +13,13 @@ use crate::config::{self, Config};
 
 /// Returns the currently running CCCP version string.
 /// Respects `CCCP_VERSION` environment variable override if present,
-/// otherwise returns compile-time `CARGO_PKG_VERSION`.
+/// otherwise returns compile-time canonical version (from VERSION file or CARGO_PKG_VERSION).
 pub fn get_current_version() -> String {
     env::var("CCCP_VERSION")
         .ok()
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string())
+        .unwrap_or_else(|| env!("CCCP_CANONICAL_VERSION").to_string())
 }
 
 /// Returns path to the update cache file.
