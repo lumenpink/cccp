@@ -4,8 +4,8 @@
 //! subcommands, argument validation, defaults, conversions, and error handling.
 
 use cccp::cli::{
-    AgentSubcommands, BumpType, CatalogSubcommands, CiSubcommands, Cli, Commands, DepsSubcommands,
-    ForgeActions, HookSubcommands, ProfileCommand, SpoolSubcommands, VersionFormat,
+    AgentSubcommands, BumpType, Cli, Commands, DepsSubcommands, ForgeActions, HookSubcommands,
+    ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction, VersionFormat,
 };
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -183,48 +183,55 @@ fn test_lint_command_options() {
 
 #[test]
 fn test_version_command_options() {
-    // Default format is Clean
+    // cccp version parses as Commands::Version without flags
     let cli = Cli::try_parse_from(["cccp", "version"]).expect("should parse version default");
+    assert!(matches!(cli.command, Some(Commands::Version(_))));
+}
+
+#[test]
+fn test_gen_version_command_options() {
+    // Default format is Clean
+    let cli = Cli::try_parse_from(["cccp", "gen-version"]).expect("should parse gen-version default");
     match cli.command {
-        Some(Commands::Version(v)) => {
+        Some(Commands::GenVersion(v)) => {
             assert_eq!(v.format, VersionFormat::Clean);
             assert!(!v.write);
             assert_eq!(v.bump, None);
         }
-        _ => panic!("Expected Commands::Version"),
+        _ => panic!("Expected Commands::GenVersion"),
     }
 
     // Format dev, write flag, bump major
-    let cli = Cli::try_parse_from(["cccp", "version", "-f", "dev", "-w", "-b", "major"])
-        .expect("should parse version flags");
+    let cli = Cli::try_parse_from(["cccp", "gen-version", "-f", "dev", "-w", "-b", "major"])
+        .expect("should parse gen-version flags");
     match cli.command {
-        Some(Commands::Version(v)) => {
+        Some(Commands::GenVersion(v)) => {
             assert_eq!(v.format, VersionFormat::Dev);
             assert!(v.write);
             assert_eq!(v.bump, Some(BumpType::Major));
         }
-        _ => panic!("Expected Commands::Version"),
+        _ => panic!("Expected Commands::GenVersion"),
     }
 
     // Other formats and bump types
-    let cli = Cli::try_parse_from(["cccp", "version", "-f", "json", "-b", "minor"])
+    let cli = Cli::try_parse_from(["cccp", "gen-version", "-f", "json", "-b", "minor"])
         .expect("should parse json and minor");
     match cli.command {
-        Some(Commands::Version(v)) => {
+        Some(Commands::GenVersion(v)) => {
             assert_eq!(v.format, VersionFormat::Json);
             assert_eq!(v.bump, Some(BumpType::Minor));
         }
-        _ => panic!("Expected Commands::Version"),
+        _ => panic!("Expected Commands::GenVersion"),
     }
 
-    let cli = Cli::try_parse_from(["cccp", "version", "-f", "tag", "-b", "patch"])
+    let cli = Cli::try_parse_from(["cccp", "gen-version", "-f", "tag", "-b", "patch"])
         .expect("should parse tag and patch");
     match cli.command {
-        Some(Commands::Version(v)) => {
+        Some(Commands::GenVersion(v)) => {
             assert_eq!(v.format, VersionFormat::Tag);
             assert_eq!(v.bump, Some(BumpType::Patch));
         }
-        _ => panic!("Expected Commands::Version"),
+        _ => panic!("Expected Commands::GenVersion"),
     }
 }
 
@@ -440,31 +447,36 @@ fn test_sync_command_options() {
 
 #[test]
 fn test_divan_command_options_and_shortcuts() {
-    // Test Ollama shortcut (-o)
+    // Test Ollama shortcut (-o) under cccp ticket divan
     let cli = Cli::try_parse_from([
         "cccp",
+        "ticket",
         "divan",
         "-o",
         "-m",
         "deepseek-coder",
         "refactor tests",
     ])
-    .expect("should parse divan -o");
+    .expect("should parse ticket divan -o");
     match cli.command {
-        Some(Commands::Divan(d)) => {
-            assert!(d.ollama);
-            assert!(!d.gemini);
-            assert_eq!(d.model.as_deref(), Some("deepseek-coder"));
-            let (repo, prompt) = d.resolve_repo_and_prompt();
-            assert_eq!(repo, None);
-            assert_eq!(prompt.as_deref(), Some("refactor tests"));
-        }
-        _ => panic!("Expected Commands::Divan"),
+        Some(Commands::Ticket(t)) => match t.action {
+            Some(TicketAction::Divan(d)) => {
+                assert!(d.ollama);
+                assert!(!d.gemini);
+                assert_eq!(d.model.as_deref(), Some("deepseek-coder"));
+                let (repo, prompt) = d.resolve_repo_and_prompt();
+                assert_eq!(repo, None);
+                assert_eq!(prompt.as_deref(), Some("refactor tests"));
+            }
+            _ => panic!("Expected TicketAction::Divan"),
+        },
+        _ => panic!("Expected Commands::Ticket"),
     }
 
-    // Test Gemini shortcut (-g) and visible alias (--pg)
+    // Test Gemini shortcut (-g) and visible alias (--pg) under ticket divan
     let cli = Cli::try_parse_from([
         "cccp",
+        "ticket",
         "divan",
         "--pg",
         "--direct",
@@ -472,18 +484,24 @@ fn test_divan_command_options_and_shortcuts() {
         "my-repo",
         "issue report",
     ])
-    .expect("should parse divan --pg");
+    .expect("should parse ticket divan --pg");
     match cli.command {
-        Some(Commands::Divan(d)) => {
-            assert!(d.gemini);
-            assert!(d.direct);
-            assert!(d.dry_run);
-            let (repo, prompt) = d.resolve_repo_and_prompt();
-            assert_eq!(repo.as_deref(), Some("my-repo"));
-            assert_eq!(prompt.as_deref(), Some("issue report"));
-        }
-        _ => panic!("Expected Commands::Divan"),
+        Some(Commands::Ticket(t)) => match t.action {
+            Some(TicketAction::Divan(d)) => {
+                assert!(d.gemini);
+                assert!(d.direct);
+                assert!(d.dry_run);
+                let (repo, prompt) = d.resolve_repo_and_prompt();
+                assert_eq!(repo.as_deref(), Some("my-repo"));
+                assert_eq!(prompt.as_deref(), Some("issue report"));
+            }
+            _ => panic!("Expected TicketAction::Divan"),
+        },
+        _ => panic!("Expected Commands::Ticket"),
     }
+
+    // Top-level divan is rejected
+    assert!(Cli::try_parse_from(["cccp", "divan"]).is_err());
 }
 
 #[test]
@@ -616,31 +634,31 @@ fn test_push_command_options() {
         _ => panic!("Expected Commands::Push"),
     }
 
-    let cli_cat_push = Cli::try_parse_from(["cccp", "catalog", "push", "--dry-run"])
-        .expect("should parse catalog push options");
+    let cli_cat_push = Cli::try_parse_from(["cccp", "repo", "push", "--dry-run"])
+        .expect("should parse repo push options");
     match cli_cat_push.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::Push { dry_run }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::Push { dry_run }) => {
                 assert!(dry_run);
             }
-            _ => panic!("Expected CatalogSubcommands::Push"),
+            _ => panic!("Expected RepoSubcommands::Push"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 
 #[test]
 fn test_batch_assemble_command_options() {
-    let cli_cat_assemble = Cli::try_parse_from(["cccp", "catalog", "assemble", "--dry-run"])
-        .expect("should parse catalog assemble options");
+    let cli_cat_assemble = Cli::try_parse_from(["cccp", "repo", "assemble", "--dry-run"])
+        .expect("should parse repo assemble options");
     match cli_cat_assemble.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::Assemble { dry_run }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::Assemble { dry_run }) => {
                 assert!(dry_run);
             }
-            _ => panic!("Expected CatalogSubcommands::Assemble"),
+            _ => panic!("Expected RepoSubcommands::Assemble"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
     let cli_profile_assemble = Cli::try_parse_from(["cccp", "profile", "assemble", "--all", "-n"])
@@ -679,26 +697,28 @@ fn test_config_command_options() {
 }
 
 #[test]
-fn test_audit_command_options() {
-    let cli = Cli::try_parse_from(["cccp", "audit", "--strict"]).expect("should parse audit");
+fn test_check_command_options() {
+    let cli = Cli::try_parse_from(["cccp", "check", "--strict"]).expect("should parse check");
     match cli.command {
-        Some(Commands::Audit(a)) => {
+        Some(Commands::Check(a)) => {
             assert!(a.strict);
         }
-        _ => panic!("Expected Commands::Audit"),
+        _ => panic!("Expected Commands::Check"),
     }
+    assert!(Cli::try_parse_from(["cccp", "audit"]).is_err());
 }
 
 #[test]
-fn test_comrades_command_options() {
+fn test_soviet_comrades_flag() {
     let cli =
-        Cli::try_parse_from(["cccp", "comrades", "-f", "json"]).expect("should parse comrades");
+        Cli::try_parse_from(["cccp", "soviet", "--comrades"]).expect("should parse soviet comrades");
     match cli.command {
-        Some(Commands::Comrades(c)) => {
-            assert_eq!(c.format, "json");
+        Some(Commands::Soviet(s)) => {
+            assert!(s.comrades);
         }
-        _ => panic!("Expected Commands::Comrades"),
+        _ => panic!("Expected Commands::Soviet"),
     }
+    assert!(Cli::try_parse_from(["cccp", "comrades"]).is_err());
 }
 
 #[test]
@@ -714,11 +734,11 @@ fn test_completion_command_options() {
 }
 
 #[test]
-fn test_catalog_command_options() {
-    // Catalog Add
+fn test_repo_command_options() {
+    // Repo Add
     let cli = Cli::try_parse_from([
         "cccp",
-        "catalog",
+        "repo",
         "add",
         "codeberg.org/lumenpink/joaju",
         "-n",
@@ -726,10 +746,10 @@ fn test_catalog_command_options() {
         "-d",
         "Microframework",
     ])
-    .expect("should parse catalog add");
+    .expect("should parse repo add");
     match cli.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::Add {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::Add {
                 repo,
                 name,
                 description,
@@ -740,82 +760,64 @@ fn test_catalog_command_options() {
                 assert_eq!(description.as_deref(), Some("Microframework"));
                 assert!(aliases.is_empty());
             }
-            _ => panic!("Expected CatalogSubcommands::Add"),
+            _ => panic!("Expected RepoSubcommands::Add"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    // Catalog AddNew
+    // Repo AddNew
     let cli = Cli::try_parse_from([
         "cccp",
-        "catalog",
+        "repo",
         "add-new",
         "--from-src",
         "/home/lumen/src",
     ])
-    .expect("should parse catalog add-new");
+    .expect("should parse repo add-new");
     match cli.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::AddNew { from_src }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::AddNew { from_src }) => {
                 assert_eq!(from_src.as_deref(), Some("/home/lumen/src"));
             }
-            _ => panic!("Expected CatalogSubcommands::AddNew"),
+            _ => panic!("Expected RepoSubcommands::AddNew"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    // Catalog List with filters
+    // Repo List with filters
     let cli = Cli::try_parse_from([
-        "cccp", "catalog", "list", "-s", "clean", "-t", "5", "--sort", "tickets", "-r",
+        "cccp", "repo", "list", "-s", "clean", "-t", "5", "--sort", "tickets", "-r",
     ])
-    .expect("should parse catalog list");
+    .expect("should parse repo list");
     match cli.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::List(f)) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::List(f)) => {
                 assert_eq!(f.status.as_deref(), Some("clean"));
                 assert_eq!(f.min_tickets, Some(5));
                 assert_eq!(f.sort, "tickets");
                 assert!(f.reverse);
             }
-            _ => panic!("Expected CatalogSubcommands::List"),
+            _ => panic!("Expected RepoSubcommands::List"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     };
 
-    // Catalog alias 'cat' and 'c'
-    let cli_cat = Cli::try_parse_from(["cccp", "cat", "list"]).expect("should parse cat list");
-    assert!(matches!(cli_cat.command, Some(Commands::Catalog(_))));
-
-    let cli_c = Cli::try_parse_from(["cccp", "c", "list"]).expect("should parse c list");
-    assert!(matches!(cli_c.command, Some(Commands::Catalog(_))));
+    // Top-level 'catalog' is rejected (absorbed into 'repo')
+    assert!(Cli::try_parse_from(["cccp", "catalog", "list"]).is_err());
 }
 
 #[test]
-fn test_editor_command_options() {
-    let cli = Cli::try_parse_from(["cccp", "editor", "foo.txt"]).expect("should parse editor");
-    match cli.command {
-        Some(Commands::Editor(e)) => assert_eq!(e.file, Some(PathBuf::from("foo.txt"))),
-        _ => panic!("Expected Commands::Editor"),
-    }
-
-    let cli_alias =
-        Cli::try_parse_from(["cccp", "edit", "bar.txt"]).expect("should parse edit alias");
-    match cli_alias.command {
-        Some(Commands::Editor(e)) => assert_eq!(e.file, Some(PathBuf::from("bar.txt"))),
-        _ => panic!("Expected Commands::Editor"),
-    }
-
-    let cli_scratch = Cli::try_parse_from(["cccp", "edit"]).expect("should parse scratch edit");
-    match cli_scratch.command {
-        Some(Commands::Editor(e)) => assert_eq!(e.file, None),
-        _ => panic!("Expected Commands::Editor"),
-    }
+fn test_editor_command_removed() {
+    assert!(Cli::try_parse_from(["cccp", "editor", "foo.txt"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "edit", "bar.txt"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "editor"]).is_err());
 }
 
 #[test]
 fn test_init_command_options() {
     let cli = Cli::try_parse_from([
         "cccp",
+        "repo",
         "init",
         "new-project",
         "--root",
@@ -834,58 +836,36 @@ fn test_init_command_options() {
         "--no-sync",
         "-q",
     ])
-    .expect("should parse init options");
+    .expect("should parse repo init options");
 
     match cli.command {
-        Some(Commands::Init(i)) => {
-            assert_eq!(i.name.as_deref(), Some("new-project"));
-            assert_eq!(i.root, Some(PathBuf::from("/tmp/new-project")));
-            assert_eq!(i.desc.as_deref(), Some("Sample project"));
-            assert_eq!(i.lang, "rust,python");
-            assert_eq!(i.license, "Apache-2.0");
-            assert_eq!(i.profile, "profiles/custom.md");
-            assert!(i.no_git);
-            assert!(i.no_hooks);
-            assert!(i.no_ci);
-            assert!(i.no_sync);
-            assert!(i.quiet);
-        }
-        _ => panic!("Expected Commands::Init"),
+        Some(Commands::Repo(r)) => match r.action {
+            Some(RepoSubcommands::Init(i)) => {
+                assert_eq!(i.name.as_deref(), Some("new-project"));
+                assert_eq!(i.root, Some(PathBuf::from("/tmp/new-project")));
+                assert_eq!(i.desc.as_deref(), Some("Sample project"));
+                assert_eq!(i.lang, "rust,python");
+                assert_eq!(i.license, "Apache-2.0");
+                assert_eq!(i.profile, "profiles/custom.md");
+                assert!(i.no_git);
+                assert!(i.no_hooks);
+                assert!(i.no_ci);
+                assert!(i.no_sync);
+                assert!(i.quiet);
+            }
+            _ => panic!("Expected RepoSubcommands::Init"),
+        },
+        _ => panic!("Expected Commands::Repo"),
     }
+
+    assert!(Cli::try_parse_from(["cccp", "init"]).is_err());
 }
 
 #[test]
-fn test_ci_command_options() {
-    let cli = Cli::try_parse_from(["cccp", "ci", "status"]).expect("should parse ci status");
-    match cli.command {
-        Some(Commands::Ci(ci)) => {
-            assert!(matches!(ci.action, Some(CiSubcommands::Status)));
-        }
-        _ => panic!("Expected Commands::Ci"),
-    }
-
-    let cli =
-        Cli::try_parse_from(["cccp", "ci", "run", "-j", "test-job"]).expect("should parse ci run");
-    match cli.command {
-        Some(Commands::Ci(ci)) => match ci.action {
-            Some(CiSubcommands::Run { job }) => {
-                assert_eq!(job.as_deref(), Some("test-job"));
-            }
-            _ => panic!("Expected CiSubcommands::Run"),
-        },
-        _ => panic!("Expected Commands::Ci"),
-    }
-
-    let cli = Cli::try_parse_from(["cccp", "ci", "log", "-f"]).expect("should parse ci log");
-    match cli.command {
-        Some(Commands::Ci(ci)) => match ci.action {
-            Some(CiSubcommands::Log { follow }) => {
-                assert!(follow);
-            }
-            _ => panic!("Expected CiSubcommands::Log"),
-        },
-        _ => panic!("Expected Commands::Ci"),
-    }
+fn test_ci_command_removed() {
+    assert!(Cli::try_parse_from(["cccp", "ci", "status"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "ci", "run"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "ci", "log"]).is_err());
 }
 
 #[test]
@@ -948,49 +928,13 @@ fn test_agent_command_options() {
 }
 
 #[test]
-fn test_set_av_command() {
-    let cli = Cli::try_parse_from(["cccp", "set-av", "project_type", "cli"])
-        .expect("should parse set-av");
-    match cli.command {
-        Some(Commands::SetAv(s)) => {
-            assert_eq!(s.key, "project_type");
-            assert_eq!(s.value, "cli");
-        }
-        _ => panic!("Expected Commands::SetAv"),
-    }
+fn test_set_av_command_removed() {
+    assert!(Cli::try_parse_from(["cccp", "set-av", "project_type", "cli"]).is_err());
 }
 
 #[test]
-fn test_serve_command_options() {
-    let cli = Cli::try_parse_from([
-        "cccp",
-        "serve",
-        "./site",
-        "--dev",
-        "--demo",
-        "-l",
-        "--host",
-        "127.0.0.2",
-        "-p",
-        "3000",
-        "-o",
-        "-q",
-    ])
-    .expect("should parse serve options");
-
-    match cli.command {
-        Some(Commands::Serve(s)) => {
-            assert_eq!(s.path.as_deref(), Some("./site"));
-            assert!(s.dev);
-            assert!(s.demo);
-            assert!(s.localhost);
-            assert_eq!(s.host.as_deref(), Some("127.0.0.2"));
-            assert_eq!(s.port, Some(3000));
-            assert!(s.open);
-            assert!(s.quiet);
-        }
-        _ => panic!("Expected Commands::Serve"),
-    }
+fn test_serve_command_removed() {
+    assert!(Cli::try_parse_from(["cccp", "serve", "./site"]).is_err());
 }
 
 #[test]
@@ -1103,12 +1047,12 @@ fn test_unknown_flag_rejected() {
 
 #[test]
 fn test_invalid_enum_variant_rejected() {
-    // Invalid bump type in version
-    let err = Cli::try_parse_from(["cccp", "version", "--bump", "invalid_level"]).unwrap_err();
+    // Invalid bump type in gen-version
+    let err = Cli::try_parse_from(["cccp", "gen-version", "--bump", "invalid_level"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::InvalidValue);
 
-    // Invalid format in version
-    let err = Cli::try_parse_from(["cccp", "version", "--format", "unsupported"]).unwrap_err();
+    // Invalid format in gen-version
+    let err = Cli::try_parse_from(["cccp", "gen-version", "--format", "unsupported"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::InvalidValue);
 
     // Invalid shell in completion
@@ -1122,8 +1066,8 @@ fn test_missing_required_arguments_rejected() {
     let err = Cli::try_parse_from(["cccp", "completion"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
 
-    // set-av requires <KEY> <VALUE>
-    let err = Cli::try_parse_from(["cccp", "set-av", "only_key"]).unwrap_err();
+    // agent set requires <KEY> <VALUE>
+    let err = Cli::try_parse_from(["cccp", "agent", "set", "only_key"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
 
     // spool poll requires <ID>
@@ -1133,10 +1077,9 @@ fn test_missing_required_arguments_rejected() {
 
 #[test]
 fn test_invalid_number_type_rejected() {
-    // Port must be integer
-    let err = Cli::try_parse_from(["cccp", "serve", "-p", "not_a_number"]).unwrap_err();
+    let err = Cli::try_parse_from(["cccp", "cockpit", "-p", "invalid"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::ValueValidation);
 
-    let err = Cli::try_parse_from(["cccp", "cockpit", "-p", "invalid"]).unwrap_err();
+    let err = Cli::try_parse_from(["cccp", "ticket", "-l", "not_a_number"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::ValueValidation);
 }

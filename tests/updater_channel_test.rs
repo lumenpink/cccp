@@ -121,6 +121,7 @@ fn test_cmd_update_channel_resolution_and_validation() {
         pin: None,
         unpin: false,
         target: None,
+        check: false,
     };
     assert!(cmd_update(&args_nightly).is_ok());
 
@@ -130,6 +131,7 @@ fn test_cmd_update_channel_resolution_and_validation() {
         pin: None,
         unpin: false,
         target: None,
+        check: false,
     };
     let err = cmd_update(&args_invalid).unwrap_err();
     assert!(err.to_string().contains("Invalid update channel"));

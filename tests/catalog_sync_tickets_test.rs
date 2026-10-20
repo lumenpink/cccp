@@ -1,5 +1,5 @@
 use cccp::catalog::{add_remote_repo, load_catalog, update_catalog_tickets, UpdateTicketsReport};
-use cccp::cli::{CatalogSubcommands, Cli, Commands};
+use cccp::cli::{Cli, Commands, RepoSubcommands};
 use cccp::config::Config;
 use cccp::forges::{ForgeClient, ForgeType, RepoForgeInfo};
 use clap::Parser;
@@ -8,28 +8,28 @@ use tempfile::tempdir;
 
 #[test]
 fn test_cli_parsing_catalog_sync_alias() {
-    // cccp catalog sync should be parsed as CatalogSubcommands::UpdateTickets
-    let parsed_sync = Cli::parse_from(["cccp", "catalog", "sync"]);
+    // cccp repo sync-tickets should be parsed as RepoSubcommands::UpdateTickets
+    let parsed_sync = Cli::parse_from(["cccp", "repo", "sync-tickets"]);
     match parsed_sync.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::UpdateTickets { repos, all: _ }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::UpdateTickets { repos, all: _ }) => {
                 assert!(repos.is_empty());
             }
-            _ => panic!("Expected CatalogSubcommands::UpdateTickets via 'sync' alias"),
+            _ => panic!("Expected RepoSubcommands::UpdateTickets"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed_sync_repos = Cli::parse_from(["cccp", "catalog", "sync", "repo1", "repo2"]);
+    let parsed_sync_repos = Cli::parse_from(["cccp", "repo", "sync-tickets", "repo1", "repo2"]);
     match parsed_sync_repos.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::UpdateTickets { repos, all }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::UpdateTickets { repos, all }) => {
                 assert!(!all);
                 assert_eq!(repos, vec!["repo1", "repo2"]);
             }
-            _ => panic!("Expected CatalogSubcommands::UpdateTickets with repos via 'sync'"),
+            _ => panic!("Expected RepoSubcommands::UpdateTickets with repos"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 

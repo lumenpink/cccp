@@ -53,33 +53,13 @@ fn test_editor_cursor_clamping() {
 
 #[test]
 fn test_editor_cli_parsing() {
-    use cccp::cli::{Cli, Commands};
+    use cccp::cli::Cli;
     use clap::Parser;
-    use std::path::PathBuf;
 
-    let parsed_edit = Cli::parse_from(["cccp", "edit", "README.md"]);
-    match parsed_edit.command {
-        Some(Commands::Editor(args)) => {
-            assert_eq!(args.file, Some(PathBuf::from("README.md")));
-        }
-        _ => panic!("Expected Commands::Editor"),
-    }
-
-    let parsed_editor = Cli::parse_from(["cccp", "editor", "src/main.rs"]);
-    match parsed_editor.command {
-        Some(Commands::Editor(args)) => {
-            assert_eq!(args.file, Some(PathBuf::from("src/main.rs")));
-        }
-        _ => panic!("Expected Commands::Editor"),
-    }
-
-    let parsed_scratch = Cli::parse_from(["cccp", "editor"]);
-    match parsed_scratch.command {
-        Some(Commands::Editor(args)) => {
-            assert_eq!(args.file, None);
-        }
-        _ => panic!("Expected Commands::Editor"),
-    }
+    // editor and edit commands were removed from CLI in domain consolidation (#156)
+    assert!(Cli::try_parse_from(["cccp", "edit", "README.md"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "editor", "src/main.rs"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "editor"]).is_err());
 }
 
 #[test]

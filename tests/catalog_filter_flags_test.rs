@@ -1,51 +1,51 @@
 use cccp::catalog::{filter_and_sort_summaries, CatalogRepoSummary};
-use cccp::cli::{CatalogFilterArgs, CatalogSubcommands, Cli, Commands};
+use cccp::cli::{CatalogFilterArgs, Cli, Commands, RepoSubcommands};
 use clap::Parser;
 
 #[test]
 fn test_cli_parsing_dirty_flag() {
-    let parsed = Cli::parse_from(["cccp", "catalog", "list", "--dirty"]);
+    let parsed = Cli::parse_from(["cccp", "repo", "list", "--dirty"]);
     match parsed.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::List(filter)) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::List(filter)) => {
                 assert!(filter.dirty);
                 assert!(!filter.unpushed);
             }
-            _ => panic!("Expected CatalogSubcommands::List"),
+            _ => panic!("Expected RepoSubcommands::List"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 
 #[test]
 fn test_cli_parsing_unpushed_flag_and_alias() {
-    let parsed = Cli::parse_from(["cccp", "catalog", "list", "--unpushed"]);
+    let parsed = Cli::parse_from(["cccp", "repo", "list", "--unpushed"]);
     match parsed.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::List(filter)) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::List(filter)) => {
                 assert!(!filter.dirty);
                 assert!(filter.unpushed);
             }
-            _ => panic!("Expected CatalogSubcommands::List"),
+            _ => panic!("Expected RepoSubcommands::List"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed_alias = Cli::parse_from(["cccp", "catalog", "list", "--pending-push"]);
+    let parsed_alias = Cli::parse_from(["cccp", "repo", "list", "--pending-push"]);
     match parsed_alias.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::List(filter)) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::List(filter)) => {
                 assert!(filter.unpushed);
             }
-            _ => panic!("Expected CatalogSubcommands::List with --pending-push"),
+            _ => panic!("Expected RepoSubcommands::List with --pending-push"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 
 #[test]
 fn test_cli_conflict_dirty_and_unpushed() {
-    let result = Cli::try_parse_from(["cccp", "catalog", "list", "--dirty", "--unpushed"]);
+    let result = Cli::try_parse_from(["cccp", "repo", "list", "--dirty", "--unpushed"]);
     assert!(
         result.is_err(),
         "Using --dirty and --unpushed together must be rejected"

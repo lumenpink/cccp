@@ -1,7 +1,7 @@
 use cccp::catalog::{
     add_remote_repo, load_catalog, update_catalog_tickets, CatalogEntry, UpdateTicketsReport,
 };
-use cccp::cli::{CatalogSubcommands, Cli, Commands};
+use cccp::cli::{Cli, Commands, RepoSubcommands};
 use cccp::config::Config;
 use clap::Parser;
 use std::fs;
@@ -9,28 +9,28 @@ use tempfile::tempdir;
 
 #[test]
 fn test_cli_parsing_catalog_update_tickets_and_alias() {
-    let parsed_all = Cli::parse_from(["cccp", "catalog", "update-tickets", "--all"]);
+    let parsed_all = Cli::parse_from(["cccp", "repo", "update-tickets", "--all"]);
     match parsed_all.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::UpdateTickets { repos, all }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::UpdateTickets { repos, all }) => {
                 assert!(all);
                 assert!(repos.is_empty());
             }
-            _ => panic!("Expected CatalogSubcommands::UpdateTickets"),
+            _ => panic!("Expected RepoSubcommands::UpdateTickets"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed_alias = Cli::parse_from(["cccp", "catalog", "sync-tickets", "repo-a", "repo-b"]);
+    let parsed_alias = Cli::parse_from(["cccp", "repo", "sync-tickets", "repo-a", "repo-b"]);
     match parsed_alias.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(CatalogSubcommands::UpdateTickets { repos, all }) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(RepoSubcommands::UpdateTickets { repos, all }) => {
                 assert!(!all);
                 assert_eq!(repos, vec!["repo-a", "repo-b"]);
             }
-            _ => panic!("Expected CatalogSubcommands::UpdateTickets via sync-tickets"),
+            _ => panic!("Expected RepoSubcommands::UpdateTickets via sync-tickets"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 

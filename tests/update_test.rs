@@ -240,6 +240,7 @@ fn test_cmd_update_pinning_and_validation() {
         pin: None,
         unpin: false,
         target: None,
+        check: false,
     };
     assert!(cmd_update(&args_invalid).is_err());
 
@@ -249,6 +250,7 @@ fn test_cmd_update_pinning_and_validation() {
         pin: Some("".to_string()),
         unpin: false,
         target: None,
+        check: false,
     };
     assert!(cmd_update(&args_pin_default).is_ok());
     assert_eq!(env::var("PINNED_VERSION").unwrap(), "2.0.0");
@@ -259,6 +261,7 @@ fn test_cmd_update_pinning_and_validation() {
         pin: None,
         unpin: false,
         target: None,
+        check: false,
     };
     let err = cmd_update(&args_standard).unwrap_err();
     assert!(err
@@ -271,6 +274,7 @@ fn test_cmd_update_pinning_and_validation() {
         pin: None,
         unpin: true,
         target: None,
+        check: false,
     };
     assert!(cmd_update(&args_unpin).is_ok());
     assert!(env::var("PINNED_VERSION").is_err());

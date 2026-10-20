@@ -1,4 +1,4 @@
-use cccp::cli::{Cli, Commands, RepoSubcommands, TicketAction};
+use cccp::cli::{BumpType, Cli, Commands, RepoSubcommands, TicketAction};
 use clap::Parser;
 
 #[test]
@@ -22,7 +22,7 @@ fn test_repo_domain_subcommands() {
     match parsed_init.command {
         Some(Commands::Repo(repo_args)) => match repo_args.action {
             Some(RepoSubcommands::Init(init_args)) => {
-                assert_eq!(init_args.profile.as_deref(), Some("lumen"));
+                assert_eq!(init_args.profile, "lumen");
             }
             _ => panic!("Expected RepoSubcommands::Init"),
         },
@@ -89,7 +89,7 @@ fn test_version_and_gen_version_separation() {
     let parsed_gen = Cli::parse_from(["cccp", "gen-version", "--bump", "minor"]);
     match parsed_gen.command {
         Some(Commands::GenVersion(args)) => {
-            assert_eq!(args.bump.as_deref(), Some("minor"));
+            assert_eq!(args.bump, Some(BumpType::Minor));
         }
         _ => panic!("Expected Commands::GenVersion"),
     }

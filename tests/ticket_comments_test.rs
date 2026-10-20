@@ -123,15 +123,18 @@ fn test_cli_parsing_ticket_comment_action() {
 
 #[test]
 fn test_cli_parsing_divan_comment_flag() {
-    let parsed = Cli::parse_from(["cccp", "divan", "-c", "148", "Sugerir testes de integração"]);
+    let parsed = Cli::parse_from(["cccp", "ticket", "divan", "-c", "148", "Sugerir testes de integração"]);
 
     match parsed.command {
-        Some(Commands::Divan(d)) => {
-            assert_eq!(d.comment, Some(148));
-            let (_, prompt) = d.resolve_repo_and_prompt();
-            assert_eq!(prompt.as_deref(), Some("Sugerir testes de integração"));
-        }
-        _ => panic!("Expected Commands::Divan"),
+        Some(Commands::Ticket(t)) => match t.action {
+            Some(cccp::cli::TicketAction::Divan(d)) => {
+                assert_eq!(d.comment, Some(148));
+                let (_, prompt) = d.resolve_repo_and_prompt();
+                assert_eq!(prompt.as_deref(), Some("Sugerir testes de integração"));
+            }
+            _ => panic!("Expected TicketAction::Divan"),
+        },
+        _ => panic!("Expected Commands::Ticket"),
     }
 }
 

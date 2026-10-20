@@ -7,25 +7,25 @@ use clap::Parser;
 
 #[test]
 fn test_cli_parsing_ci_filter_and_details_flags() {
-    let parsed = Cli::parse_from(["cccp", "catalog", "list", "--ci", "fail", "--ci-details"]);
+    let parsed = Cli::parse_from(["cccp", "repo", "list", "--ci", "fail", "--ci-details"]);
     match parsed.command {
-        Some(Commands::Catalog(c)) => match c.action {
-            Some(cccp::cli::CatalogSubcommands::List(filter)) => {
+        Some(Commands::Repo(c)) => match c.action {
+            Some(cccp::cli::RepoSubcommands::List(filter)) => {
                 assert_eq!(filter.ci.as_deref(), Some("fail"));
                 assert!(filter.ci_details);
             }
-            _ => panic!("Expected CatalogSubcommands::List"),
+            _ => panic!("Expected RepoSubcommands::List"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed_root = Cli::parse_from(["cccp", "catalog", "--ci", "success", "--ci-details"]);
+    let parsed_root = Cli::parse_from(["cccp", "repo", "--ci", "success", "--ci-details"]);
     match parsed_root.command {
-        Some(Commands::Catalog(c)) => {
+        Some(Commands::Repo(c)) => {
             assert_eq!(c.filter.ci.as_deref(), Some("success"));
             assert!(c.filter.ci_details);
         }
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 

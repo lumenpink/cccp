@@ -393,3 +393,161 @@ pub fn comment_ticket(
         }
     }
 }
+
+/// Create a new ticket directly on the remote forge via CLI
+pub fn create_ticket_cli(
+    repo: &GitRepo,
+    title: Option<&str>,
+    body: Option<&str>,
+    labels: &[String],
+    remote: Option<&str>,
+    config: &Config,
+    theme: &Theme,
+) -> Result<(), String> {
+    let forge_info = if let Some(rem) = remote {
+        crate::forges::parse_remote_url(rem)
+            .ok_or_else(|| format!("Invalid remote forge URL: {}", rem))?
+    } else {
+        detect_forge_from_repo(repo)?
+    };
+
+    let title_str = match title {
+        Some(t) if !t.trim().is_empty() => t.trim().to_string(),
+        _ => {
+            if std::io::stdin().is_terminal() {
+                let initial = "# Enter ticket title on the first line.\n# Remaining lines will be the ticket body.\n# Lines starting with '#' will be ignored.\n\n";
+                match crate::editor::edit_text("CCCP New Ticket", initial) {
+                    Ok(Some(edited)) => {
+                        let lines: Vec<&str> =
+                            edited.lines().filter(|l| !l.trim().starts_with('#')).collect();
+                        let first = lines
+                            .iter()
+                            .find(|l| !l.trim().is_empty())
+                            .map(|l| l.trim().to_string());
+                        match first {
+                            Some(t) => t,
+                            None => return Err("Ticket title cannot be empty".to_string()),
+                        }
+                    }
+                    Ok(None) => {
+                        println!("  {} Ticket creation aborted by user.", theme.dim("ℹ"));
+                        return Ok(());
+                    }
+                    Err(e) => return Err(format!("Editor error: {}", e)),
+                }
+            } else {
+                return Err("Ticket title is required (pass -t/--title)".to_string());
+            }
+        }
+    };
+
+    let body_str = body.unwrap_or("").trim().to_string();
+
+    println!(
+        "{} Creating ticket on {} ({}/{})...",
+        theme.cyan("★"),
+        forge_info.provider,
+        forge_info.owner,
+        forge_info.repo
+    );
+
+    let client = ForgeClient::new();
+    let created = client.create_issue(&forge_info, &title_str, &body_str, labels)?;
+
+    println!(
+        "  {} Comrade! Created ticket #{} successfully:",
+        theme.green("✓"),
+        created.number
+    );
+    println!("    • Title:  {}", theme.bold(&created.title));
+    println!("    • URL:    {}", theme.cyan(&created.html_url));
+    let branch = crate::forges::suggest_branch_name(created.number, &created.title);
+    println!("    • Branch: {}", theme.yellow(&branch));
+
+    // Best-effort auto-sync of tickets
+    let sync_opts = crate::cli::TicketArgs {
+        remote: None,
+        output: None,
+        limit: 50,
+        state: "open".to_string(),
+        action: None,
+    };
+    let _ = sync_tickets(&sync_opts, repo, config, theme);
+
+    Ok(())
+}
+
+/// List local tickets from .antigravity/tickets.md
+pub fn list_local_tickets(repo: &GitRepo, theme: &Theme) -> Result<(), String> {
+    let tickets_path = repo.root_dir.join(".antigravity").join("tickets.md");
+    if !tickets_path.is_file() {
+        println!(
+            "{} No local tickets found in .antigravity/tickets.md.",
+            theme.yellow("ℹ")
+        );
+        println!(
+            "  Run '{}' to synchronize issues from remote forge.",
+            theme.bold("cccp ticket sync")
+        );
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&tickets_path)
+        .map_err(|e| format!("Failed to read tickets file: {}", e))?;
+
+    let mut tickets = Vec::new();
+    let mut current_id = None;
+    let mut current_title = String::new();
+    let mut current_status = "open".to_string();
+
+    for line in content.lines() {
+        if line.starts_with("## [") {
+            if let Some(id) = current_id {
+                tickets.push((id, current_title.clone(), current_status.clone()));
+            }
+            if let Some(end_bracket) = line.find(']') {
+                let id_str = &line[4..end_bracket].trim_start_matches('#');
+                current_id = id_str.parse::<u64>().ok();
+                current_title = line[end_bracket + 1..].trim().to_string();
+                current_status = "open".to_string();
+            }
+        } else if line.trim_start().starts_with("- **Status**:") {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 2 {
+                current_status = parts[1].trim().trim_matches('`').to_string();
+            }
+        }
+    }
+    if let Some(id) = current_id {
+        tickets.push((id, current_title, current_status));
+    }
+
+    if tickets.is_empty() {
+        println!("{} No tickets currently open in tickets.md.", theme.green("★"));
+        return Ok(());
+    }
+
+    println!(
+        "{} Local Active Tickets ({} found in {}):\n",
+        theme.gold_bold("★"),
+        tickets.len(),
+        theme.dim(".antigravity/tickets.md")
+    );
+
+    for (id, title, status) in tickets {
+        let badge = if status == "closed" {
+            theme.dim("[closed]")
+        } else {
+            theme.green("[open]")
+        };
+        println!(
+            "  {} #{:<4} {} {}",
+            theme.gold_bold("•"),
+            id,
+            badge,
+            theme.bold(&title)
+        );
+    }
+    println!();
+    Ok(())
+}

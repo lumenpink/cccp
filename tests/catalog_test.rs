@@ -678,14 +678,13 @@ fn test_catalog_cli_aliases() {
     use cccp::cli::{Cli, Commands};
     use clap::Parser;
 
-    let parsed_cat = Cli::parse_from(["cccp", "cat"]);
-    assert!(matches!(parsed_cat.command, Some(Commands::Catalog(_))));
+    let parsed_repo = Cli::parse_from(["cccp", "repo"]);
+    assert!(matches!(parsed_repo.command, Some(Commands::Repo(_))));
 
-    let parsed_c = Cli::parse_from(["cccp", "c"]);
-    assert!(matches!(parsed_c.command, Some(Commands::Catalog(_))));
-
-    let parsed_full = Cli::parse_from(["cccp", "catalog"]);
-    assert!(matches!(parsed_full.command, Some(Commands::Catalog(_))));
+    // Root aliases 'cat', 'r' and 'catalog' are removed (#156)
+    assert!(Cli::try_parse_from(["cccp", "cat"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "r"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "catalog"]).is_err());
 }
 
 #[test]

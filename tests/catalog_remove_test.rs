@@ -74,26 +74,26 @@ fn test_remove_nonexistent_repo_returns_error() {
 
 #[test]
 fn test_cli_parsing_catalog_remove_and_rm_alias() {
-    let parsed_remove = Cli::parse_from(["cccp", "catalog", "remove", "meu-repo"]);
+    let parsed_remove = Cli::parse_from(["cccp", "repo", "remove", "meu-repo"]);
     match parsed_remove.command {
-        Some(Commands::Catalog(c)) => match c.action {
+        Some(Commands::Repo(c)) => match c.action {
             Some(CatalogSubcommands::Remove { repo, .. }) => {
                 assert_eq!(repo, "meu-repo");
             }
             _ => panic!("Expected CatalogSubcommands::Remove"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed_rm = Cli::parse_from(["cccp", "catalog", "rm", "outro-repo"]);
+    let parsed_rm = Cli::parse_from(["cccp", "repo", "rm", "outro-repo"]);
     match parsed_rm.command {
-        Some(Commands::Catalog(c)) => match c.action {
+        Some(Commands::Repo(c)) => match c.action {
             Some(CatalogSubcommands::Remove { repo, .. }) => {
                 assert_eq!(repo, "outro-repo");
             }
             _ => panic!("Expected CatalogSubcommands::Remove via alias rm"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 
@@ -155,40 +155,40 @@ fn setup_temp_git_repo(path: &std::path::Path, dirty: bool) {
 
 #[test]
 fn test_cli_parsing_catalog_remove_delete_dir_flags() {
-    let parsed1 = Cli::parse_from(["cccp", "catalog", "remove", "meu-repo", "--delete-dir"]);
+    let parsed1 = Cli::parse_from(["cccp", "repo", "remove", "meu-repo", "--delete-dir"]);
     match parsed1.command {
-        Some(Commands::Catalog(c)) => match c.action {
+        Some(Commands::Repo(c)) => match c.action {
             Some(CatalogSubcommands::Remove { repo, delete_dir }) => {
                 assert_eq!(repo, "meu-repo");
                 assert!(delete_dir);
             }
             _ => panic!("Expected CatalogSubcommands::Remove with delete_dir"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed2 = Cli::parse_from(["cccp", "catalog", "rm", "outro-repo", "--rm-dir"]);
+    let parsed2 = Cli::parse_from(["cccp", "repo", "rm", "outro-repo", "--rm-dir"]);
     match parsed2.command {
-        Some(Commands::Catalog(c)) => match c.action {
+        Some(Commands::Repo(c)) => match c.action {
             Some(CatalogSubcommands::Remove { repo, delete_dir }) => {
                 assert_eq!(repo, "outro-repo");
                 assert!(delete_dir);
             }
             _ => panic!("Expected CatalogSubcommands::Remove with rm-dir alias"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 
-    let parsed3 = Cli::parse_from(["cccp", "catalog", "rm", "padrao"]);
+    let parsed3 = Cli::parse_from(["cccp", "repo", "rm", "padrao"]);
     match parsed3.command {
-        Some(Commands::Catalog(c)) => match c.action {
+        Some(Commands::Repo(c)) => match c.action {
             Some(CatalogSubcommands::Remove { repo, delete_dir }) => {
                 assert_eq!(repo, "padrao");
                 assert!(!delete_dir);
             }
             _ => panic!("Expected CatalogSubcommands::Remove with delete_dir false"),
         },
-        _ => panic!("Expected Commands::Catalog"),
+        _ => panic!("Expected Commands::Repo"),
     }
 }
 
