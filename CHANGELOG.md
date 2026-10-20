@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Banca Distribution Endpoints Migration and Configurable Update Channels
+- **Banca Channels Migration & Config Support (`cccp update` / `cccp check-update` / `.cccprc`)**: Migra os endpoints de distribuição remota de binários para a infraestrutura soberana da Banca (`https://banca.2lp.in/downloads/cccp/cccp-stable` e `cccp-nightly`). Introduz suporte ao canal de distribuição configurável no arquivo de governança do projeto (`.cccprc` ou `.cccprs`) através da chave `channel = stable|nightly`, mantendo precedência com flags CLI (`-c, --channel`) e variáveis de ambiente (`UPDATE_CHANNEL`). Adiciona validação estrita que rejeita canais desconhecidos com mensagem de erro explícita e resolução graciosa e transparente no updater. (closes #157)
+
 ### Pipeline Compilation and Banca Binary Distribution
 - **Pipeline Compilation & Banca Artifact Delivery (`cccp update` / `cccp check-update` / `cccp tag` / `cccp hook`)**: Adequação completa do CCCP à diretiva GOST v1.5.0 para compilação estrita na esteira e distribuição de binários pela Banca (`https://banca.2lp.in/downloads/cccp/`). Elimina a execução onerosa de `act` no git `pre-push` por padrão (mantendo apenas verificação semântica instantânea ou via `CCCP_ACT_FORCE=1`), transpondo a auditoria de CI em container exclusivamente como Pre-Tag Gate durante o comando `cccp tag`. Remove dependência e fallbacks a releases do Codeberg no mecanismo de auto-update, garantindo consumo atômico soberano dos canais estável e nightly da Banca. (closes #156)
 
