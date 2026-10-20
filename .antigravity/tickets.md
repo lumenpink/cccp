@@ -1,5 +1,5 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-20 00:46:48 UTC
+> Synced at: 2026-10-20 01:40:08 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
 ## [#156] refactor(cli): padronizar comandos, remover aliases e unificar fluxo de tickets e sync
@@ -45,32 +45,6 @@ Exibir no catálogo o status da última execução das esteiras de CI sincroniza
 - [ ] Os cards ou itens do catálogo devem conter indicadores visuais de status (ex: sucesso, falha, pendente, em execução) para as esteiras de CI.
 - [ ] Possibilidade de visualizar detalhes ou tooltip com a data/hora e o nome de cada esteira avaliada.
 - [ ] Manter consistência visual com o tema e padrões de layout existentes.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#154] feat(core): sincronizar status da última execução de CI de todas as esteiras
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/154
-
-### Description
-## Description
-Implementar a coleta e sincronização da última execução de CI ( abrangendo todas as esteiras configuradas no repositório/forge) durante a rotina de sync de tickets.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] A rotina de sync de tickets deve acionar a verificação das execuções de CI na API do Codeberg/forge.
-- [ ] Coletar e persistir o status mais recente de cada esteira/pipeline de CI associada.
-- [ ] Tratar cenários onde não há execuções de CI ou a API retorne erros transitórios sem interromper o sync dos tickets.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
