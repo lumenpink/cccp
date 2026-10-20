@@ -11,15 +11,13 @@ fn test_get_current_version_uses_canonical_version_from_version_file() {
 
     // Must NOT be the stale Cargo.toml version (3.1.0)
     assert_ne!(
-        curr_ver,
-        "3.1.0",
+        curr_ver, "3.1.0",
         "CCCP version must not be hardcoded 3.1.0 tag from Cargo.toml"
     );
 
     // Must match canonical version from VERSION file
     assert_eq!(
-        curr_ver,
-        version_on_disk,
+        curr_ver, version_on_disk,
         "Current version must match canonical VERSION"
     );
 }
