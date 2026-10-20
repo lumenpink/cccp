@@ -1,7 +1,37 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-19 18:44:26 UTC
+> Synced at: 2026-10-20 00:46:48 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#156] refactor(cli): padronizar comandos, remover aliases e unificar fluxo de tickets e sync
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://codeberg.org/lumenpink/cccp/issues/156
+
+### Description
+## Description
+Revisar e consolidar todos os comandos da CLI (`cccp`), eliminando inconsistências na experiência do usuário.
+- Remover aliases desnecessários ou concorrentes (ex: `audit|gost`).
+- Resolver ambiguidade entre `tickets` e `sync`: atualmente `tickets` apenas sincroniza e não gera tickets, criando redundância confusa com o comando `sync`.
+- Uniformizar a nomenclatura, documentação embutida (`--help`) e assinaturas dos subcomandos.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Todos os aliases secundários (ex: `audit|gost`) são removidos, mantendo apenas comandos canônicos bem definidos.
+- [ ] O conflito entre `tickets` e `sync` é resolvido (definição clara de responsabilidade de cada um ou unificação/depreciação de um deles).
+- [ ] O output de `cccp --help` e os subcomandos refletem uma estrutura limpa e sem duplicidades.
+- [ ] Testes de CLI cobrem todos os comandos canônicos e garantem a remoção dos aliases obsoletos.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
 ## [#155] feat(ui): exibir status da última execução de CI no catálogo
 - **Status**: `open`
 - **Labels**: none
@@ -52,33 +82,5 @@ Implementar a coleta e sincronização da última execução de CI ( abrangendo 
 - [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
 - [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#156] feat(ci): compilação soberana na esteira, pre-tag act e distribuição via banca
-- **Status**: `open`
-- **Labels**: `ci`, `gost`, `distribution`
-- **Link**: https://codeberg.org/lumenpink/cccp/issues/156
-
-### Description
-## Description
-Implementar o Princípio da Compilação Soberana Exclusiva na Esteira, vinculada às versões atômicas por commit. Adequar a especificação GOST (`.gost/GOST.md`), remover a execução do `act` por padrão no hook `pre-push` (tornando o git push instantâneo e leve), migrar o gate de validação com `act` exclusivamente para o comando `cccp tag` (pré-tag release), e reconfigurar o módulo de auto-atualização (`cccp update`) e o workflow de release para publicar e consumir binários da Banca (`https://banca.2lp.in/downloads/cccp/`), eliminando qualquer dependência do Codeberg para hospedagem de artefatos.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Atualização normativa no `.gost/GOST.md` estipulando a proibição de compilação pesada local e delegação integral de releases para a esteira.
-- [ ] Hook `pre-push` (`hook_runner.rs`) atualizado para não disparar o `act` por padrão, mantendo apenas verificações leves de tags e VERSION.
-- [ ] Comando `cccp tag` (`release.rs`) atualizado para executar o gate de CI com `act` antes de selar a tag estável oficial.
-- [ ] Módulo `update.rs` reconfigurado para consultar `https://banca.2lp.in/downloads/cccp/index.json` (ou `/version`) e baixar artefatos de `stable-latest` / `nightly-latest`, sem URLs de fallback do Codeberg.
-- [ ] Workflow `.forgejo/workflows/release.yaml` ajustado para entregar pacotes no storage da Banca em vez de `action-gh-release`.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `feat/156-ci-banca-distribution` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #156)
 
 ---
