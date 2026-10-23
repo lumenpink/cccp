@@ -162,11 +162,45 @@ fn test_resolve_token_environment() {
 
 #[test]
 fn test_resolve_token_reads_home_env_when_config_none() {
+    let saved_cb = std::env::var("CODEBERG_TOKEN").ok();
+    let saved_fj = std::env::var("FORGEJO_TOKEN").ok();
+    let saved_gt = std::env::var("GITEA_TOKEN").ok();
+    let saved_tea = std::env::var("TEA_TOKEN").ok();
+    let saved_cb_org = std::env::var("CODEBERG_ORG_TOKEN").ok();
+    let saved_mock = std::env::var("MOCK_HOME_ENV_ORG_TOKEN").ok();
+
+    std::env::remove_var("CODEBERG_TOKEN");
+    std::env::remove_var("FORGEJO_TOKEN");
+    std::env::remove_var("GITEA_TOKEN");
+    std::env::remove_var("TEA_TOKEN");
+    std::env::remove_var("CODEBERG_ORG_TOKEN");
+    std::env::remove_var("MOCK_HOME_ENV_ORG_TOKEN");
+
     let mut config = cccp::config::Config::default();
     config
         .extra
         .insert("codeberg_token".to_string(), "ci_test_token".to_string());
     let token = resolve_token_for_host("mock-home-env.org", ForgeType::Codeberg, Some(&config));
+
+    if let Some(v) = saved_cb {
+        std::env::set_var("CODEBERG_TOKEN", v);
+    }
+    if let Some(v) = saved_fj {
+        std::env::set_var("FORGEJO_TOKEN", v);
+    }
+    if let Some(v) = saved_gt {
+        std::env::set_var("GITEA_TOKEN", v);
+    }
+    if let Some(v) = saved_tea {
+        std::env::set_var("TEA_TOKEN", v);
+    }
+    if let Some(v) = saved_cb_org {
+        std::env::set_var("CODEBERG_ORG_TOKEN", v);
+    }
+    if let Some(v) = saved_mock {
+        std::env::set_var("MOCK_HOME_ENV_ORG_TOKEN", v);
+    }
+
     assert_eq!(token.as_deref(), Some("ci_test_token"));
 }
 
