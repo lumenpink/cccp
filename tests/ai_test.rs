@@ -146,6 +146,11 @@ fn test_ollama_unreachable_host_error_message() {
 
 #[test]
 fn test_gemini_missing_api_key_error() {
+    let saved_key = std::env::var("GEMINI_API_KEY").ok();
+    let saved_google = std::env::var("GOOGLE_API_KEY").ok();
+    std::env::remove_var("GEMINI_API_KEY");
+    std::env::remove_var("GOOGLE_API_KEY");
+
     let config = Config {
         ai_provider: "gemini".into(),
         gemini_api_key: None,
@@ -154,6 +159,13 @@ fn test_gemini_missing_api_key_error() {
 
     let client = AiClient::from_config(&config);
     let result = client.triage("problem with auth", None);
+
+    if let Some(key) = saved_key {
+        std::env::set_var("GEMINI_API_KEY", key);
+    }
+    if let Some(key) = saved_google {
+        std::env::set_var("GOOGLE_API_KEY", key);
+    }
 
     assert!(result.is_err());
     let err = result.unwrap_err();

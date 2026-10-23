@@ -202,7 +202,9 @@ fn test_hook_matching_template_version_silent_even_if_cccp_version_differs() {
 
     fs::create_dir_all(&hooks_dir).unwrap();
     // Hook com template_version igual ao atual, mas com cccp-hook-version desatualizada
-    let content = "#!/bin/sh\n# cccp-hook-version: 3.1.0\n# cccp-hook-template-version: 1\n# cccp-hook-checksum: auto\nexec cccp hook commit-msg \"$@\"\n";
+    let body = "#!/bin/sh\nexec cccp hook commit-msg \"$@\"";
+    let checksum = cccp::hooks_install::compute_hook_checksum(body);
+    let content = format!("#!/bin/sh\n# cccp-hook-version: 3.1.0\n# cccp-hook-template-version: 1\n# cccp-hook-checksum: {checksum}\nexec cccp hook commit-msg \"$@\"\n");
     fs::write(hooks_dir.join("commit-msg"), content).unwrap();
 
     let warns = cccp::update::check_hook_version(p);

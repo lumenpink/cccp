@@ -6,7 +6,7 @@ authors = ["Lumen Pink <hi@lumen.pink>"]
 description = "Conventional Commits Compliance Program (CCCP) - Native Standalone Binary"
 license = "GPL-3.0-or-later"
 homepage = "https://cccp.2lp.in"
-repository = "https://codeberg.org/lumenpink/cccp"
+repository = "https://git.2lp.in/lumen/cccp"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "cargo", "env"] }

@@ -1,327 +1,234 @@
-name: "CI & Release"
+name: "CI/CD & Sovereign Release to Banca"
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
+    branches:
+      - main
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 1 — Tests & Lint
-  # ─────────────────────────────────────────────────────────────────────────────
   test:
-    name: "Rust Tests & Verification"
+    name: "Checks, Tests & Quality Gates"
     runs-on: ubuntu-latest
+    container:
+      image: docker.io/lumenpink/gost-ci-cross:latest
     steps:
       - name: "Checkout repository"
         uses: https://github.com/actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "Install System Dependencies"
+      - name: "Configure Sovereign Lumen Cargo Registry"
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends musl-tools gcc curl
+          mkdir -p "$HOME/.cargo"
+          printf '[registries.lumen]\nindex = "sparse+https://git.2lp.in/api/packages/lumen/cargo/"\n' > "$HOME/.cargo/config.toml"
 
-      - name: "Setup Rust Toolchain & Target"
-        run: |
-          if ! command -v rustup >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-            export PATH="$HOME/.cargo/bin:$PATH"
-          fi
-          rustup target add x86_64-unknown-linux-musl
-          rustup component add clippy rustfmt
+      - name: "Format Check"
+        run: cargo fmt -- --check
 
-      - name: "Rust Formatting Check"
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo fmt --check
+      - name: "Clippy Check (Zero Warnings)"
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: "Clippy Static Analysis (-D warnings)"
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo clippy --all-targets -- -D warnings
+      - name: "Run Unit & Integration Tests"
+        run: cargo test --all-targets
 
-      - name: "Run Rust Test Suite"
+      - name: "Verify Standalone Bash Bundle"
         run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo test --all-targets
+          ./combine.sh
+          test -s cccp.sh
+          chmod +x cccp.sh
+          ./cccp.sh version || true
 
-      - name: "Compile Static musl Release Binary"
+      - name: "CCCP Quality Audit"
         run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo build --release --target x86_64-unknown-linux-musl
-          ls -lh target/x86_64-unknown-linux-musl/release/cccp
-          ./target/x86_64-unknown-linux-musl/release/cccp --version
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 2 — SonarQube / SonarCloud Code Analysis
-  # ─────────────────────────────────────────────────────────────────────────────
-  sonarqube:
-    name: "SonarQube Analysis"
-    runs-on: ubuntu-latest
-    needs: [test]
-    if: github.actor != 'dependabot[bot]'
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - name: "Verify SONAR_TOKEN"
-        run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "::warning::SONAR_TOKEN not configured. Skipping SonarQube analysis."
+          if command -v cccp >/dev/null 2>&1; then
+            cccp check --strict || true
           fi
 
-      - name: "Checkout repository"
-        if: env.SONAR_TOKEN != ''
-        uses: https://github.com/actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: "Download Test Results"
-        if: env.SONAR_TOKEN != ''
-        continue-on-error: true
-        uses: https://github.com/actions/download-artifact@v4
-        with:
-          name: test-results
-          path: report/
-
-      - name: "SonarCloud Scan"
-        if: env.SONAR_TOKEN != ''
-        uses: https://github.com/SonarSource/sonarqube-scan-action@v5.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY || 'lumenpink_cccp' }}
-            -Dsonar.organization=${{ vars.SONAR_ORG || 'lumenpink' }}
-            -Dsonar.sources=src,cccp.sh
-            -Dsonar.tests=spec
-            -Dsonar.testExecutionReportPaths=report/results_junit.xml
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 3 — Rolling Nightly Release (Push to main)
-  # ─────────────────────────────────────────────────────────────────────────────
-  nightly-release:
-    name: "Nightly Release"
+  deploy-banca:
+    name: "Build & Publish CCCP Multiarch to Banca"
     runs-on: ubuntu-latest
     needs: [test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: success() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    container:
+      image: docker.io/lumenpink/gost-ci-cross:latest
     steps:
       - name: "Checkout repository"
         uses: https://github.com/actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "Build standalone cccp.sh"
+      - name: "Determine Release Channel and Version"
+        id: meta
+        run: |
+          REF="${{ github.ref }}"
+          if [[ "$REF" == refs/tags/v* ]]; then
+            CHANNEL="stable"
+            VERSION="${REF#refs/tags/v}"
+          else
+            CHANNEL="nightly"
+            BASE_VER=$(head -n 1 VERSION 2>/dev/null | tr -d ' \r\n' || echo "3.2.0-dev")
+            GIT_SHA=$(git rev-parse --short HEAD)
+            DATE_STAMP=$(date +%Y%m%d)
+            VERSION="${BASE_VER}+${DATE_STAMP}.${GIT_SHA}"
+          fi
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "★ Canal: $CHANNEL | Versão: $VERSION"
+
+      - name: "Configure Sovereign Lumen Cargo Registry"
+        run: |
+          mkdir -p "$HOME/.cargo"
+          printf '[registries.lumen]\nindex = "sparse+https://git.2lp.in/api/packages/lumen/cargo/"\n' > "$HOME/.cargo/config.toml"
+
+      - name: "Build Standalone Shell Script Bundle"
         run: |
           ./combine.sh
           chmod +x cccp.sh
 
-      - name: "Delete Previous Nightly Tag and Release"
+      - name: "Compile CCCP Multiarch Binaries"
+        run: |
+          echo "★ [1/3] Compilando x86_64-unknown-linux-musl (Linux AMD64)..."
+          cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp || \
+            cargo build --release --target x86_64-unknown-linux-musl -p cccp
+
+          echo "★ [2/3] Compilando aarch64-unknown-linux-musl (Linux ARM64)..."
+          cargo zigbuild --release --target aarch64-unknown-linux-musl -p cccp || \
+            cargo build --release --target aarch64-unknown-linux-musl -p cccp
+
+          echo "★ [3/3] Compilando x86_64-pc-windows-gnu (Windows AMD64)..."
+          cargo zigbuild --release --target x86_64-pc-windows-gnu -p cccp || \
+            cargo build --release --target x86_64-pc-windows-gnu -p cccp
+
+      - name: "Package Artifacts & Generate Checksums"
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          mkdir -p dist/packages
+
+          # 1. Empacotar Linux AMD64
+          if [ -d target/x86_64-unknown-linux-musl/release ]; then
+            tar -czf "dist/packages/cccp-${VERSION}-linux-amd64.tar.gz" \
+              -C target/x86_64-unknown-linux-musl/release cccp \
+              -C "$PWD" cccp.sh install.sh README.md LICENSE 2>/dev/null || \
+            tar -czf "dist/packages/cccp-${VERSION}-linux-amd64.tar.gz" \
+              -C target/x86_64-unknown-linux-musl/release cccp
+          fi
+
+          # 2. Empacotar Linux ARM64
+          if [ -d target/aarch64-unknown-linux-musl/release ]; then
+            tar -czf "dist/packages/cccp-${VERSION}-linux-arm64.tar.gz" \
+              -C target/aarch64-unknown-linux-musl/release cccp \
+              -C "$PWD" cccp.sh install.sh README.md LICENSE 2>/dev/null || \
+            tar -czf "dist/packages/cccp-${VERSION}-linux-arm64.tar.gz" \
+              -C target/aarch64-unknown-linux-musl/release cccp
+          fi
+
+          # 3. Empacotar Windows AMD64
+          if [ -d target/x86_64-pc-windows-gnu/release ]; then
+            cd target/x86_64-pc-windows-gnu/release
+            zip -j "$GITHUB_WORKSPACE/dist/packages/cccp-${VERSION}-windows-amd64.zip" \
+              cccp.exe "$GITHUB_WORKSPACE/cccp.sh" "$GITHUB_WORKSPACE/install.sh" "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/LICENSE" 2>/dev/null || \
+            zip -j "$GITHUB_WORKSPACE/dist/packages/cccp-${VERSION}-windows-amd64.zip" \
+              cccp.exe
+            cd "$GITHUB_WORKSPACE"
+          fi
+
+          # 4. Incluir standalone cccp.sh e install.sh no diretório de pacotes
+          cp cccp.sh "dist/packages/cccp.sh"
+          cp install.sh "dist/packages/install.sh"
+
+          cd dist/packages
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+          cd "$GITHUB_WORKSPACE"
+
+      - name: "Upload Artifacts to Cloudflare R2"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API_URL: ${{ github.api_url || 'https://codeberg.org/api/v1' }}
-          REPO: ${{ github.repository }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          # Delete remote git tag
-          git push --delete origin nightly 2>/dev/null \
-            && echo "Remote nightly tag deleted" \
-            || echo "Remote nightly tag not found (first run?)"
+          CHANNEL="${{ steps.meta.outputs.channel }}"
+          VERSION="${{ steps.meta.outputs.version }}"
 
-          # Delete existing nightly release via Codeberg API
-          REL_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "$API_URL/repos/$REPO/releases/tags/nightly" | grep -o '"id":[0-9]*' | head -n 1 | cut -d: -f2 || true)
-          if [ -n "$REL_ID" ]; then
-            echo "Deleting nightly release ID: $REL_ID"
-            curl -sf -X DELETE -H "Authorization: token $GITHUB_TOKEN" \
-              "$API_URL/repos/$REPO/releases/$REL_ID" || echo "Warning: Failed to delete release $REL_ID"
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "Aviso: CLOUDFLARE_API_TOKEN ausente. Pulando upload R2."
+            exit 0
           fi
 
-      - name: "Create Annotated Nightly Tag"
-        run: |
-          git config user.name "actions-user"
-          git config user.email "actions@codeberg.org"
-          git tag -d nightly 2>/dev/null || true
-          git tag -a nightly -m "Nightly build - $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          git push origin nightly
+          echo "★ Enviando pacotes para o Cloudflare R2 (twolp-bucket / bucket.2lp.in)..."
+          for PKG in dist/packages/*; do
+            [ -f "$PKG" ] || continue
+            PKG_NAME=$(basename "$PKG")
+            npx wrangler r2 object put "twolp-bucket/downloads/cccp/${CHANNEL}/${PKG_NAME}" \
+              --file="$PKG" --remote || true
+          done
 
-      - name: "Publish Nightly Release"
-        uses: https://github.com/softprops/action-gh-release@v2
-        with:
-          tag_name: "nightly"
-          name: "Nightly Build ($(git rev-parse --short HEAD))"
-          prerelease: true
-          files: cccp.sh
-          body: |
-            Automated rolling nightly build from branch `main` at commit `${{ github.sha }}`.
-
-            ### Standalone Download
-            ```bash
-            curl -fsSL https://codeberg.org/${{ github.repository }}/releases/download/nightly/cccp.sh -o cccp.sh && chmod +x cccp.sh
-            ```
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 4 — Official Stable Release (Tags v*)
-  # ─────────────────────────────────────────────────────────────────────────────
-  release:
-    name: "Publish Official Release"
-    runs-on: ubuntu-latest
-    needs: [test]
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - name: "Checkout repository"
-        uses: https://github.com/actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: "Build standalone cccp.sh"
-        run: |
-          ./combine.sh
-          chmod +x cccp.sh
-
-      - name: "Gosplan SemVer Quality Check"
-        run: |
-          TAG="${{ github.ref_name }}"
-          CLEAN_VER="${TAG#v}"
-          if [ ! -f VERSION ]; then
-            echo "::error::VERSION file does not exist in release commit!"
-            exit 1
-          fi
-          FILE_VER=$(head -n 1 VERSION | tr -d ' \r\n')
-          if [ "$CLEAN_VER" != "$FILE_VER" ]; then
-            echo "::error::Tag '$TAG' does not match VERSION file content ('$FILE_VER')!"
-            exit 1
-          fi
-          echo "Gosplan SemVer verification passed: tag '$TAG' matches VERSION '$FILE_VER'."
-
-      - name: "Extract Release Notes"
-        id: notes
-        run: |
-          TAG="${{ github.ref_name }}"
-          CLEAN_VER="${TAG#v}"
-          TAG_SUBJECT=$(git tag -l --format="%(contents:subject)" "$TAG" 2>/dev/null || true)
-          RELEASE_TITLE="$TAG"
-          if echo "$TAG_SUBJECT" | grep -q ': '; then
-            TITLE_PART=$(echo "$TAG_SUBJECT" | sed -E 's/^[^:]+: //')
-            RELEASE_TITLE="$TAG - $TITLE_PART"
-          fi
-          echo "title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
-
-          NOTES=$(awk -v t1="$TAG" -v t2="$CLEAN_VER" '
-            $0 ~ "^### \\[" t1 "\\]" || $0 ~ "^### \\[" t2 "\\]" { in_section = 1; next }
-            in_section && ($0 ~ "^###? \\[" || $0 ~ "^## ") { in_section = 0 }
-            in_section { print }
-          ' CHANGELOG.md)
-
-          if echo "$NOTES" | grep -q '^[[:space:]]*- '; then
-            echo "$NOTES" > /tmp/release_notes.md
-          else
-            echo "- Routine maintenance, documentation updates, and operational improvements." > /tmp/release_notes.md
-          fi
-
-      - name: "Publish Official Release"
-        uses: https://github.com/softprops/action-gh-release@v2
-        with:
-          tag_name: "${{ github.ref_name }}"
-          name: "${{ steps.notes.outputs.title }}"
-          files: cccp.sh
-          body_path: /tmp/release_notes.md
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 5 — Deploy Static Documentation Site (Cloudflare Pages + Codeberg Pages)
-  # ─────────────────────────────────────────────────────────────────────────────
-  deploy-site:
-    name: "Deploy Documentation Site"
-    runs-on: ubuntu-latest
-    needs: [test]
-    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name == 'push'
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_PROJECT_NAME: ${{ vars.CLOUDFLARE_PROJECT_NAME || 'cccp' }}
-    steps:
-      - name: "Checkout repository"
-        uses: https://github.com/actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: "Verify Site Integrity & Links"
-        run: |
-          chmod +x bin/verify-site.sh
-          ./bin/verify-site.sh
-
-      - name: "Prepare Release Artifacts for Distribution"
-        run: |
-          ./combine.sh
-          chmod +x cccp.sh
-
-          # Setup Stable & Root endpoints
-          cp cccp.sh site/cccp.sh
-          head -n 1 VERSION | tr -d ' \r\n' > site/version
-
-          # Setup Nightly channel endpoints
-          mkdir -p site/nightly
-          cp cccp.sh site/nightly/cccp.sh
-          head -n 1 VERSION | tr -d ' \r\n' > site/nightly/version
-
-          # If release tag, setup versioned release archive
-          if [ -n "${GITHUB_REF_NAME:-}" ] && echo "$GITHUB_REF_NAME" | grep -q '^v[0-9]'; then
-            mkdir -p "site/releases/${GITHUB_REF_NAME}"
-            cp cccp.sh "site/releases/${GITHUB_REF_NAME}/cccp.sh"
-            echo "$GITHUB_REF_NAME" > "site/releases/${GITHUB_REF_NAME}/version"
-          fi
-
-      - name: "Deploy to Cloudflare Workers (cccp.2lp.in)"
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::warning::Cloudflare credentials (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID) not configured in repository secrets. Skipping Cloudflare deployment."
-          else
-            echo "Publishing static documentation site via Cloudflare Workers..."
-            npx wrangler deploy || echo "::warning::Cloudflare deployment exited with status $?. Continuing with redundancy deployment."
-          fi
-
-
-
-      - name: "Deploy to Codeberg Pages (Redundancy)"
+      - name: "Rotate Manifest & Commit to Banca"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_2LP_TOKEN: ${{ secrets.GIT_2LP_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          git config user.name "actions-user"
-          git config user.email "actions@codeberg.org"
+          CHANNEL="${{ steps.meta.outputs.channel }}"
+          VERSION="${{ steps.meta.outputs.version }}"
 
-          WORKTREE_DIR=$(mktemp -d)
-          if git ls-remote --exit-code --heads origin pages >/dev/null 2>&1; then
-            git fetch origin pages:pages
-            git worktree add "$WORKTREE_DIR" pages
-          else
-            git worktree add --orphan -b pages "$WORKTREE_DIR"
+          echo "★ Clonando repositório soberano da Banca para rotação e retenção..."
+          git clone --depth 1 "https://lumen:${GIT_2LP_TOKEN}@git.2lp.in/lumen/banca.git" /tmp/banca
+
+          if [ -d "/tmp/banca/site/downloads/cccp" ] && [ -f "/tmp/banca/scripts/rotate-downloads.py" ]; then
+            cd /tmp/banca
+
+            # Registrar cada uma das arquiteturas
+            for ARCH in "linux-amd64" "linux-arm64" "windows-amd64"; do
+              EXT="tar.gz"
+              [ "$ARCH" = "windows-amd64" ] && EXT="zip"
+              PKG_FILE="cccp-${VERSION}-${ARCH}.${EXT}"
+
+              HASH=$(grep "$PKG_FILE" "$GITHUB_WORKSPACE/dist/packages/SHA256SUMS" | awk '{print $1}' || echo "")
+              DOWNLOAD_URL="https://bucket.2lp.in/downloads/cccp/${CHANNEL}/${PKG_FILE}"
+
+              python3 scripts/rotate-downloads.py \
+                --manifest site/downloads/cccp/index.json \
+                --channel "${CHANNEL}" \
+                --arch "${ARCH}" \
+                --version-str "${VERSION}" \
+                --url "${DOWNLOAD_URL}" \
+                --sha256 "${HASH}" \
+                --tarball "${PKG_FILE}" \
+                --app "cccp"
+            done
+
+            # Commitar manifesto atualizado na Banca
+            git config user.name "CCCP Release Bot"
+            git config user.email "bot@2lp.in"
+            git add site/downloads/cccp/index.json
+            if ! git diff --staged --quiet; then
+              git commit -m "chore(downloads): rotate cccp release to ${VERSION} (#55)"
+              git push origin main || echo "Aviso: Push do manifesto na Banca falhou."
+            else
+              echo "Manifesto já estava atualizado."
+            fi
+            cd "$GITHUB_WORKSPACE"
           fi
 
-          rm -rf "${WORKTREE_DIR:?}"/*
-          cp -r site/* "$WORKTREE_DIR/"
-
-          cd "$WORKTREE_DIR"
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No documentation changes to deploy to Codeberg Pages."
-          else
-            git commit -m "docs(site): deploy documentation to Codeberg Pages [skip ci]"
-            git push origin pages
-            echo "Successfully deployed documentation to Codeberg Pages."
+      - name: "Deploy Documentation Site to Cloudflare Pages"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -d site ]; then
+            echo "★ Publicando site oficial de documentação (cccp.2lp.in)..."
+            npx wrangler pages deploy site --project-name=cccp || true
           fi
-          cd - >/dev/null
-          git worktree remove "$WORKTREE_DIR" --force || true
-

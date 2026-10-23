@@ -633,7 +633,7 @@ Quando um repositório necessitar de regras estritas exclusivas que não pertenc
 
 # Perfil de Implementação: Kollontai
 **Identificador do Perfil:** `kollontai`  
-**Norma Base:** GOST `1.3.0`  
+**Norma Base:** GOST `1.5.0`  
 **Autor:** lumenpink  
 **Status:** Ativo / Produção
 
@@ -880,28 +880,30 @@ O ecossistema adota um pipeline estrito onde **erros de linter e desvios de form
 * **Higiene Universal de Editores:**
   - Arquivo `.editorconfig` na raiz de todo repositório para impor LF, UTF-8, ausência de trailing whitespaces e indentação correta.
 
-### 5.8 Gate Pré-Tag com `act` (Validação de Release)
-O ecossistema Kollontai usa **`act`** — executor local de Forgejo/GitHub Actions baseado em Docker — para rodar a suíte completa de validação do pipeline em um ambiente **bit-for-bit idêntico** ao do Forgejo antes de cada criação oficial de tag estável (`cccp tag`). O hook `pre-push` ordinário permanece leve e livre do `act`.
+### 5.8 Gate de Pre-Push com `act` (CI Local Idêntico)
+O ecossistema Kollontai usa **`act`** — executor local de Forgejo/GitHub Actions baseado em Docker — para rodar o job `test` do pipeline em um ambiente **bit-for-bit idêntico** ao do Forgejo antes de cada `git push`.
 
 #### Ferramenta
 * **`act`** ([`nektos/act`](https://github.com/nektos/act)): lê `.forgejo/workflows/ci.yml` e executa os jobs dentro dos mesmos containers Docker usados pelo Forgejo Actions.
-* **Pré-requisito:** Docker em execução na máquina de desenvolvimento no momento da criação de release tags.
+* **Pré-requisito:** Docker em execução na máquina de desenvolvimento (sempre presente no ecossistema Kollontai).
 
-#### Comportamento no `cccp tag`
+#### Comportamento do Hook `pre-push`
 ```
-cccp tag <versão>
-  └─► Gate Pré-Tag
+git push
+  └─► pre-push hook (instalado por cccp install)
         ├─ Verifica se act + Docker estão disponíveis
+        │    └─ Não disponíveis: emite aviso, NÃO bloqueia push
         ├─ Executa: act -j test --no-pull
-        │    └─ Saída completa → .git/act-logs/<data>_<hora>_<tag>.log
+        │    └─ Saída completa → .git/act-logs/<data>_<hora>_<branch>_<sha-curto>.log
         ├─ Mostra: spinner vivo + step atual + tempo decorrido
-        └─ Exit 0: release tag criada com sucesso  |  Exit 1: criação abortada
+        └─ Exit 0: push prossegue  |  Exit 1: push abortado + resumo + path do log
 ```
 
 #### Formato dos Logs
 ```
 .git/act-logs/
-  2026-09-24_09-41_v1.5.0.log
+  2026-09-24_09-41_feat-42-rate-limit_a4b3c2d.log
+  2026-09-24_08-17_main_cd62fd5.log
 ```
 * Diretório `.git/act-logs/` é automaticamente ignorado pelo git.
 * Consulta rápida ao log mais recente: `cccp act log`
@@ -1441,7 +1443,7 @@ Para garantir segurança, integridade e atualização contínua de imagens de co
 id: lumen
 name: "Perfil de Implementação Lumen"
 extends: "https://kollontai.2lp.in/profile.md"
-target_gost: "1.4.0"
+target_gost: "1.5.0"
 maintainer: "Lumen Pink <hi@lumen.pink>"
 canonical_url: "https://gostlumen.2lp.in/profile.md"
 ---
@@ -1458,7 +1460,13 @@ canonical_url: "https://gostlumen.2lp.in/profile.md"
 * **Perfil Pai:** `https://kollontai.2lp.in/profile.md` (Kollontai)
 * **Precedência:** Qualquer regra explicitada neste documento tem precedência estrita sobre o perfil pai. Todas as regras não mencionadas aqui são herdadas automaticamente do Kollontai e da norma central GOST.
 * **Domínio Canônico:** `https://gostlumen.2lp.in`
-* **Forja Primária:** Codeberg (`https://codeberg.org/lumenpink/gost-profile-lumen`)
+* **Forja Primária Soberana:** Forgejo em `git.2lp.in` (`https://git.2lp.in/lumen/<repo>`)
+* **Remote Git SSH Padrão:** `git@git.2lp.in:lumen/<repo>.git` (Porta 22 padrão via SSH shim do host).
+* **Política de Push Mirrors Duplos (Vitrine Aberta):**
+  - Todo repositório público hospedado no `git.2lp.in` opera com **Push Mirror** automatizado imediato a cada commit (`sync_on_commit: true`) para:
+    1. **Espelho FOSS:** Codeberg (`https://codeberg.org/lumenpink/<repo>`)
+    2. **Espelho Comunitário:** GitHub (`https://github.com/lumenpink/<repo>`)
+  - O desenvolvedor realiza commits e pushes locais exclusivamente para o `origin` (`git@git.2lp.in:lumen/<repo>.git`). A replicação para os espelhos externos é responsabilidade da forja soberana.
 
 ---
 
@@ -1544,6 +1552,272 @@ O compartilhamento de links de projetos em redes sociais e mensageiros (WhatsApp
 * **Single Source of Truth para Documentação:**
   - Todo texto documental e tutorial vive estritamente em Markdown. É proibido duplicar textos manualmente em arquivos HTML estáticos.
   - O `README.md` da raiz atua como portal enxuto (até 50 linhas), delegando aprofundamentos para a vitrine oficial `*.2lp.in`.
+
+---
+
+## 7. Protocolo Soberano de Atualização e Conformidade OpenDesktop (XDG Base Directory)
+
+Todas as aplicações de usuário final (CLI e desktop) desenvolvidas sob o perfil Lumen DEVEM incorporar o protocolo de atualização soberano e gerenciamento de configurações em conformidade com as especificações da freedesktop.org (OpenDesktop).
+
+### 7.1 Resolução Canônica de Caminhos XDG
+
+1. **Arquivo de Configuração do Usuário:**
+   - Variável de ambiente: `$XDG_CONFIG_HOME`
+   - Resolução: `${XDG_CONFIG_HOME:-~/.config}/<app>/config.toml`
+   - Fallback implícito: `~/.config/<app>/config.toml`
+   - Garantia de escrita atômica com permissões seguras (`0755` ou `0700` para diretórios).
+
+2. **Arquivo de Estado de Runtime e Cache de Checagem:**
+   - Variável de ambiente: `$XDG_STATE_HOME`
+   - Resolução: `${XDG_STATE_HOME:-~/.local/state}/<app>/update_check.json`
+   - Fallback implícito: `~/.local/state/<app>/update_check.json`
+   - Isolamento total entre dados de runtime em cache e preferências editadas pelo usuário.
+
+### 7.2 Esquema Declarativo de Configuração (`config.toml`)
+
+O arquivo de configuração do aplicativo DEVE suportar a seção `[update]`:
+
+```toml
+[update]
+# Canal de distribuição ativo: "stable" ou "nightly" (padrão: "stable")
+channel = "stable"
+
+# Trava de versão (pinning): se true, ignora avisos de atualização e bloqueia update automático (padrão: false)
+pinned = false
+
+# Versão específica fixada quando pinned = true (ex: "0.5.0")
+# Se vazio e pinned = true, assume a versão atualmente instalada
+pin = ""
+
+# Verificação periódica automática de novas versões em segundo plano ao executar a CLI (padrão: true)
+auto_check = true
+
+# Intervalo mínimo em horas entre consultas remotas de rede (padrão: 24 horas)
+check_interval_hours = 24
+
+# Auto-atualização transparente em segundo plano para a próxima execução (padrão: false)
+auto_update = false
+```
+
+#### Precedência de Resolução de Canal:
+`--channel <flag>` > variável de ambiente `<APP>_CHANNEL` > `config.toml` (`update.channel`) > `"stable"`
+
+### 7.3 Esquema de Cache de Estado (`update_check.json`)
+
+Armazenado em `$XDG_STATE_HOME/<app>/update_check.json`:
+
+```json
+{
+  "last_check_timestamp": 1729411200,
+  "latest_remote_version": "0.5.1",
+  "channel": "stable"
+}
+```
+
+### 7.4 Protocolo de Checagem Periódica e Alerta em `stderr`
+
+Ao executar qualquer comando padrão da CLI ou ao abrir a aplicação desktop:
+
+1. **Short-Circuit:** Se `update.auto_check == false` ou `update.pinned == true`, a checagem é desativada sem qualquer consulta de rede.
+2. **Fast Cache Check (Aviso Imediato):**
+   - Caso `update_check.json` indique que `latest_remote_version > current_version` (conforme SemVer 2.0.0):
+   - A aplicação DEVE imprimir uma notificação sutil exclusivamente no canal **`stderr`** (preservando pipes e redirecionamentos `stdout`):
+     ```text
+     💡 [<app>] Nova versão disponível: vX.Y.Z (atual: vA.B.C).
+        Execute '<app> update' para atualizar.
+     ```
+3. **Disparo de Checagem Remota Não-Bloqueante:**
+   - Se `(agora - last_check_timestamp) >= check_interval_hours * 3600`:
+   - Uma consulta HTTP ao endpoint `https://banca.2lp.in/downloads/<app>/<channel>-latest.version` DEVE ser executada de forma desacoplada ou com timeout síncrono ultra-rápido ($\le 1$ segundo).
+   - Se bem-sucedida, atualiza `update_check.json`.
+   - Se falhar por timeout ou indisponibilidade de rede, a falha DEVE ser descartada silenciosamente, apenas postergando o `last_check_timestamp` para a próxima janela.
+
+### 7.5 Política de Travamento de Versão (Pinning)
+
+1. Quando `pinned = true` ou `pin` contém uma versão fixada:
+   - `<app> check-update` informa: `📌 Versão pinada em v<ver>. Atualizações automáticas ignoradas.`
+   - `<app> update` bloqueia a substituição a menos que a flag `--force` seja explicitamente passada.
+   - O aviso periódico no arranque permanece em silêncio.
+
+### 7.6 Contrato Universal de CLI
+
+Todo aplicativo sob o perfil Lumen DEVE fornecer os seguintes subcomandos:
+
+- `<app> update [--channel <c>] [--pin <v>] [--force] [--dry-run]`
+- `<app> check-update [--channel <c>]`
+- `<app> config show` / `<app> config get`
+- `<app> config set-channel <stable|nightly>`
+- `<app> config pin [<version>]`
+- `<app> config unpin`
+- `<app> config set-auto-check <true|false>`
+- `<app> config set-auto-update <true|false>`
+
+### 7.7 Mecanismo de Auto-Atualização Transparente (auto_update)
+
+1. **Consentimento Estrito:** Desabilitado por padrão (`auto_update = false`). Nenhuma atualização automática ocorre sem ativação explícita.
+2. **Salvaguarda de Pinning:** Caso `pinned = true` ou se houver versão fixada em `pin`, qualquer rotina de auto-update é sumariamente ignorada.
+3. **Substituição Atômica Não-Destrutiva:** O download e a substituição do binário ocorrem de forma atômica no sistema de arquivos para a próxima inicialização, mantendo a integridade total do processo em execução na RAM.
+4. **Notificação Informativa em `stderr`:**
+   ```text
+   ✨ [<app>] Atualização automática aplicada: vX.Y.Z -> vA.B.C.
+      A nova versão estará ativa na sua próxima execução.
+   ```
+
+---
+
+## 8. Arquitetura de Distribuição Soberana na Banca (`banca.2lp.in`)
+
+Para garantir soberania tecnológica, imunidade a bloqueios corporativos e eliminação total de binários pesados no Git e no Codeberg, todo artefato compilado destinado ao usuário final DEVE ser publicado e gerido exclusivamente através da **Banca**.
+
+### 8.1 Topologia de Endpoints e Convenção de Nomes
+
+A estrutura canônica de rotas servida pela vitrine pública (`https://banca.2lp.in/`) e pelo bucket Cloudflare R2 DEVE seguir a seguinte hierarquia por aplicativo (`<app>`):
+
+| Recurso / Endpoint | Descrição e Finalidade |
+| :--- | :--- |
+| `https://banca.2lp.in/downloads/` | Vitrine interativa de downloads com seletor de apps, deep linking e checksums. |
+| `https://banca.2lp.in/downloads/<app>/install.sh` | Script instalador universal autônomo (POSIX sh) executável via curl/pipe. |
+| `https://banca.2lp.in/downloads/<app>/stable-latest` | Ponteiro/alias atômico para o binário mais recente do canal estável. |
+| `https://banca.2lp.in/downloads/<app>/nightly-latest` | Ponteiro/alias atômico para o binário mais recente de desenvolvimento contínuo. |
+| `https://banca.2lp.in/downloads/<app>/stable-latest.version` | Arquivo de texto puro contendo estritamente a versão estável atual (ex: `0.5.0\n`). |
+| `https://banca.2lp.in/downloads/<app>/nightly-latest.version` | Arquivo de texto puro contendo a versão nightly atual (ex: `0.5.0-dev.216+20261020.ba9aaf0\n`). |
+| `https://banca.2lp.in/downloads/<app>/index.json` | Manifesto atômico estruturado detalhando versões ativas, hashes SHA-256 e timestamps. |
+| `https://banca.2lp.in/downloads/<app>/<app>-<version>-linux-x86_64` | Binário imutável versionado correspondente à release específica. |
+
+### 8.2 Política Estrita de Retenção e Expurgos (Cloudflare R2)
+
+A esteira de automação da Banca DEVE executar rotação atômica (`scripts/rotate-downloads.py`) a cada publicação, mantendo o armazenamento rigorosamente enxuto:
+1. **Canal Estável (`stable`):** Retenção de **estritamente as 5 versões mais recentes**.
+2. **Canal Noturno / Rolling (`nightly`):** Retenção de **estritamente as 10 versões mais recentes**.
+3. Versões que ultrapassem essa janela temporal são expurgadas automaticamente do storage e do manifesto `index.json`, garantindo consumo previsível e custo mínimo.
+
+### 8.3 Manifesto Estruturado Atômico (`index.json`)
+
+Cada aplicativo mantém seu arquivo `index.json` atualizado pela esteira com o seguinte esquema:
+
+```json
+{
+  "app": "navalha",
+  "name": "Navalha",
+  "updated_at": "2026-10-20T06:00:00Z",
+  "channels": {
+    "stable": {
+      "latest_version": "0.5.0",
+      "versions": [
+        {
+          "version": "0.5.0",
+          "filename": "navalha-0.5.0-linux-x86_64",
+          "url": "https://banca.2lp.in/downloads/navalha/navalha-0.5.0-linux-x86_64",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size_bytes": 14285700,
+          "published_at": "2026-10-19T22:00:00Z"
+        }
+      ]
+    },
+    "nightly": {
+      "latest_version": "0.5.0-dev.216+20261020.ba9aaf0",
+      "versions": []
+    }
+  }
+}
+```
+
+### 8.4 Script Instalador Universal (`install.sh`)
+
+O script instalador hospedado na Banca DEVE:
+1. Ser puramente POSIX compliant (`#!/bin/sh` sem bashismos).
+2. Detectar o destino de instalação padrão:
+   - Preferencialmente `~/.local/bin/` (sem privilégios de root).
+   - Se executado como root ou com flag global: `/usr/local/bin/`.
+3. Respeitar a variável de ambiente `CHANNEL` (`stable` por padrão; ou `CHANNEL=nightly`).
+4. Verificar integridade via SHA-256 antes de tornar o binário executável (`chmod +x`).
+5. Fornecer comando de execução rápida copiado em um clique:
+   ```bash
+   curl -sSf https://banca.2lp.in/downloads/<app>/install.sh | sh
+   ```
+
+### 8.5 Apresentação Visual e Vitrine Web (`site/downloads/`)
+
+A interface web da Banca para o público DEVE:
+1. Adotar design brutalista/cyberpunk sem frameworks pesados (Vanilla HTML5, CSS Grid/Flexbox e Vanilla JS).
+2. Fornecer um seletor rápido com dropdown contendo todas as aplicações disponíveis.
+3. Suportar deep linking direto via URL hash (ex: `https://banca.2lp.in/downloads/#navalha`), selecionando e focando o aplicativo imediatamente.
+4. Exibir botões interativos para cópia de comando `curl` com feedback visual imediato.
+5. Apresentar tabela comparativa de canais com tamanho, data e SHA-256 auditável.
+6. Exibir o rodapé canônico em duas linhas de afirmação identitária transfeminista e soberania.
+
+### 8.6 Veto Absoluto a Binários no Codeberg / Git
+
+1. Nenhuma release no Codeberg conterá binários executáveis ou pacotes tarball nos anexos de release.
+2. O repositório Git armazena exclusivamente código-fonte legível, testes e especificações.
+3. Todas as compilações de release geradas pelo Forgejo Runner despacham diretamente os binários para a Banca via Cloudflare R2.
+
+---
+
+## 9. Arquitetura de Entrega Contínua de Containers (Continuous Deployment de Servidores)
+
+Para assegurar atualização contínua, determinística e resiliente de aplicações conteinerizadas em servidores autohospedados (como os nós `obizero`, `obione` e `obitwo`), o perfil Lumen adota o protocolo de **Continuous Deployment (CD) Soberano**.
+
+### 9.1 Descomissionamento Compulsório do Watchtower
+
+1. O uso de agentes opacos de auto-atualização sem auditoria (como Watchtower) é **terminantemente vedado**.
+2. É proibido depender de polling cego ou disparos de webhooks HTTP desprovidos de verificação síncrona de integridade.
+3. Todas as diretivas e rótulos de containers legados `com.centurylinklabs.watchtower.enable` DEVEM ser removidos dos manifestos Docker Compose.
+
+### 9.2 Tipologia de Alvos e Topologia de Deploy
+
+A automação de entrega contínua reconhece duas categorias de nós de infraestrutura:
+
+#### 1. Nó Central de Execução (`obizero` / Deploy Local Imediato)
+- O executor da esteira de CI/CD (`forgejo-runner`) opera diretamente no host `obizero` com o socket do Docker montado (`docker_host: "automount"`).
+- O processo de build (`docker build`) injeta a imagem compilada diretamente no Docker daemon local do host (`lumenpink/<app>:latest` e `:<version>`).
+- O deploy local ocorre **imediatamente e sem qualquer download redundante da internet**:
+  ```bash
+  docker compose -f /home/lumen/stacks/<app>/compose.yml up -d --no-build <app>
+  ```
+- **Sondagem de Healthcheck Ativo:**
+  O job de CD DEVE aguardar de forma síncrona até 15 segundos para confirmar que o container atingiu estado operacional:
+  ```bash
+  for i in $(seq 1 15); do
+    STATUS=$(docker inspect --format='{{.State.Health.Status}}' <app> 2>/dev/null || echo "running")
+    if [ "$STATUS" = "healthy" ] || [ "$STATUS" = "running" ]; then
+      echo "✅ Container <app> operacional em produção!"
+      break
+    fi
+    sleep 1
+  done
+  ```
+- **Protocolo de Rollback em Falha:**
+  Se o container falhar ou entrar em loop de reinício:
+  1. A esteira emite os últimos registros de execução (`docker logs --tail 50 <app>`);
+  2. Executa a restauração da versão estável anterior;
+  3. Aborta o workflow com código de saída diferente de zero.
+- **Limpeza de Armazenamento:**
+  Após o reload bem-sucedido, executa-se compulsòriamente `docker image prune -f` para purgar camadas órfãs.
+
+#### 2. Nós de Borda Remotos (`obione` e `obitwo` / Deploy via Tailscale)
+- Para serviços distribuídos em nós de borda (ex.: `fuxico` e `tatupeba` no `obitwo`, ou `dns` e proxy reverso no `obione`):
+- A esteira publica a imagem oficial no Docker Hub (`lumenpink/<app>:latest`).
+- O deploy remoto é disparado de forma autenticada via SSH através da VPN segura Tailscale:
+  ```bash
+  ssh -o StrictHostKeyChecking=accept-new lumen@<no-tailscale> \
+    "docker compose -f ~/stacks/<app>/compose.yml pull && \
+     docker compose -f ~/stacks/<app>/compose.yml up -d && \
+     docker image prune -f"
+  ```
+- O workflow confirma a saída com sucesso do comando remoto antes de encerrar o job.
+
+### 9.3 Contrato Obrigatório de Healthchecks
+
+Todo container de servidor publicado no ecossistema Lumen DEVE conter probes de integridade declarados no `Dockerfile` ou no respectivo `compose.yml`:
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl -f http://localhost:<port>/healthz || exit 1"]
+  interval: 30s
+  timeout: 3s
+  retries: 3
+  start_period: 10s
+```
 
 ---
 

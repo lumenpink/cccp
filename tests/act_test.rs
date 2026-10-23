@@ -199,6 +199,8 @@ fn test_act_ci_gate_success_execution_and_logging() {
 #[test]
 fn test_act_ci_gate_failure_rejection() {
     let _guard = ENV_LOCK.lock().unwrap();
+    std::env::remove_var("CCCP_ACT_SKIP");
+    std::env::remove_var("ACT_SKIP");
     let temp = tempdir().expect("Failed to create tempdir");
     let root = temp.path();
     let theme = Theme::with_color(false);
