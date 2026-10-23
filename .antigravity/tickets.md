@@ -1,22 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-22 22:07:05 UTC
+> Synced at: 2026-10-23 02:10:28 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#55] ci(banca): migrar esteira hermetica e publicacao multiarch na banca
+## [#56] fix(ci): desvincular musl de teste e elevar stack
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/55
+- **Link**: https://git.2lp.in/lumen/cccp/issues/56
 
 ### Description
-## Description
-Migrar a esteira de CI/CD do repositório cccp para adotar a imagem atômica hermética lumenpink/gost-ci-cross:latest, compilando os binários multiarquitetura (x86_64-unknown-linux-musl, aarch64-unknown-linux-musl, x86_64-pc-windows-gnu) e despachando os pacotes e instalador soberano para a Banca (banca.2lp.in).
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Pipeline atômica e hermética em .forgejo/workflows/ci.yml baseada em lumenpink/gost-ci-cross:latest.
-- [ ] Eliminação de etapas manuais de instalação (apt-get, cargo install, etc.).
-- [ ] Binários estáticos gerados com cargo zigbuild para Linux x86_64 (musl), Linux aarch64 (musl) e Windows x86_64 (gnu).
-- [ ] Despacho dos tarballs e metadados com hash SHA-256 para o bucket Cloudflare R2 e rotação do catálogo na Banca.
-- [ ] Validação dos quality gates no Job 1 antes de qualquer publicação (needs: [test]).
+Corrigir SIGSEGV em testes unitarios no container de CI ajustando RUST_MIN_STACK e removendo default musl no cargo config
 
 ---
 ## [#54] refactor(core): remove hardcoded codeberg references in favor of git.2lp.in forge
