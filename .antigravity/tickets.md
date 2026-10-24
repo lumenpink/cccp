@@ -1,20 +1,29 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-23 02:10:28 UTC
+> Synced at: 2026-10-24 22:41:05 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#56] fix(ci): desvincular musl de teste e elevar stack
+## [#59] fix(ci): usar imagem soberana gambi.2lp.in para cross
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/56
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/59
 
 ### Description
-Corrigir SIGSEGV em testes unitarios no container de CI ajustando RUST_MIN_STACK e removendo default musl no cargo config
+Substituir docker.io por gambi.2lp.in no workflow de CI.
+
+---
+## [#57] refactor(update): descontinuar auto-update interno em favor da jornaleira
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/57
+
+### Description
+Remover rotina interna de verificacao periodica de auto-update (check_auto_update) no CCCP, transferindo a gestao de ciclo de vida e atualizacoes dos binarios para o gestor central Jornaleira.
 
 ---
 ## [#54] refactor(core): remove hardcoded codeberg references in favor of git.2lp.in forge
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/54
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/54
 
 ### Description
 ## Description
@@ -40,7 +49,7 @@ O projeto migrou seu forge primário do Codeberg para o endereço local `git.2lp
 ## [#53] fix(core): ensure profile assemble updates gost and gostver across repositories
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/53
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/53
 
 ### Description
 ## Description
@@ -67,7 +76,7 @@ Durante a execução do comando de montagem (`profile assemble`), os repositóri
 ## [#52] fix(cli): parse repo specifications and options in tickets divan
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/52
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/52
 
 ### Description
 ## Description
@@ -94,7 +103,7 @@ Atualmente, a invocação de `cccp tickets divan` não está aceitando opções 
 ## [#1] feat(ticket): Radar multi-forge para sincronização de tickets e PRs (GitHub, Codeberg, Forgejo)
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://git.2lp.in/lumen/cccp/issues/1
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/1
 
 ### Description
 ### Proposta e Contexto
