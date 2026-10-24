@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### CI Pipeline Permissions Sanitization
+- **Forgejo Actions Permissions Directive Removal (`.forgejo/workflows/ci.yml`)**: Remove diretiva incompatível `permissions: contents: write` do fluxo de CI no Forgejo, eliminando advertências desnecessárias do runner e auditando a ausência contínua dessa diretiva via testes de conformidade. (closes #58)
+
+
 ### Canonical Version Injection and GOSTVER Display Sanitization
 - **Canonical Version Injection from `VERSION` & Clean GOSTVER Parsing (`cccp version` / `cccp -V` / `cccp update`)**: Injeta a versão canônica e autoritativa do repositório (extraída de `VERSION` via `build.rs` em tempo de compilação com fallback para `CARGO_PKG_VERSION`) no binário `cccp`, garantindo que `cccp version`, `cccp -V`, `cccp --version` e `get_current_version()` reportem a versão real reconciliada (ex.: `3.2.0-dev.220+...`) em vez da tag estática desatualizada no `Cargo.toml`. Adicionalmente, higieniza a leitura do arquivo `GOSTVER` no comando `cccp version` para extrair estritamente o valor de `GOST_VERSION="..."` (ex.: `1.5.0`), eliminando a exibição incorreta do arquivo multilinha bruto. (closes #158)
 
