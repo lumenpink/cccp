@@ -104,3 +104,29 @@ fn test_gost_audit_strict_mode_rejects_warnings() {
     let report_strict = run_gost_audit(temp.path(), true, &theme);
     assert!(!report_strict.is_success);
 }
+
+#[test]
+fn test_forgejo_workflows_no_permissions() {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let workflows_dir = manifest_dir.join(".forgejo/workflows");
+    if !workflows_dir.exists() {
+        return;
+    }
+
+    for entry in fs::read_dir(&workflows_dir).unwrap().flatten() {
+        let path = entry.path();
+        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        if ext == "yml" || ext == "yaml" {
+            let content = fs::read_to_string(&path).unwrap();
+            let has_permissions = content.lines().any(|line| {
+                let trimmed = line.trim();
+                trimmed == "permissions:" || trimmed.starts_with("permissions:")
+            });
+            assert!(
+                !has_permissions,
+                "Workflow {:?} contains unsupported 'permissions:' directive",
+                path.file_name().unwrap()
+            );
+        }
+    }
+}
