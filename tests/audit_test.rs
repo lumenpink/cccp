@@ -105,6 +105,13 @@ fn test_gost_audit_strict_mode_rejects_warnings() {
     assert!(!report_strict.is_success);
 }
 
+fn check_workflow_has_permissions(content: &str) -> bool {
+    content.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed == "permissions:" || trimmed.starts_with("permissions:")
+    })
+}
+
 #[test]
 fn test_forgejo_workflows_no_permissions() {
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -118,10 +125,7 @@ fn test_forgejo_workflows_no_permissions() {
         let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         if ext == "yml" || ext == "yaml" {
             let content = fs::read_to_string(&path).unwrap();
-            let has_permissions = content.lines().any(|line| {
-                let trimmed = line.trim();
-                trimmed == "permissions:" || trimmed.starts_with("permissions:")
-            });
+            let has_permissions = check_workflow_has_permissions(&content);
             assert!(
                 !has_permissions,
                 "Workflow {:?} contains unsupported 'permissions:' directive",
@@ -129,4 +133,47 @@ fn test_forgejo_workflows_no_permissions() {
             );
         }
     }
+}
+
+#[test]
+fn test_forgejo_workflows_mutation_permissions_detected() {
+    let mutant_top = r#"
+name: CI
+on: [push]
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+"#;
+    assert!(
+        check_workflow_has_permissions(mutant_top),
+        "Mutant with top-level permissions must be detected"
+    );
+
+    let mutant_job = r#"
+name: CI
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+"#;
+    assert!(
+        check_workflow_has_permissions(mutant_job),
+        "Mutant with job-level permissions must be detected"
+    );
+
+    let clean = r#"
+name: CI
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+"#;
+    assert!(
+        !check_workflow_has_permissions(clean),
+        "Clean workflow without permissions must pass"
+    );
 }
