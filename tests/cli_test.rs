@@ -501,8 +501,9 @@ fn test_divan_command_options_and_shortcuts() {
         _ => panic!("Expected Commands::Ticket"),
     }
 
-    // Top-level divan is rejected
-    assert!(Cli::try_parse_from(["cccp", "divan"]).is_err());
+    // Top-level divan is accepted directly as Commands::Divan
+    let cli = Cli::try_parse_from(["cccp", "divan"]).expect("cccp divan should parse");
+    assert!(matches!(cli.command, Some(Commands::Divan(_))));
 }
 
 #[test]
