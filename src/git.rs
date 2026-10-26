@@ -265,7 +265,9 @@ fn is_valid_semver_syntax(ver: &str) -> bool {
         return false;
     }
 
-    numbers.iter().all(|n| n.chars().all(|c| c.is_ascii_digit()))
+    numbers
+        .iter()
+        .all(|n| n.chars().all(|c| c.is_ascii_digit()))
 }
 
 /// Compare two SemVer strings (using semver crate or fallback)
