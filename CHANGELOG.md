@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Tickets Divan CLI Parsing & Command Aliases
+- **Parsing de Parâmetros e Aliases em `cccp ticket divan` (`cccp tickets divan` / `cccp divan`)**: Suporta o alias no plural `tickets` no subcomando de tickets e adiciona o comando direto `cccp divan` no nível raiz. Habilita o parsing de repositórios qualificados (`owner/repo`), repositórios locais e opções intercaladas no Clap sem falhas na CLI. (closes #52)
+
+
 ### CI Pipeline Permissions Sanitization
 - **Forgejo Actions Permissions Directive Removal (`.forgejo/workflows/ci.yml`)**: Remove diretiva incompatível `permissions: contents: write` do fluxo de CI no Forgejo, eliminando advertências desnecessárias do runner e auditando a ausência contínua dessa diretiva via testes de conformidade. (closes #58)
 
