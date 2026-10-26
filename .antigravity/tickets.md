@@ -1,14 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-24 22:41:05 UTC
+> Synced at: 2026-10-26 15:06:38 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#59] fix(ci): usar imagem soberana gambi.2lp.in para cross
+## [#62] fix(deps): habilitar vendored-openssl no git2 para build musl
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/59
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/62
 
 ### Description
-Substituir docker.io por gambi.2lp.in no workflow de CI.
+Habilitar o feature vendored-openssl na dependencia git2 para permitir a compilacao estatica para x86_64-unknown-linux-musl na esteira de release.
 
 ---
 ## [#57] refactor(update): descontinuar auto-update interno em favor da jornaleira
@@ -64,33 +64,6 @@ Durante a execução do comando de montagem (`profile assemble`), os repositóri
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
 - [ ] Fase 2 - Branch: Branch `fix/<id>-assemble-gost-update` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#52] fix(cli): parse repo specifications and options in tickets divan
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/52
-
-### Description
-## Description
-Atualmente, a invocação de `cccp tickets divan` não está aceitando opções adicionais nem o argumento posicional de repositório quando especificado como palavra única (`repo`) ou com namespace (`owner/repo`). É necessário ajustar a estrutura de argumentos do subcomando `tickets divan` na CLI e cobrir o parsing de argumentos com testes automatizados para evitar regressões nos comandos.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] `cccp tickets divan` aceita opções e flags sem erros de parsing do Clap.
-- [ ] O argumento de repositório aceita sintaxe simples (`meurepo`) e sintaxe qualificada (`owner/meurepo`).
-- [ ] Testes automatizados cobrem o parsing da CLI para o comando `tickets divan` e comandos correlatos.
-- [ ] Mensagens de erro informativas caso o repositório ou parâmetros sejam inválidos.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `fix/<id>-tickets-divan-args` criada a partir de develop/main
 - [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
 - [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
 - [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
