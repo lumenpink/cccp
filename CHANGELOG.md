@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Libgit2 Engine Integration with SSL Support
+- **Migração do Motor Git para Libgit2 com SSL Nativo (`src/git.rs`)**: Substitui o motor de leitura e inspeção do repositório baseado em Gitoxide (`gix`) pela biblioteca canônica `libgit2` (crate `git2`) com suporte completo a SSL/HTTPS e OpenSSL, fornecendo leitura ultrarrápida de tags SemVer, histórico de commits, detecção de branch e estado dirty. (closes #60)
+
+
 ### Tickets Divan CLI Parsing & Command Aliases
 - **Parsing de Parâmetros e Aliases em `cccp ticket divan` (`cccp tickets divan` / `cccp divan`)**: Suporta o alias no plural `tickets` no subcomando de tickets e adiciona o comando direto `cccp divan` no nível raiz. Habilita o parsing de repositórios qualificados (`owner/repo`), repositórios locais e opções intercaladas no Clap sem falhas na CLI. (closes #52)
 
