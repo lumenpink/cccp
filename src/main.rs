@@ -1841,6 +1841,9 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Divan(ref divan_args)) => {
+            run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme)
+        }
         None => {
             let mut cmd = Cli::command();
             let _ = cmd.print_help();

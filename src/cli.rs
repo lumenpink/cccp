@@ -81,7 +81,12 @@ pub enum Commands {
     Status(StatusArgs),
 
     /// Query or manage forge issues and pull requests
+    #[command(alias = "tickets")]
     Ticket(TicketArgs),
+
+    /// Interactive AI ticket triage and consultation bot
+    #[command(alias = "diva")]
+    Divan(DivanArgs),
 
     /// Synchronize forge tickets, AGENTS.md directives, and repository catalog
     Sync(SyncArgs),
