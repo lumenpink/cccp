@@ -655,7 +655,7 @@ fn test_batch_assemble_command_options() {
         .expect("should parse repo assemble options");
     match cli_cat_assemble.command {
         Some(Commands::Repo(c)) => match c.action {
-            Some(RepoSubcommands::Assemble { dry_run }) => {
+            Some(RepoSubcommands::Assemble { dry_run, .. }) => {
                 assert!(dry_run);
             }
             _ => panic!("Expected RepoSubcommands::Assemble"),

@@ -127,7 +127,10 @@ fn test_assemble_dry_run_leaves_fs_untouched() {
 
     let res = assemble_repo(repo_dir.path(), true, false, &theme);
     assert!(res.is_ok());
-    assert!(!repo_dir.path().join(".gost/GOST.md").exists(), "dry-run must not create files");
+    assert!(
+        !repo_dir.path().join(".gost/GOST.md").exists(),
+        "dry-run must not create files"
+    );
 }
 
 #[test]
@@ -160,7 +163,10 @@ fn test_assemble_idempotent_no_duplicate_commit() {
         .current_dir(repo_dir.path())
         .output()
         .unwrap();
-    let count1: usize = String::from_utf8_lossy(&count1_out.stdout).trim().parse().unwrap();
+    let count1: usize = String::from_utf8_lossy(&count1_out.stdout)
+        .trim()
+        .parse()
+        .unwrap();
 
     // Second assemble with auto_commit immediately after (no changes to GOST.md)
     let res2 = assemble_repo(repo_dir.path(), false, true, &theme);
@@ -171,7 +177,13 @@ fn test_assemble_idempotent_no_duplicate_commit() {
         .current_dir(repo_dir.path())
         .output()
         .unwrap();
-    let count2: usize = String::from_utf8_lossy(&count2_out.stdout).trim().parse().unwrap();
+    let count2: usize = String::from_utf8_lossy(&count2_out.stdout)
+        .trim()
+        .parse()
+        .unwrap();
 
-    assert_eq!(count1, count2, "Idempotent assemble must not create duplicate commits");
+    assert_eq!(
+        count1, count2,
+        "Idempotent assemble must not create duplicate commits"
+    );
 }
