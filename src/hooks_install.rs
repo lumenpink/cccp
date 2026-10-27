@@ -68,8 +68,8 @@ pub fn is_cccp_hook(path: &Path) -> bool {
 
 /// Extracts the executable hook body after the metadata header block
 pub fn extract_canonical_hook_body(content: &str) -> String {
-    if let Some((_, b)) = content
-        .split_once("# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n")
+    if let Some((_, b)) =
+        content.split_once("# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n")
     {
         b.to_string()
     } else {
