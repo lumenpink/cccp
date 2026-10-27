@@ -1578,6 +1578,7 @@ pub fn batch_push_clean_repos(
         } else {
             let output = std::process::Command::new("git")
                 .arg("push")
+                .env("CCCP_MAESTRO_ACTIVE", "1")
                 .current_dir(path)
                 .output();
 

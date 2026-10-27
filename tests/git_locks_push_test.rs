@@ -6,7 +6,10 @@ use cccp::hook_runner::{run_pre_commit, run_pre_push};
 use cccp::push::{check_and_reconcile_parity, ParityAction};
 use std::fs;
 use std::process::Command;
+use std::sync::Mutex;
 use tempfile::tempdir;
+
+static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
 fn scaffold_test_git_repo() -> tempfile::TempDir {
     let dir = tempdir().expect("tempdir");
@@ -50,6 +53,7 @@ fn scaffold_test_git_repo() -> tempfile::TempDir {
 
 #[test]
 fn test_manual_commit_blocked_without_maestro() {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let repo_dir = scaffold_test_git_repo();
     let repo = GitRepo::open(Some(repo_dir.path())).expect("open repo");
     let theme = Theme::with_color(false);
@@ -73,6 +77,7 @@ fn test_manual_commit_blocked_without_maestro() {
 
 #[test]
 fn test_commit_allowed_with_maestro_or_bypass() {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let repo_dir = scaffold_test_git_repo();
     let repo = GitRepo::open(Some(repo_dir.path())).expect("open repo");
     let theme = Theme::with_color(false);
@@ -101,6 +106,7 @@ fn test_commit_allowed_with_maestro_or_bypass() {
 
 #[test]
 fn test_manual_push_blocked_without_maestro() {
+    let _guard = TEST_MUTEX.lock().unwrap();
     let repo_dir = scaffold_test_git_repo();
     let repo = GitRepo::open(Some(repo_dir.path())).expect("open repo");
     let theme = Theme::with_color(false);
@@ -334,8 +340,9 @@ fn test_push_blocked_on_divergent_history() {
     let res = check_and_reconcile_parity(local_dir.path(), &theme);
     assert!(res.is_err(), "Divergent history must return error / block push");
     let err_msg = res.unwrap_err();
+    let lower_msg = err_msg.to_lowercase();
     assert!(
-        err_msg.contains("divergência") || err_msg.contains("divergent") || err_msg.contains("behind"),
+        lower_msg.contains("divergência") || lower_msg.contains("divergent") || lower_msg.contains("behind"),
         "Error message should explain divergent branches: {}",
         err_msg
     );

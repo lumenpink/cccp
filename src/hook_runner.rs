@@ -80,6 +80,25 @@ pub fn run_pre_push(
     theme: &Theme,
     verbose: u8,
 ) -> Result<i32, String> {
+    let is_authorized = std::env::var("CCCP_MAESTRO_ACTIVE").as_deref() == Ok("1")
+        || std::env::var("CCCP_BYPASS_LOCKS").as_deref() == Ok("1")
+        || std::env::var("CI").is_ok()
+        || std::env::var("GITHUB_ACTIONS").is_ok()
+        || std::env::var("FORGEJO_ACTIONS").is_ok();
+
+    if !is_authorized {
+        eprintln!("\n{}", theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★"));
+        eprintln!(
+            "{}",
+            theme.yellow(
+                "Execuções manuais diretas de 'git push' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."
+            )
+        );
+        eprintln!("Utilize o comando do Maestro CCCP:\n");
+        eprintln!("  • Envio Seguro : {}\n", theme.cyan("cccp push"));
+        return Ok(1);
+    }
+
     let lines: Vec<String> = if let Some(content) = stdin_override {
         content.lines().map(|s| s.to_string()).collect()
     } else if !io::stdin().is_terminal() {
@@ -352,6 +371,29 @@ pub fn run_post_merge(
 
 /// Handler for the `pre-commit` git hook
 pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32, String> {
+    let is_authorized = std::env::var("CCCP_MAESTRO_ACTIVE").as_deref() == Ok("1")
+        || std::env::var("CCCP_BYPASS_LOCKS").as_deref() == Ok("1")
+        || std::env::var("CI").is_ok()
+        || std::env::var("GITHUB_ACTIONS").is_ok()
+        || std::env::var("FORGEJO_ACTIONS").is_ok();
+
+    if !is_authorized {
+        eprintln!("\n{}", theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★"));
+        eprintln!(
+            "{}",
+            theme.yellow(
+                "Execuções manuais diretas de 'git commit' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."
+            )
+        );
+        eprintln!("Toda evolução de código deve ser coordenada pelo Maestro CCCP:\n");
+        eprintln!("  • Fases 3 a 8 : {}", theme.cyan("cccp commit \"<resumo>\""));
+        eprintln!(
+            "  • Fase 9      : {}\n",
+            theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")
+        );
+        return Ok(1);
+    }
+
     if std::env::var("HOOK_ACTIVE").as_deref() == Ok("1") {
         return Ok(0);
     }
@@ -520,9 +562,12 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
         "chore(version): sincronizar VERSION para {}",
         target_version
     );
-    let commit_status = Command::new("git")
+    let mut commit_cmd = Command::new("git");
+    commit_cmd
         .args(["commit", "-m", &commit_msg])
-        .current_dir(&repo.root_dir)
+        .env("CCCP_MAESTRO_ACTIVE", "1")
+        .current_dir(&repo.root_dir);
+    let commit_status = commit_cmd
         .status()
         .map_err(|e| format!("Failed to commit reconciled VERSION: {}", e))?;
 

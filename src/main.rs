@@ -955,22 +955,7 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             } else {
-                let mut cmd = std::process::Command::new("git");
-                cmd.arg("push");
-                if push.dry_run {
-                    cmd.arg("--dry-run");
-                }
-                if !push.git_args.is_empty() {
-                    cmd.args(&push.git_args);
-                }
-                match cmd.status() {
-                    Ok(status) if status.success() => ExitCode::SUCCESS,
-                    Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
-                    Err(e) => {
-                        eprintln!("Error executing git push: {}", e);
-                        ExitCode::FAILURE
-                    }
-                }
+                cccp::push::handle_push(&push, args.dir.as_deref(), &theme)
             }
         }
         Some(Commands::Config(cfg)) => {

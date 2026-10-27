@@ -292,9 +292,12 @@ pub fn execute_release_tag(
         format!("chore(release): v{clean_version}")
     };
 
-    let commit_status = Command::new("git")
+    let mut commit_cmd = Command::new("git");
+    commit_cmd
         .args(["commit", "-m", &commit_msg])
-        .current_dir(repo_root)
+        .env("CCCP_MAESTRO_ACTIVE", "1")
+        .current_dir(repo_root);
+    let commit_status = commit_cmd
         .status()
         .map_err(|e| format!("git commit failed: {e}"))?;
     if !commit_status.success() {

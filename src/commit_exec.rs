@@ -74,6 +74,7 @@ pub fn execute_commit(message: &str, opts: &CommitOptions, theme: &Theme) -> Res
 
     let mut cmd = Command::new("git");
     cmd.arg("commit");
+    cmd.env("CCCP_MAESTRO_ACTIVE", "1");
     cmd.arg("-F");
     cmd.arg(&temp_path);
 
