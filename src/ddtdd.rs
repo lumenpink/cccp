@@ -4,7 +4,7 @@
 //! and CLI handlers for `cccp start`, `cccp commit`, and `cccp close`.
 
 use crate::cli::{CloseArgs, CommitArgs, StartArgs};
-use crate::commit_exec::{CommitOptions, execute_commit};
+use crate::commit_exec::{execute_commit, CommitOptions};
 use crate::cultural::Theme;
 use std::fmt;
 use std::fs;
@@ -48,8 +48,12 @@ impl DdtddPhase {
     pub fn description(&self) -> &'static str {
         match self {
             DdtddPhase::Ph3 => "Fase 3: Doc/Spec (Contrato preliminar em docs/ - Zero produção)",
-            DdtddPhase::Ph4 => "Fase 4: Red Test (Adicionar teste automatizado comprovadamente falho)",
-            DdtddPhase::Ph5 => "Fase 5: Green Implement (Implementação funcional fazendo testes passarem)",
+            DdtddPhase::Ph4 => {
+                "Fase 4: Red Test (Adicionar teste automatizado comprovadamente falho)"
+            }
+            DdtddPhase::Ph5 => {
+                "Fase 5: Green Implement (Implementação funcional fazendo testes passarem)"
+            }
             DdtddPhase::Ph6 => "Fase 6: Refactor (Limpeza de código, idiomático, zero warnings)",
             DdtddPhase::Ph7 => "Fase 7: Mutation Test (Eliminação de mutantes no diff)",
             DdtddPhase::Ph8 => "Fase 8: Quality Gate (Formatador e linters rápidos -D warnings)",
@@ -384,11 +388,7 @@ pub fn handle_start(args: &StartArgs, dir: Option<&Path>, theme: &Theme) -> Exit
 }
 
 /// Dispatches `cccp commit [summary]` in DD-TDD automated flow
-pub fn handle_commit(
-    cz: &CommitArgs,
-    dir: Option<&Path>,
-    theme: &Theme,
-) -> Option<ExitCode> {
+pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Option<ExitCode> {
     let summary = cz.summary.as_ref().or(cz.message.as_ref())?;
     let branch = match get_current_branch(dir) {
         Ok(b) => b,
@@ -429,7 +429,11 @@ pub fn handle_commit(
             "ph8" => DdtddPhase::Ph8,
             "ph9" => DdtddPhase::Ph9,
             other => {
-                eprintln!("{}: Fase inválida '{}'. Use ph3..ph9.", theme.red_bold("Erro"), other);
+                eprintln!(
+                    "{}: Fase inválida '{}'. Use ph3..ph9.",
+                    theme.red_bold("Erro"),
+                    other
+                );
                 return Some(ExitCode::FAILURE);
             }
         }
@@ -441,8 +445,15 @@ pub fn handle_commit(
         "{} [GOSPLAN DD-TDD] Dedução Automática de Ciclo:",
         theme.gold_bold("★")
     );
-    println!("  Ticket Identificado: #{}", theme.cyan(&ticket_id.to_string()));
-    println!("  Fase Reconhecida   : {} ({})", theme.green(&phase.to_string()), phase.description());
+    println!(
+        "  Ticket Identificado: #{}",
+        theme.cyan(&ticket_id.to_string())
+    );
+    println!(
+        "  Fase Reconhecida   : {} ({})",
+        theme.green(&phase.to_string()),
+        phase.description()
+    );
 
     // Validação de Phase Guards no stage
     let staged_files = match get_staged_files(dir) {
@@ -459,13 +470,8 @@ pub fn handle_commit(
     }
 
     let final_kind = cz.commit_type.as_deref().unwrap_or(&kind);
-    let formatted_msg = format_phase_commit(
-        final_kind,
-        cz.scope.as_deref(),
-        summary,
-        ticket_id,
-        phase,
-    );
+    let formatted_msg =
+        format_phase_commit(final_kind, cz.scope.as_deref(), summary, ticket_id, phase);
 
     println!("  Mensagem Canônica  : {}", theme.yellow(&formatted_msg));
 
@@ -480,7 +486,9 @@ pub fn handle_commit(
     match execute_commit(&formatted_msg, &commit_opts, theme) {
         Ok(0) => {
             let next = match phase {
-                DdtddPhase::Ph3 => "Fase 4 (Red Test) — adicione testes falhos antes da implementação",
+                DdtddPhase::Ph3 => {
+                    "Fase 4 (Red Test) — adicione testes falhos antes da implementação"
+                }
                 DdtddPhase::Ph4 => "Fase 5 (Green Implement) — faça os testes passarem",
                 DdtddPhase::Ph5 => "Fase 6 (Refactor) ou Fase 7 (Mutation Test)",
                 DdtddPhase::Ph6 => "Fase 7 (Mutation Test) com 'cccp mutate'",

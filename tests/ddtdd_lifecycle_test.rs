@@ -3,8 +3,8 @@
 //! phase guards, and resolution report validations.
 
 use cccp::ddtdd::{
-    DdtddPhase, format_close_commit, format_phase_commit, infer_next_phase,
-    infer_ticket_from_branch, validate_phase_guards, validate_resolution_report,
+    format_close_commit, format_phase_commit, infer_next_phase, infer_ticket_from_branch,
+    validate_phase_guards, validate_resolution_report, DdtddPhase,
 };
 
 #[test]
@@ -13,7 +13,11 @@ fn test_infer_ticket_from_branch() {
     let res1 = infer_ticket_from_branch(b1);
     assert_eq!(
         res1,
-        Some((72, "feat".to_string(), "start-commit-close-ddtdd".to_string()))
+        Some((
+            72,
+            "feat".to_string(),
+            "start-commit-close-ddtdd".to_string()
+        ))
     );
 
     let b2 = "fix/133-fechar-tickets-merge-trava-closes";
@@ -90,14 +94,31 @@ fn test_infer_next_phase_state_machine() {
 
 #[test]
 fn test_format_phase_commit_message() {
-    let msg1 = format_phase_commit("feat", Some("ddtdd"), "subcomandos start e close", 72, DdtddPhase::Ph5);
-    assert_eq!(msg1, "feat(ddtdd): subcomandos start e close (ref #72 - ph5)");
+    let msg1 = format_phase_commit(
+        "feat",
+        Some("ddtdd"),
+        "subcomandos start e close",
+        72,
+        DdtddPhase::Ph5,
+    );
+    assert_eq!(
+        msg1,
+        "feat(ddtdd): subcomandos start e close (ref #72 - ph5)"
+    );
 
     let msg2 = format_phase_commit("docs", None, "especificar contratos", 72, DdtddPhase::Ph3);
     assert_eq!(msg2, "docs: especificar contratos (ref #72 - ph3)");
 
-    let msg3 = format_close_commit("feat", Some("ddtdd"), "concluir ciclo de desenvolvimento", 72);
-    assert_eq!(msg3, "feat(ddtdd): concluir ciclo de desenvolvimento (closes #72 - ph9)");
+    let msg3 = format_close_commit(
+        "feat",
+        Some("ddtdd"),
+        "concluir ciclo de desenvolvimento",
+        72,
+    );
+    assert_eq!(
+        msg3,
+        "feat(ddtdd): concluir ciclo de desenvolvimento (closes #72 - ph9)"
+    );
 }
 
 #[test]
@@ -192,4 +213,3 @@ fn test_cli_parsing_start_and_close() {
         _ => panic!("Expected Commands::Commit"),
     }
 }
-

@@ -542,18 +542,44 @@ fn main() -> ExitCode {
                     );
                     if let Some(ref br) = repo.branch {
                         if let Some((tid, kind, slug)) = cccp::ddtdd::infer_ticket_from_branch(br) {
-                            let msgs: Vec<&str> = repo.commits_since_tag.iter().map(|c| c.summary.as_str()).collect();
+                            let msgs: Vec<&str> = repo
+                                .commits_since_tag
+                                .iter()
+                                .map(|c| c.summary.as_str())
+                                .collect();
                             let phase = cccp::ddtdd::infer_next_phase(&msgs);
-                            println!("\n  {} {}", theme.gold_bold("★ DD-TDD Phase Tracker:"), theme.cyan(&format!("#{} ({}/{})", tid, kind, slug)));
-                            println!("    • Fase Atual : {} ({})", theme.green(&phase.to_string()), phase.description());
+                            println!(
+                                "\n  {} {}",
+                                theme.gold_bold("★ DD-TDD Phase Tracker:"),
+                                theme.cyan(&format!("#{} ({}/{})", tid, kind, slug))
+                            );
+                            println!(
+                                "    • Fase Atual : {} ({})",
+                                theme.green(&phase.to_string()),
+                                phase.description()
+                            );
                             let next_cmd = match phase {
-                                cccp::ddtdd::DdtddPhase::Ph3 => "cccp commit \"especificar doc\" (ph3)",
-                                cccp::ddtdd::DdtddPhase::Ph4 => "cccp commit \"adicionar teste vermelho\" (ph4)",
-                                cccp::ddtdd::DdtddPhase::Ph5 => "cccp commit \"implementar funcionalidade\" (ph5)",
-                                cccp::ddtdd::DdtddPhase::Ph6 => "cccp commit \"refatorar código\" (ph6)",
-                                cccp::ddtdd::DdtddPhase::Ph7 => "cccp commit \"eliminar mutantes\" (ph7)",
-                                cccp::ddtdd::DdtddPhase::Ph8 => "cccp commit \"portão de qualidade\" (ph8)",
-                                cccp::ddtdd::DdtddPhase::Ph9 => "cccp close \"resumo do fechamento\"",
+                                cccp::ddtdd::DdtddPhase::Ph3 => {
+                                    "cccp commit \"especificar doc\" (ph3)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph4 => {
+                                    "cccp commit \"adicionar teste vermelho\" (ph4)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph5 => {
+                                    "cccp commit \"implementar funcionalidade\" (ph5)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph6 => {
+                                    "cccp commit \"refatorar código\" (ph6)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph7 => {
+                                    "cccp commit \"eliminar mutantes\" (ph7)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph8 => {
+                                    "cccp commit \"portão de qualidade\" (ph8)"
+                                }
+                                cccp::ddtdd::DdtddPhase::Ph9 => {
+                                    "cccp close \"resumo do fechamento\""
+                                }
                             };
                             println!("    • Próximo    : {}", theme.yellow(next_cmd));
                         }
