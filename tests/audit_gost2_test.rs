@@ -195,7 +195,11 @@ fn test_audit_gost26_metadata_and_anti_jargon() {
       "tags": ["app", "cli", "util"],
       "icon": "icon"
     }"##;
-    fs::write(repo.path().join(".gost/metadata.json"), missing_field_metadata).unwrap();
+    fs::write(
+        repo.path().join(".gost/metadata.json"),
+        missing_field_metadata,
+    )
+    .unwrap();
     let report_missing = run_gost_audit(repo.path(), true, &theme);
     let check_missing = report_missing
         .checks
@@ -205,7 +209,11 @@ fn test_audit_gost26_metadata_and_anti_jargon() {
     assert_eq!(check_missing.status, CheckStatus::Fail);
 
     // 4. Mutation test: JSON sintaticamente malformado -> FAIL
-    fs::write(repo.path().join(".gost/metadata.json"), "{ invalid json ,,, }").unwrap();
+    fs::write(
+        repo.path().join(".gost/metadata.json"),
+        "{ invalid json ,,, }",
+    )
+    .unwrap();
     let report_syntax = run_gost_audit(repo.path(), true, &theme);
     let check_syntax = report_syntax
         .checks
