@@ -375,3 +375,93 @@ fn test_push_blocked_on_divergent_history() {
         err_msg
     );
 }
+
+#[test]
+fn test_push_parity_already_up_to_date() {
+    let local_dir = scaffold_test_git_repo();
+    let remote_dir = tempdir().expect("remote dir");
+
+    Command::new("git")
+        .args(["init", "--bare"])
+        .current_dir(remote_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    let theme = Theme::with_color(false);
+    let action = check_and_reconcile_parity(local_dir.path(), &theme).expect("parity check");
+    assert_eq!(action, ParityAction::AlreadyUpToDate);
+}
+
+#[test]
+fn test_push_parity_no_remote_configured() {
+    let local_dir = scaffold_test_git_repo();
+    let theme = Theme::with_color(false);
+
+    let action = check_and_reconcile_parity(local_dir.path(), &theme).expect("parity check");
+    assert_eq!(action, ParityAction::NoRemote);
+}
+
+#[test]
+fn test_ci_environment_bypasses_locks() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let repo_dir = scaffold_test_git_repo();
+    let repo = GitRepo::open(Some(repo_dir.path())).expect("open repo");
+    let theme = Theme::with_color(false);
+    let config = cccp::config::Config::default();
+
+    std::env::remove_var("CCCP_MAESTRO_ACTIVE");
+    std::env::remove_var("CCCP_BYPASS_LOCKS");
+
+    // GITHUB_ACTIONS=true
+    std::env::set_var("GITHUB_ACTIONS", "true");
+    let commit_res = run_pre_commit(&repo, &theme, 0);
+    assert_eq!(commit_res.unwrap(), 0);
+
+    let push_res = run_pre_push(
+        Some("origin"),
+        Some("git@forge.su:repo.git"),
+        Some("refs/heads/main 111111 refs/heads/main 000000\n"),
+        &repo,
+        &config,
+        &theme,
+        0,
+    );
+    assert_eq!(push_res.unwrap(), 0);
+
+    std::env::remove_var("GITHUB_ACTIONS");
+
+    // FORGEJO_ACTIONS=true
+    std::env::set_var("FORGEJO_ACTIONS", "true");
+    let commit_res2 = run_pre_commit(&repo, &theme, 0);
+    assert_eq!(commit_res2.unwrap(), 0);
+
+    let push_res2 = run_pre_push(
+        Some("origin"),
+        Some("git@forge.su:repo.git"),
+        Some("refs/heads/main 111111 refs/heads/main 000000\n"),
+        &repo,
+        &config,
+        &theme,
+        0,
+    );
+    assert_eq!(push_res2.unwrap(), 0);
+
+    std::env::remove_var("FORGEJO_ACTIONS");
+}
