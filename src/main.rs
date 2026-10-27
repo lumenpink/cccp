@@ -1068,10 +1068,84 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         }
-        Some(Commands::Completion(comp)) => {
-            let mut cmd = Cli::command();
-            clap_complete::generate(comp.shell, &mut cmd, "cccp", &mut std::io::stdout());
-            ExitCode::SUCCESS
+        Some(Commands::Completion(ref comp)) => {
+            if let Some(ref query) = comp.candidates {
+                if query == "repos" {
+                    let candidates = cccp::completion::get_catalog_candidates(
+                        Some(&config),
+                        args.dir.as_deref(),
+                    );
+                    for c in candidates {
+                        println!("{}", c);
+                    }
+                }
+                return ExitCode::SUCCESS;
+            }
+
+            if let Some(ref action) = comp.action {
+                match action {
+                    cli::CompletionAction::Install(ref inst) => {
+                        let shell = if inst.zsh {
+                            clap_complete::Shell::Zsh
+                        } else {
+                            inst.shell.unwrap_or(clap_complete::Shell::Bash)
+                        };
+                        let target_path = inst
+                            .path
+                            .clone()
+                            .or_else(|| cccp::completion::detect_rc_path(shell));
+                        let Some(rc_path) = target_path else {
+                            eprintln!(
+                                "{}: Não foi possível determinar o arquivo de configuração para o shell.",
+                                theme.red_bold("Erro")
+                            );
+                            return ExitCode::FAILURE;
+                        };
+                        match cccp::completion::install_completion_into_file(
+                            &rc_path,
+                            shell,
+                            inst.dry_run,
+                        ) {
+                            Ok(_) => {
+                                if inst.dry_run {
+                                    println!(
+                                        "{} [DRY-RUN] Script de autocompletion seria injetado em: {}",
+                                        theme.yellow("★ [GOSPLAN]"),
+                                        rc_path.display()
+                                    );
+                                } else {
+                                    println!(
+                                        "{} Autocompletion instalado com sucesso em: {}",
+                                        theme.green("✓"),
+                                        rc_path.display()
+                                    );
+                                    println!(
+                                        "  Execute 'source {}' ou abra uma nova sessão de terminal.",
+                                        rc_path.display()
+                                    );
+                                }
+                                return ExitCode::SUCCESS;
+                            }
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Erro"), e);
+                                return ExitCode::FAILURE;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(shell) = comp.shell {
+                let mut cmd = Cli::command();
+                clap_complete::generate(shell, &mut cmd, "cccp", &mut std::io::stdout());
+                ExitCode::SUCCESS
+            } else {
+                eprintln!(
+                    "{}: Especifique o shell (ex.: cccp completion bash) ou use 'cccp completion install'.",
+                    theme.red_bold("Erro")
+                );
+                ExitCode::FAILURE
+            }
         }
         Some(Commands::Prompt(ref prompt_args)) => {
             if let Some(output) = cccp::prompt::generate_prompt(args.dir.as_deref(), prompt_args) {

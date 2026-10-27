@@ -9,6 +9,7 @@ pub mod catalog;
 pub mod checkpoint;
 pub mod cli;
 pub mod commit_exec;
+pub mod completion;
 pub mod config;
 pub mod cultural;
 pub mod cz;

@@ -733,11 +733,49 @@ pub struct ComradesArgs {
     pub format: String,
 }
 
-#[derive(Debug, Args)]
+#[derive(Debug, Args, Clone, PartialEq, Eq, Default)]
+#[command(subcommand_negates_reqs = true, subcommand_precedence_over_arg = true)]
 pub struct CompletionArgs {
     /// Shell type for completion generation
+    #[arg(value_enum, required_unless_present = "candidates")]
+    pub shell: Option<clap_complete::Shell>,
+
+    /// Subcommand for completion operations
+    #[command(subcommand)]
+    pub action: Option<CompletionAction>,
+
+    /// Dynamic candidates query (e.g. 'repos')
+    #[arg(long = "candidates")]
+    pub candidates: Option<String>,
+}
+
+#[derive(Debug, Subcommand, Clone, PartialEq, Eq)]
+pub enum CompletionAction {
+    /// Install completion script into user profile (.bashrc, .zshrc)
+    Install(CompletionInstallArgs),
+}
+
+#[derive(Debug, Args, Clone, PartialEq, Eq, Default)]
+pub struct CompletionInstallArgs {
+    /// Target shell to install (defaults to bash or detected shell)
     #[arg(value_enum)]
-    pub shell: clap_complete::Shell,
+    pub shell: Option<clap_complete::Shell>,
+
+    /// Install for Bash shell
+    #[arg(long = "bash")]
+    pub bash: bool,
+
+    /// Install for Zsh shell
+    #[arg(long = "zsh")]
+    pub zsh: bool,
+
+    /// Path to RC file override (e.g. ~/.bashrc)
+    #[arg(short = 'p', long = "path")]
+    pub path: Option<std::path::PathBuf>,
+
+    /// Dry run: display what would be written without modifying file
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Args, Clone, PartialEq, Eq, Default)]

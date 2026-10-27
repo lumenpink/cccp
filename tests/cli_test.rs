@@ -729,7 +729,7 @@ fn test_completion_command_options() {
         Cli::try_parse_from(["cccp", "completion", "bash"]).expect("should parse completion bash");
     match cli.command {
         Some(Commands::Completion(c)) => {
-            assert_eq!(c.shell, clap_complete::Shell::Bash);
+            assert_eq!(c.shell, Some(clap_complete::Shell::Bash));
         }
         _ => panic!("Expected Commands::Completion"),
     }
