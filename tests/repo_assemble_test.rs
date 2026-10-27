@@ -119,3 +119,59 @@ fn test_assemble_auto_commit_creates_commit() {
         log
     );
 }
+
+#[test]
+fn test_assemble_dry_run_leaves_fs_untouched() {
+    let repo_dir = scaffold_test_repo("dry-run-repo");
+    let theme = Theme::with_color(false);
+
+    let res = assemble_repo(repo_dir.path(), true, false, &theme);
+    assert!(res.is_ok());
+    assert!(!repo_dir.path().join(".gost/GOST.md").exists(), "dry-run must not create files");
+}
+
+#[test]
+fn test_assemble_blocked_when_staged_changes() {
+    let repo_dir = scaffold_test_repo("staged-repo");
+    let theme = Theme::with_color(false);
+
+    fs::write(repo_dir.path().join("staged.txt"), "staged").unwrap();
+    Command::new("git")
+        .args(["add", "staged.txt"])
+        .current_dir(repo_dir.path())
+        .status()
+        .unwrap();
+
+    let res = assemble_repo(repo_dir.path(), false, false, &theme);
+    assert!(res.is_err(), "Staged changes must also block assemble");
+}
+
+#[test]
+fn test_assemble_idempotent_no_duplicate_commit() {
+    let repo_dir = scaffold_test_repo("idempotent-repo");
+    let theme = Theme::with_color(false);
+
+    // First assemble with auto_commit
+    let res1 = assemble_repo(repo_dir.path(), false, true, &theme);
+    assert!(res1.is_ok());
+
+    let count1_out = Command::new("git")
+        .args(["rev-list", "--count", "HEAD"])
+        .current_dir(repo_dir.path())
+        .output()
+        .unwrap();
+    let count1: usize = String::from_utf8_lossy(&count1_out.stdout).trim().parse().unwrap();
+
+    // Second assemble with auto_commit immediately after (no changes to GOST.md)
+    let res2 = assemble_repo(repo_dir.path(), false, true, &theme);
+    assert!(res2.is_ok());
+
+    let count2_out = Command::new("git")
+        .args(["rev-list", "--count", "HEAD"])
+        .current_dir(repo_dir.path())
+        .output()
+        .unwrap();
+    let count2: usize = String::from_utf8_lossy(&count2_out.stdout).trim().parse().unwrap();
+
+    assert_eq!(count1, count2, "Idempotent assemble must not create duplicate commits");
+}
