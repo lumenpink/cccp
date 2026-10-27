@@ -177,9 +177,17 @@ pub struct ProfileAssembleArgs {
     #[arg(short = 'a', long = "all")]
     pub all: bool,
 
+    /// Target specific repository by slug, name or alias
+    #[arg(short = 'r', long = "repo")]
+    pub repo: Option<String>,
+
     /// Preview repositories without executing file generation
     #[arg(short = 'n', long = "dry-run")]
     pub dry_run: bool,
+
+    /// Automatically commit changes to .gost/GOST.md
+    #[arg(long = "auto-commit")]
+    pub auto_commit: bool,
 }
 
 #[derive(Debug, Args, Clone)]
@@ -835,9 +843,17 @@ pub enum CatalogSubcommands {
     /// Assemble cascading GOST specification (.gost/GOST.md) for catalog repositories
     #[command(alias = "gost")]
     Assemble {
+        /// Target specific repository by slug, name or alias
+        #[arg(short = 'r', long = "repo")]
+        repo: Option<String>,
+
         /// Preview repositories without executing assembly
         #[arg(short = 'n', long = "dry-run")]
         dry_run: bool,
+
+        /// Automatically commit changes to .gost/GOST.md
+        #[arg(long = "auto-commit")]
+        auto_commit: bool,
     },
     /// Remove a repository from the catalog by name, slug, or alias
     #[command(alias = "rm")]

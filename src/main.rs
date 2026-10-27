@@ -1432,17 +1432,50 @@ fn main() -> ExitCode {
                     ExitCode::SUCCESS
                 }
             }
-            Some(cli::CatalogSubcommands::Assemble { dry_run }) => {
+            Some(cli::CatalogSubcommands::Assemble {
+                repo,
+                dry_run,
+                auto_commit,
+            }) => {
                 let entries = cccp::catalog::load_catalog(Some(&config), None);
-                let report = cccp::catalog::batch_assemble_gost(&entries, dry_run, &theme);
-                println!(
-                    "{}",
-                    cccp::catalog::format_batch_assemble_report(&report, &theme)
-                );
-                if !report.failed.is_empty() {
-                    ExitCode::FAILURE
+                if let Some(ref target) = repo {
+                    match cccp::catalog::assemble_catalog_repo(
+                        &entries,
+                        target,
+                        dry_run,
+                        auto_commit,
+                        Some(&config),
+                        &theme,
+                    ) {
+                        Ok(()) => {
+                            println!(
+                                "{} Especificação GOST montada com sucesso para '{}'.",
+                                theme.green("✓"),
+                                target
+                            );
+                            ExitCode::SUCCESS
+                        }
+                        Err(e) => {
+                            eprintln!(
+                                "{} Falha ao montar GOST para '{}': {}",
+                                theme.red("✗"),
+                                target,
+                                e
+                            );
+                            ExitCode::FAILURE
+                        }
+                    }
                 } else {
-                    ExitCode::SUCCESS
+                    let report = cccp::catalog::batch_assemble_gost(&entries, dry_run, &theme);
+                    println!(
+                        "{}",
+                        cccp::catalog::format_batch_assemble_report(&report, &theme)
+                    );
+                    if !report.failed.is_empty() {
+                        ExitCode::FAILURE
+                    } else {
+                        ExitCode::SUCCESS
+                    }
                 }
             }
             Some(cli::CatalogSubcommands::Remove { repo, delete_dir }) => {

@@ -1742,6 +1742,21 @@ pub fn batch_assemble_gost_repos(
             continue;
         }
 
+        // Guard against dirty working tree in batch assemble
+        if let Ok(st) = std::process::Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(path)
+            .output()
+        {
+            if !st.stdout.is_empty() {
+                report.failed.push((
+                    name.to_string(),
+                    "Working tree possui modificações pendentes".to_string(),
+                ));
+                continue;
+            }
+        }
+
         if dry_run {
             report.dry_run.push(name.to_string());
         } else {
@@ -1757,6 +1772,104 @@ pub fn batch_assemble_gost_repos(
     }
 
     report
+}
+
+/// Assembles GOST specification (.gost/GOST.md) for a single repository path,
+/// enforcing clean working tree and supporting auto-commit.
+pub fn assemble_repo(
+    path: &Path,
+    dry_run: bool,
+    auto_commit: bool,
+    _theme: &crate::cultural::Theme,
+) -> Result<(), String> {
+    if !path.exists() {
+        return Err(format!("Caminho do repositório não existe: {}", path.display()));
+    }
+
+    // 1. Check clean working tree
+    let status_out = std::process::Command::new("git")
+        .args(["status", "--porcelain"])
+        .current_dir(path)
+        .output()
+        .map_err(|e| format!("Falha ao inspecionar status do git: {}", e))?;
+
+    if !status_out.stdout.is_empty() {
+        return Err("Repositório possui modificações pendentes na working tree. Faça commit ou stash antes do assemble.".to_string());
+    }
+
+    if dry_run {
+        return Ok(());
+    }
+
+    // 2. Assemble specification
+    crate::profile::assemble_gost_specs(path).map_err(|e| format!("Falha no assemble da especificação GOST: {}", e))?;
+
+    // 3. Auto-commit if requested
+    if auto_commit {
+        let diff_out = std::process::Command::new("git")
+            .args(["status", "--porcelain", ".gost/GOST.md"])
+            .current_dir(path)
+            .output()
+            .map_err(|e| format!("Falha ao verificar alterações em .gost/GOST.md: {}", e))?;
+
+        if !diff_out.stdout.is_empty() {
+            let add_status = std::process::Command::new("git")
+                .args(["add", ".gost/GOST.md"])
+                .current_dir(path)
+                .status()
+                .map_err(|e| format!("Falha ao adicionar .gost/GOST.md ao git stage: {}", e))?;
+
+            if !add_status.success() {
+                return Err("Falha ao adicionar .gost/GOST.md ao git stage".to_string());
+            }
+
+            let mut commit_cmd = std::process::Command::new("git");
+            commit_cmd
+                .args(["commit", "-m", "docs(gost): atualizar especificacao gost compilada"])
+                .env("CCCP_MAESTRO_ACTIVE", "1")
+                .current_dir(path);
+
+            let commit_status = commit_cmd
+                .status()
+                .map_err(|e| format!("Falha ao criar commit de assemble GOST: {}", e))?;
+
+            if !commit_status.success() {
+                return Err("Falha ao executar commit de assemble GOST".to_string());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Assembles GOST specification for a repository located in the State Catalog by name, slug or alias.
+pub fn assemble_catalog_repo(
+    entries: &[CatalogEntry],
+    target: &str,
+    dry_run: bool,
+    auto_commit: bool,
+    config: Option<&crate::config::Config>,
+    theme: &crate::cultural::Theme,
+) -> Result<(), String> {
+    let lower_target = target.to_lowercase();
+    let entry = entries.iter().find(|e| {
+        e.slug.to_lowercase() == lower_target
+            || e.name.to_lowercase() == lower_target
+            || e.aliases.iter().any(|a| a.to_lowercase() == lower_target)
+    });
+
+    let Some(entry) = entry else {
+        return Err(format!("Repositório '{}' não encontrado no catálogo", target));
+    };
+
+    let Some(local_path) = find_local_repo_path_with_config(entry, config) else {
+        return Err(format!(
+            "Repositório '{}' não possui workspace local clonado",
+            target
+        ));
+    };
+
+    assemble_repo(&local_path, dry_run, auto_commit, theme)
 }
 
 /// Executes batch GOST specification assembly for catalog repositories

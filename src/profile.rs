@@ -343,7 +343,17 @@ pub fn handle_profile_command(
             }
         }
         Some(crate::cli::ProfileCommand::Assemble(ref assemble_args)) => {
-            if assemble_args.all {
+            if let Some(ref target) = assemble_args.repo {
+                let entries = crate::catalog::load_catalog(None, None);
+                crate::catalog::assemble_catalog_repo(
+                    &entries,
+                    target,
+                    assemble_args.dry_run,
+                    assemble_args.auto_commit,
+                    None,
+                    theme,
+                )
+            } else if assemble_args.all {
                 let entries = crate::catalog::load_catalog(None, None);
                 let report =
                     crate::catalog::batch_assemble_gost(&entries, assemble_args.dry_run, theme);
@@ -359,20 +369,12 @@ pub fn handle_profile_command(
                 }
                 Ok(())
             } else {
-                match assemble_gost_specs(root) {
-                    Ok(_) => {
-                        println!(
-                            "{} Montagem em cascata concluída com sucesso!",
-                            theme.green("✓ [GOSPLAN]")
-                        );
-                        println!(
-                            "  Destino : {}",
-                            theme.green(&root.join(".gost/GOST.md").display().to_string())
-                        );
-                        Ok(())
-                    }
-                    Err(e) => Err(format!("Falha ao montar perfil em cascata: {}", e)),
-                }
+                crate::catalog::assemble_repo(
+                    root,
+                    assemble_args.dry_run,
+                    assemble_args.auto_commit,
+                    theme,
+                )
             }
         }
     }
