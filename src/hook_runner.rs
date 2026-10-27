@@ -87,7 +87,10 @@ pub fn run_pre_push(
         || std::env::var("FORGEJO_ACTIONS").is_ok();
 
     if !is_authorized {
-        eprintln!("\n{}", theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★"));
+        eprintln!(
+            "\n{}",
+            theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★")
+        );
         eprintln!(
             "{}",
             theme.yellow(
@@ -378,7 +381,10 @@ pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32,
         || std::env::var("FORGEJO_ACTIONS").is_ok();
 
     if !is_authorized {
-        eprintln!("\n{}", theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★"));
+        eprintln!(
+            "\n{}",
+            theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★")
+        );
         eprintln!(
             "{}",
             theme.yellow(
@@ -386,7 +392,10 @@ pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32,
             )
         );
         eprintln!("Toda evolução de código deve ser coordenada pelo Maestro CCCP:\n");
-        eprintln!("  • Fases 3 a 8 : {}", theme.cyan("cccp commit \"<resumo>\""));
+        eprintln!(
+            "  • Fases 3 a 8 : {}",
+            theme.cyan("cccp commit \"<resumo>\"")
+        );
         eprintln!(
             "  • Fase 9      : {}\n",
             theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")

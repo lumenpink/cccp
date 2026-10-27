@@ -172,7 +172,12 @@ fn test_push_parity_tracking_branch_ahead() {
 
     // Add remote to local
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();
@@ -216,7 +221,12 @@ fn test_push_auto_fast_forward_when_behind() {
 
     // Setup local tracking origin
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();
@@ -229,7 +239,11 @@ fn test_push_auto_fast_forward_when_behind() {
     // Clone a second worker to simulate someone else pushing to origin
     let peer_dir = tempdir().expect("peer dir");
     Command::new("git")
-        .args(["clone", remote_dir.path().to_str().unwrap(), peer_dir.path().to_str().unwrap()])
+        .args([
+            "clone",
+            remote_dir.path().to_str().unwrap(),
+            peer_dir.path().to_str().unwrap(),
+        ])
         .status()
         .unwrap();
     Command::new("git")
@@ -280,7 +294,12 @@ fn test_push_blocked_on_divergent_history() {
         .status()
         .unwrap();
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();
@@ -293,7 +312,11 @@ fn test_push_blocked_on_divergent_history() {
     // Peer pushes a commit
     let peer_dir = tempdir().expect("peer dir");
     Command::new("git")
-        .args(["clone", remote_dir.path().to_str().unwrap(), peer_dir.path().to_str().unwrap()])
+        .args([
+            "clone",
+            remote_dir.path().to_str().unwrap(),
+            peer_dir.path().to_str().unwrap(),
+        ])
         .status()
         .unwrap();
     Command::new("git")
@@ -338,11 +361,16 @@ fn test_push_blocked_on_divergent_history() {
 
     let theme = Theme::with_color(false);
     let res = check_and_reconcile_parity(local_dir.path(), &theme);
-    assert!(res.is_err(), "Divergent history must return error / block push");
+    assert!(
+        res.is_err(),
+        "Divergent history must return error / block push"
+    );
     let err_msg = res.unwrap_err();
     let lower_msg = err_msg.to_lowercase();
     assert!(
-        lower_msg.contains("divergência") || lower_msg.contains("divergent") || lower_msg.contains("behind"),
+        lower_msg.contains("divergência")
+            || lower_msg.contains("divergent")
+            || lower_msg.contains("behind"),
         "Error message should explain divergent branches: {}",
         err_msg
     );

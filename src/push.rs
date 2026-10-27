@@ -31,7 +31,9 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
         return Err("Não foi possível identificar a branch atual".to_string());
     }
 
-    let branch = String::from_utf8_lossy(&branch_out.stdout).trim().to_string();
+    let branch = String::from_utf8_lossy(&branch_out.stdout)
+        .trim()
+        .to_string();
     if branch == "HEAD" || branch.is_empty() {
         return Ok(ParityAction::ReadyToPush);
     }
@@ -44,7 +46,9 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
         .map_err(|e| format!("Falha ao verificar upstream: {}", e))?;
 
     let upstream = if upstream_out.status.success() {
-        String::from_utf8_lossy(&upstream_out.stdout).trim().to_string()
+        String::from_utf8_lossy(&upstream_out.stdout)
+            .trim()
+            .to_string()
     } else {
         // No upstream tracking branch configured
         let remote_out = Command::new("git")
@@ -117,7 +121,9 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
         return Err(format!("Não foi possível comparar HEAD com '{}'", upstream));
     }
 
-    let count_str = String::from_utf8_lossy(&count_out.stdout).trim().to_string();
+    let count_str = String::from_utf8_lossy(&count_out.stdout)
+        .trim()
+        .to_string();
     let parts: Vec<&str> = count_str.split_whitespace().collect();
     if parts.len() != 2 {
         return Ok(ParityAction::ReadyToPush);
@@ -226,7 +232,10 @@ pub fn handle_push(push: &PushArgs, dir: Option<&Path>, theme: &Theme) -> ExitCo
 
     match cmd.status() {
         Ok(status) if status.success() => {
-            println!("{} Push concluído com sucesso via Maestro.", theme.green("✓"));
+            println!(
+                "{} Push concluído com sucesso via Maestro.",
+                theme.green("✓")
+            );
             ExitCode::SUCCESS
         }
         Ok(status) => ExitCode::from(status.code().unwrap_or(1) as u8),
