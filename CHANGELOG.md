@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### GOST 2.0 Architectural and Governance Audit Compliance
+- **Expansão da Auditoria Canônica para GOST 2.0 (`cccp check` / `src/audit.rs`)**: Implementa a validação estrita das novas regras de arquitetura e governança da especificação GOST v2.0.0 e perfis Kollontai/Lilya:
+  - `GOST-20-SITE-TYPE-AND-SSOT-DOCS`: Exige README enxuto com teto de até 50 linhas e presença de `site/index.html` para documentação detalhada.
+  - `GOST-24-ZERO-BINARIES-IN-GIT`: Veta estritamente binários e pacotes compilados no repositório (`.exe`, `.so`, `.dll`, `.dylib`, `.tar.gz`, `.zip`, `.deb`, `.rpm`, `.apk`, etc.).
+  - `GOST-26-METADATA-MANIFEST-SSOT`: Valida conformidade do manifesto `.gost/metadata.json` (campos obrigatórios como `slug`, `title`, `site_type`, `theme`) e proíbe jargão técnico promocional (`soberano`, `hexagonal`, `ssot`, `rust puro`, etc.).
+  - `GOST-27-DDD-HEXAGONAL-PURITY`: Garante a pureza do núcleo de domínio (`src/domain/`), vetando I/O acoplado, redes e processos (`std::fs`, `std::net`, `tokio::fs`, `sqlx`, etc.). (closes #70)
+
+
 ### DD-TDD Phase 7 & 8 Verification Tools: Mutate and Fast Hygiene (GOST 2.0 / Kollontai 2.0)
 - **Subcomandos de Validação Ativa Local (`cccp mutate` / `cccp hygiene` / `cccp fix`)**: Implementa a automação de verificação de qualidade nas Fases 7 e 8 do ciclo DD-TDD conforme Seções 7.3 e 8 da norma GOST v2.0.0 e perfil Kollontai v2.0.0:
   - `cccp mutate [--base <b>] [--dry-run]`: Resolve as ferramentas canônicas de teste de mutação declaradas no `GOSTVER` (`cargo-mutants --in-diff` para Rust, `infection --git-diff-lines` para PHP, `stryker run --diff` para JS/TS, etc.) restritas ao diff contra a branch base.
