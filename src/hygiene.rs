@@ -63,10 +63,7 @@ pub fn resolve_hygiene_commands<'a>(lang: &str, fix: bool) -> Vec<Vec<&'a str>> 
             if fix {
                 vec![vec!["ruff", "check", "--fix"], vec!["ruff", "format"]]
             } else {
-                vec![
-                    vec!["ruff", "check"],
-                    vec!["ruff", "format", "--check"],
-                ]
+                vec![vec!["ruff", "check"], vec!["ruff", "format", "--check"]]
             }
         }
         _ => vec![],

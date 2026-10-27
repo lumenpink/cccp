@@ -9,7 +9,10 @@ fn test_resolve_mutate_command() {
     assert_eq!(rust_cmd, Some(vec!["cargo", "mutants", "--in-diff"]));
 
     let php_cmd = resolve_mutate_command("php", "main");
-    assert_eq!(php_cmd, Some(vec!["vendor/bin/infection", "--git-diff-lines"]));
+    assert_eq!(
+        php_cmd,
+        Some(vec!["vendor/bin/infection", "--git-diff-lines"])
+    );
 
     let js_cmd = resolve_mutate_command("javascript", "main");
     assert_eq!(js_cmd, Some(vec!["npx", "stryker", "run", "--diff"]));
@@ -44,10 +47,7 @@ fn test_resolve_hygiene_commands_check_mode() {
     let py_cmds = resolve_hygiene_commands("python", false);
     assert_eq!(
         py_cmds,
-        vec![
-            vec!["ruff", "check"],
-            vec!["ruff", "format", "--check"],
-        ]
+        vec![vec!["ruff", "check"], vec!["ruff", "format", "--check"],]
     );
 }
 
@@ -57,7 +57,10 @@ fn test_resolve_hygiene_commands_fix_mode() {
     assert_eq!(rust_fix, vec![vec!["cargo", "fmt"]]);
 
     let shell_fix = resolve_hygiene_commands("shell", true);
-    assert_eq!(shell_fix, vec![vec!["shfmt", "-w", "-i", "2", "-ci", "-bn"]]);
+    assert_eq!(
+        shell_fix,
+        vec![vec!["shfmt", "-w", "-i", "2", "-ci", "-bn"]]
+    );
 
     let js_fix = resolve_hygiene_commands("javascript", true);
     assert_eq!(
