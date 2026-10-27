@@ -873,7 +873,7 @@ pub enum CatalogSubcommands {
     /// Add a repository to the catalog directly by URL or slug
     #[command(alias = "add_repo", alias = "add-repo")]
     Add {
-        /// Remote repository URL or slug (e.g. 'codeberg.org/lumenpink/repo' or 'owner/repo')
+        /// Remote repository URL or slug (e.g. 'git.2lp.in/lumenpink/repo' or 'owner/repo')
         repo: String,
 
         /// Optional custom name for the repository
