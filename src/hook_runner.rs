@@ -262,8 +262,12 @@ pub fn extract_closes_ids(text: &str) -> Vec<u64> {
         while let Some(start_pos) = remainder.find("(closes #") {
             let after = &remainder[start_pos + "(closes #".len()..];
             if let Some(end_pos) = after.find(')') {
-                let id_str = &after[..end_pos].trim();
-                if let Ok(id) = id_str.parse::<u64>() {
+                let id_raw = after[..end_pos].trim();
+                let token = id_raw
+                    .split(|c: char| c.is_whitespace() || c == '-')
+                    .next()
+                    .unwrap_or(id_raw);
+                if let Ok(id) = token.parse::<u64>() {
                     if !ids.contains(&id) {
                         ids.push(id);
                     }

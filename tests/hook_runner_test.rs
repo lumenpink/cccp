@@ -248,6 +248,9 @@ fn test_extract_closes_ids_canonical_syntax() {
     let text1 = "feat(core): implement stakhanovite worker (closes #133)";
     assert_eq!(extract_closes_ids(text1), vec![133]);
 
+    let text_phase = "docs(log): finalize session log (closes #23 - ph9)";
+    assert_eq!(extract_closes_ids(text_phase), vec![23]);
+
     let text2 = "fix: resolve deadlock (closes #42) and (closes #43)\nMultiple lines (closes #99)";
     assert_eq!(extract_closes_ids(text2), vec![42, 43, 99]);
 
