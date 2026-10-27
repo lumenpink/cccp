@@ -128,4 +128,42 @@ fn test_prompt_generation_in_git_repo() {
     assert_eq!(parsed["dirty"], true);
     assert_eq!(parsed["ticket"], 67);
     assert_eq!(parsed["phase"], "ph3");
+
+    // Bash ANSI wrapping
+    let prompt_bash = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
+        bash: true,
+        ..Default::default()
+    });
+    assert!(prompt_bash.is_some());
+    let bash_txt = prompt_bash.unwrap();
+    assert!(bash_txt.contains("\\["), "Bash mode should wrap escapes with \\[: {}", bash_txt);
+    assert!(bash_txt.contains("\\]"), "Bash mode should wrap escapes with \\]: {}", bash_txt);
+
+    // Zsh ANSI wrapping
+    let prompt_zsh = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
+        zsh: true,
+        ..Default::default()
+    });
+    assert!(prompt_zsh.is_some());
+    let zsh_txt = prompt_zsh.unwrap();
+    assert!(zsh_txt.contains("%{"), "Zsh mode should wrap escapes with %{{: {}", zsh_txt);
+    assert!(zsh_txt.contains("%}"), "Zsh mode should wrap escapes with %}}: {}", zsh_txt);
+
+    // Status mode with local tickets
+    let tickets_dir = root.join(".antigravity");
+    fs::create_dir_all(&tickets_dir).unwrap();
+    fs::write(
+        tickets_dir.join("tickets.md"),
+        "## [#10] [open] task 1\n## [#11] [open] task 2\n## [#12] [closed] task 3\n",
+    )
+    .unwrap();
+
+    let prompt_status = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
+        status: true,
+        no_color: true,
+        ..Default::default()
+    });
+    assert!(prompt_status.is_some());
+    let status_txt = prompt_status.unwrap();
+    assert!(status_txt.contains("⚑2"), "Status mode should show ⚑2 open tickets: {}", status_txt);
 }

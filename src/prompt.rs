@@ -100,7 +100,7 @@ pub fn generate_prompt(dir: Option<&Path>, args: &PromptArgs) -> Option<String> 
         } else if args.bash {
             format!("\\[{}\\]", code)
         } else if args.zsh {
-            format!("%{{{}}}", code)
+            format!("%{{{code}%}}")
         } else {
             code.to_string()
         }
