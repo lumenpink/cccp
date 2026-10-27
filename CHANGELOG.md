@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Shell Prompt Integration Subcommand
+- **Subcomando `cccp prompt` para Shell (`src/prompt.rs`)**: Fornece integrador em Rust de latência ultrabaixa para `PS1` e `PROMPT_COMMAND`:
+  - **Status do Repositório**: Exibe branch ativa, indicador de working tree dirty (`*`) e contadores locais.
+  - **Reconhecimento do Ciclo DD-TDD**: Deduz dinamicamente o ticket e a próxima fase do fluxo (`[#<id> ph<N>]`).
+  - **Suporte Multi-Shell**: Suporta flags `--bash` (escape `\[ \]`), `--zsh` (escape `%{ %}`), `--json`, `--short` e `--status`. (closes #67)
+
+
 ### Divan Repository Argument and Workspace Context Forwarding
 - **Parâmetro de Repositório e Contexto no Divan (`cccp divan` / `src/catalog.rs`)**: Permite especificar o repositório-alvo via argumento posicional ou `--repo <repo>`:
   - **Parsing Flexível**: Aceita tanto `cccp divan <repo>` quanto `cccp divan --repo <repo> [prompt]`, além de atalhos e seleção interativa.
