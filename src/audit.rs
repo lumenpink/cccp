@@ -387,6 +387,18 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
         });
     }
 
+    // 10. GOST-20-SITE-TYPE-AND-SSOT-DOCS (GOST 2.0)
+    checks.push(check_gost20_docs(root));
+
+    // 11. GOST-24-ZERO-BINARIES-IN-GIT (GOST 2.0)
+    checks.push(check_gost24_binaries(root));
+
+    // 12. GOST-26-METADATA-MANIFEST-SSOT (GOST 2.0)
+    checks.push(check_gost26_metadata(root));
+
+    // 13. GOST-27-DDD-HEXAGONAL-PURITY (GOST 2.0)
+    checks.push(check_gost27_domain_purity(root));
+
     let passed = checks
         .iter()
         .filter(|c| c.status == CheckStatus::Pass)
@@ -482,5 +494,260 @@ pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
             "{}",
             theme.green("✔ Projeto aprovado pela Comissão de Normas Técnicas GOST.")
         );
+    }
+}
+
+fn check_gost20_docs(root: &Path) -> AuditCheck {
+    let readme = root.join("README.md");
+    if !readme.is_file() {
+        return AuditCheck {
+            code: "GOST-20-SITE-TYPE-AND-SSOT-DOCS",
+            title: "Topologia de Documentação e README",
+            detail: "Arquivo README.md ausente na raiz".to_string(),
+            status: CheckStatus::Fail,
+        };
+    }
+    let content = fs::read_to_string(&readme).unwrap_or_default();
+    let line_count = content.lines().count();
+    if line_count > 50 {
+        return AuditCheck {
+            code: "GOST-20-SITE-TYPE-AND-SSOT-DOCS",
+            title: "Topologia de Documentação e README",
+            detail: format!(
+                "README.md excede o teto normativo de 50 linhas (possui {} linhas)",
+                line_count
+            ),
+            status: CheckStatus::Fail,
+        };
+    }
+    if !root.join("site/index.html").is_file() {
+        return AuditCheck {
+            code: "GOST-20-SITE-TYPE-AND-SSOT-DOCS",
+            title: "Topologia de Documentação e README",
+            detail: "Diretório ou arquivo site/index.html ausente".to_string(),
+            status: CheckStatus::Fail,
+        };
+    }
+    AuditCheck {
+        code: "GOST-20-SITE-TYPE-AND-SSOT-DOCS",
+        title: "Topologia de Documentação e README",
+        detail: format!(
+            "README enxuto ({} linhas) e documentação site/ presente",
+            line_count
+        ),
+        status: CheckStatus::Pass,
+    }
+}
+
+fn check_gost24_binaries(root: &Path) -> AuditCheck {
+    let forbidden_extensions = [
+        ".exe", ".so", ".dll", ".dylib", ".a", ".tar.gz", ".tgz", ".zip", ".whl", ".deb",
+        ".rpm", ".apk", ".AppImage",
+    ];
+    let mut found_binaries = Vec::new();
+    fn scan_dir(dir: &Path, forbidden: &[&str], found: &mut Vec<String>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let file_name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                if file_name == "target"
+                    || file_name == ".git"
+                    || file_name == "node_modules"
+                    || file_name == "vendor"
+                {
+                    continue;
+                }
+                if path.is_dir() {
+                    scan_dir(&path, forbidden, found);
+                } else {
+                    let lower = file_name.to_lowercase();
+                    for ext in forbidden {
+                        if lower.ends_with(ext) {
+                            found.push(file_name.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    scan_dir(root, &forbidden_extensions, &mut found_binaries);
+
+    if found_binaries.is_empty() {
+        AuditCheck {
+            code: "GOST-24-ZERO-BINARIES-IN-GIT",
+            title: "Veto a Binários no Repositório",
+            detail: "Nenhum binário ou pacote compilado detectado".to_string(),
+            status: CheckStatus::Pass,
+        }
+    } else {
+        AuditCheck {
+            code: "GOST-24-ZERO-BINARIES-IN-GIT",
+            title: "Veto a Binários no Repositório",
+            detail: format!(
+                "Binários compilados detectados: {}",
+                found_binaries.join(", ")
+            ),
+            status: CheckStatus::Fail,
+        }
+    }
+}
+
+fn check_gost26_metadata(root: &Path) -> AuditCheck {
+    let meta_path = root.join(".gost/metadata.json");
+    if !meta_path.is_file() {
+        return AuditCheck {
+            code: "GOST-26-METADATA-MANIFEST-SSOT",
+            title: "Manifesto de Metadados e Anti-Jargão",
+            detail: "Manifesto .gost/metadata.json não declarado (opcional)".to_string(),
+            status: CheckStatus::Pass,
+        };
+    }
+
+    let content = match fs::read_to_string(&meta_path) {
+        Ok(c) => c,
+        Err(_) => {
+            return AuditCheck {
+                code: "GOST-26-METADATA-MANIFEST-SSOT",
+                title: "Manifesto de Metadados e Anti-Jargão",
+                detail: "Falha ao ler .gost/metadata.json".to_string(),
+                status: CheckStatus::Fail,
+            };
+        }
+    };
+
+    let forbidden_jargon = [
+        "soberano",
+        "soberana",
+        "hexagonal",
+        "ssot",
+        "rust puro",
+        "em rust",
+        "em php",
+        "wasm",
+    ];
+    let lower = content.to_lowercase();
+    for jargon in &forbidden_jargon {
+        if lower.contains(jargon) {
+            return AuditCheck {
+                code: "GOST-26-METADATA-MANIFEST-SSOT",
+                title: "Manifesto de Metadados e Anti-Jargão",
+                detail: format!(
+                    "Jargão técnico proibido '{}' detectado em .gost/metadata.json",
+                    jargon
+                ),
+                status: CheckStatus::Fail,
+            };
+        }
+    }
+
+    let json: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => {
+            return AuditCheck {
+                code: "GOST-26-METADATA-MANIFEST-SSOT",
+                title: "Manifesto de Metadados e Anti-Jargão",
+                detail: format!("JSON malformado em .gost/metadata.json: {}", e),
+                status: CheckStatus::Fail,
+            };
+        }
+    };
+
+    let required = [
+        "slug",
+        "title",
+        "site_type",
+        "tagline",
+        "summary",
+        "abstract",
+        "tags",
+        "icon",
+        "theme",
+    ];
+    for field in &required {
+        if json.get(field).is_none() {
+            return AuditCheck {
+                code: "GOST-26-METADATA-MANIFEST-SSOT",
+                title: "Manifesto de Metadados e Anti-Jargão",
+                detail: format!("Campo obrigatório '{}' ausente no .gost/metadata.json", field),
+                status: CheckStatus::Fail,
+            };
+        }
+    }
+
+    AuditCheck {
+        code: "GOST-26-METADATA-MANIFEST-SSOT",
+        title: "Manifesto de Metadados e Anti-Jargão",
+        detail: "Manifesto .gost/metadata.json íntegro e livre de jargões".to_string(),
+        status: CheckStatus::Pass,
+    }
+}
+
+fn check_gost27_domain_purity(root: &Path) -> AuditCheck {
+    let domain_dir = root.join("src/domain");
+    if !domain_dir.is_dir() {
+        return AuditCheck {
+            code: "GOST-27-DDD-HEXAGONAL-PURITY",
+            title: "Pureza Arquitetural do Domínio",
+            detail: "Diretório src/domain/ não declarado (N/A)".to_string(),
+            status: CheckStatus::Pass,
+        };
+    }
+
+    let forbidden_patterns = [
+        "std::fs",
+        "std::net",
+        "std::process",
+        "tokio::fs",
+        "tokio::net",
+        "reqwest",
+        "rusqlite",
+        "sqlx",
+        "clap",
+    ];
+
+    let mut violations = Vec::new();
+    fn scan_domain(dir: &Path, forbidden: &[&str], violations: &mut Vec<String>) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    scan_domain(&path, forbidden, violations);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                    if let Ok(code) = fs::read_to_string(&path) {
+                        for pat in forbidden {
+                            if code.contains(pat) {
+                                let name = path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("arquivo");
+                                violations.push(format!("{}: {}", name, pat));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    scan_domain(&domain_dir, &forbidden_patterns, &mut violations);
+
+    if violations.is_empty() {
+        AuditCheck {
+            code: "GOST-27-DDD-HEXAGONAL-PURITY",
+            title: "Pureza Arquitetural do Domínio",
+            detail: "Camada de domínio pura (zero I/O ou chamadas de processo)".to_string(),
+            status: CheckStatus::Pass,
+        }
+    } else {
+        AuditCheck {
+            code: "GOST-27-DDD-HEXAGONAL-PURITY",
+            title: "Pureza Arquitetural do Domínio",
+            detail: format!("I/O proibido no core de domínio: {}", violations.join(", ")),
+            status: CheckStatus::Fail,
+        }
     }
 }

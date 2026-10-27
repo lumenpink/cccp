@@ -57,11 +57,8 @@ fn test_compose_non_interactive_success() {
         scope: Some("semver".into()),
         message: Some("predict SemVer 2.0.0 from commits".into()),
         body: Some("Uses gix revwalk and semver crate".into()),
-        breaking: false,
-        all: false,
         dry_run: true,
-        sign: false,
-        no_sign: false,
+        ..Default::default()
     };
     let config = Config::default();
     let theme = Theme::init(true);
@@ -89,10 +86,8 @@ fn test_compose_non_interactive_breaking() {
         message: Some("remove legacy endpoints".into()),
         body: None,
         breaking: true,
-        all: false,
         dry_run: true,
-        sign: false,
-        no_sign: false,
+        ..Default::default()
     };
     let config = Config::default();
     let theme = Theme::init(true);
@@ -113,12 +108,8 @@ fn test_compose_non_interactive_missing_type_errors() {
         commit_type: None,
         scope: Some("core".into()),
         message: Some("missing type".into()),
-        body: None,
-        breaking: false,
-        all: false,
         dry_run: true,
-        sign: false,
-        no_sign: false,
+        ..Default::default()
     };
     let config = Config::default();
     let theme = Theme::init(true);
@@ -132,14 +123,9 @@ fn test_compose_non_interactive_missing_type_errors() {
 fn test_compose_non_interactive_invalid_subject_dot() {
     let args = CzArgs {
         commit_type: Some("fix".into()),
-        scope: None,
         message: Some("subject ending with dot.".into()),
-        body: None,
-        breaking: false,
-        all: false,
         dry_run: true,
-        sign: false,
-        no_sign: false,
+        ..Default::default()
     };
     let config = Config::default();
     let theme = Theme::init(true);
@@ -164,11 +150,8 @@ fn test_composed_commit_linter_compliance_all_types() {
             scope: Some("core".to_string()),
             message: Some(format!("testing type {}", t)),
             body: Some("Testing body lines".to_string()),
-            breaking: false,
-            all: false,
             dry_run: true,
-            sign: false,
-            no_sign: false,
+            ..Default::default()
         };
         let res = compose_commit(&args, &config, &theme).unwrap();
         let lint_res = lint_commit_message(&res.formatted_message, &config, true);
