@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Remote and Upstream Repository Isolation
+- **Isolamento de Repositórios Remotos e Upstream (`src/catalog.rs`)**: Protege repositórios marcados como upstream ou puramente remotos contra intervenções acidentais e mutações locais:
+  - **Bloqueio de Assemble em Upstream**: Rejeita qualquer operação de assemble em repositórios com `is_upstream = true`, preservando a integridade das referências oficiais.
+  - **Exclusão Segura em Lote**: Comandos em lote ignoram automaticamente repositórios upstream e sem workspace local de trabalho, registrando-os em `skipped_remote`. (closes #66)
+
+
 ### Selective Specification Assemble and Working Tree Protection
 - **Assemble Seletivo por Repositório e Trava de Working Tree (`cccp repo assemble` / `src/catalog.rs`)**: Refina a compilação da especificação GOST (`.gost/GOST.md`):
   - **Flag `--repo <slug>`**: Permite compilar a especificação de um único repositório por slug, nome ou apelido, sem iterar por todo o catálogo.
