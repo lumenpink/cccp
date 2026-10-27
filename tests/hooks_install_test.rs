@@ -238,3 +238,23 @@ fn test_installed_hooks_checksum_and_canonical_version_match() {
         warns
     );
 }
+
+#[test]
+fn test_hook_checksum_mutations_and_comment_preservation() {
+    let stub = generate_hook_stub("commit-msg", std::path::Path::new("/tmp"), "3.2.0");
+    let extracted = cccp::hooks_install::extract_canonical_hook_body(&stub);
+
+    // 1. Internal comments must be preserved in canonical extraction
+    assert!(extracted.contains("# 1. Prioritize cccp in PATH"));
+    assert!(extracted.contains("# 2. Search common user and system installation directories"));
+
+    // 2. Extracted body checksum must match the recorded header checksum exactly
+    let checksum_calc = cccp::hooks_install::compute_hook_checksum(&extracted);
+    assert!(stub.contains(&format!("# cccp-hook-checksum: {checksum_calc}")));
+
+    // 3. Mutating even 1 byte in the body invalidates the checksum
+    let mut mutated = extracted.clone();
+    mutated.push_str("# extra comment\n");
+    let checksum_mutated = cccp::hooks_install::compute_hook_checksum(&mutated);
+    assert_ne!(checksum_calc, checksum_mutated);
+}
