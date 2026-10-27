@@ -70,6 +70,15 @@ pub enum Commands {
     /// Close development cycle with resolution report (GOST Phase 9)
     Close(CloseArgs),
 
+    /// Execute diff mutation testing toolchain (GOST Phase 7)
+    Mutate(MutateArgs),
+
+    /// Execute Fast Hygiene linters and formatters (GOST Phase 8)
+    Hygiene(HygieneArgs),
+
+    /// Automatically fix formatting and auto-fixable linter errors (alias to hygiene --fix)
+    Fix(FixArgs),
+
     /// Validate commit messages against Conventional Commits specification
     Lint(LintArgs),
 
@@ -221,6 +230,48 @@ pub struct CloseArgs {
     /// Open editor to write the resolution report
     #[arg(long = "editor")]
     pub editor: bool,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct MutateArgs {
+    /// Base branch for diff comparison (defaults to main)
+    #[arg(short = 'b', long = "base")]
+    pub base: Option<String>,
+
+    /// Display command without executing
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct HygieneArgs {
+    /// Automatically fix formatting and auto-fixable linter errors
+    #[arg(long = "fix", default_value_t = false)]
+    pub fix: bool,
+
+    /// Explicit override of languages to check (comma-separated, e.g. rust,shell)
+    #[arg(short = 'l', long = "lang")]
+    pub lang: Option<String>,
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct FixArgs {
+    /// Explicit override of languages to check (comma-separated, e.g. rust,shell)
+    #[arg(short = 'l', long = "lang")]
+    pub lang: Option<String>,
+
+    /// Always true for fix subcommand
+    #[arg(skip = true)]
+    pub fix: bool,
+}
+
+impl Default for FixArgs {
+    fn default() -> Self {
+        Self {
+            lang: None,
+            fix: true,
+        }
+    }
 }
 
 #[derive(Debug, Args, Clone, Default)]

@@ -40,6 +40,19 @@ fn main() -> ExitCode {
         Some(Commands::Close(close_args)) => {
             return cccp::ddtdd::handle_close(&close_args, args.dir.as_deref(), &theme);
         }
+        Some(Commands::Mutate(mutate_args)) => {
+            return cccp::hygiene::handle_mutate(&mutate_args, args.dir.as_deref(), &theme);
+        }
+        Some(Commands::Hygiene(hygiene_args)) => {
+            return cccp::hygiene::handle_hygiene(&hygiene_args, args.dir.as_deref(), &theme);
+        }
+        Some(Commands::Fix(fix_args)) => {
+            let h_args = cccp::cli::HygieneArgs {
+                fix: true,
+                lang: fix_args.lang,
+            };
+            return cccp::hygiene::handle_hygiene(&h_args, args.dir.as_deref(), &theme);
+        }
         Some(Commands::Commit(cz)) => {
             if cz.summary.is_some() || cz.message.is_some() {
                 if let Some(code) = cccp::ddtdd::handle_commit(&cz, args.dir.as_deref(), &theme) {

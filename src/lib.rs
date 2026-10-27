@@ -20,6 +20,7 @@ pub mod forges;
 pub mod git;
 pub mod hook_runner;
 pub mod hooks_install;
+pub mod hygiene;
 pub mod i18n;
 pub mod lint;
 pub mod matraca;
