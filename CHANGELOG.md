@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Dynamic Autocompletion and Shell Profile Installer
+- **Autocompletion Dinâmico e Instalador no Shell (`cccp completion` / `src/completion.rs`)**:
+  - **Candidatos Dinâmicos do Catálogo**: Emite slugs, nomes e apelidos ativos do catálogo Gosplan via `cccp completion --candidates repos`.
+  - **Instalador Automático e Idempotente**: Subcomando `cccp completion install` com suporte a `--bash`, `--zsh`, `--path` e `--dry-run`, injetando bloco delimitado em `.bashrc` ou `.zshrc` sem duplicar configurações existentes. (closes #68)
+
+
 ### Shell Prompt Integration Subcommand
 - **Subcomando `cccp prompt` para Shell (`src/prompt.rs`)**: Fornece integrador em Rust de latência ultrabaixa para `PS1` e `PROMPT_COMMAND`:
   - **Status do Repositório**: Exibe branch ativa, indicador de working tree dirty (`*`) e contadores locais.
