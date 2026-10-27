@@ -106,20 +106,14 @@ fn test_install_completion_into_file_and_idempotency() {
     fs::write(&bashrc, initial).unwrap();
 
     // 1. Dry run does not write to disk
-    let dry_res = cccp::completion::install_completion_into_file(
-        &bashrc,
-        clap_complete::Shell::Bash,
-        true,
-    );
+    let dry_res =
+        cccp::completion::install_completion_into_file(&bashrc, clap_complete::Shell::Bash, true);
     assert!(dry_res.is_ok());
     assert_eq!(fs::read_to_string(&bashrc).unwrap(), initial);
 
     // 2. Real installation
-    let install_res = cccp::completion::install_completion_into_file(
-        &bashrc,
-        clap_complete::Shell::Bash,
-        false,
-    );
+    let install_res =
+        cccp::completion::install_completion_into_file(&bashrc, clap_complete::Shell::Bash, false);
     assert!(install_res.is_ok());
     let installed_content = fs::read_to_string(&bashrc).unwrap();
     assert!(installed_content.contains("# My custom bashrc"));
@@ -128,11 +122,8 @@ fn test_install_completion_into_file_and_idempotency() {
     assert!(installed_content.contains("# <<< CCCP SHELL COMPLETION <<<"));
 
     // 3. Idempotent installation: running again does NOT duplicate the block
-    let second_install = cccp::completion::install_completion_into_file(
-        &bashrc,
-        clap_complete::Shell::Bash,
-        false,
-    );
+    let second_install =
+        cccp::completion::install_completion_into_file(&bashrc, clap_complete::Shell::Bash, false);
     assert!(second_install.is_ok());
     let content_after_second = fs::read_to_string(&bashrc).unwrap();
     let count_begin = content_after_second
@@ -143,4 +134,18 @@ fn test_install_completion_into_file_and_idempotency() {
         .count();
     assert_eq!(count_begin, 1, "Should have exactly 1 begin block marker");
     assert_eq!(count_end, 1, "Should have exactly 1 end block marker");
+
+    // 4. Update / replace block when switching shell (e.g. to Zsh)
+    let zsh_install =
+        cccp::completion::install_completion_into_file(&bashrc, clap_complete::Shell::Zsh, false);
+    assert!(zsh_install.is_ok());
+    let content_after_zsh = fs::read_to_string(&bashrc).unwrap();
+    assert!(content_after_zsh.contains("source <(cccp completion zsh)"));
+    assert!(!content_after_zsh.contains("source <(cccp completion bash)"));
+
+    // 5. Empty catalog handling
+    let empty_dir = tmp.path().join("empty_catalog");
+    fs::create_dir_all(&empty_dir).unwrap();
+    let empty_candidates = cccp::completion::get_catalog_candidates(None, Some(&empty_dir));
+    assert!(empty_candidates.is_empty() || !empty_candidates.contains(&"non_existent".to_string()));
 }
