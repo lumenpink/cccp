@@ -134,7 +134,7 @@ pub fn install_hooks(
         )
     })?;
 
-    let version = env!("CARGO_PKG_VERSION");
+    let version = crate::update::get_current_version();
     println!(
         "{} Installing CCCP Soviet Git Hooks in '{}' (v{})...",
         theme.red_bold("★"),
@@ -179,7 +179,7 @@ pub fn install_hooks(
             println!("  {} Creating hook '{}'", theme.green("+"), hook_name);
         }
 
-        let stub_content = generate_hook_stub(hook_name, repo_root, version);
+        let stub_content = generate_hook_stub(hook_name, repo_root, &version);
         fs::write(&hook_path, stub_content).map_err(|e| {
             format!(
                 "Failed to write hook stub to '{}': {}",

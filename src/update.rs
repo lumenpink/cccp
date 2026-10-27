@@ -194,22 +194,45 @@ pub fn check_hook_version(repo_dir: &Path) -> Vec<String> {
                 continue;
             }
 
-            // Extrair corpo atual sem cabeçalho de comentários
-            let mut body_lines = Vec::new();
+            // Extrair corpo atual para checagem de checksum:
+            // 1. Extração canônica (corpo integral após cabeçalho de metadados CCCP)
+            let canonical_body = if let Some((_, b)) = content.split_once("# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n") {
+                b.to_string()
+            } else {
+                let mut lines = Vec::new();
+                let mut past_meta = false;
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if !past_meta && (trimmed.starts_with("#!/") || trimmed.starts_with("# cccp-hook-") || trimmed.is_empty()) {
+                        continue;
+                    }
+                    past_meta = true;
+                    lines.push(line);
+                }
+                let mut res = lines.join("\n");
+                if !res.is_empty() && content.ends_with('\n') {
+                    res.push('\n');
+                }
+                res
+            };
+            let checksum_canonical = compute_hook_checksum(&canonical_body);
+
+            // 2. Extração legada (compatibilidade com fixtures e hooks pré-3.2)
+            let mut legacy_lines = Vec::new();
             for line in content.lines() {
                 let trimmed = line.trim();
                 if trimmed.starts_with("#!") || !trimmed.starts_with('#') {
-                    body_lines.push(line);
+                    legacy_lines.push(line);
                 }
             }
-            let actual_body = body_lines.join("\n");
-            let actual_checksum = compute_hook_checksum(&actual_body);
+            let legacy_body = legacy_lines.join("\n");
+            let checksum_legacy = compute_hook_checksum(&legacy_body);
 
             // Verifica se o hook foi modificado manualmente:
             // 1) Se tinha checksum gravado e ele não bate com o conteúdo real
             // 2) Se era template legado (template_version = 0) mas tem linhas extras/diferentes
             let is_modified = if !recorded_checksum.is_empty() {
-                recorded_checksum != actual_checksum
+                recorded_checksum != checksum_canonical && recorded_checksum != checksum_legacy
             } else {
                 // Em templates legados, verificamos se o corpo contém personalizações manuais
                 // ou se é estritamente a chamada padrão do cccp
