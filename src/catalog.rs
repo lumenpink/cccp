@@ -1873,6 +1873,13 @@ pub fn assemble_catalog_repo(
         ));
     };
 
+    if entry.is_upstream {
+        return Err(format!(
+            "Repositório '{}' está configurado como upstream e é isolado contra mutações locais.",
+            entry.slug
+        ));
+    }
+
     let Some(local_path) = find_local_repo_path_with_config(entry, config) else {
         return Err(format!(
             "Repositório '{}' não possui workspace local clonado",
@@ -1891,7 +1898,13 @@ pub fn batch_assemble_gost(
 ) -> BatchAssembleReport {
     let resolved: Vec<(String, Option<PathBuf>)> = entries
         .iter()
-        .map(|e| (e.name.clone(), find_local_repo_path(e)))
+        .map(|e| {
+            if e.is_upstream {
+                (e.name.clone(), None)
+            } else {
+                (e.name.clone(), find_local_repo_path(e))
+            }
+        })
         .collect();
     let borrowed: Vec<(&str, Option<&Path>)> = resolved
         .iter()
