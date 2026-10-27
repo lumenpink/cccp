@@ -92,3 +92,28 @@ fn test_custom_aliases_from_config() {
         entry.aliases
     );
 }
+
+#[test]
+fn test_ssh_and_port_host_extraction() {
+    let mut entry = CatalogEntry {
+        name: "Self-Hosted".to_string(),
+        forge: "http://git.local.internal:8080".to_string(),
+        slug: "team/service".to_string(),
+        ..Default::default()
+    };
+    enrich_catalog_entry(&mut entry, None);
+    assert_eq!(entry.server_host.as_deref(), Some("git.local.internal"));
+    assert_eq!(
+        extract_domain_prefix("git.local.internal"),
+        Some("local".to_string())
+    );
+    assert!(entry.aliases.contains(&"local:service".to_string()));
+}
+
+#[test]
+fn test_domain_prefix_edge_cases() {
+    assert_eq!(extract_domain_prefix(""), None);
+    assert_eq!(extract_domain_prefix("localhost"), Some("localhost".to_string()));
+    assert_eq!(extract_domain_prefix("git"), Some("git".to_string()));
+    assert_eq!(extract_domain_prefix("GIT.COMPANY.COM"), Some("company".to_string()));
+}
