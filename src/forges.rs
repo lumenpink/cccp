@@ -42,6 +42,16 @@ impl ForgeType {
             Self::GitLab => ForgeSoftware::GitLab,
         }
     }
+
+    pub fn default_host(&self) -> &'static str {
+        match self {
+            Self::Codeberg => "codeberg.org",
+            Self::Tildegit => "tildegit.org",
+            Self::Forgejo => "git.2lp.in",
+            Self::GitHub => "github.com",
+            Self::GitLab => "gitlab.com",
+        }
+    }
 }
 
 impl std::fmt::Display for ForgeType {
@@ -273,6 +283,7 @@ pub fn resolve_token_for_host(
             "TEA_TOKEN",
         ],
         ForgeType::Forgejo => &[
+            "GIT_2LP_IN_TOKEN",
             "FORGEJO_TOKEN",
             "GITEA_TOKEN",
             "TEA_TOKEN",
@@ -306,14 +317,7 @@ pub fn resolve_token_for_host(
 
 /// Resolves the authentication token from environment variables based on the forge type
 pub fn resolve_token(provider: ForgeType) -> Option<String> {
-    let default_host = match provider {
-        ForgeType::Codeberg => "codeberg.org",
-        ForgeType::Tildegit => "tildegit.org",
-        ForgeType::Forgejo => "codeberg.org",
-        ForgeType::GitHub => "github.com",
-        ForgeType::GitLab => "gitlab.com",
-    };
-    resolve_token_for_host(default_host, provider, None)
+    resolve_token_for_host(provider.default_host(), provider, None)
 }
 
 pub struct ForgeClient {

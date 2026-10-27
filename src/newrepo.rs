@@ -212,18 +212,19 @@ pub fn fetch_gost_resource(
         }
     }
 
-    // 3. Remote Codeberg candidate URLs
+    // 3. Remote candidate URLs (sovereign forge git.2lp.in and gost.2lp.in)
     let remote_candidates = [
+        format!("https://gost.2lp.in/{}", target_res),
         format!(
-            "https://codeberg.org/lumenpink/gost/raw/tag/v{}/{}",
+            "https://git.2lp.in/lumen/gost/raw/tag/v{}/{}",
             version, target_res
         ),
         format!(
-            "https://codeberg.org/lumenpink/gost/raw/tag/{}/{}",
+            "https://git.2lp.in/lumen/gost/raw/tag/{}/{}",
             version, target_res
         ),
         format!(
-            "https://codeberg.org/lumenpink/gost/raw/branch/main/{}",
+            "https://git.2lp.in/lumen/gost/raw/branch/main/{}",
             target_res
         ),
     ];
@@ -465,7 +466,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         "# {}\n\n\
 {}\n\n\
 ## 📋 Conformidade GOST\n\n\
-Este projeto adota a norma **[GOST](https://codeberg.org/lumenpink/gost)** (Gosplan Standard for Technical Software).\n\
+Este projeto adota a norma **[GOST](https://gost.2lp.in)** (Gosplan Standard for Technical Software).\n\
 - **Versão GOST:** `{}`\n\
 - **Linguagens declaradas:** `{}`\n\
 - **Licença:** `{}`\n\n\

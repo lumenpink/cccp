@@ -8,7 +8,7 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 pub const DEFAULT_AGENTS_MD_URL: &str =
-    "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md";
+    "https://git.2lp.in/lumen/cccp/raw/branch/main/src/base/AGENTS_template.md";
 
 /// Fetches agent template from local path, URL, or fallback repository path
 pub fn fetch_agents_template(url: &str, repo_root: Option<&Path>) -> Result<String, String> {

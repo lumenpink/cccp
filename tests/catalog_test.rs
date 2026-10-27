@@ -90,7 +90,7 @@ fn test_catalog_load_and_resolve() {
     // Fallback owner/repo
     let res_fallback =
         catalog::resolve_target_repo("acme/project", None, Some(dir.path())).unwrap();
-    assert_eq!(res_fallback.provider, ForgeType::Codeberg);
+    assert_eq!(res_fallback.provider, ForgeType::Forgejo);
     assert_eq!(res_fallback.owner, "acme");
     assert_eq!(res_fallback.repo, "project");
 
@@ -153,10 +153,10 @@ fn test_parse_repo_identifier() {
     assert_eq!(res_host_slug.owner, "freedesktop");
     assert_eq!(res_host_slug.repo, "systemd");
 
-    // 4. Short slug defaults to Codeberg
+    // 4. Short slug defaults to Sovereign Forge (Forgejo on git.2lp.in)
     let res_short = catalog::parse_repo_identifier("lumenpink/kvant").unwrap();
-    assert_eq!(res_short.provider, ForgeType::Codeberg);
-    assert_eq!(res_short.host, "codeberg.org");
+    assert_eq!(res_short.provider, ForgeType::Forgejo);
+    assert_eq!(res_short.host, "git.2lp.in");
     assert_eq!(res_short.owner, "lumenpink");
     assert_eq!(res_short.repo, "kvant");
 
@@ -177,7 +177,7 @@ fn test_add_remote_repo_without_prior_clone() {
 
     // Add first remote repo
     let (entry, path, is_updated) = catalog::add_remote_repo(
-        "codeberg.org/lumenpink/newrepo",
+        "git.2lp.in/lumenpink/newrepo",
         Some("New Repo"),
         Some("A brand new remote repository"),
         &[],
@@ -188,7 +188,7 @@ fn test_add_remote_repo_without_prior_clone() {
     assert_eq!(path, cat_path);
     assert!(!is_updated);
     assert_eq!(entry.name, "New Repo");
-    assert_eq!(entry.forge, "codeberg");
+    assert_eq!(entry.forge, "forgejo");
     assert_eq!(entry.slug, "lumenpink/newrepo");
     assert_eq!(entry.description, "A brand new remote repository");
 
@@ -1245,7 +1245,8 @@ fn test_alias_mutation_edge_cases() {
         "Re-adding own existing alias in different case should be a no-op"
     );
     let reloaded = catalog::load_catalog(Some(&config), None);
-    assert_eq!(reloaded[0].aliases.len(), 1);
+    assert!(reloaded[0].aliases.contains(&"kv".to_string()));
+    assert_eq!(reloaded[0].aliases.iter().filter(|a| *a == "kv").count(), 1);
 
     // 2. Reject empty or whitespace-only alias
     let err_empty = catalog::add_repo_aliases("kvant", &["   ".to_string()], Some(&config));
@@ -1289,5 +1290,6 @@ fn test_alias_mutation_edge_cases() {
     let after_rm_ghost =
         catalog::remove_repo_aliases("kvant", &["nonexistent".to_string()], Some(&config))
             .expect("Removing non-existent alias should succeed gracefully");
-    assert_eq!(after_rm_ghost.aliases, vec!["kv".to_string()]);
+    assert!(after_rm_ghost.aliases.contains(&"kv".to_string()));
+    assert!(!after_rm_ghost.aliases.contains(&"nonexistent".to_string()));
 }

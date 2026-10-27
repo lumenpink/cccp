@@ -140,7 +140,7 @@ impl Default for Config {
             post_push_sync: Vec::new(),
             tickets_file: ".antigravity/tickets.md".into(),
             agents_md_url:
-                "https://codeberg.org/lumenpink/cccp/raw/branch/main/src/base/AGENTS_template.md"
+                "https://git.2lp.in/lumen/cccp/raw/branch/main/src/base/AGENTS_template.md"
                     .into(),
             agents_md_file: ".antigravity/AGENTS.md".into(),
             catalog_file: None,
