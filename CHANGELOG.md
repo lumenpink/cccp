@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Selective Specification Assemble and Working Tree Protection
+- **Assemble Seletivo por Repositório e Trava de Working Tree (`cccp repo assemble` / `src/catalog.rs`)**: Refina a compilação da especificação GOST (`.gost/GOST.md`):
+  - **Flag `--repo <slug>`**: Permite compilar a especificação de um único repositório por slug, nome ou apelido, sem iterar por todo o catálogo.
+  - **Trava de Working Tree Limpa**: Inspeciona a working tree antes da montagem e aborta a execução caso haja modificações pendentes não commitadas, prevenindo corrupção de arquivos locais.
+  - **Automação de Ciclo GOST (`--auto-commit`)**: Cria automaticamente commit canônico (`docs(gost): atualizar especificacao gost compilada`) quando houver alterações geradas em `.gost/GOST.md`. (closes #65)
+
+
 ### Maestro Git Locks and Origin Push Parity
 - **Travas contra Comandos Git Manuais e Paridade de Push (`cccp push` / `src/push.rs` / `src/hook_runner.rs`)**: Protege o fluxo de desenvolvimento contra desvios normativos e falhas concorrentes de sincronização:
   - **Travas nos Hooks Git**: Intercepta comandos diretos `git commit` e `git push` via hooks `pre-commit` e `pre-push`, bloqueando execuções manuais não orquestradas pelo Maestro CCCP (com bypass transparente em CI e `CCCP_BYPASS_LOCKS=1`).
