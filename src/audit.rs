@@ -541,18 +541,26 @@ fn check_gost20_docs(root: &Path) -> AuditCheck {
 
 fn check_gost24_binaries(root: &Path) -> AuditCheck {
     let forbidden_extensions = [
-        ".exe", ".so", ".dll", ".dylib", ".a", ".tar.gz", ".tgz", ".zip", ".whl", ".deb",
-        ".rpm", ".apk", ".AppImage",
+        ".exe",
+        ".so",
+        ".dll",
+        ".dylib",
+        ".a",
+        ".tar.gz",
+        ".tgz",
+        ".zip",
+        ".whl",
+        ".deb",
+        ".rpm",
+        ".apk",
+        ".AppImage",
     ];
     let mut found_binaries = Vec::new();
     fn scan_dir(dir: &Path, forbidden: &[&str], found: &mut Vec<String>) {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let file_name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if file_name == "target"
                     || file_name == ".git"
                     || file_name == "node_modules"
@@ -672,7 +680,10 @@ fn check_gost26_metadata(root: &Path) -> AuditCheck {
             return AuditCheck {
                 code: "GOST-26-METADATA-MANIFEST-SSOT",
                 title: "Manifesto de Metadados e Anti-Jargão",
-                detail: format!("Campo obrigatório '{}' ausente no .gost/metadata.json", field),
+                detail: format!(
+                    "Campo obrigatório '{}' ausente no .gost/metadata.json",
+                    field
+                ),
                 status: CheckStatus::Fail,
             };
         }
