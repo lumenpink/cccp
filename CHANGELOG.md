@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### DD-TDD Phase 7 & 8 Verification Tools: Mutate and Fast Hygiene (GOST 2.0 / Kollontai 2.0)
+- **Subcomandos de Validação Ativa Local (`cccp mutate` / `cccp hygiene` / `cccp fix`)**: Implementa a automação de verificação de qualidade nas Fases 7 e 8 do ciclo DD-TDD conforme Seções 7.3 e 8 da norma GOST v2.0.0 e perfil Kollontai v2.0.0:
+  - `cccp mutate [--base <b>] [--dry-run]`: Resolve as ferramentas canônicas de teste de mutação declaradas no `GOSTVER` (`cargo-mutants --in-diff` para Rust, `infection --git-diff-lines` para PHP, `stryker run --diff` para JS/TS, etc.) restritas ao diff contra a branch base.
+  - `cccp hygiene [--fix] [--lang <langs>]` / `cccp fix`: Executa verificação incremental rigorosa (`-D warnings`) e formatadores determinísticos das stacks declaradas, com suporte à correção automática de estilo quando acionado com `--fix` ou via alias `cccp fix`. (closes #73)
+
+
 ### DD-TDD Lifecycle Subcommands and Phase Progression (GOST 2.0 / Kollontai 2.0)
 - **Subcomandos de Ciclo de Vida DD-TDD (`cccp start` / `cccp commit` / `cccp close` / `cccp status`)**: Implementa o fluxo determinístico das 9 fases DD-TDD do Maestro conforme a norma GOST v2.0.0 e perfil Kollontai v2.0.0:
   - `cccp start <id> [--base <b>]`: Valida working tree limpa, resolve metadados do ticket e cria/faz checkout automático da branch padronizada `<tipo>/<id>-<slug>`.
