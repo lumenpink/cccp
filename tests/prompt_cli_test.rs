@@ -29,8 +29,8 @@ fn test_parse_prompt_cli_options() {
         _ => panic!("Expected Commands::Prompt"),
     }
 
-    let cli = Cli::try_parse_from(["cccp", "prompt", "--bash"])
-        .expect("should parse cccp prompt --bash");
+    let cli =
+        Cli::try_parse_from(["cccp", "prompt", "--bash"]).expect("should parse cccp prompt --bash");
     match cli.command {
         Some(Commands::Prompt(args)) => {
             assert!(args.bash);
@@ -79,26 +79,44 @@ fn test_prompt_generation_in_git_repo() {
         .unwrap();
 
     // Clean state on main
-    let prompt_clean = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        no_color: true,
-        short: true,
-        ..Default::default()
-    });
+    let prompt_clean = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            no_color: true,
+            short: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_clean.is_some());
     let txt_clean = prompt_clean.unwrap();
-    assert!(txt_clean.contains("main"), "Clean prompt should contain branch 'main': {}", txt_clean);
-    assert!(!txt_clean.contains('*'), "Clean prompt should not contain '*': {}", txt_clean);
+    assert!(
+        txt_clean.contains("main"),
+        "Clean prompt should contain branch 'main': {}",
+        txt_clean
+    );
+    assert!(
+        !txt_clean.contains('*'),
+        "Clean prompt should not contain '*': {}",
+        txt_clean
+    );
 
     // Dirty state on main
     fs::write(root.join("README.md"), "# Modified\n").unwrap();
-    let prompt_dirty = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        no_color: true,
-        short: true,
-        ..Default::default()
-    });
+    let prompt_dirty = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            no_color: true,
+            short: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_dirty.is_some());
     let txt_dirty = prompt_dirty.unwrap();
-    assert!(txt_dirty.contains('*'), "Dirty prompt should contain '*': {}", txt_dirty);
+    assert!(
+        txt_dirty.contains('*'),
+        "Dirty prompt should contain '*': {}",
+        txt_dirty
+    );
 
     // Switch to DD-TDD feature branch
     Command::new("git")
@@ -107,20 +125,34 @@ fn test_prompt_generation_in_git_repo() {
         .output()
         .unwrap();
 
-    let prompt_ddtdd = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        no_color: true,
-        ..Default::default()
-    });
+    let prompt_ddtdd = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            no_color: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_ddtdd.is_some());
     let txt_ddtdd = prompt_ddtdd.unwrap();
-    assert!(txt_ddtdd.contains("#67"), "DD-TDD prompt should contain ticket #67: {}", txt_ddtdd);
-    assert!(txt_ddtdd.contains("ph3"), "Initial phase should be ph3: {}", txt_ddtdd);
+    assert!(
+        txt_ddtdd.contains("#67"),
+        "DD-TDD prompt should contain ticket #67: {}",
+        txt_ddtdd
+    );
+    assert!(
+        txt_ddtdd.contains("ph3"),
+        "Initial phase should be ph3: {}",
+        txt_ddtdd
+    );
 
     // JSON mode
-    let prompt_json = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        json: true,
-        ..Default::default()
-    });
+    let prompt_json = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            json: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_json.is_some());
     let json_str = prompt_json.unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).expect("Valid JSON");
@@ -130,24 +162,46 @@ fn test_prompt_generation_in_git_repo() {
     assert_eq!(parsed["phase"], "ph3");
 
     // Bash ANSI wrapping
-    let prompt_bash = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        bash: true,
-        ..Default::default()
-    });
+    let prompt_bash = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            bash: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_bash.is_some());
     let bash_txt = prompt_bash.unwrap();
-    assert!(bash_txt.contains("\\["), "Bash mode should wrap escapes with \\[: {}", bash_txt);
-    assert!(bash_txt.contains("\\]"), "Bash mode should wrap escapes with \\]: {}", bash_txt);
+    assert!(
+        bash_txt.contains("\\["),
+        "Bash mode should wrap escapes with \\[: {}",
+        bash_txt
+    );
+    assert!(
+        bash_txt.contains("\\]"),
+        "Bash mode should wrap escapes with \\]: {}",
+        bash_txt
+    );
 
     // Zsh ANSI wrapping
-    let prompt_zsh = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        zsh: true,
-        ..Default::default()
-    });
+    let prompt_zsh = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            zsh: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_zsh.is_some());
     let zsh_txt = prompt_zsh.unwrap();
-    assert!(zsh_txt.contains("%{"), "Zsh mode should wrap escapes with %{{: {}", zsh_txt);
-    assert!(zsh_txt.contains("%}"), "Zsh mode should wrap escapes with %}}: {}", zsh_txt);
+    assert!(
+        zsh_txt.contains("%{"),
+        "Zsh mode should wrap escapes with %{{: {}",
+        zsh_txt
+    );
+    assert!(
+        zsh_txt.contains("%}"),
+        "Zsh mode should wrap escapes with %}}: {}",
+        zsh_txt
+    );
 
     // Status mode with local tickets
     let tickets_dir = root.join(".antigravity");
@@ -158,12 +212,19 @@ fn test_prompt_generation_in_git_repo() {
     )
     .unwrap();
 
-    let prompt_status = cccp::prompt::generate_prompt(Some(root), &PromptArgs {
-        status: true,
-        no_color: true,
-        ..Default::default()
-    });
+    let prompt_status = cccp::prompt::generate_prompt(
+        Some(root),
+        &PromptArgs {
+            status: true,
+            no_color: true,
+            ..Default::default()
+        },
+    );
     assert!(prompt_status.is_some());
     let status_txt = prompt_status.unwrap();
-    assert!(status_txt.contains("⚑2"), "Status mode should show ⚑2 open tickets: {}", status_txt);
+    assert!(
+        status_txt.contains("⚑2"),
+        "Status mode should show ⚑2 open tickets: {}",
+        status_txt
+    );
 }

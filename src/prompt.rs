@@ -4,6 +4,7 @@
 //! - dirty status
 //! - DD-TDD cycle phase & active ticket
 //! - open tickets count (from local cache .antigravity/tickets.md)
+//!
 //! Latency is optimized for sub-15ms terminal prompt rendering.
 
 use crate::cli::PromptArgs;
@@ -39,15 +40,15 @@ pub fn gather_prompt_info(dir: Option<&Path>) -> Option<PromptInfo> {
         .unwrap_or_else(|| "HEAD".to_string());
     let dirty = git_repo.is_dirty;
 
-    let (ticket, phase) = if let Some((t_id, _, _)) = crate::ddtdd::infer_ticket_from_branch(&branch)
-    {
-        let log_messages = get_recent_commit_messages(&git_repo.root_dir, 10);
-        let msg_slices: Vec<&str> = log_messages.iter().map(|s| s.as_str()).collect();
-        let phase = crate::ddtdd::infer_next_phase(&msg_slices);
-        (Some(t_id), Some(phase.to_string()))
-    } else {
-        (None, None)
-    };
+    let (ticket, phase) =
+        if let Some((t_id, _, _)) = crate::ddtdd::infer_ticket_from_branch(&branch) {
+            let log_messages = get_recent_commit_messages(&git_repo.root_dir, 10);
+            let msg_slices: Vec<&str> = log_messages.iter().map(|s| s.as_str()).collect();
+            let phase = crate::ddtdd::infer_next_phase(&msg_slices);
+            (Some(t_id), Some(phase.to_string()))
+        } else {
+            (None, None)
+        };
 
     let open_tickets = count_local_open_tickets(&git_repo.root_dir);
 
@@ -120,7 +121,10 @@ pub fn generate_prompt(dir: Option<&Path>, args: &PromptArgs) -> Option<String> 
     let mut parts = Vec::new();
 
     // Branch
-    parts.push(format!("{}{}{}{}", branch_color, info.branch, dirty_mark, reset));
+    parts.push(format!(
+        "{}{}{}{}",
+        branch_color, info.branch, dirty_mark, reset
+    ));
 
     // DD-TDD Phase
     if let (Some(t), Some(p)) = (info.ticket, &info.phase) {
