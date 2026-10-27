@@ -1,7 +1,16 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-27 17:53:21 UTC
+> Synced at: 2026-10-27 23:19:06 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#77] fix(hooks): corrigir calculo de checksum e versao canonica nos hooks instalados
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/77
+
+### Description
+Corrigir falso-positivo de customizacao local em git hooks gerado por extracao incorreta de comentarios no checksum e uso de CARGO_PKG_VERSION estatico em vez de get_current_version().
+
+---
 ## [#76] feat(ci): subcomandos de esteira cccp ci publish-artifacts e cccp ci deploy-site
 - **Status**: `open`
 - **Labels**: none
@@ -41,140 +50,6 @@ Requisitos:
 - cccp inbox list|review|accept: quarentena de PRs externos em refs/heads/inbox/* isolados contra push acidental nos espelhos secundários (pushurl = no_push).
 
 ---
-## [#73] feat(ddtdd): subcomandos cccp mutate para fase 7 e cccp hygiene para fase 8
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/73
-
-### Description
-Implementar comandos de validação ativa local no fluxo DD-TDD conforme Seções 7.3 e 8 da norma GOST 2.0.
-
-Requisitos:
-- cccp mutate: invoca o executor de teste de mutação da stack declarada em GOSTVER (cargo-mutants --in-diff em Rust, infection --git-diff-lines em PHP, etc.) restrito ao diff da branch local (git diff <base>..HEAD).
-- cccp hygiene (ou cccp fix): executa linter com -D warnings e formatador determinístico das linguagens declaradas no GOSTVER de forma rápida e incremental.
-
----
-## [#72] feat(ddtdd): subcomandos cccp start, cccp commit com travas de fase e cccp close com laudo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/72
-
-### Description
-Implementar os subcomandos de ciclo de desenvolvimento DD-TDD do Maestro cccp conforme as Seções 5 e 6 da norma GOST 2.0 e Seção 1.2 do perfil Kollontai 2.0.
-
-Requisitos:
-- cccp start <id> [--base <b>]: checkout automático para branch <tipo>/<id>-<slug> lendo tipo e slug a partir do ticket #<id>.
-- cccp commit "<resumo>": dedução determinística do <id> e da fase (ph3..ph8) pelo histórico da branch de trabalho. Aplicação das travas de fase (bloqueia código em ph3, exige teste vermelho em ph4, exige teste verde em ph5, impõe ordem test -> refactor em ph7) e formata <tipo>: <resumo> (ref #<id> - ph<N>).
-- cccp close "<resumo>": exige corpo estruturado com Laudo Textual de Resolução ([Resumo]:, [Solução]:, [Validação]: >= 80 chars), valida sincronização de CHANGELOG.md e site/ e grava commit final (closes #<id> - ph9).
-- cccp status: inspeciona a branch ativa e exibe ticket atual, fase alcançada e próximo passo obrigatório.
-
----
-## [#70] feat(check): expandir auditoria para conformidade gost 2.0 e validacao de fases dd-tdd
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/70
-
-### Description
-Aprofundar o comando de verificação da GOST (cccp check --strict).
-
-Requisitos:
-- Validar conformidade integral com a norma GOST 2.0.0 e perfis especializados (Kollontai 2.0 e Lilya 2.0).
-- Inspecionar o cumprimento determinístico das 9 fases do ciclo DD-TDD no branch atual e no histórico de commits.
-
----
-## [#69] feat(catalog): incluir url canonica, host do servidor e apelidos customizaveis no catalogo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/69
-
-### Description
-Expandir a modelagem de dados do Gosplan State Catalog.
-
-Requisitos:
-- Armazenar endereço canônico do repositório e host da forja.
-- Implementar atribuição automática de apelido baseada no domínio (ex.: primeiro nome do domínio, ou segundo se for git.*).
-- Permitir definir apelidos arbitrários fixados no arquivo de configuração do CCCP.
-
----
-## [#68] feat(completion): enriquecer autocompletion dinamico e instalador automatico no bashrc
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/68
-
-### Description
-Aperfeiçoar o suporte a autocompletion no terminal.
-
-Requisitos:
-- Estender as regras de completude para incluir dinamicamente os slugs de repositórios registrados no catálogo.
-- Adicionar helper de instalação (ex.: cccp completion install --bash) para injetar a configuração no .bashrc e na sessão interativa atual.
-
----
-## [#67] feat(cli): subcomando cccp prompt para integracao de status do repositorio no shell
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/67
-
-### Description
-Fornecer um integrador rápido em Rust para o prompt do shell (Bash/Zsh).
-
-Requisitos:
-- Subcomando cccp prompt de latência ultrabaixa para consumo em PROMPT_COMMAND / PS1.
-- Retornar string formatada contendo: estado da árvore (clean/dirty), branch atual, contagem de branches locais e PRs, tickets locais em aberto e status de CI cacheado.
-
----
-## [#66] fix(repo): isolar repositorios remotos e upstream contra mutacoes locais de catalogo
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/66
-
-### Description
-Repositórios marcados no catálogo Gosplan com status remote ou com upstreams remotos não devem sofrer intervenções acidentais.
-
-Requisitos:
-- Comandos em lote (assemble, sync, hook) devem ignorar automaticamente repositórios que não possuam workspace local de trabalho.
-- Bloquear qualquer tentativa de criação ou modificação de arquivos em repositórios categorizados como remote.
-
----
-## [#65] feat(repo): assemble seletivo por repo com trava de working tree limpa e automacao gost
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/65
-
-### Description
-Refinar o comando de assemble de especificações da GOST.
-
-Requisitos:
-- Adicionar flag para execução em repositório único: cccp repo assemble --repo <slug>.
-- Travar a execução se a working tree do repositório estiver dirty.
-- Implementar automação do ciclo estrito da GOST durante o assemble (abertura de ticket temporário/interno -> commit com ID -> push) para que a sincronização da GOST não deixe múltiplos repositórios com estado pendente no catálogo.
-
----
-## [#64] feat(git): travas para comandos git manuais e checagem de paridade com origin antes de push
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/64
-
-### Description
-Proteger o fluxo diário de desenvolvimento contra execuções diretas do git que contornem o Maestro CCCP.
-
-Requisitos:
-- Implementar travas de proteção (via hooks gerenciados pelo cccp hook ou wrappers) para impedir git commit, git push, etc., forçando o uso dos comandos CCCP.
-- No comando cccp push, incluir checagem automática de paridade com o tracking branch (origin), prevenindo rejeições remotas e eliminando a necessidade de git pull manual antes do envio.
-
----
-## [#63] fix(cli): permitir argumento posicional ou flag de repo no comando divan
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/63
-
-### Description
-O subcomando divan não aceita o parâmetro direto de repositório após a instrução (ex.: cccp divan cccp ou cccp divan user/repo), nem através de opção/flag explícita.
-
-Requisitos:
-- Ajustar o parser CLI (clap) para aceitar tanto <repo> posicional opcional quanto --repo <repo>.
-- Repassar o contexto do repositório selecionado para o fluxo interativo do Divan.
-
----
 ## [#57] refactor(update): descontinuar auto-update interno em favor da jornaleira
 - **Status**: `open`
 - **Labels**: none
@@ -182,5 +57,53 @@ Requisitos:
 
 ### Description
 Remover rotina interna de verificacao periodica de auto-update (check_auto_update) no CCCP, transferindo a gestao de ciclo de vida e atualizacoes dos binarios para o gestor central Jornaleira.
+
+---
+## [#53] fix(core): ensure profile assemble updates gost and gostver across repositories
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/53
+
+### Description
+## Description
+Durante a execução do comando de montagem (`profile assemble`), os repositórios gerenciados não estão tendo os artefatos GOST ou o valor `gostver` atualizados conforme esperado. O fluxo deve verificar, baixar/sincronizar os recursos GOST e garantir a gravação e consistência da versão GOST em todos os repositórios processados.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] O comando `profile assemble` itera sobre todos os repositórios configurados e atualiza a especificação GOST.
+- [ ] A versão canônica do GOST (`gostver`) é atualizada e registrada nos arquivos de metadados de cada repositório.
+- [ ] A sincronização trata falhas parciais informando erros sem corromper repositórios íntegros.
+- [ ] Testes de unidade e integração validam a atualização de `gost` e `gostver` em múltiplos diretórios.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `fix/<id>-assemble-gost-update` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
+## [#1] feat(ticket): Radar multi-forge para sincronização de tickets e PRs (GitHub, Codeberg, Forgejo)
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/1
+
+### Description
+### Proposta e Contexto
+
+Com a migração do ecossistema para a instância soberana `git.2lp.in` como upstream canônico e os repositórios públicos operando com **Push Mirrors** para o **GitHub** e **Codeberg**, surge a necessidade de gerenciar o fluxo de contribuições externas (Issues e Pull Requests).
+
+### Requisitos / Escopo
+1. Estender o comando `cccp ticket sync` e `cccp forge` para inspecionar múltiplos remotes (`origin`, `github`, `codeberg`).
+2. Sincronizar issues e PRs abertos nos espelhos externos diretamente no arquivo local `.antigravity/tickets.md`.
+3. Oferecer comandos auxiliares para revisão ágil de PRs externos (ex.: checkout de branches de PRs do GitHub/Codeberg para testes locais no padrão GOST).
+4. Suportar credenciais automáticas a partir do `.env` e variáveis de ambiente canônicas (`GITHUB_COM_TOKEN`, `CODEBERG_ORG_TOKEN`, `FORGEJO_TOKEN`).
+
+### Alinhamento
+- Norma GOST DD-TDD
+- Perfil Kollontai / Lumen
 
 ---
