@@ -1073,6 +1073,12 @@ fn main() -> ExitCode {
             clap_complete::generate(comp.shell, &mut cmd, "cccp", &mut std::io::stdout());
             ExitCode::SUCCESS
         }
+        Some(Commands::Prompt(ref prompt_args)) => {
+            if let Some(output) = cccp::prompt::generate_prompt(args.dir.as_deref(), prompt_args) {
+                println!("{}", output);
+            }
+            ExitCode::SUCCESS
+        }
         Some(Commands::Repo(catalog_args)) => match catalog_args.action {
             Some(cli::CatalogSubcommands::Add {
                 repo,

@@ -130,6 +130,9 @@ pub enum Commands {
     /// Generate shell completion scripts (bash, zsh, fish, powershell)
     Completion(CompletionArgs),
 
+    /// Lightweight shell prompt helper displaying branch, phase, ticket, and dirty state
+    Prompt(PromptArgs),
+
     /// Manage repositories, workspace catalog, and GOST scaffolding
     Repo(RepoArgs),
 
@@ -735,6 +738,33 @@ pub struct CompletionArgs {
     /// Shell type for completion generation
     #[arg(value_enum)]
     pub shell: clap_complete::Shell,
+}
+
+#[derive(Debug, Args, Clone, PartialEq, Eq, Default)]
+pub struct PromptArgs {
+    /// Render short/minimal format (e.g. 'main* [#67 ph3]')
+    #[arg(short = 's', long = "short")]
+    pub short: bool,
+
+    /// Output status in JSON format
+    #[arg(long = "json")]
+    pub json: bool,
+
+    /// Show extended status (tickets count, remote status)
+    #[arg(long = "status")]
+    pub status: bool,
+
+    /// Format ANSI escape sequences for Bash prompt (wrap with \[ \])
+    #[arg(long = "bash")]
+    pub bash: bool,
+
+    /// Format ANSI escape sequences for Zsh prompt (wrap with %{ %})
+    #[arg(long = "zsh")]
+    pub zsh: bool,
+
+    /// Disable ANSI colors
+    #[arg(long = "no-color")]
+    pub no_color: bool,
 }
 
 #[derive(Debug, Args, Clone, Default)]

@@ -26,6 +26,7 @@ pub mod lint;
 pub mod matraca;
 pub mod newrepo;
 pub mod profile;
+pub mod prompt;
 pub mod push;
 pub mod release;
 pub mod semver_calc;
