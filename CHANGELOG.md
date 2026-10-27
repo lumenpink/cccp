@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Sovereign Forge Independence and Sovereign Default Host
+- **Soberania de Forjas e Remoção de Fallbacks Hardcoded ao Codeberg (`src/forges.rs` / `src/catalog.rs`)**:
+  - **Forja Padrão Soberana**: Define `git.2lp.in` como host canônico para `ForgeType::Forgejo` e como destino padrão para slugs curtos (`owner/repo`).
+  - **Resolução de Tokens Soberanos**: Suporte nativo à variável `GIT_2LP_IN_TOKEN` derivada das regras de domínio.
+  - **Desvinculação do Codeberg**: Substituição de referências e URLs base hardcoded no perfil, scaffolding e templates em favor do ecossistema soberano 2lp.in. (closes #54)
+
+
 ### Dynamic Autocompletion and Shell Profile Installer
 - **Autocompletion Dinâmico e Instalador no Shell (`cccp completion` / `src/completion.rs`)**:
   - **Candidatos Dinâmicos do Catálogo**: Emite slugs, nomes e apelidos ativos do catálogo Gosplan via `cccp completion --candidates repos`.
