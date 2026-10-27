@@ -42,6 +42,10 @@ pub struct CatalogEntry {
     pub open_tickets: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ci_status: Vec<CiPipelineStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_host: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -70,6 +74,14 @@ struct RawCatalogEntry {
     pub tickets: Option<usize>,
     #[serde(default)]
     pub ci_status: Vec<CiPipelineStatus>,
+    #[serde(default)]
+    pub canonical_url: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub server_host: Option<String>,
+    #[serde(default)]
+    pub host: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -106,7 +118,10 @@ impl From<RawCatalogEntry> for CatalogEntry {
             add_str_or_vec(&mut aliases, a);
         }
 
-        CatalogEntry {
+        let canonical = raw.canonical_url.or(raw.url);
+        let host = raw.server_host.or(raw.host);
+
+        let mut entry = CatalogEntry {
             name: raw.name,
             forge: raw.forge,
             slug: raw.slug,
@@ -118,6 +133,110 @@ impl From<RawCatalogEntry> for CatalogEntry {
             is_upstream: raw.is_upstream,
             open_tickets: raw.open_tickets.or(raw.tickets),
             ci_status: raw.ci_status,
+            canonical_url: canonical,
+            server_host: host,
+        };
+        enrich_catalog_entry(&mut entry, None);
+        entry
+    }
+}
+
+/// Extracts the domain prefix according to Soviet Gosplan rules:
+/// - If first part is "git" and there are more parts (e.g. git.subversao.su), uses the second part ("subversao").
+/// - Otherwise uses the first part (e.g. gambi.2lp.in -> "gambi", codeberg.org -> "codeberg").
+pub fn extract_domain_prefix(host: &str) -> Option<String> {
+    let clean = host.split(':').next().unwrap_or(host).trim();
+    let parts: Vec<&str> = clean.split('.').collect();
+    if parts.is_empty() || parts[0].is_empty() {
+        return None;
+    }
+    if parts[0].eq_ignore_ascii_case("git") && parts.len() > 1 {
+        Some(parts[1].to_ascii_lowercase())
+    } else {
+        Some(parts[0].to_ascii_lowercase())
+    }
+}
+
+/// Enriches a CatalogEntry with canonical URL, server host, domain-based aliases,
+/// and custom aliases from Config.
+pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::config::Config>) {
+    // 1. Resolve canonical_url
+    if entry.canonical_url.is_none() && !entry.slug.is_empty() {
+        let url = if entry.forge.starts_with("http://") || entry.forge.starts_with("https://") {
+            format!(
+                "{}/{}",
+                entry.forge.trim_end_matches('/'),
+                entry.slug.trim_start_matches('/')
+            )
+        } else if !entry.forge.is_empty() {
+            format!(
+                "https://{}/{}",
+                entry.forge.trim_end_matches('/'),
+                entry.slug.trim_start_matches('/')
+            )
+        } else {
+            String::new()
+        };
+        if !url.is_empty() {
+            entry.canonical_url = Some(url);
+        }
+    }
+
+    // 2. Resolve server_host
+    if entry.server_host.is_none() {
+        let source = entry.canonical_url.as_deref().unwrap_or(&entry.forge);
+        if !source.is_empty() {
+            let host_part = if let Some(stripped) = source.strip_prefix("https://") {
+                stripped
+            } else if let Some(stripped) = source.strip_prefix("http://") {
+                stripped
+            } else if let Some(stripped) = source.strip_prefix("git@") {
+                stripped.split(':').next().unwrap_or(stripped)
+            } else {
+                source
+            };
+            let host = host_part.split('/').next().unwrap_or(host_part);
+            let clean_host = host.split(':').next().unwrap_or(host).trim();
+            if !clean_host.is_empty() {
+                entry.server_host = Some(clean_host.to_string());
+            }
+        }
+    }
+
+    // 3. Automatic domain-based aliases
+    if let Some(ref host) = entry.server_host {
+        if let Some(domain) = extract_domain_prefix(host) {
+            let repo_name = entry.slug.split('/').nth(1).unwrap_or(&entry.slug);
+            if !repo_name.is_empty() {
+                let alias1 = format!("{}:{}", domain, repo_name);
+                let alias2 = format!("{}/{}", domain, repo_name);
+                if !entry.aliases.contains(&alias1) {
+                    entry.aliases.push(alias1);
+                }
+                if !entry.aliases.contains(&alias2) {
+                    entry.aliases.push(alias2);
+                }
+            }
+        }
+    }
+
+    // 4. Custom aliases from config
+    if let Some(cfg) = config {
+        let mut to_add = Vec::new();
+        if let Some(custom) = cfg.repo_aliases.get(&entry.slug) {
+            to_add.extend(custom.clone());
+        }
+        if let Some(custom) = cfg.repo_aliases.get(&entry.name) {
+            to_add.extend(custom.clone());
+        }
+        let repo_part = entry.slug.split('/').nth(1).unwrap_or(&entry.slug);
+        if let Some(custom) = cfg.repo_aliases.get(repo_part) {
+            to_add.extend(custom.clone());
+        }
+        for a in to_add {
+            if !entry.aliases.contains(&a) {
+                entry.aliases.push(a);
+            }
         }
     }
 }
@@ -280,7 +399,10 @@ pub fn load_catalog(
 ) -> Vec<CatalogEntry> {
     if let Some(path) = find_catalog_path(config, start_dir) {
         if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(entries) = serde_json::from_str::<Vec<CatalogEntry>>(&content) {
+            if let Ok(mut entries) = serde_json::from_str::<Vec<CatalogEntry>>(&content) {
+                for entry in &mut entries {
+                    enrich_catalog_entry(entry, config);
+                }
                 return entries;
             }
         }
@@ -690,6 +812,7 @@ pub fn add_remote_repo(
             is_upstream: false,
             open_tickets: None,
             ci_status: Vec::new(),
+            ..Default::default()
         };
         catalog.push(entry.clone());
         is_updated = false;
@@ -873,6 +996,7 @@ pub fn scan_and_add_from_src(
             is_upstream: false,
             open_tickets: None,
             ci_status: Vec::new(),
+            ..Default::default()
         };
 
         catalog.push(entry.clone());

@@ -48,6 +48,8 @@ pub struct Config {
     pub catalog_file: Option<String>,
     /// Default AI provider (e.g. "gemini" or "ollama")
     pub ai_provider: String,
+    /// Custom aliases mapping for catalog repositories (slug/name -> aliases)
+    pub repo_aliases: HashMap<String, Vec<String>>,
     /// Ollama daemon base URL (default: "http://localhost:11434")
     pub ollama_host: String,
     /// Ollama model name (default: "llama3.2:3b")
@@ -143,6 +145,7 @@ impl Default for Config {
             agents_md_file: ".antigravity/AGENTS.md".into(),
             catalog_file: None,
             ai_provider: "gemini".into(),
+            repo_aliases: HashMap::new(),
             ollama_host: "http://localhost:11434".into(),
             ollama_model: "llama3.2:3b".into(),
             ollama_temperature: 0.2,
@@ -210,6 +213,22 @@ impl Config {
 
     /// Set an individual key-value pair, routing to known fields or extra map
     pub fn set_key_value(&mut self, key: &str, val: &str) {
+        if let Some(repo) = key.strip_prefix("alias.") {
+            let list = parse_string_list(val);
+            self.repo_aliases
+                .entry(repo.trim().to_string())
+                .or_default()
+                .extend(list);
+            return;
+        } else if let Some(repo) = key.strip_prefix("aliases.") {
+            let list = parse_string_list(val);
+            self.repo_aliases
+                .entry(repo.trim().to_string())
+                .or_default()
+                .extend(list);
+            return;
+        }
+
         let normalized = key.to_ascii_lowercase().replace('-', "_");
         match normalized.as_str() {
             "types" | "commit_types" => {
