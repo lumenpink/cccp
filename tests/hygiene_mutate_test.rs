@@ -113,3 +113,41 @@ fn test_cli_parsing_mutate_and_hygiene() {
         _ => panic!("Expected Commands::Fix"),
     }
 }
+
+#[test]
+fn test_mutation_detection_and_edge_cases() {
+    // 1. Mutante de case-sensitivity e whitespace no idioma
+    let rust_upper = resolve_mutate_command("  RUST  ", "develop");
+    assert_eq!(rust_upper, Some(vec!["cargo", "mutants", "--in-diff"]));
+
+    let ts_cmd = resolve_mutate_command("typescript", "main");
+    assert_eq!(ts_cmd, Some(vec!["npx", "stryker", "run", "--diff"]));
+
+    // 2. Idiomas desconhecidos devem retornar vetor vazio em hygiene e None em mutate
+    assert_eq!(resolve_mutate_command("brainfuck", "main"), None);
+    assert_eq!(
+        resolve_hygiene_commands("brainfuck", false),
+        Vec::<Vec<&str>>::new()
+    );
+    assert_eq!(
+        resolve_hygiene_commands("brainfuck", true),
+        Vec::<Vec<&str>>::new()
+    );
+
+    // 3. Mutante de GOSTVER parsing com fallback
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let langs_default = cccp::hygiene::get_gost_languages(tmp.path());
+    assert_eq!(langs_default, vec!["rust".to_string()]);
+
+    let gostver_file = tmp.path().join("GOSTVER");
+    std::fs::write(&gostver_file, "GOST_LANGUAGES=\"rust, shell , python \"\n").expect("write");
+    let langs_parsed = cccp::hygiene::get_gost_languages(tmp.path());
+    assert_eq!(
+        langs_parsed,
+        vec![
+            "rust".to_string(),
+            "shell".to_string(),
+            "python".to_string()
+        ]
+    );
+}
