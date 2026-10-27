@@ -113,7 +113,13 @@ fn test_ssh_and_port_host_extraction() {
 #[test]
 fn test_domain_prefix_edge_cases() {
     assert_eq!(extract_domain_prefix(""), None);
-    assert_eq!(extract_domain_prefix("localhost"), Some("localhost".to_string()));
+    assert_eq!(
+        extract_domain_prefix("localhost"),
+        Some("localhost".to_string())
+    );
     assert_eq!(extract_domain_prefix("git"), Some("git".to_string()));
-    assert_eq!(extract_domain_prefix("GIT.COMPANY.COM"), Some("company".to_string()));
+    assert_eq!(
+        extract_domain_prefix("GIT.COMPANY.COM"),
+        Some("company".to_string())
+    );
 }

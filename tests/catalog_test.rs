@@ -230,6 +230,8 @@ fn test_catalog_entry_serialization_full_fields() {
         is_upstream: false,
         open_tickets: None,
         ci_status: Vec::new(),
+        canonical_url: None,
+        server_host: None,
     };
 
     let serialized = serde_json::to_string_pretty(&vec![entry.clone()]).unwrap();
