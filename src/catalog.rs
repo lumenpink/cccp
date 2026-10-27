@@ -410,32 +410,41 @@ pub fn load_catalog(
     Vec::new()
 }
 
-/// Resolve target repository from user input (e.g. 'cccp', 'owner/repo', or catalog match)
-pub fn resolve_target_repo(
+/// Resolves target repository forge information and optionally its local workspace path.
+pub fn resolve_target_repo_workspace(
     input: &str,
     config: Option<&crate::config::Config>,
     start_dir: Option<&Path>,
-) -> Option<RepoForgeInfo> {
+) -> Option<(RepoForgeInfo, Option<PathBuf>)> {
     let clean = input.trim();
     if clean.is_empty() {
         return None;
     }
 
+    let catalog = load_catalog(config, start_dir);
+
     // 1. Full remote URL
     if clean.contains("://") || clean.starts_with("git@") {
-        return crate::forges::parse_remote_url(clean);
+        if let Some(info) = crate::forges::parse_remote_url(clean) {
+            let full_slug = format!("{}/{}", info.owner, info.repo);
+            if let Some(entry) = catalog.iter().find(|e| e.slug.eq_ignore_ascii_case(&full_slug)) {
+                let local = find_local_repo_path_with_config(entry, config);
+                return Some((info, local));
+            }
+            return Some((info, None));
+        }
     }
-
-    let catalog = load_catalog(config, start_dir);
 
     // 2. Exact match on slug (e.g. 'lumenpink/cccp')
     if let Some(entry) = catalog.iter().find(|e| e.slug.eq_ignore_ascii_case(clean)) {
-        return Some(entry.to_forge_info());
+        let local = find_local_repo_path_with_config(entry, config);
+        return Some((entry.to_forge_info(), local));
     }
 
     // 3. Exact match on name (e.g. 'cccp')
     if let Some(entry) = catalog.iter().find(|e| e.name.eq_ignore_ascii_case(clean)) {
-        return Some(entry.to_forge_info());
+        let local = find_local_repo_path_with_config(entry, config);
+        return Some((entry.to_forge_info(), local));
     }
 
     // 4. Match on alias (e.g. 'app')
@@ -445,7 +454,9 @@ pub fn resolve_target_repo(
         .collect();
 
     if alias_matches.len() == 1 {
-        return Some(alias_matches[0].to_forge_info());
+        let entry = alias_matches[0];
+        let local = find_local_repo_path_with_config(entry, config);
+        return Some((entry.to_forge_info(), local));
     } else if alias_matches.len() > 1 {
         let matched_names: Vec<String> = alias_matches
             .iter()
@@ -459,20 +470,24 @@ pub fn resolve_target_repo(
         return None;
     }
 
-    // 5. Local filesystem discovery in ~/src/<name>, start_dir/<name>, or current directory
-    if let Ok(home) = std::env::var("HOME") {
-        let src_path = PathBuf::from(&home).join("src").join(clean);
-        if let Some(remote_url) = crate::git::get_remote_url(&src_path) {
-            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
-                return Some(info);
+    // 5. Local filesystem discovery in start_dir/<name>, ~/src/<name>, or current directory
+    if let Some(base) = start_dir {
+        let candidate = base.join(clean);
+        if candidate.join(".git").exists() {
+            if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
+                if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                    return Some((info, Some(candidate)));
+                }
             }
         }
     }
-    if let Some(base) = start_dir {
-        let candidate = base.join(clean);
-        if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
-            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
-                return Some(info);
+    if let Ok(home) = std::env::var("HOME") {
+        let src_path = PathBuf::from(&home).join("src").join(clean);
+        if src_path.join(".git").exists() {
+            if let Some(remote_url) = crate::git::get_remote_url(&src_path) {
+                if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                    return Some((info, Some(src_path)));
+                }
             }
         }
     }
@@ -481,33 +496,47 @@ pub fn resolve_target_repo(
             if dir_name.eq_ignore_ascii_case(clean) || clean == "." {
                 if let Some(remote_url) = crate::git::get_remote_url(&cur) {
                     if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
-                        return Some(info);
+                        return Some((info, Some(cur)));
                     }
                 }
             }
         }
         let candidate = cur.join(clean);
-        if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
-            if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
-                return Some(info);
+        if candidate.join(".git").exists() {
+            if let Some(remote_url) = crate::git::get_remote_url(&candidate) {
+                if let Some(info) = crate::forges::parse_remote_url(&remote_url) {
+                    return Some((info, Some(candidate)));
+                }
             }
         }
     }
 
-    // 5. If formatted as owner/repo, infer codeberg as default forge
+    // 6. If formatted as owner/repo, infer codeberg as default forge
     if clean.contains('/') {
         let parts: Vec<&str> = clean.split('/').collect();
         if parts.len() == 2 && !parts[0].is_empty() && !parts[1].is_empty() {
-            return Some(RepoForgeInfo::new(
-                ForgeType::Codeberg,
-                "codeberg.org".to_string(),
-                parts[0].to_string(),
-                parts[1].to_string(),
+            return Some((
+                RepoForgeInfo::new(
+                    ForgeType::Codeberg,
+                    "codeberg.org".to_string(),
+                    parts[0].to_string(),
+                    parts[1].to_string(),
+                ),
+                None,
             ));
         }
     }
 
     None
+}
+
+/// Resolve target repository from user input (e.g. 'cccp', 'owner/repo', or catalog match)
+pub fn resolve_target_repo(
+    input: &str,
+    config: Option<&crate::config::Config>,
+    start_dir: Option<&Path>,
+) -> Option<RepoForgeInfo> {
+    resolve_target_repo_workspace(input, config, start_dir).map(|(info, _)| info)
 }
 
 /// Parse user repository identifier (URL or slug) into RepoForgeInfo

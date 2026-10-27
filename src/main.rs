@@ -1984,8 +1984,8 @@ fn run_divan_cmd(
     let (target_repo_arg, mut prompt_arg) = diva.resolve_repo_and_prompt();
 
     // 2. Resolve target forge and repository
-    let git_repo = cccp::git::GitRepo::open(dir).ok();
-    let target_dir: std::path::PathBuf = if let Some(ref r) = git_repo {
+    let mut git_repo = cccp::git::GitRepo::open(dir).ok();
+    let mut target_dir: std::path::PathBuf = if let Some(ref r) = git_repo {
         r.root_dir.clone()
     } else if let Some(p) = dir {
         p.to_path_buf()
@@ -1993,8 +1993,16 @@ fn run_divan_cmd(
         std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
     };
     let mut detected_forge = if let Some(ref target) = target_repo_arg {
-        match cccp::catalog::resolve_target_repo(target, Some(config), start_path) {
-            Some(info) => Some(info),
+        match cccp::catalog::resolve_target_repo_workspace(target, Some(config), start_path) {
+            Some((info, local_path)) => {
+                if let Some(path) = local_path {
+                    git_repo = cccp::git::GitRepo::open(Some(&path)).ok();
+                    target_dir = path;
+                } else {
+                    git_repo = None;
+                }
+                Some(info)
+            }
             None => {
                 eprintln!(
                     "{}: Target repository '{}' not found in catalog or workspaces.",
@@ -2021,6 +2029,14 @@ fn run_divan_cmd(
             println!("Select target repository from your catalog:");
             match inquire::Select::new("Target repository:", catalog_entries).prompt() {
                 Ok(selected) => {
+                    let local_path =
+                        cccp::catalog::find_local_repo_path_with_config(&selected, Some(config));
+                    if let Some(path) = local_path {
+                        git_repo = cccp::git::GitRepo::open(Some(&path)).ok();
+                        target_dir = path;
+                    } else {
+                        git_repo = None;
+                    }
                     detected_forge = Some(selected.to_forge_info());
                 }
                 Err(_) => {
