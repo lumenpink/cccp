@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### DD-TDD Lifecycle Subcommands and Phase Progression (GOST 2.0 / Kollontai 2.0)
+- **Subcomandos de Ciclo de Vida DD-TDD (`cccp start` / `cccp commit` / `cccp close` / `cccp status`)**: Implementa o fluxo determinístico das 9 fases DD-TDD do Maestro conforme a norma GOST v2.0.0 e perfil Kollontai v2.0.0:
+  - `cccp start <id> [--base <b>]`: Valida working tree limpa, resolve metadados do ticket e cria/faz checkout automático da branch padronizada `<tipo>/<id>-<slug>`.
+  - `cccp commit "<resumo>"`: Deduz deterministicamente o ticket e a fase atual (`ph3`..`ph8`) a partir do branch e histórico de commits, valida as travas de fase (bloqueia código em `ph3`, exige teste vermelho em `ph4`, sucesso em `ph5`, ordem `test` -> `refactor` em `ph7`) e formata `<tipo>(<escopo>): <resumo> (ref #<id> - ph<N>)`.
+  - `cccp close "<resumo>"`: Exige Laudo Textual de Resolução no corpo do commit com cabeçalhos obrigatórios `[Resumo]:`, `[Solução]:`, `[Validação]:` (>= 80 caracteres) e formata `<tipo>: <resumo> (closes #<id> - ph9)`.
+  - `cccp status`: Rastreador visual do progresso de fases DD-TDD no terminal com indicação da fase atual e próximo comando obrigatório. (closes #72)
+
+
 ### Libgit2 Engine Integration with SSL Support
 - **Migração do Motor Git para Libgit2 com SSL Nativo (`src/git.rs`)**: Substitui o motor de leitura e inspeção do repositório baseado em Gitoxide (`gix`) pela biblioteca canônica `libgit2` (crate `git2`) com suporte completo a SSL/HTTPS e OpenSSL, fornecendo leitura ultrarrápida de tags SemVer, histórico de commits, detecção de branch e estado dirty. (closes #60)
 
