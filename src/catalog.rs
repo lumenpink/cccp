@@ -1861,7 +1861,9 @@ pub fn assemble_catalog_repo(
 ) -> Result<(), String> {
     let lower_target = target.to_lowercase();
     let entry = entries.iter().find(|e| {
+        let repo_part = e.slug.split('/').nth(1).unwrap_or(&e.slug);
         e.slug.to_lowercase() == lower_target
+            || repo_part.to_lowercase() == lower_target
             || e.name.to_lowercase() == lower_target
             || e.aliases.iter().any(|a| a.to_lowercase() == lower_target)
     });

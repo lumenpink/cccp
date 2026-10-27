@@ -55,3 +55,40 @@ fn test_batch_assemble_skips_upstream_repos() {
         "No assemble should run for upstream repositories"
     );
 }
+
+#[test]
+fn test_assemble_blocked_for_upstream_repo_by_alias() {
+    let theme = Theme::with_color(false);
+
+    let upstream_entry = CatalogEntry {
+        name: "Upstream Official".to_string(),
+        slug: "org/upstream-official".to_string(),
+        aliases: vec!["official-lib".to_string()],
+        is_upstream: true,
+        ..Default::default()
+    };
+
+    let entries = vec![upstream_entry];
+    let res = assemble_catalog_repo(&entries, "official-lib", false, false, None, &theme);
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    assert!(err.contains("upstream") && err.contains("isolado"));
+}
+
+#[test]
+fn test_non_upstream_without_clone_reports_missing_workspace() {
+    let theme = Theme::with_color(false);
+
+    let remote_entry = CatalogEntry {
+        name: "Remote Only".to_string(),
+        slug: "user/remote-only".to_string(),
+        is_upstream: false,
+        ..Default::default()
+    };
+
+    let entries = vec![remote_entry];
+    let res = assemble_catalog_repo(&entries, "remote-only", false, false, None, &theme);
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    assert!(err.contains("workspace local clonado"));
+}
