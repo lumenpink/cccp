@@ -211,3 +211,30 @@ fn test_hook_matching_template_version_silent_even_if_cccp_version_differs() {
     // Nenhuma mensagem emitida quando o template está na versão atual
     assert!(warns.is_empty());
 }
+
+#[test]
+fn test_installed_hooks_checksum_and_canonical_version_match() {
+    let repo_dir = setup_temp_git_repo();
+    let p = repo_dir.path();
+    let hooks_dir = p.join(".git").join("hooks");
+    let theme = Theme::init(true);
+
+    install_hooks(&hooks_dir, p, false, &theme).expect("install_hooks failed");
+
+    let curr_ver = cccp::update::get_current_version();
+    let commit_msg = fs::read_to_string(hooks_dir.join("commit-msg")).unwrap();
+    assert!(
+        commit_msg.contains(&format!("# cccp-hook-version: {curr_ver}")),
+        "Hook should contain current canonical version {}, got: {}",
+        curr_ver,
+        commit_msg
+    );
+
+    // check_hook_version must NOT warn about local customization on freshly installed hooks
+    let warns = cccp::update::check_hook_version(p);
+    assert!(
+        warns.is_empty(),
+        "Freshly installed hooks should never be detected as customized: {:?}",
+        warns
+    );
+}
