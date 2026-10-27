@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Canonical URL, Server Host, and Custom Catalog Aliases
+- **URL Canônica, Host do Servidor e Apelidos Customizáveis (`src/catalog.rs` / `src/config.rs`)**: Expande a modelagem de dados do Gosplan State Catalog:
+  - **Endereço Canônico e Host da Forja**: Armazena e deduz automaticamente `canonical_url` e `server_host` para cada repositório do catálogo.
+  - **Atribuição Automática por Domínio**: Deriva apelidos automáticos qualificados (`{domain}:{repo}` e `{domain}/{repo}`) com base no host (utilizando o primeiro nome do domínio, ou o segundo se prefixado por `git.*`).
+  - **Apelidos Customizados via Configuração**: Suporta o mapeamento de apelidos arbitrários via chaves `alias.<slug> = "..."` no `.cccprc` / `Config`. (closes #69)
+
+
 ### Remote and Upstream Repository Isolation
 - **Isolamento de Repositórios Remotos e Upstream (`src/catalog.rs`)**: Protege repositórios marcados como upstream ou puramente remotos contra intervenções acidentais e mutações locais:
   - **Bloqueio de Assemble em Upstream**: Rejeita qualquer operação de assemble em repositórios com `is_upstream = true`, preservando a integridade das referências oficiais.
