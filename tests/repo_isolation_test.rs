@@ -16,7 +16,10 @@ fn test_assemble_blocked_for_upstream_repo() {
 
     let entries = vec![upstream_entry];
     let res = assemble_catalog_repo(&entries, "upstream-lib", false, false, None, &theme);
-    assert!(res.is_err(), "Upstream repository must be isolated against assemble");
+    assert!(
+        res.is_err(),
+        "Upstream repository must be isolated against assemble"
+    );
     let err = res.unwrap_err();
     let lower = err.to_lowercase();
     assert!(
@@ -41,7 +44,9 @@ fn test_batch_assemble_skips_upstream_repos() {
     let report = batch_assemble_gost(&entries, false, &theme);
 
     assert!(
-        report.skipped_remote.contains(&"Upstream Batch".to_string()),
+        report
+            .skipped_remote
+            .contains(&"Upstream Batch".to_string()),
         "Upstream repository must be skipped in batch assemble: {:?}",
         report
     );
