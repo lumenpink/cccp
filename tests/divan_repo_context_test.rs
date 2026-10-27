@@ -102,4 +102,20 @@ fn test_resolve_target_repo_workspace_resolution() {
     assert_eq!(info.repo, "my-cool-project");
     assert_eq!(info.owner, "lumen");
     assert_eq!(local_path, Some(repo_dir));
+
+    // Case-insensitivity check
+    let resolved_upper = cccp::catalog::resolve_target_repo_workspace(
+        "MCP",
+        Some(&config),
+        Some(root),
+    );
+    assert!(resolved_upper.is_some());
+    assert_eq!(resolved_upper.unwrap().0.repo, "my-cool-project");
+
+    // Empty and whitespace input
+    assert!(cccp::catalog::resolve_target_repo_workspace("", Some(&config), Some(root)).is_none());
+    assert!(cccp::catalog::resolve_target_repo_workspace("   ", Some(&config), Some(root)).is_none());
+
+    // Non-existent target
+    assert!(cccp::catalog::resolve_target_repo_workspace("non-existent-repo-xyz", Some(&config), Some(root)).is_none());
 }
