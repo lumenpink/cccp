@@ -427,7 +427,10 @@ pub fn resolve_target_repo_workspace(
     if clean.contains("://") || clean.starts_with("git@") {
         if let Some(info) = crate::forges::parse_remote_url(clean) {
             let full_slug = format!("{}/{}", info.owner, info.repo);
-            if let Some(entry) = catalog.iter().find(|e| e.slug.eq_ignore_ascii_case(&full_slug)) {
+            if let Some(entry) = catalog
+                .iter()
+                .find(|e| e.slug.eq_ignore_ascii_case(&full_slug))
+            {
                 let local = find_local_repo_path_with_config(entry, config);
                 return Some((info, local));
             }

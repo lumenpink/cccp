@@ -73,49 +73,52 @@ fn test_resolve_target_repo_workspace_resolution() {
     let repo_dir = root.join("my-cool-project");
     fs::create_dir_all(repo_dir.join(".git")).unwrap();
 
-    let catalog_json = format!(
-        r#"[
-            {{
-                "name": "my-cool-project",
-                "forge": "https://gambi.2lp.in",
-                "slug": "lumen/my-cool-project",
-                "aliases": ["mcp"],
-                "description": "Test Repo"
-            }}
-        ]"#
-    );
+    let catalog_json = r#"[
+        {
+            "name": "my-cool-project",
+            "forge": "https://gambi.2lp.in",
+            "slug": "lumen/my-cool-project",
+            "aliases": ["mcp"],
+            "description": "Test Repo"
+        }
+    ]"#;
     let catalog_path = root.join("catalog.json");
     fs::write(&catalog_path, catalog_json).unwrap();
 
-    let mut config = Config::default();
-    config.catalog_file = Some(catalog_path.to_string_lossy().to_string());
+    let config = Config {
+        catalog_file: Some(catalog_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
 
     // Resolve target repo and its workspace directory via catalog helper
-    let resolved = cccp::catalog::resolve_target_repo_workspace(
-        "mcp",
-        Some(&config),
-        Some(root),
-    );
+    let resolved = cccp::catalog::resolve_target_repo_workspace("mcp", Some(&config), Some(root));
 
-    assert!(resolved.is_some(), "Expected target repo to resolve workspace");
+    assert!(
+        resolved.is_some(),
+        "Expected target repo to resolve workspace"
+    );
     let (info, local_path) = resolved.unwrap();
     assert_eq!(info.repo, "my-cool-project");
     assert_eq!(info.owner, "lumen");
     assert_eq!(local_path, Some(repo_dir));
 
     // Case-insensitivity check
-    let resolved_upper = cccp::catalog::resolve_target_repo_workspace(
-        "MCP",
-        Some(&config),
-        Some(root),
-    );
+    let resolved_upper =
+        cccp::catalog::resolve_target_repo_workspace("MCP", Some(&config), Some(root));
     assert!(resolved_upper.is_some());
     assert_eq!(resolved_upper.unwrap().0.repo, "my-cool-project");
 
     // Empty and whitespace input
     assert!(cccp::catalog::resolve_target_repo_workspace("", Some(&config), Some(root)).is_none());
-    assert!(cccp::catalog::resolve_target_repo_workspace("   ", Some(&config), Some(root)).is_none());
+    assert!(
+        cccp::catalog::resolve_target_repo_workspace("   ", Some(&config), Some(root)).is_none()
+    );
 
     // Non-existent target
-    assert!(cccp::catalog::resolve_target_repo_workspace("non-existent-repo-xyz", Some(&config), Some(root)).is_none());
+    assert!(cccp::catalog::resolve_target_repo_workspace(
+        "non-existent-repo-xyz",
+        Some(&config),
+        Some(root)
+    )
+    .is_none());
 }
