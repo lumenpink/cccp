@@ -140,8 +140,7 @@ impl Default for Config {
             post_push_sync: Vec::new(),
             tickets_file: ".antigravity/tickets.md".into(),
             agents_md_url:
-                "https://git.2lp.in/lumen/cccp/raw/branch/main/src/base/AGENTS_template.md"
-                    .into(),
+                "https://git.2lp.in/lumen/cccp/raw/branch/main/src/base/AGENTS_template.md".into(),
             agents_md_file: ".antigravity/AGENTS.md".into(),
             catalog_file: None,
             ai_provider: "gemini".into(),
