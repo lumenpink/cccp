@@ -47,3 +47,19 @@ fn test_token_env_var_for_sovereign_forge() {
     let var = host_to_token_env_var("git.2lp.in");
     assert_eq!(var, "GIT_2LP_IN_TOKEN");
 }
+
+#[test]
+fn test_sovereign_forge_edge_cases_and_mutations() {
+    // 1. Slug with .git suffix
+    let info_git = cccp::catalog::parse_repo_identifier("lumen/ferramenta.git")
+        .expect("short slug with .git should parse");
+    assert_eq!(info_git.provider, ForgeType::Forgejo);
+    assert_eq!(info_git.host, "git.2lp.in");
+    assert_eq!(info_git.repo, "ferramenta");
+
+    // 2. Explicit sovereign host uppercase
+    let info_upper = cccp::catalog::parse_repo_identifier("GIT.2LP.IN/lumen/ferramenta")
+        .expect("uppercase sovereign host should parse");
+    assert_eq!(info_upper.provider, ForgeType::Forgejo);
+    assert_eq!(info_upper.host, "GIT.2LP.IN");
+}
