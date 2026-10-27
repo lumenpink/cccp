@@ -72,6 +72,28 @@ fn test_audit_gost20_readme_line_ceiling() {
         .find(|c| c.code == "GOST-20-SITE-TYPE-AND-SSOT-DOCS")
         .unwrap();
     assert_eq!(check_fail.status, CheckStatus::Fail);
+
+    // 3. Mutation test: Exatamente 50 linhas -> PASS
+    let exact_50: String = (0..50).map(|i| format!("Linha {i}\n")).collect();
+    fs::write(repo.path().join("README.md"), exact_50).unwrap();
+    let report_50 = run_gost_audit(repo.path(), true, &theme);
+    let check_50 = report_50
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-20-SITE-TYPE-AND-SSOT-DOCS")
+        .unwrap();
+    assert_eq!(check_50.status, CheckStatus::Pass);
+
+    // 4. Mutation test: Exatamente 51 linhas -> FAIL
+    let exact_51: String = (0..51).map(|i| format!("Linha {i}\n")).collect();
+    fs::write(repo.path().join("README.md"), exact_51).unwrap();
+    let report_51 = run_gost_audit(repo.path(), true, &theme);
+    let check_51 = report_51
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-20-SITE-TYPE-AND-SSOT-DOCS")
+        .unwrap();
+    assert_eq!(check_51.status, CheckStatus::Fail);
 }
 
 #[test]
@@ -97,6 +119,18 @@ fn test_audit_gost24_zero_binaries() {
         .find(|c| c.code == "GOST-24-ZERO-BINARIES-IN-GIT")
         .unwrap();
     assert_eq!(check_fail.status, CheckStatus::Fail);
+
+    // 3. Mutation test: extensão maiúscula (.EXE) e em subpasta aninhada -> FAIL
+    fs::remove_file(repo.path().join("libevil.so")).unwrap();
+    fs::create_dir_all(repo.path().join("nested/deep/bin")).unwrap();
+    fs::write(repo.path().join("nested/deep/bin/tool.EXE"), b"win32").unwrap();
+    let report_upper = run_gost_audit(repo.path(), true, &theme);
+    let check_upper = report_upper
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-24-ZERO-BINARIES-IN-GIT")
+        .unwrap();
+    assert_eq!(check_upper.status, CheckStatus::Fail);
 }
 
 #[test]
@@ -149,6 +183,36 @@ fn test_audit_gost26_metadata_and_anti_jargon() {
         .find(|c| c.code == "GOST-26-METADATA-MANIFEST-SSOT")
         .unwrap();
     assert_eq!(check_ok.status, CheckStatus::Pass);
+
+    // 3. Mutation test: Campo obrigatório faltando (ex: "theme") -> FAIL
+    let missing_field_metadata = r##"{
+      "slug": "meu-app",
+      "title": "Meu App",
+      "site_type": "doc",
+      "tagline": "Gerenciador eficiente de notas e tarefas",
+      "summary": "Um resumo conciso e objetivo sem jargão.",
+      "abstract": "Texto de apresentação executiva e clara.",
+      "tags": ["app", "cli", "util"],
+      "icon": "icon"
+    }"##;
+    fs::write(repo.path().join(".gost/metadata.json"), missing_field_metadata).unwrap();
+    let report_missing = run_gost_audit(repo.path(), true, &theme);
+    let check_missing = report_missing
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-26-METADATA-MANIFEST-SSOT")
+        .unwrap();
+    assert_eq!(check_missing.status, CheckStatus::Fail);
+
+    // 4. Mutation test: JSON sintaticamente malformado -> FAIL
+    fs::write(repo.path().join(".gost/metadata.json"), "{ invalid json ,,, }").unwrap();
+    let report_syntax = run_gost_audit(repo.path(), true, &theme);
+    let check_syntax = report_syntax
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-26-METADATA-MANIFEST-SSOT")
+        .unwrap();
+    assert_eq!(check_syntax.status, CheckStatus::Fail);
 }
 
 #[test]
