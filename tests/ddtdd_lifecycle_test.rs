@@ -142,3 +142,54 @@ Criado o módulo ddtdd com máquina de estados para inferência de fases e integ
     let too_short = "[Resumo]: a\n[Solução]: b\n[Validação]: c";
     assert!(validate_resolution_report(too_short).is_err());
 }
+
+#[test]
+fn test_cli_parsing_start_and_close() {
+    use cccp::cli::{Cli, Commands};
+    use clap::Parser;
+
+    // cccp start 72
+    let cli = Cli::try_parse_from(["cccp", "start", "72"]).expect("should parse cccp start 72");
+    match cli.command {
+        Some(Commands::Start(s)) => {
+            assert_eq!(s.id, 72);
+            assert_eq!(s.base, None);
+        }
+        _ => panic!("Expected Commands::Start"),
+    }
+
+    // cccp start 42 --base develop
+    let cli2 = Cli::try_parse_from(["cccp", "start", "42", "--base", "develop"])
+        .expect("should parse cccp start 42 --base develop");
+    match cli2.command {
+        Some(Commands::Start(s)) => {
+            assert_eq!(s.id, 42);
+            assert_eq!(s.base, Some("develop".to_string()));
+        }
+        _ => panic!("Expected Commands::Start"),
+    }
+
+    // cccp close "finalizar feature"
+    let cli3 = Cli::try_parse_from(["cccp", "close", "finalizar feature"])
+        .expect("should parse cccp close");
+    match cli3.command {
+        Some(Commands::Close(c)) => {
+            assert_eq!(c.summary, "finalizar feature");
+            assert_eq!(c.body, None);
+            assert!(!c.editor);
+        }
+        _ => panic!("Expected Commands::Close"),
+    }
+
+    // cccp commit "mensagem direta" --phase ph4
+    let cli4 = Cli::try_parse_from(["cccp", "commit", "mensagem direta", "--phase", "ph4"])
+        .expect("should parse cccp commit with phase");
+    match cli4.command {
+        Some(Commands::Commit(c)) => {
+            assert_eq!(c.summary, Some("mensagem direta".to_string()));
+            assert_eq!(c.phase, Some("ph4".to_string()));
+        }
+        _ => panic!("Expected Commands::Commit"),
+    }
+}
+

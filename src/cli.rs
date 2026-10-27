@@ -61,8 +61,14 @@ fn styling() -> clap::builder::styling::Styles {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Interactive Conventional Commits wizard
+    /// Create or switch to ticket branch (GOST Phase 2)
+    Start(StartArgs),
+
+    /// Interactive Conventional Commits wizard or automated DD-TDD phase commit
     Commit(CommitArgs),
+
+    /// Close development cycle with resolution report (GOST Phase 9)
+    Close(CloseArgs),
 
     /// Validate commit messages against Conventional Commits specification
     Lint(LintArgs),
@@ -194,7 +200,34 @@ pub struct MergeArgs {
 // =============================================================================
 
 #[derive(Debug, Args, Clone, Default)]
+pub struct StartArgs {
+    /// Ticket ID (e.g. 72)
+    pub id: u64,
+
+    /// Base branch to branch off from (defaults to main)
+    #[arg(short = 'b', long = "base")]
+    pub base: Option<String>,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct CloseArgs {
+    /// Executive summary of the closing commit (<= 72 chars)
+    pub summary: String,
+
+    /// Resolution report body (must contain [Resumo]:, [Solução]:, [Validação]:)
+    #[arg(short = 'b', long = "body")]
+    pub body: Option<String>,
+
+    /// Open editor to write the resolution report
+    #[arg(long = "editor")]
+    pub editor: bool,
+}
+
+#[derive(Debug, Args, Clone, Default)]
 pub struct CommitArgs {
+    /// Commit short subject / summary (enables automated DD-TDD phase commit)
+    pub summary: Option<String>,
+
     /// Commit type (e.g. feat, fix, docs, style, refactor, perf, test, chore)
     #[arg(short = 't', long = "type")]
     pub commit_type: Option<String>,
@@ -202,6 +235,10 @@ pub struct CommitArgs {
     /// Commit scope (e.g. cli, parser, auth)
     #[arg(short = 's', long = "scope")]
     pub scope: Option<String>,
+
+    /// Explicit DD-TDD phase override (e.g. ph3, ph4, ph5, ph6, ph7, ph8)
+    #[arg(short = 'p', long = "phase")]
+    pub phase: Option<String>,
 
     /// Commit short subject / description
     #[arg(short = 'm', long = "message")]
