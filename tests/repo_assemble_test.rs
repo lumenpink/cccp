@@ -75,7 +75,11 @@ fn test_assemble_single_repo_success() {
     let theme = Theme::with_color(false);
 
     let res = assemble_repo(repo_dir.path(), false, false, &theme);
-    assert!(res.is_ok(), "Assemble on clean repo must succeed: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Assemble on clean repo must succeed: {:?}",
+        res.err()
+    );
 
     // Verify .gost/GOST.md was assembled
     assert!(repo_dir.path().join(".gost/GOST.md").is_file());
@@ -96,7 +100,11 @@ fn test_assemble_auto_commit_creates_commit() {
     let theme = Theme::with_color(false);
 
     let res = assemble_repo(repo_dir.path(), false, true, &theme);
-    assert!(res.is_ok(), "Assemble with auto-commit must succeed: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Assemble with auto-commit must succeed: {:?}",
+        res.err()
+    );
 
     // Verify last commit
     let output = Command::new("git")

@@ -1783,7 +1783,10 @@ pub fn assemble_repo(
     _theme: &crate::cultural::Theme,
 ) -> Result<(), String> {
     if !path.exists() {
-        return Err(format!("Caminho do repositório não existe: {}", path.display()));
+        return Err(format!(
+            "Caminho do repositório não existe: {}",
+            path.display()
+        ));
     }
 
     // 1. Check clean working tree
@@ -1802,7 +1805,8 @@ pub fn assemble_repo(
     }
 
     // 2. Assemble specification
-    crate::profile::assemble_gost_specs(path).map_err(|e| format!("Falha no assemble da especificação GOST: {}", e))?;
+    crate::profile::assemble_gost_specs(path)
+        .map_err(|e| format!("Falha no assemble da especificação GOST: {}", e))?;
 
     // 3. Auto-commit if requested
     if auto_commit {
@@ -1825,7 +1829,11 @@ pub fn assemble_repo(
 
             let mut commit_cmd = std::process::Command::new("git");
             commit_cmd
-                .args(["commit", "-m", "docs(gost): atualizar especificacao gost compilada"])
+                .args([
+                    "commit",
+                    "-m",
+                    "docs(gost): atualizar especificacao gost compilada",
+                ])
                 .env("CCCP_MAESTRO_ACTIVE", "1")
                 .current_dir(path);
 
@@ -1859,7 +1867,10 @@ pub fn assemble_catalog_repo(
     });
 
     let Some(entry) = entry else {
-        return Err(format!("Repositório '{}' não encontrado no catálogo", target));
+        return Err(format!(
+            "Repositório '{}' não encontrado no catálogo",
+            target
+        ));
     };
 
     let Some(local_path) = find_local_repo_path_with_config(entry, config) else {
