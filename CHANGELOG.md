@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Divan Repository Argument and Workspace Context Forwarding
+- **Parâmetro de Repositório e Contexto no Divan (`cccp divan` / `src/catalog.rs`)**: Permite especificar o repositório-alvo via argumento posicional ou `--repo <repo>`:
+  - **Parsing Flexível**: Aceita tanto `cccp divan <repo>` quanto `cccp divan --repo <repo> [prompt]`, além de atalhos e seleção interativa.
+  - **Encaminhamento de Contexto Real**: Localiza o workspace local do repositório alvo e vincula o `GitRepo` correto (git log, branches, AGENTS.md, rascunhos e checkpoints), sem contaminação pelo repositório do diretório de chamada. (closes #63)
+
+
 ### Canonical URL, Server Host, and Custom Catalog Aliases
 - **URL Canônica, Host do Servidor e Apelidos Customizáveis (`src/catalog.rs` / `src/config.rs`)**: Expande a modelagem de dados do Gosplan State Catalog:
   - **Endereço Canônico e Host da Forja**: Armazena e deduz automaticamente `canonical_url` e `server_host` para cada repositório do catálogo.
