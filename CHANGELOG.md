@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Maestro Git Locks and Origin Push Parity
+- **Travas contra Comandos Git Manuais e Paridade de Push (`cccp push` / `src/push.rs` / `src/hook_runner.rs`)**: Protege o fluxo de desenvolvimento contra desvios normativos e falhas concorrentes de sincronização:
+  - **Travas nos Hooks Git**: Intercepta comandos diretos `git commit` e `git push` via hooks `pre-commit` e `pre-push`, bloqueando execuções manuais não orquestradas pelo Maestro CCCP (com bypass transparente em CI e `CCCP_BYPASS_LOCKS=1`).
+  - **Paridade com Tracking Branch (`origin`)**: Inspeciona a branch remota antes de qualquer envio no `cccp push`, realizando reconciliação automática fast-forward quando local está atrasado (`behind > 0, ahead == 0`) e impedindo o push em caso de divergência real de histórico (`ahead > 0, behind > 0`). (closes #64)
+
+
 ### GOST 2.0 Architectural and Governance Audit Compliance
 - **Expansão da Auditoria Canônica para GOST 2.0 (`cccp check` / `src/audit.rs`)**: Implementa a validação estrita das novas regras de arquitetura e governança da especificação GOST v2.0.0 e perfis Kollontai/Lilya:
   - `GOST-20-SITE-TYPE-AND-SSOT-DOCS`: Exige README enxuto com teto de até 50 linhas e presença de `site/index.html` para documentação detalhada.
