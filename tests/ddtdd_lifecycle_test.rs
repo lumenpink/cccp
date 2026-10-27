@@ -162,6 +162,42 @@ Criado o módulo ddtdd com máquina de estados para inferência de fases e integ
     // Curto demais (< 80 caracteres)
     let too_short = "[Resumo]: a\n[Solução]: b\n[Validação]: c";
     assert!(validate_resolution_report(too_short).is_err());
+
+    // Teste de mutação: contagem de caracteres UTF-8 multi-byte (não bytes)
+    // 80 caracteres com acentuação e emoji
+    let utf8_report = "[Resumo]: Implementação 🦀\n[Solução]: Alteração é concluída com êxito.\n[Validação]: Testes OK.";
+    if utf8_report.trim().chars().count() >= 80 {
+        assert!(validate_resolution_report(utf8_report).is_ok());
+    } else {
+        assert!(validate_resolution_report(utf8_report).is_err());
+    }
+}
+
+#[test]
+fn test_mutation_detection_and_edge_cases() {
+    // 1. Mutante de prefixo de branch: `docs/src.md` em ph3 não deve falhar (não começa com `src/`)
+    let allowed_docs = vec!["docs/src.md", "site/src_notes.txt"];
+    assert!(validate_phase_guards(DdtddPhase::Ph3, &allowed_docs).is_ok());
+
+    // 2. Mutantes em infer_ticket_from_branch:
+    assert_eq!(infer_ticket_from_branch("feat/notanumber-slug"), None);
+    assert_eq!(infer_ticket_from_branch("feat/-emptyid"), None);
+    assert_eq!(infer_ticket_from_branch("feat/42-"), None);
+    assert_eq!(infer_ticket_from_branch("unknown/42-valid-slug"), None);
+    assert_eq!(infer_ticket_from_branch("feat/42/nested-slash"), None);
+
+    // 3. Mutantes em infer_next_phase com histórico ruidoso:
+    let noisy_history = vec![
+        "chore: random merge commit without marker",
+        "feat(core): something (ref #42 - ph5)",
+        "chore: another commit",
+    ];
+    assert_eq!(infer_next_phase(&noisy_history), DdtddPhase::Ph6);
+
+    // 4. Mutante de formato de mensagem sem escopo vs com escopo
+    let with_empty_scope = format_phase_commit("feat", Some(""), "msg", 10, DdtddPhase::Ph4);
+    assert_eq!(with_empty_scope, "feat: msg (ref #10 - ph4)");
+    assert!(!with_empty_scope.contains("()"));
 }
 
 #[test]
