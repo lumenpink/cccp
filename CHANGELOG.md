@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Git Hooks Integrity Checksum and Canonical Version Fix
+- **Correção de Checksum e Versão Canônica nos Git Hooks (`src/hooks_install.rs` / `src/update.rs`)**:
+  - **Versão Canônica em Tempo de Instalação**: `install_hooks` passa a registrar `get_current_version()` em vez da constante estática `CARGO_PKG_VERSION`, sincronizando o cabeçalho com o runtime do binário.
+  - **Extração Fiel de Checksum**: Extrator canônico que preserva comentários internos do script executável (`# 1.`, `# 2.`), eliminando falso-positivo de customização manual em repositórios gerenciados. (closes #77)
+
+
 ### Sovereign Forge Independence and Sovereign Default Host
 - **Soberania de Forjas e Remoção de Fallbacks Hardcoded ao Codeberg (`src/forges.rs` / `src/catalog.rs`)**:
   - **Forja Padrão Soberana**: Define `git.2lp.in` como host canônico para `ForgeType::Forgejo` e como destino padrão para slugs curtos (`owner/repo`).
