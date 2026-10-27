@@ -195,37 +195,10 @@ pub fn check_hook_version(repo_dir: &Path) -> Vec<String> {
             }
 
             // Extrair corpo atual para checagem de checksum:
-            // 1. Extração canônica (corpo integral após cabeçalho de metadados CCCP)
-            let canonical_body = if let Some((_, b)) = content.split_once("# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n") {
-                b.to_string()
-            } else {
-                let mut lines = Vec::new();
-                let mut past_meta = false;
-                for line in content.lines() {
-                    let trimmed = line.trim();
-                    if !past_meta && (trimmed.starts_with("#!/") || trimmed.starts_with("# cccp-hook-") || trimmed.is_empty()) {
-                        continue;
-                    }
-                    past_meta = true;
-                    lines.push(line);
-                }
-                let mut res = lines.join("\n");
-                if !res.is_empty() && content.ends_with('\n') {
-                    res.push('\n');
-                }
-                res
-            };
+            let canonical_body = crate::hooks_install::extract_canonical_hook_body(&content);
             let checksum_canonical = compute_hook_checksum(&canonical_body);
 
-            // 2. Extração legada (compatibilidade com fixtures e hooks pré-3.2)
-            let mut legacy_lines = Vec::new();
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("#!") || !trimmed.starts_with('#') {
-                    legacy_lines.push(line);
-                }
-            }
-            let legacy_body = legacy_lines.join("\n");
+            let legacy_body = crate::hooks_install::extract_legacy_hook_body(&content);
             let checksum_legacy = compute_hook_checksum(&legacy_body);
 
             // Verifica se o hook foi modificado manualmente:

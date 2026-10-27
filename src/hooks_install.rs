@@ -66,6 +66,47 @@ pub fn is_cccp_hook(path: &Path) -> bool {
     }
 }
 
+/// Extracts the executable hook body after the metadata header block
+pub fn extract_canonical_hook_body(content: &str) -> String {
+    if let Some((_, b)) = content
+        .split_once("# CCCP - Conventional Commits Compliance Program (Soviet Git Hook)\n\n")
+    {
+        b.to_string()
+    } else {
+        let mut lines = Vec::new();
+        let mut past_meta = false;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if !past_meta
+                && (trimmed.starts_with("#!/")
+                    || trimmed.starts_with("# cccp-hook-")
+                    || trimmed.is_empty())
+            {
+                continue;
+            }
+            past_meta = true;
+            lines.push(line);
+        }
+        let mut res = lines.join("\n");
+        if !res.is_empty() && content.ends_with('\n') {
+            res.push('\n');
+        }
+        res
+    }
+}
+
+/// Legacy extraction filtering all comments (for backward compatibility)
+pub fn extract_legacy_hook_body(content: &str) -> String {
+    let mut legacy_lines = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("#!") || !trimmed.starts_with('#') {
+            legacy_lines.push(line);
+        }
+    }
+    legacy_lines.join("\n")
+}
+
 /// Generate canonical POSIX shell stub for a hook
 pub fn generate_hook_stub(hook_name: &str, repo_root: &Path, version: &str) -> String {
     let root_str = repo_root.display();
