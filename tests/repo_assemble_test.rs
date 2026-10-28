@@ -228,3 +228,67 @@ fn test_assemble_updates_outdated_gostver_and_syncs_gost_artifacts() {
         "Language spec for shell must be synchronized during assemble"
     );
 }
+
+#[test]
+fn test_batch_assemble_propagates_gostver_update_and_handles_partial_failure() {
+    use cccp::catalog::batch_assemble_gost_repos;
+
+    let repo1 = scaffold_test_repo("batch-repo-1");
+    let repo2 = scaffold_test_repo("batch-repo-2");
+    let repo3 = scaffold_test_repo("batch-repo-3");
+    let theme = Theme::with_color(false);
+
+    let p1 = repo1.path();
+    let p2 = repo2.path();
+    let p3 = repo3.path();
+
+    // Repo 1 has old GOSTVER 1.0.0
+    fs::write(
+        p1.join("GOSTVER"),
+        "GOST_VERSION=\"1.0.0\"\nGOST_PROFILE_URL=\"profiles/lumen.md\"\n",
+    )
+    .unwrap();
+    Command::new("git")
+        .args(["commit", "-am", "chore: old gostver"])
+        .current_dir(p1)
+        .status()
+        .unwrap();
+
+    // Repo 2 has a dirty working tree
+    fs::write(p2.join("uncommitted.txt"), "dirty").unwrap();
+
+    // Repo 3 has old GOSTVER 1.2.0
+    fs::write(
+        p3.join("GOSTVER"),
+        "GOST_VERSION=\"1.2.0\"\nGOST_PROFILE_URL=\"profiles/lumen.md\"\n",
+    )
+    .unwrap();
+    Command::new("git")
+        .args(["commit", "-am", "chore: old gostver"])
+        .current_dir(p3)
+        .status()
+        .unwrap();
+
+    let repos = [
+        ("batch-repo-1", Some(p1)),
+        ("batch-repo-2", Some(p2)),
+        ("batch-repo-3", Some(p3)),
+    ];
+
+    let report = batch_assemble_gost_repos(&repos, false, &theme);
+
+    // Repo 1 and 3 should assemble successfully
+    assert!(report.assembled.contains(&"batch-repo-1".to_string()));
+    assert!(report.assembled.contains(&"batch-repo-3".to_string()));
+
+    // Repo 2 should fail due to dirty working tree without corrupting others
+    assert_eq!(report.failed.len(), 1);
+    assert_eq!(report.failed[0].0, "batch-repo-2");
+
+    // Repo 1 and 3 GOSTVER must now be 2.0.0
+    let g1 = fs::read_to_string(p1.join("GOSTVER")).unwrap();
+    assert!(g1.contains("GOST_VERSION=\"2.0.0\""));
+
+    let g3 = fs::read_to_string(p3.join("GOSTVER")).unwrap();
+    assert!(g3.contains("GOST_VERSION=\"2.0.0\""));
+}
