@@ -2084,6 +2084,70 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Ci(ref ci_args)) => {
+            let root = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r.root_dir,
+                Err(_) => args.dir.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                }),
+            };
+            match &ci_args.action {
+                Some(cli::CiSubcommands::PublishArtifacts(pargs)) => {
+                    let opts = cccp::ci_pipeline::PublishArtifactsOptions {
+                        dist_dir: pargs.dist_dir.clone(),
+                        target: pargs.target.clone(),
+                        bucket: pargs.bucket.clone(),
+                        endpoint: pargs.endpoint.clone(),
+                        dry_run: pargs.dry_run,
+                    };
+                    match cccp::ci_pipeline::publish_artifacts(&root, &opts, &theme) {
+                        Ok(_) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::CiSubcommands::DeploySite(dargs)) => {
+                    let opts = cccp::ci_pipeline::DeploySiteOptions {
+                        source: dargs.source.clone(),
+                        branch: dargs.branch.clone(),
+                        remote: dargs.remote.clone(),
+                        cname: dargs.cname.clone(),
+                        dry_run: dargs.dry_run,
+                    };
+                    match cccp::ci_pipeline::deploy_site(&root, &opts, &theme) {
+                        Ok(_) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::CiSubcommands::Status) | None => {
+                    cccp::act::run_act_status(&root);
+                    ExitCode::SUCCESS
+                }
+                Some(cli::CiSubcommands::Run { job }) => {
+                    match cccp::act::run_act_run(&root, job.as_deref(), &theme, args.verbose) {
+                        Ok(_) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Some(cli::CiSubcommands::Log { follow }) => {
+                    match cccp::act::run_act_log(&root, *follow, &theme) {
+                        Ok(_) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
+        }
         Some(Commands::Divan(ref divan_args)) => {
             run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme)
         }

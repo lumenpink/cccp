@@ -1,7 +1,65 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-28 09:50:33 UTC
+> Synced at: 2026-10-28 15:28:44 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#81] feat(repo): subcomando cccp repo top para monitoramento interativo do ci
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/81
+
+### Description
+## Description
+Implementar o subcomando cccp repo top no estilo top/TUI para monitorar interativamente em tempo real o estado de CI de todos os repositorios do catalogo/workspace.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Listar o estado de CI dos repositorios com suporte a filtros por estado: ok, falha, na fila (incluindo em execucao) e sem fila.
+- [ ] Suportar ordenacao configuravel/interativa:
+  - Ordem de processamento (padrao inicial, abrangendo todos os estados)
+  - Por estado de CI
+  - Alfabetica por nome de repositorio
+- [ ] Limitar a visualizacao a altura do terminal com paginacao navegavel.
+- [ ] Atualizacao automatica da listagem a cada 10 segundos.
+- [ ] Bottom bar com instrucao de ajuda: Ctrl+H help.
+- [ ] Comandos interativos de controle precedidos por Ctrl.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificacao (Zero codigo de producao)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementacao minima funcional com teste passando
+- [ ] Fase 6 - Refactor: Codigo limpo, idiomatico e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes criticos eliminados com assercoes robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatacao validados
+- [ ] Fase 9 - Close: Changelog e documentacao atualizados; commit com (closes #<id>)
+
+---
+## [#80] fix(repo): remover repositorios espelho da listagem em cccp repo list
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/80
+
+### Description
+## Description
+Remover repositorios espelhos da listagem gerada por cccp repo list para exibir unicamente os repositorios canonicos e ativos do workspace/catalogo, evitando poluicao visual e redundancia de espelhos secundarios.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Ocultar ou filtrar espelhos secundarios (mirrors) por padrao na saida de cccp repo list.
+- [ ] Exibir apenas os repositorios canonicos e primarios configurados no catalogo.
+- [ ] Manter integridade de comandos dependentes do catalogo.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificacao (Zero codigo de producao)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementacao minima funcional com teste passando
+- [ ] Fase 6 - Refactor: Codigo limpo, idiomatico e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes criticos eliminados com assercoes robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatacao validados
+- [ ] Fase 9 - Close: Changelog e documentacao atualizados; commit com (closes #<id>)
+
+---
 ## [#79] feat(ai): precedencia de CCCP_GEMINI_TOKEN sobre GEMINI_TOKEN
 - **Status**: `open`
 - **Labels**: none
@@ -31,19 +89,6 @@ Implementar subcomandos de automação executados na esteira hermética (.forgej
 Requisitos:
 - cccp ci publish-artifacts: compilação e despacho determinístico de binários e manifestos para o Cloudflare R2 / Banca (banca.2lp.in).
 - cccp ci deploy-site: empacotamento da vitrine estática e deploy em worktree órfã stateless pages para os espelhos secundários sem inflação de histórico.
-
----
-## [#75] feat(site): gerador deterministico cccp site banner a partir de gost metadata
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/75
-
-### Description
-Implementar a geração automatizada do banner minimalista de documentação conforme Regras GOST-20, GOST-26 e Seção 6.2 de Kollontai 2.0.
-
-Requisitos:
-- Subcomando cccp site banner para gerar deterministicamente site/assets/og_preview.png (1200x630, Safe Zone 4:3 centralizada) a partir de .gost/metadata.json.
-- Renderizar fundo com theme.bg_color, acentos com theme.accent_color, ícone oficial e texto {title} — {tagline} (<= 65 caracteres), sem dependências externas de browser headless.
 
 ---
 ## [#1] feat(ticket): Radar multi-forge para sincronização de tickets e PRs (GitHub, Codeberg, Forgejo)

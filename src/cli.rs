@@ -169,6 +169,10 @@ pub enum Commands {
     /// Manage documentation showcase site and banners (GOST-20, GOST-26)
     #[command(subcommand)]
     Site(SiteCommand),
+
+    /// Hermetic CI pipeline execution, artifact publishing, and site deployment
+    #[command(alias = "act")]
+    Ci(CiArgs),
 }
 
 #[derive(Debug, Subcommand, Clone)]
@@ -1183,6 +1187,56 @@ pub enum CiSubcommands {
         #[arg(short = 'f', long = "follow")]
         follow: bool,
     },
+    /// Publish compiled binary distribution artifacts and SHA-256 manifests to R2 / Banca
+    PublishArtifacts(PublishArtifactsArgs),
+    /// Package and deploy static documentation showcase site to orphan pages branch
+    DeploySite(DeploySiteArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct PublishArtifactsArgs {
+    /// Directory containing compiled distribution artifacts (default: dist)
+    #[arg(short = 'd', long = "dist-dir")]
+    pub dist_dir: Option<PathBuf>,
+
+    /// Target compilation triple (e.g. x86_64-unknown-linux-musl)
+    #[arg(short = 't', long = "target")]
+    pub target: Option<String>,
+
+    /// Override R2 / Banca destination bucket name
+    #[arg(long = "bucket")]
+    pub bucket: Option<String>,
+
+    /// Custom S3/R2 endpoint URL
+    #[arg(long = "endpoint")]
+    pub endpoint: Option<String>,
+
+    /// Dry run: generate checksums and manifest without uploading to remote
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct DeploySiteArgs {
+    /// Source directory containing built documentation site (default: site)
+    #[arg(short = 's', long = "source")]
+    pub source: Option<PathBuf>,
+
+    /// Target orphan git branch for documentation pages (default: pages)
+    #[arg(short = 'b', long = "branch", default_value = "pages")]
+    pub branch: String,
+
+    /// Remote repository name to push to (default: origin)
+    #[arg(short = 'r', long = "remote", default_value = "origin")]
+    pub remote: String,
+
+    /// Optional CNAME domain to configure at site root
+    #[arg(long = "cname")]
+    pub cname: Option<String>,
+
+    /// Dry run: create local orphan commit and branch without pushing to remote
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
 }
 
 pub type ActSubcommands = CiSubcommands;

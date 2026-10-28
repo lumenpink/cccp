@@ -7,6 +7,7 @@ pub mod ai;
 pub mod audit;
 pub mod catalog;
 pub mod checkpoint;
+pub mod ci_pipeline;
 pub mod cli;
 pub mod commit_exec;
 pub mod completion;
