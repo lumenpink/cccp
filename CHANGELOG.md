@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Mirror Repository Filtering in Catalog and Repo Listing
+- **Ocultação de Repositórios Espelho (`src/catalog.rs`, `src/cli.rs`)**:
+  - **Omissão por Padrão**: O comando `cccp repo list` (e `cccp catalog list`) filtra e oculta automaticamente repositórios espelhos (`is_mirror = true`) da saída tabular do Gosplan.
+  - **Flag `--include-mirrors` (alias `--mirrors`)**: Permite ao usuário exibir explicitamente espelhos secundários quando necessário.
+  - **Detecção de Espelhos no Catálogo e Forjas**: Suporta `is_mirror` e `mirror` em `catalog.json` e reconhece repositórios espelhados em consultas de metadados das forjas remotas. (closes #80)
+
+
 ### Isolated Gemini Credentials and Token Precedence
 - **Precedência de Variáveis de Ambiente do Gemini (`src/ai.rs`, `src/config.rs`)**:
   - **Isolamento de Credenciais**: Adiciona suporte prioritário a `CCCP_GEMINI_TOKEN` e `CCCP_GEMINI_API_KEY` para isolar cotas de acesso a modelos de IA dedicados ao CCCP sem colidir com variáveis globais do sistema.
