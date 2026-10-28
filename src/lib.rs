@@ -32,6 +32,7 @@ pub mod profile;
 pub mod prompt;
 pub mod push;
 pub mod release;
+pub mod repo_top;
 pub mod semver_calc;
 pub mod serve;
 pub mod site_banner;

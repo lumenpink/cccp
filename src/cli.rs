@@ -977,6 +977,9 @@ pub enum CatalogSubcommands {
     },
     /// List all catalog repositories with optional filters and sorting
     List(CatalogFilterArgs),
+    /// Monitor repository CI statuses interactively in real time (top-style)
+    #[command(alias = "monitor")]
+    Top(RepoTopArgs),
     /// Manage repository aliases in catalog
     Alias(CatalogAliasArgs),
     /// Initialize and scaffold repository under strict GOST standard
@@ -1029,6 +1032,21 @@ pub enum CatalogSubcommands {
 
 pub type RepoSubcommands = CatalogSubcommands;
 pub type RepoArgs = CatalogArgs;
+
+#[derive(Debug, Args, Clone)]
+pub struct RepoTopArgs {
+    /// Refresh interval in seconds (default: 10)
+    #[arg(short = 'i', long = "interval", default_value_t = 10)]
+    pub interval: u64,
+
+    /// Initial CI status filter (all, ok, fail, queued, none)
+    #[arg(short = 'f', long = "filter")]
+    pub filter: Option<String>,
+
+    /// Initial sorting order (process, status, name)
+    #[arg(short = 's', long = "sort")]
+    pub sort: Option<String>,
+}
 
 #[derive(Debug, Args, Clone)]
 pub struct CatalogAliasArgs {

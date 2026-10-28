@@ -1489,6 +1489,23 @@ fn main() -> ExitCode {
                 }
                 ExitCode::SUCCESS
             }
+            Some(cli::CatalogSubcommands::Top(top_args)) => {
+                let init_filter = top_args.filter.as_deref().and_then(|f| f.parse().ok());
+                let init_sort = top_args.sort.as_deref().and_then(|s| s.parse().ok());
+                match cccp::repo_top::run_repo_top(
+                    None,
+                    top_args.interval,
+                    init_filter,
+                    init_sort,
+                    &theme,
+                ) {
+                    Ok(()) => ExitCode::SUCCESS,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
             Some(cli::CatalogSubcommands::Init(newrepo_args)) => {
                 match cccp::newrepo::cmd_newrepo(newrepo_args.into(), &theme) {
                     Ok(()) => ExitCode::SUCCESS,
