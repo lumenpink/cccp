@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Isolated Gemini Credentials and Token Precedence
+- **Precedência de Variáveis de Ambiente do Gemini (`src/ai.rs`, `src/config.rs`)**:
+  - **Isolamento de Credenciais**: Adiciona suporte prioritário a `CCCP_GEMINI_TOKEN` e `CCCP_GEMINI_API_KEY` para isolar cotas de acesso a modelos de IA dedicados ao CCCP sem colidir com variáveis globais do sistema.
+  - **Ordem Canônica e DRY**: Estabelece `GEMINI_ENV_KEYS` e `resolve_gemini_env_key()` garantindo a cadeia sequencial: `CCCP_GEMINI_TOKEN`/`API_KEY` > `GEMINI_TOKEN`/`API_KEY` > `GOOGLE_API_KEY`.
+  - **Diagnóstico Transparente**: Atualiza mensagens de ajuda em `check_access()` e `triage_gemini()` recomendando `CCCP_GEMINI_TOKEN`. (closes #79)
+
 ### Deterministic Site Open Graph Banner Generator
 - **Gerador Determinístico de Banner Open Graph (`cccp site banner`, `src/site_banner.rs`)**:
   - **Subcomando `cccp site banner`**: Gera o banner Open Graph (`site/assets/og_preview.png`) em resolução padrão de 1200x630 com Safe Zone 4:3 centralizada, respeitando GOST-20, GOST-26 e Kollontai 2.0.
