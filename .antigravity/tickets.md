@@ -1,14 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-27 23:19:06 UTC
+> Synced at: 2026-10-28 01:06:54 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#77] fix(hooks): corrigir calculo de checksum e versao canonica nos hooks instalados
+## [#78] fix(dx): gplv3 e ci no init, merge sem emenda ff e chores isentos no check
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/77
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/78
 
 ### Description
-Corrigir falso-positivo de customizacao local em git hooks gerado por extracao incorreta de comentarios no checksum e uso de CARGO_PKG_VERSION estatico em vez de get_current_version().
+Ajustar cccp init para licenca padrao GPL-3.0 e CI ubuntu-latest limpo, eliminar emenda de chore desnecessaria em merges fast-forward e isentar commits chore da exigencia de ticket em cccp check --strict.
 
 ---
 ## [#76] feat(ci): subcomandos de esteira cccp ci publish-artifacts e cccp ci deploy-site
@@ -48,15 +48,6 @@ Implementar a governança de branches persistentes e quarentena de fronteira con
 Requisitos:
 - cccp epic start|finish <slug>: ciclo de vida e checkout de branches persistentes de integração epic/<slug>.
 - cccp inbox list|review|accept: quarentena de PRs externos em refs/heads/inbox/* isolados contra push acidental nos espelhos secundários (pushurl = no_push).
-
----
-## [#57] refactor(update): descontinuar auto-update interno em favor da jornaleira
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/57
-
-### Description
-Remover rotina interna de verificacao periodica de auto-update (check_auto_update) no CCCP, transferindo a gestao de ciclo de vida e atualizacoes dos binarios para o gestor central Jornaleira.
 
 ---
 ## [#53] fix(core): ensure profile assemble updates gost and gostver across repositories
