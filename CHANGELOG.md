@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Deterministic Site Open Graph Banner Generator
+- **Gerador Determinístico de Banner Open Graph (`cccp site banner`, `src/site_banner.rs`)**:
+  - **Subcomando `cccp site banner`**: Gera o banner Open Graph (`site/assets/og_preview.png`) em resolução padrão de 1200x630 com Safe Zone 4:3 centralizada, respeitando GOST-20, GOST-26 e Kollontai 2.0.
+  - **Extração Automática de Metadados**: Lê título, slogan e paleta de cores a partir de `.gost/metadata.json` ou `README.md`, com suporte a overrides via flags de CLI (`--title`, `--tagline`, `--output`).
+  - **Motor PNG e Tipografia Determinísticos**: Renderizador puro em Rust com matriz bitmap 8x8 e codificador RGB PNG RFC 2083 sem dependências externas de imagem. (closes #75)
+
 ### Persistent Epic Branches and Border Quarantine Governance
 - **Governança de Branches Épicas e Quarentena de Contribuições (`src/governance.rs`, `src/cli.rs`)**:
   - **Subcomando `cccp epic`**: Permite gerenciar o ciclo de vida de branches persistentes de integração multi-ticket (`epic/<slug>`), suportando `start`, `list` e `finish` com validação de working tree limpa e integração na base.

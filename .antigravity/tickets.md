@@ -1,14 +1,23 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-28 01:06:54 UTC
+> Synced at: 2026-10-28 09:50:33 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#78] fix(dx): gplv3 e ci no init, merge sem emenda ff e chores isentos no check
+## [#79] feat(ai): precedencia de CCCP_GEMINI_TOKEN sobre GEMINI_TOKEN
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/78
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/79
 
 ### Description
-Ajustar cccp init para licenca padrao GPL-3.0 e CI ubuntu-latest limpo, eliminar emenda de chore desnecessaria em merges fast-forward e isentar commits chore da exigencia de ticket em cccp check --strict.
+Permitir a configuracao de token especifico do Gemini para o CCCP via variavel de ambiente CCCP_GEMINI_TOKEN (e CCCP_GEMINI_API_KEY), garantindo precedencia sobre GEMINI_TOKEN, GEMINI_API_KEY e GOOGLE_API_KEY.
+
+Motivacao:
+- Isolar chaves de API e cotas entre aplicacoes sem colisao de variaveis globais.
+- Facilitar a utilizacao de tokens dedicados para o bot Divan e geracao de tickets/triage.
+
+Ordem de precedencia proposta:
+1. CCCP_GEMINI_TOKEN / CCCP_GEMINI_API_KEY
+2. GEMINI_TOKEN / GEMINI_API_KEY
+3. GOOGLE_API_KEY
 
 ---
 ## [#76] feat(ci): subcomandos de esteira cccp ci publish-artifacts e cccp ci deploy-site
@@ -35,46 +44,6 @@ Implementar a geração automatizada do banner minimalista de documentação con
 Requisitos:
 - Subcomando cccp site banner para gerar deterministicamente site/assets/og_preview.png (1200x630, Safe Zone 4:3 centralizada) a partir de .gost/metadata.json.
 - Renderizar fundo com theme.bg_color, acentos com theme.accent_color, ícone oficial e texto {title} — {tagline} (<= 65 caracteres), sem dependências externas de browser headless.
-
----
-## [#74] feat(governance): subcomandos cccp epic para branches persistentes e cccp inbox para quarentena de prs
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/74
-
-### Description
-Implementar a governança de branches persistentes e quarentena de fronteira conforme Seção 15 (Regra GOST-25) e Seção 1.2 de Kollontai 2.0.
-
-Requisitos:
-- cccp epic start|finish <slug>: ciclo de vida e checkout de branches persistentes de integração epic/<slug>.
-- cccp inbox list|review|accept: quarentena de PRs externos em refs/heads/inbox/* isolados contra push acidental nos espelhos secundários (pushurl = no_push).
-
----
-## [#53] fix(core): ensure profile assemble updates gost and gostver across repositories
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/53
-
-### Description
-## Description
-Durante a execução do comando de montagem (`profile assemble`), os repositórios gerenciados não estão tendo os artefatos GOST ou o valor `gostver` atualizados conforme esperado. O fluxo deve verificar, baixar/sincronizar os recursos GOST e garantir a gravação e consistência da versão GOST em todos os repositórios processados.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] O comando `profile assemble` itera sobre todos os repositórios configurados e atualiza a especificação GOST.
-- [ ] A versão canônica do GOST (`gostver`) é atualizada e registrada nos arquivos de metadados de cada repositório.
-- [ ] A sincronização trata falhas parciais informando erros sem corromper repositórios íntegros.
-- [ ] Testes de unidade e integração validam a atualização de `gost` e `gostver` em múltiplos diretórios.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `fix/<id>-assemble-gost-update` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
 
 ---
 ## [#1] feat(ticket): Radar multi-forge para sincronização de tickets e PRs (GitHub, Codeberg, Forgejo)
