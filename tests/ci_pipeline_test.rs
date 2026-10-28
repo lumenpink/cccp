@@ -98,3 +98,56 @@ fn test_deploy_site_dry_run() {
     let branch = repo.find_branch("pages", git2::BranchType::Local);
     assert!(branch.is_ok(), "Local 'pages' branch must be created");
 }
+
+#[test]
+fn test_ci_pipeline_mutation_edge_cases() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    let theme = Theme::with_color(false);
+
+    // 1. Missing dist directory
+    let opts1 = PublishArtifactsOptions {
+        dist_dir: Some(root.join("nonexistent_dist")),
+        dry_run: true,
+        ..Default::default()
+    };
+    let res1 = publish_artifacts(root, &opts1, &theme);
+    assert!(res1.is_err(), "Must fail when dist dir does not exist");
+
+    // 2. Empty dist directory
+    let empty_dist = root.join("empty_dist");
+    fs::create_dir_all(&empty_dist).unwrap();
+    let opts2 = PublishArtifactsOptions {
+        dist_dir: Some(empty_dist),
+        dry_run: true,
+        ..Default::default()
+    };
+    let res2 = publish_artifacts(root, &opts2, &theme);
+    assert!(res2.is_err(), "Must fail when dist dir has no artifacts");
+
+    // 3. Missing R2 credentials when not dry-run
+    let dist_with_file = root.join("dist_with_file");
+    fs::create_dir_all(&dist_with_file).unwrap();
+    fs::write(dist_with_file.join("binary.bin"), b"dummy").unwrap();
+    let opts3 = PublishArtifactsOptions {
+        dist_dir: Some(dist_with_file),
+        dry_run: false,
+        ..Default::default()
+    };
+    std::env::remove_var("R2_ACCOUNT_ID");
+    std::env::remove_var("R2_ACCESS_KEY_ID");
+    std::env::remove_var("R2_SECRET_ACCESS_KEY");
+    let res3 = publish_artifacts(root, &opts3, &theme);
+    assert!(res3.is_err(), "Must fail when R2 credentials are missing");
+
+    // 4. Missing site source directory
+    let opts4 = DeploySiteOptions {
+        source: Some(root.join("nonexistent_site")),
+        branch: "pages".to_string(),
+        remote: "origin".to_string(),
+        cname: None,
+        dry_run: true,
+    };
+    let res4 = deploy_site(root, &opts4, &theme);
+    assert!(res4.is_err(), "Must fail when site dir does not exist");
+}
