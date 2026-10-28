@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Developer Experience Enhancements for Init, Merge, and Audit
+- **Aprimoramentos de DX no Scaffolding, Merge e Auditoria (`src/newrepo.rs`, `src/hook_runner.rs`, `src/audit.rs`)**:
+  - **Licenciamento e CI Canônicos no `cccp init`**: Altera a licença padrão de `CC0-1.0` para `GPL-3.0`, atualiza a versão GOST padrão para `2.0.0` e gera o fluxo `.forgejo/workflows/ci.yml` limpo com runner `ubuntu-latest`.
+  - **Eliminação de Chore Espúrio no Fast-Forward Merge**: Restringe a reconciliação automática de `VERSION` pós-merge exclusivamente a merge commits verdadeiros ($\ge 2$ pais), dispensando emendas em merges lineares.
+  - **Isenção de Chores na Auditoria Estrita (`cccp check --strict`)**: Exclui commits com prefixo `chore:` / `chore(...)` da exigência normativa de rastreabilidade de tickets do requisito `GOST-04-TICKETS-COMMITS`. (closes #78)
+
+
 ### Discontinuation of Internal Auto-Update in Favor of Jornaleira
 - **Descontinuação de Auto-Update Interno (`src/main.rs` / `src/update.rs`)**:
   - **Eliminação de Checagem no Startup**: Remove a rotina periódica de verificação de atualizações em background no arranque da CLI, garantindo latência zero e operação estritamente offline.
