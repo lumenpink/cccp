@@ -19,6 +19,20 @@ fn test_check_canonical_command() {
 fn test_ci_canonical_command() {
     let parsed = Cli::parse_from(["cccp", "ci", "status"]);
     assert!(matches!(parsed.command, Some(Commands::Ci(_))));
+
+    // cccp ci subcommands
+    let parsed_pub = Cli::parse_from(["cccp", "ci", "publish-artifacts", "--dry-run"]);
+    assert!(matches!(parsed_pub.command, Some(Commands::Ci(_))));
+
+    let parsed_deploy = Cli::parse_from(["cccp", "ci", "deploy-site", "--dry-run"]);
+    assert!(matches!(parsed_deploy.command, Some(Commands::Ci(_))));
+
+    // cccp act alias
+    let parsed_act = Cli::parse_from(["cccp", "act", "status"]);
+    assert!(matches!(parsed_act.command, Some(Commands::Ci(_))));
+
+    // Invalid subcommand is rejected
+    assert!(Cli::try_parse_from(["cccp", "ci", "nonexistent-subcommand"]).is_err());
 }
 
 #[test]
