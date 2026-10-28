@@ -149,25 +149,14 @@ fn test_check_auto_update_behavior() {
     let temp = tempdir().unwrap();
     let old_cache = env::var("XDG_CACHE_HOME").ok();
     let old_check = env::var("CHECK_UPDATES").ok();
-    let old_pinned = env::var("PINNED_VERSION").ok();
     let old_v = env::var("CCCP_VERSION").ok();
 
     env::set_var("XDG_CACHE_HOME", temp.path().to_str().unwrap());
     env::set_var("CCCP_VERSION", "1.5.0");
-    env::remove_var("PINNED_VERSION");
+    env::set_var("CHECK_UPDATES", "1");
 
     let cache_file = temp.path().join("cccp").join("update_cache");
     fs::create_dir_all(cache_file.parent().unwrap()).unwrap();
-
-    let cfg = Config::default();
-
-    // 1. CHECK_UPDATES=0 skips
-    env::set_var("CHECK_UPDATES", "0");
-    let notice = check_auto_update(&cfg).unwrap();
-    assert!(notice.is_none());
-
-    // 2. Cached newer version produces notice
-    env::set_var("CHECK_UPDATES", "1");
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -178,29 +167,15 @@ fn test_check_auto_update_behavior() {
     )
     .unwrap();
 
-    let notice = check_auto_update(&cfg).unwrap();
-    assert!(notice.is_some());
-    let msg = notice.unwrap();
-    assert!(msg.contains("Notice: A newer version of cccp is available (2.0.0 vs current 1.5.0)"));
+    let cfg = Config::default();
 
-    // 3. Cached same version produces no notice
-    fs::write(
-        &cache_file,
-        format!("last_check_timestamp={}\nlatest_version=1.5.0\n", now),
-    )
-    .unwrap();
+    // With auto-update discontinued in favor of Jornaleira, check_auto_update must always return Ok(None)
     let notice = check_auto_update(&cfg).unwrap();
-    assert!(notice.is_none());
-
-    // 4. PINNED_VERSION suppresses update notice
-    fs::write(
-        &cache_file,
-        format!("last_check_timestamp={}\nlatest_version=2.0.0\n", now),
-    )
-    .unwrap();
-    env::set_var("PINNED_VERSION", "1.5.0");
-    let notice = check_auto_update(&cfg).unwrap();
-    assert!(notice.is_none());
+    assert!(
+        notice.is_none(),
+        "check_auto_update must be discontinued and return None even if cache has newer version: {:?}",
+        notice
+    );
 
     // Restore env
     if let Some(c) = old_cache {
@@ -212,11 +187,6 @@ fn test_check_auto_update_behavior() {
         env::set_var("CHECK_UPDATES", c);
     } else {
         env::remove_var("CHECK_UPDATES");
-    }
-    if let Some(p) = old_pinned {
-        env::set_var("PINNED_VERSION", p);
-    } else {
-        env::remove_var("PINNED_VERSION");
     }
     if let Some(v) = old_v {
         env::set_var("CCCP_VERSION", v);
