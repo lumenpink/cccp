@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Reconciliation of CLI Consolidation Tests with CI Subcommand
+- **Reconciliação de Testes de Consolidação da CLI (`tests/cli_domains_consolidation_test.rs`)**:
+  - **Ajuste de Asserções para Subcomando Canônico**: Remove asserções obsoletas que rejeitavam `cccp ci` e proibiam sua exibição no help, refletindo sua reintrodução canônica pelo ticket #76.
+  - **Validação de Subcomandos de Esteira**: Adiciona testes de contrato e mutação para `cccp ci status`, `cccp ci publish-artifacts`, `cccp ci deploy-site` e alias `cccp act`. (closes #82)
+
+
+
 ### Interactive Real-Time CI Monitoring with Repo Top
 - **Subcomando `cccp repo top` para Monitoramento Interativo de CI (`src/repo_top.rs`, `src/cli.rs`)**:
   - **Interface TUI em Tempo Real**: Monitor interativo no estilo `top` para acompanhar o estado das esteiras de CI de todos os repositórios do catálogo/workspace.
