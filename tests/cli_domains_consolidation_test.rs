@@ -103,9 +103,8 @@ fn test_version_and_gen_version_separation() {
 
 #[test]
 fn test_removed_root_commands_are_rejected() {
-    // editor, ci, serve, set-av, check-update, comrades must not exist at root
+    // editor, serve, set-av, check-update, comrades must not exist at root
     assert!(Cli::try_parse_from(["cccp", "editor"]).is_err());
-    assert!(Cli::try_parse_from(["cccp", "ci"]).is_err());
     assert!(Cli::try_parse_from(["cccp", "serve"]).is_err());
     assert!(Cli::try_parse_from(["cccp", "set-av", "VAR=val"]).is_err());
     assert!(Cli::try_parse_from(["cccp", "check-update"]).is_err());
@@ -124,6 +123,7 @@ fn test_mutation_root_help_slim_and_canonical() {
     assert!(help.contains("check"));
     assert!(help.contains("version"));
     assert!(help.contains("gen-version"));
+    assert!(help.contains("ci"));
 
     // Removed commands must not appear in root commands list
     let lines: Vec<&str> = help.lines().collect();
@@ -135,7 +135,6 @@ fn test_mutation_root_help_slim_and_canonical() {
 
     for cmd in &[
         "editor",
-        "ci",
         "serve",
         "comrades",
         "set-av",
