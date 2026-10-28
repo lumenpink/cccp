@@ -42,6 +42,7 @@ fn test_catalog_repo_summary_ci_status_field_and_table_column() {
         status_label: "clean".to_string(),
         local_path: None,
         gost_version: Some("1.4.0".to_string()),
+        is_mirror: false,
         ci_status: vec![CiPipelineStatus {
             name: "Tests".to_string(),
             status: "success".to_string(),
@@ -62,6 +63,7 @@ fn test_catalog_repo_summary_ci_status_field_and_table_column() {
         status_label: "clean".to_string(),
         local_path: None,
         gost_version: None,
+        is_mirror: false,
         ci_status: vec![CiPipelineStatus {
             name: "Build".to_string(),
             status: "failure".to_string(),
@@ -82,6 +84,7 @@ fn test_catalog_repo_summary_ci_status_field_and_table_column() {
         status_label: "remote".to_string(),
         local_path: None,
         gost_version: None,
+        is_mirror: false,
         ci_status: Vec::new(),
     };
 
