@@ -114,7 +114,10 @@ fn resolve_banner_config(root: &Path, opts: &BannerOptions) -> Result<BannerConf
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_else(|| "Projeto Gosplan".to_string());
 
-    let title = opts.title.clone().or(meta_title).unwrap_or(default_title);
+    let mut title = opts.title.clone().or(meta_title).unwrap_or(default_title);
+    if title.chars().count() > 22 {
+        title = title.chars().take(19).collect::<String>() + "...";
+    }
 
     let default_tagline = extract_readme_tagline(root)
         .unwrap_or_else(|| "Especificação e Arquitetura Aberta".to_string());
