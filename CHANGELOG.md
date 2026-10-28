@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Profile Assemble GOST Specification and GOSTVER Synchronization
+- **Sincronização de GOST e GOSTVER no Profile Assemble (`src/profile.rs`, `src/catalog.rs`)**:
+  - **Atualização Canônica do GOSTVER**: O comando `profile assemble` (individual e batch) atualiza a versão GOST para a versão canônica ativa (`2.0.0`) no `GOSTVER` e manifesto `.gost/metadata.json`.
+  - **Sincronização Abrangente de Recursos**: Durante o assemble, sincroniza regras e especificações de linguagem em `.gost/languages/` juntamente com a compilação de `.gost/GOST.md`.
+  - **Auto-Commit e Tolerância a Falhas**: O auto-commit agora monitora e estagia alterações tanto no diretório `.gost` quanto no `GOSTVER`, com tolerância graciosa a repositórios sujos ou inacessíveis em lote. (closes #53)
+
+
 ### Developer Experience Enhancements for Init, Merge, and Audit
 - **Aprimoramentos de DX no Scaffolding, Merge e Auditoria (`src/newrepo.rs`, `src/hook_runner.rs`, `src/audit.rs`)**:
   - **Licenciamento e CI Canônicos no `cccp init`**: Altera a licença padrão de `CC0-1.0` para `GPL-3.0`, atualiza a versão GOST padrão para `2.0.0` e gera o fluxo `.forgejo/workflows/ci.yml` limpo com runner `ubuntu-latest`.
