@@ -82,3 +82,46 @@ fn test_google_api_key_fallback() {
     let resolved = resolve_gemini_api_key(&cfg);
     assert_eq!(resolved.as_deref(), Some("fallback-google-key"));
 }
+
+#[test]
+fn test_gemini_token_whitespace_skips_to_next() {
+    let _guard = EnvGuard::new();
+
+    env::set_var("CCCP_GEMINI_TOKEN", "   ");
+    env::set_var("CCCP_GEMINI_API_KEY", "");
+    env::set_var("GEMINI_API_KEY", "  valid-gemini-key  ");
+
+    let mut cfg = Config::default();
+    cfg.merge_from_env();
+    assert_eq!(cfg.gemini_api_key.as_deref(), Some("valid-gemini-key"));
+
+    let resolved = resolve_gemini_api_key(&cfg);
+    assert_eq!(resolved.as_deref(), Some("valid-gemini-key"));
+}
+
+#[test]
+fn test_cccp_gemini_api_key_variant() {
+    let _guard = EnvGuard::new();
+
+    env::set_var("CCCP_GEMINI_API_KEY", "cccp-api-key-variant");
+    env::set_var("GEMINI_API_KEY", "lower-prio-key");
+
+    let mut cfg = Config::default();
+    cfg.merge_from_env();
+    assert_eq!(cfg.gemini_api_key.as_deref(), Some("cccp-api-key-variant"));
+
+    let resolved = resolve_gemini_api_key(&cfg);
+    assert_eq!(resolved.as_deref(), Some("cccp-api-key-variant"));
+}
+
+#[test]
+fn test_gemini_total_absence_returns_none() {
+    let _guard = EnvGuard::new();
+
+    let mut cfg = Config::default();
+    cfg.merge_from_env();
+    assert_eq!(cfg.gemini_api_key, None);
+
+    let resolved = resolve_gemini_api_key(&cfg);
+    assert_eq!(resolved, None);
+}
