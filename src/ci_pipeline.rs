@@ -66,49 +66,7 @@ pub fn publish_artifacts(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "project".to_string());
 
-    let mut entries = Vec::new();
-    let read_dir = fs::read_dir(&dist_dir).map_err(|e| e.to_string())?;
-
-    for entry in read_dir {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        if path.is_file() {
-            let filename = match path.file_name().and_then(|n| n.to_str()) {
-                Some(n) => n,
-                None => continue,
-            };
-            if filename.ends_with(".sha256") || filename == "manifest.json" {
-                continue;
-            }
-
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-            let hash = sha256_hex(&bytes);
-
-            // Write .sha256 file
-            let sha_path = dist_dir.join(format!("{}.sha256", filename));
-            fs::write(&sha_path, format!("{}  {}\n", hash, filename)).map_err(|e| e.to_string())?;
-
-            println!(
-                "{} SHA-256 gerado para '{}': {}",
-                theme.green("✓ [SHA256]"),
-                theme.bold(filename),
-                &hash[..16]
-            );
-
-            entries.push(ArtifactEntry {
-                name: filename.to_string(),
-                size_bytes: bytes.len() as u64,
-                sha256: hash,
-            });
-        }
-    }
-
-    if entries.is_empty() {
-        return Err(format!(
-            "Nenhum artefato compilado encontrado em '{}'",
-            dist_dir.display()
-        ));
-    }
+    let entries = collect_artifacts(&dist_dir, theme)?;
 
     // Write manifest.json
     let now = format_now_iso8601();
@@ -164,6 +122,54 @@ pub fn publish_artifacts(
     Ok(())
 }
 
+fn collect_artifacts(dist_dir: &Path, theme: &Theme) -> Result<Vec<ArtifactEntry>, String> {
+    let mut entries = Vec::new();
+    let read_dir = fs::read_dir(dist_dir).map_err(|e| e.to_string())?;
+
+    for entry in read_dir {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path();
+        if path.is_file() {
+            let filename = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            if filename.ends_with(".sha256") || filename == "manifest.json" {
+                continue;
+            }
+
+            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+            let hash = sha256_hex(&bytes);
+
+            // Write .sha256 file
+            let sha_path = dist_dir.join(format!("{}.sha256", filename));
+            fs::write(&sha_path, format!("{}  {}\n", hash, filename)).map_err(|e| e.to_string())?;
+
+            println!(
+                "{} SHA-256 gerado para '{}': {}",
+                theme.green("✓ [SHA256]"),
+                theme.bold(filename),
+                &hash[..16]
+            );
+
+            entries.push(ArtifactEntry {
+                name: filename.to_string(),
+                size_bytes: bytes.len() as u64,
+                sha256: hash,
+            });
+        }
+    }
+
+    if entries.is_empty() {
+        return Err(format!(
+            "Nenhum artefato compilado encontrado em '{}'",
+            dist_dir.display()
+        ));
+    }
+
+    Ok(entries)
+}
+
 /// Packages and deploys documentation showcase site to orphan pages branch
 pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Result<(), String> {
     let source = opts.source.clone().unwrap_or_else(|| root.join("site"));
@@ -193,37 +199,12 @@ pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Resu
     let repo = git2::Repository::open(root)
         .map_err(|e| format!("Falha ao abrir repositório git: {}", e))?;
 
-    // Build tree recursively from source directory
-    let tree_oid = build_tree_recursive(&repo, &source)?;
-    let tree = repo.find_tree(tree_oid).map_err(|e| e.to_string())?;
-
     let version = fs::read_to_string(root.join("VERSION"))
         .ok()
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "1.0.0".to_string());
 
-    let branch_ref_name = format!("refs/heads/{}", opts.branch);
-    let parent_commit = match repo.find_reference(&branch_ref_name) {
-        Ok(r) => r.peel_to_commit().ok(),
-        Err(_) => None,
-    };
-
-    let parents: Vec<&git2::Commit> = match &parent_commit {
-        Some(c) => vec![c],
-        None => vec![],
-    };
-
-    let sig = repo
-        .signature()
-        .unwrap_or_else(|_| git2::Signature::now("Gosplan CI", "ci@gosplan.su").unwrap());
-
-    let msg = format!("deploy: site showcase v{}", version);
-    let commit_oid = repo
-        .commit(None, &sig, &sig, &msg, &tree, &parents)
-        .map_err(|e| format!("Falha ao criar commit de páginas: {}", e))?;
-
-    repo.reference(&branch_ref_name, commit_oid, true, "deploy site")
-        .map_err(|e| format!("Falha ao atualizar referência '{}': {}", branch_ref_name, e))?;
+    let commit_oid = create_pages_commit(&repo, &source, &opts.branch, &version)?;
 
     println!(
         "{} Commit de páginas criado em '{}' ({})",
@@ -266,6 +247,41 @@ pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Resu
     }
 
     Ok(())
+}
+
+fn create_pages_commit(
+    repo: &git2::Repository,
+    source: &Path,
+    branch: &str,
+    version: &str,
+) -> Result<git2::Oid, String> {
+    let tree_oid = build_tree_recursive(repo, source)?;
+    let tree = repo.find_tree(tree_oid).map_err(|e| e.to_string())?;
+
+    let branch_ref_name = format!("refs/heads/{}", branch);
+    let parent_commit = match repo.find_reference(&branch_ref_name) {
+        Ok(r) => r.peel_to_commit().ok(),
+        Err(_) => None,
+    };
+
+    let parents: Vec<&git2::Commit> = match &parent_commit {
+        Some(c) => vec![c],
+        None => vec![],
+    };
+
+    let sig = repo
+        .signature()
+        .unwrap_or_else(|_| git2::Signature::now("Gosplan CI", "ci@gosplan.su").unwrap());
+
+    let msg = format!("deploy: site showcase v{}", version);
+    let commit_oid = repo
+        .commit(None, &sig, &sig, &msg, &tree, &parents)
+        .map_err(|e| format!("Falha ao criar commit de páginas: {}", e))?;
+
+    repo.reference(&branch_ref_name, commit_oid, true, "deploy site")
+        .map_err(|e| format!("Falha ao atualizar referência '{}': {}", branch_ref_name, e))?;
+
+    Ok(commit_oid)
 }
 
 fn build_tree_recursive(repo: &git2::Repository, dir: &Path) -> Result<git2::Oid, String> {
