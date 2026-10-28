@@ -228,6 +228,7 @@ fn test_catalog_entry_serialization_full_fields() {
         license: "GPL-3.0".into(),
         website: "https://example.org".into(),
         is_upstream: false,
+        is_mirror: false,
         open_tickets: None,
         ci_status: Vec::new(),
         canonical_url: None,
@@ -347,6 +348,7 @@ fn test_format_catalog_table_rendering() {
             local_path: Some(std::path::PathBuf::from("/home/user/src/cccp")),
             gost_version: Some("1.4.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "remote_tool".to_string(),
@@ -360,6 +362,7 @@ fn test_format_catalog_table_rendering() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
     ];
 
@@ -396,6 +399,7 @@ fn test_filter_and_sort_catalog() {
             local_path: Some(std::path::PathBuf::from("/path/beta")),
             gost_version: Some("1.4.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "alpha".to_string(),
@@ -409,6 +413,7 @@ fn test_filter_and_sort_catalog() {
             local_path: Some(std::path::PathBuf::from("/path/alpha")),
             gost_version: Some("1.0.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "gamma".to_string(),
@@ -422,6 +427,7 @@ fn test_filter_and_sort_catalog() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
     ];
 
@@ -938,6 +944,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             local_path: Some(std::path::PathBuf::from("/path/c")),
             gost_version: Some("1.4.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "repo_a".to_string(),
@@ -951,6 +958,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             local_path: Some(std::path::PathBuf::from("/path/a")),
             gost_version: Some("1.2.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "repo_b".to_string(),
@@ -964,6 +972,7 @@ fn test_catalog_table_gost_version_column_and_sorting() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
     ];
 
@@ -1039,6 +1048,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             local_path: None,
             gost_version: Some("1.4.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "apple".to_string(),
@@ -1052,6 +1062,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             local_path: None,
             gost_version: Some("1.4.0".to_string()),
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "zulu".to_string(),
@@ -1065,6 +1076,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         catalog::CatalogRepoSummary {
             name: "alpha_none".to_string(),
@@ -1078,6 +1090,7 @@ fn test_catalog_gost_version_edge_cases_and_mutation() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
     ];
 

@@ -64,8 +64,10 @@ fn test_filter_and_sort_summaries_hides_mirrors_by_default() {
 
     // 2. Com include_mirrors = true, o espelho deve ser mantido
     let mut summaries_with_mirrors = summarize_catalog(&entries);
-    let mut include_filter = CatalogFilterArgs::default();
-    include_filter.include_mirrors = true;
+    let include_filter = CatalogFilterArgs {
+        include_mirrors: true,
+        ..Default::default()
+    };
 
     filter_and_sort_summaries(&mut summaries_with_mirrors, &include_filter);
     assert_eq!(summaries_with_mirrors.len(), 2);

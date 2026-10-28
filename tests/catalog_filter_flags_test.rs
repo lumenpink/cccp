@@ -67,6 +67,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         CatalogRepoSummary {
             name: "repo-clean-unpushed".to_string(),
@@ -80,6 +81,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
         CatalogRepoSummary {
             name: "repo-dirty".to_string(),
@@ -93,6 +95,7 @@ fn test_filter_and_sort_dirty_and_unpushed() {
             local_path: None,
             gost_version: None,
             ci_status: Vec::new(),
+            is_mirror: false,
         },
     ];
 
