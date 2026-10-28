@@ -74,6 +74,30 @@ pub struct AiClient {
     agent: ureq::Agent,
 }
 
+/// Resolves Gemini API key with strict precedence:
+/// 1. config.gemini_api_key or config.extra["gemini_api_key"]
+/// 2. CCCP_GEMINI_TOKEN / CCCP_GEMINI_API_KEY
+/// 3. GEMINI_TOKEN / GEMINI_API_KEY / gemini_api_key
+/// 4. GOOGLE_API_KEY / google_api_key
+pub fn resolve_gemini_api_key(config: &Config) -> Option<String> {
+    config
+        .gemini_api_key
+        .clone()
+        .or_else(|| config.extra.get("gemini_api_key").cloned())
+        .or_else(|| {
+            std::env::var("CCCP_GEMINI_TOKEN")
+                .or_else(|_| std::env::var("CCCP_GEMINI_API_KEY"))
+                .or_else(|_| std::env::var("GEMINI_TOKEN"))
+                .or_else(|_| std::env::var("GEMINI_API_KEY"))
+                .or_else(|_| std::env::var("gemini_api_key"))
+                .or_else(|_| std::env::var("GOOGLE_API_KEY"))
+                .or_else(|_| std::env::var("google_api_key"))
+                .ok()
+        })
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 impl AiClient {
     /// Initialize AI client from CCCP hierarchical configuration
     pub fn from_config(config: &Config) -> Self {
@@ -90,18 +114,7 @@ impl AiClient {
                 None,
             ),
             AiProvider::Gemini => {
-                let key = config
-                    .gemini_api_key
-                    .clone()
-                    .or_else(|| config.extra.get("gemini_api_key").cloned())
-                    .or_else(|| {
-                        std::env::var("GEMINI_API_KEY")
-                            .or_else(|_| std::env::var("gemini_api_key"))
-                            .or_else(|_| std::env::var("GOOGLE_API_KEY"))
-                            .or_else(|_| std::env::var("google_api_key"))
-                            .ok()
-                    })
-                    .filter(|s| !s.trim().is_empty());
+                let key = resolve_gemini_api_key(config);
                 (
                     config.gemini_model.clone(),
                     config.ollama_host.clone(),
@@ -147,7 +160,7 @@ impl AiClient {
             AiProvider::Gemini => match &self.api_key {
                 Some(k) if !k.trim().is_empty() => Ok(()),
                 _ => Err(
-                    "GEMINI_API_KEY is not configured. Export GEMINI_API_KEY (or GOOGLE_API_KEY) in ~/.env or environment, or switch to Ollama (-po / --ollama)."
+                    "GEMINI_API_KEY is not configured. Export CCCP_GEMINI_TOKEN (or GEMINI_API_KEY / GOOGLE_API_KEY) in ~/.env or environment, or switch to Ollama (-po / --ollama)."
                         .to_string(),
                 ),
             },
@@ -474,7 +487,7 @@ Write the ticket body and descriptions in the language used by the user report, 
             Some(k) if !k.trim().is_empty() => k.trim(),
             _ => {
                 return Err(
-                    "GEMINI_API_KEY is not configured. Export GEMINI_API_KEY, add it to ~/.env or .cccprc, or switch to Ollama via '--provider ollama'."
+                    "GEMINI_API_KEY is not configured. Export CCCP_GEMINI_TOKEN (or GEMINI_API_KEY / GOOGLE_API_KEY), add it to ~/.env or .cccprc, or switch to Ollama via '--provider ollama'."
                         .to_string(),
                 );
             }

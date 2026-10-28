@@ -455,7 +455,14 @@ impl Config {
         if let Ok(v) = env::var("GEMINI_MODEL") {
             self.gemini_model = v.trim().to_string();
         }
-        if let Ok(v) = env::var("GEMINI_API_KEY").or_else(|_| env::var("gemini_api_key")) {
+        if let Ok(v) = env::var("CCCP_GEMINI_TOKEN")
+            .or_else(|_| env::var("CCCP_GEMINI_API_KEY"))
+            .or_else(|_| env::var("GEMINI_TOKEN"))
+            .or_else(|_| env::var("GEMINI_API_KEY"))
+            .or_else(|_| env::var("gemini_api_key"))
+            .or_else(|_| env::var("GOOGLE_API_KEY"))
+            .or_else(|_| env::var("google_api_key"))
+        {
             let s = v.trim();
             if !s.is_empty() {
                 self.gemini_api_key = Some(s.to_string());

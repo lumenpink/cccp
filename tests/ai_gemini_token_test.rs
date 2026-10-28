@@ -3,22 +3,40 @@
 use cccp::ai::resolve_gemini_api_key;
 use cccp::config::Config;
 use std::env;
+use std::sync::Mutex;
 
-struct EnvGuard {
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+const GEMINI_ENV_VARS: &[&str] = &[
+    "CCCP_GEMINI_TOKEN",
+    "CCCP_GEMINI_API_KEY",
+    "GEMINI_TOKEN",
+    "GEMINI_API_KEY",
+    "gemini_api_key",
+    "GOOGLE_API_KEY",
+    "google_api_key",
+];
+
+struct EnvGuard<'a> {
+    _lock: std::sync::MutexGuard<'a, ()>,
     keys: Vec<(&'static str, Option<String>)>,
 }
 
-impl EnvGuard {
-    fn new(vars: &[&'static str]) -> Self {
-        let keys = vars.iter().map(|&k| (k, env::var(k).ok())).collect();
-        for &k in vars {
+impl<'a> EnvGuard<'a> {
+    fn new() -> Self {
+        let lock = ENV_LOCK.lock().unwrap();
+        let keys = GEMINI_ENV_VARS
+            .iter()
+            .map(|&k| (k, env::var(k).ok()))
+            .collect();
+        for &k in GEMINI_ENV_VARS {
             env::remove_var(k);
         }
-        Self { keys }
+        Self { _lock: lock, keys }
     }
 }
 
-impl Drop for EnvGuard {
+impl<'a> Drop for EnvGuard<'a> {
     fn drop(&mut self) {
         for (k, val) in &self.keys {
             if let Some(v) = val {
@@ -32,13 +50,7 @@ impl Drop for EnvGuard {
 
 #[test]
 fn test_cccp_gemini_token_precedence_over_all() {
-    let _guard = EnvGuard::new(&[
-        "CCCP_GEMINI_TOKEN",
-        "CCCP_GEMINI_API_KEY",
-        "GEMINI_TOKEN",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-    ]);
+    let _guard = EnvGuard::new();
 
     env::set_var("CCCP_GEMINI_TOKEN", "cccp-token-123");
     env::set_var("GEMINI_API_KEY", "gemini-api-key-456");
@@ -54,13 +66,7 @@ fn test_cccp_gemini_token_precedence_over_all() {
 
 #[test]
 fn test_gemini_token_precedence_over_google_api_key() {
-    let _guard = EnvGuard::new(&[
-        "CCCP_GEMINI_TOKEN",
-        "CCCP_GEMINI_API_KEY",
-        "GEMINI_TOKEN",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-    ]);
+    let _guard = EnvGuard::new();
 
     env::set_var("GEMINI_TOKEN", "gemini-token-abc");
     env::set_var("GOOGLE_API_KEY", "google-api-key-xyz");
@@ -75,13 +81,7 @@ fn test_gemini_token_precedence_over_google_api_key() {
 
 #[test]
 fn test_google_api_key_fallback() {
-    let _guard = EnvGuard::new(&[
-        "CCCP_GEMINI_TOKEN",
-        "CCCP_GEMINI_API_KEY",
-        "GEMINI_TOKEN",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-    ]);
+    let _guard = EnvGuard::new();
 
     env::set_var("GOOGLE_API_KEY", "fallback-google-key");
 
