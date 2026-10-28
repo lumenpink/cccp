@@ -210,4 +210,165 @@ fn test_render_top_view_output() {
     assert!(help_rendered.contains("Ajuda"));
     assert!(help_rendered.contains("Ctrl+H"));
     assert!(help_rendered.contains("Ctrl+S"));
+
+    // Empty list rendering
+    let empty_rendered = render_top_view(&[], &state, &theme, 80, 24);
+    assert!(empty_rendered.contains("Nenhum repositório"));
+
+    // Long names truncation
+    let long_repo = make_sample_repo(
+        "super-extremely-long-repository-name",
+        "super-org/super-extremely-long-repository-slug",
+        vec![],
+    );
+    let long_rendered = render_top_view(&[long_repo], &state, &theme, 80, 24);
+    assert!(long_rendered.contains('…'));
+}
+
+#[test]
+fn test_mutation_filters_parsing_and_labels() {
+    use std::str::FromStr;
+
+    // Filter labels and display
+    assert_eq!(CiTopFilter::All.label(), "all");
+    assert_eq!(CiTopFilter::Ok.label(), "ok");
+    assert_eq!(CiTopFilter::Failure.label(), "fail");
+    assert_eq!(CiTopFilter::Queued.label(), "queued");
+    assert_eq!(CiTopFilter::NoQueue.label(), "no-queue");
+    assert_eq!(format!("{}", CiTopFilter::All), "all");
+
+    // Valid parses
+    assert_eq!(CiTopFilter::from_str("all").unwrap(), CiTopFilter::All);
+    assert_eq!(CiTopFilter::from_str("todos").unwrap(), CiTopFilter::All);
+    assert_eq!(CiTopFilter::from_str("ok").unwrap(), CiTopFilter::Ok);
+    assert_eq!(CiTopFilter::from_str("pass").unwrap(), CiTopFilter::Ok);
+    assert_eq!(CiTopFilter::from_str("success").unwrap(), CiTopFilter::Ok);
+    assert_eq!(
+        CiTopFilter::from_str("fail").unwrap(),
+        CiTopFilter::Failure
+    );
+    assert_eq!(
+        CiTopFilter::from_str("failure").unwrap(),
+        CiTopFilter::Failure
+    );
+    assert_eq!(
+        CiTopFilter::from_str("falha").unwrap(),
+        CiTopFilter::Failure
+    );
+    assert_eq!(
+        CiTopFilter::from_str("error").unwrap(),
+        CiTopFilter::Failure
+    );
+    assert_eq!(
+        CiTopFilter::from_str("queued").unwrap(),
+        CiTopFilter::Queued
+    );
+    assert_eq!(
+        CiTopFilter::from_str("queue").unwrap(),
+        CiTopFilter::Queued
+    );
+    assert_eq!(CiTopFilter::from_str("fila").unwrap(), CiTopFilter::Queued);
+    assert_eq!(
+        CiTopFilter::from_str("running").unwrap(),
+        CiTopFilter::Queued
+    );
+    assert_eq!(
+        CiTopFilter::from_str("pending").unwrap(),
+        CiTopFilter::Queued
+    );
+    assert_eq!(
+        CiTopFilter::from_str("noqueue").unwrap(),
+        CiTopFilter::NoQueue
+    );
+    assert_eq!(
+        CiTopFilter::from_str("no-queue").unwrap(),
+        CiTopFilter::NoQueue
+    );
+    assert_eq!(
+        CiTopFilter::from_str("none").unwrap(),
+        CiTopFilter::NoQueue
+    );
+    assert_eq!(
+        CiTopFilter::from_str("sem-fila").unwrap(),
+        CiTopFilter::NoQueue
+    );
+
+    // Invalid parses
+    assert!(CiTopFilter::from_str("invalid").is_err());
+    assert!(CiTopFilter::from_str("").is_err());
+}
+
+#[test]
+fn test_mutation_sort_parsing_and_labels() {
+    use std::str::FromStr;
+
+    // Sort labels and display
+    assert_eq!(CiTopSort::ProcessOrder.label(), "process");
+    assert_eq!(CiTopSort::CiStatus.label(), "status");
+    assert_eq!(CiTopSort::RepoName.label(), "name");
+    assert_eq!(format!("{}", CiTopSort::CiStatus), "status");
+
+    // Valid parses
+    assert_eq!(
+        CiTopSort::from_str("process").unwrap(),
+        CiTopSort::ProcessOrder
+    );
+    assert_eq!(
+        CiTopSort::from_str("process-order").unwrap(),
+        CiTopSort::ProcessOrder
+    );
+    assert_eq!(
+        CiTopSort::from_str("ordem").unwrap(),
+        CiTopSort::ProcessOrder
+    );
+    assert_eq!(CiTopSort::from_str("status").unwrap(), CiTopSort::CiStatus);
+    assert_eq!(CiTopSort::from_str("ci").unwrap(), CiTopSort::CiStatus);
+    assert_eq!(CiTopSort::from_str("estado").unwrap(), CiTopSort::CiStatus);
+    assert_eq!(CiTopSort::from_str("name").unwrap(), CiTopSort::RepoName);
+    assert_eq!(CiTopSort::from_str("nome").unwrap(), CiTopSort::RepoName);
+    assert_eq!(CiTopSort::from_str("repo").unwrap(), CiTopSort::RepoName);
+
+    // Invalid parses
+    assert!(CiTopSort::from_str("invalid").is_err());
+    assert!(CiTopSort::from_str("").is_err());
+}
+
+#[test]
+fn test_mutation_edge_cases_scrolling_and_clamping() {
+    // Interval clamped to at least 1
+    let state_zero = RepoTopState::new(0);
+    assert_eq!(state_zero.interval_secs, 1);
+
+    let mut state = RepoTopState::new(5);
+
+    // Empty list navigation
+    state.handle_action(RepoTopAction::CursorDown, 0);
+    assert_eq!(state.selected_index, 0);
+    state.handle_action(RepoTopAction::CursorUp, 0);
+    assert_eq!(state.selected_index, 0);
+    state.handle_action(RepoTopAction::PageDown, 0);
+    assert_eq!(state.selected_index, 0);
+    state.handle_action(RepoTopAction::PageUp, 0);
+    assert_eq!(state.selected_index, 0);
+
+    // Page navigation with items
+    state.handle_action(RepoTopAction::PageDown, 25);
+    assert_eq!(state.selected_index, 10);
+    state.handle_action(RepoTopAction::PageDown, 25);
+    assert_eq!(state.selected_index, 20);
+    state.handle_action(RepoTopAction::PageDown, 25);
+    assert_eq!(state.selected_index, 24); // clamped at 24 (25 - 1)
+
+    state.handle_action(RepoTopAction::PageUp, 25);
+    assert_eq!(state.selected_index, 14);
+    state.handle_action(RepoTopAction::PageUp, 25);
+    assert_eq!(state.selected_index, 4);
+    state.handle_action(RepoTopAction::PageUp, 25);
+    assert_eq!(state.selected_index, 0);
+
+    // Refresh and Quit actions do not mutate indices
+    state.handle_action(RepoTopAction::Refresh, 10);
+    assert_eq!(state.selected_index, 0);
+    state.handle_action(RepoTopAction::Quit, 10);
+    assert_eq!(state.selected_index, 0);
 }
