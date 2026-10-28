@@ -74,6 +74,30 @@ pub struct AiClient {
     agent: ureq::Agent,
 }
 
+/// Canonical list of environment variables checked for Gemini API credentials in descending priority
+pub const GEMINI_ENV_KEYS: &[&str] = &[
+    "CCCP_GEMINI_TOKEN",
+    "CCCP_GEMINI_API_KEY",
+    "GEMINI_TOKEN",
+    "GEMINI_API_KEY",
+    "gemini_api_key",
+    "GOOGLE_API_KEY",
+    "google_api_key",
+];
+
+/// Helper to read Gemini API key directly from environment according to canonical precedence
+pub fn resolve_gemini_env_key() -> Option<String> {
+    for &k in GEMINI_ENV_KEYS {
+        if let Ok(v) = std::env::var(k) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Resolves Gemini API key with strict precedence:
 /// 1. config.gemini_api_key or config.extra["gemini_api_key"]
 /// 2. CCCP_GEMINI_TOKEN / CCCP_GEMINI_API_KEY
@@ -84,16 +108,7 @@ pub fn resolve_gemini_api_key(config: &Config) -> Option<String> {
         .gemini_api_key
         .clone()
         .or_else(|| config.extra.get("gemini_api_key").cloned())
-        .or_else(|| {
-            std::env::var("CCCP_GEMINI_TOKEN")
-                .or_else(|_| std::env::var("CCCP_GEMINI_API_KEY"))
-                .or_else(|_| std::env::var("GEMINI_TOKEN"))
-                .or_else(|_| std::env::var("GEMINI_API_KEY"))
-                .or_else(|_| std::env::var("gemini_api_key"))
-                .or_else(|_| std::env::var("GOOGLE_API_KEY"))
-                .or_else(|_| std::env::var("google_api_key"))
-                .ok()
-        })
+        .or_else(resolve_gemini_env_key)
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
 }

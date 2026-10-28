@@ -1,21 +1,11 @@
 //! Integration and contract tests for Gemini token precedence (Ticket #79)
 
-use cccp::ai::resolve_gemini_api_key;
+use cccp::ai::{resolve_gemini_api_key, GEMINI_ENV_KEYS};
 use cccp::config::Config;
 use std::env;
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-const GEMINI_ENV_VARS: &[&str] = &[
-    "CCCP_GEMINI_TOKEN",
-    "CCCP_GEMINI_API_KEY",
-    "GEMINI_TOKEN",
-    "GEMINI_API_KEY",
-    "gemini_api_key",
-    "GOOGLE_API_KEY",
-    "google_api_key",
-];
 
 struct EnvGuard<'a> {
     _lock: std::sync::MutexGuard<'a, ()>,
@@ -25,11 +15,11 @@ struct EnvGuard<'a> {
 impl<'a> EnvGuard<'a> {
     fn new() -> Self {
         let lock = ENV_LOCK.lock().unwrap();
-        let keys = GEMINI_ENV_VARS
+        let keys = GEMINI_ENV_KEYS
             .iter()
             .map(|&k| (k, env::var(k).ok()))
             .collect();
-        for &k in GEMINI_ENV_VARS {
+        for &k in GEMINI_ENV_KEYS {
             env::remove_var(k);
         }
         Self { _lock: lock, keys }
