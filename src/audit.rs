@@ -188,9 +188,17 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
                     status: CheckStatus::Pass,
                 });
             } else {
-                let commits = &r.commits_since_tag;
-                let sample_size = commits.len().min(5);
-                let valid_count = commits
+                let audited_commits: Vec<_> = r
+                    .commits_since_tag
+                    .iter()
+                    .filter(|c| {
+                        let lower = c.summary.to_ascii_lowercase();
+                        !(lower.starts_with("chore:") || lower.starts_with("chore("))
+                    })
+                    .collect();
+
+                let sample_size = audited_commits.len().min(5);
+                let valid_count = audited_commits
                     .iter()
                     .take(sample_size)
                     .filter(|c| {
@@ -203,12 +211,21 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
                     })
                     .count();
 
-                if sample_size == 0 || valid_count == sample_size {
+                if sample_size == 0 {
+                    checks.push(AuditCheck {
+                        code: "GOST-04-TICKETS-COMMITS",
+                        title: "Rastreabilidade de Tickets",
+                        detail:
+                            "Commits recentes são tarefas de manutenção (chores isentos de ticket)"
+                                .to_string(),
+                        status: CheckStatus::Pass,
+                    });
+                } else if valid_count == sample_size {
                     checks.push(AuditCheck {
                         code: "GOST-04-TICKETS-COMMITS",
                         title: "Rastreabilidade de Tickets",
                         detail: format!(
-                            "Rastreabilidade estrita de tickets ({}/{} commits recentes)",
+                            "Rastreabilidade estrita de tickets ({}/{} commits recentes auditados, chores isentos)",
                             valid_count, sample_size
                         ),
                         status: CheckStatus::Pass,

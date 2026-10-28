@@ -36,6 +36,7 @@ fn mock_repo(tag: Option<(&str, &str)>, commits: Vec<CommitSummary>, is_dirty: b
         }),
         commits_since_tag: commits,
         is_dirty,
+        head_parent_count: 1,
     }
 }
 

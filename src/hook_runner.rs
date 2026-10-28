@@ -502,6 +502,12 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
     // Open repository freshly at current state
     let fresh_repo = GitRepo::open(Some(&repo.root_dir))?;
 
+    // Only true merge commits (>= 2 parents from divergent branches) need VERSION reconciliation.
+    // Linear fast-forward merges do not diverge and should not create spurious chore commits.
+    if fresh_repo.head_parent_count <= 1 {
+        return Ok(None);
+    }
+
     // If the latest commit is already a reconciliation commit, do not chain another
     if fresh_repo
         .commits_since_tag

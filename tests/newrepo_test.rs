@@ -68,9 +68,9 @@ fn test_newrepo_scaffolding_defaults() {
 
     let site_index = fs::read_to_string(root.join("site/index.html")).unwrap();
     assert!(site_index.contains("my-test-proj — Documentação"));
-    assert!(site_index.contains("<span class=\"badge\">GOST v1.1.0</span>"));
+    assert!(site_index.contains("<span class=\"badge\">GOST v2.0.0</span>"));
 
-    let ci = fs::read_to_string(root.join(".forgejo/workflows/ci.yaml")).unwrap();
+    let ci = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
     assert!(ci.contains("cccp check --strict"));
 }
 
@@ -132,6 +132,7 @@ fn test_newrepo_flags_no_git_and_no_ci() {
     assert!(res.is_ok());
 
     assert!(!root.join(".git").exists());
+    assert!(!root.join(".forgejo/workflows/ci.yml").exists());
     assert!(!root.join(".forgejo/workflows/ci.yaml").exists());
     assert!(root.join("GOSTVER").is_file());
     assert!(root.join("README.md").is_file());

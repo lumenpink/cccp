@@ -3,6 +3,7 @@
 use cccp::audit::{read_gostver, run_gost_audit, CheckStatus};
 use cccp::cultural::Theme;
 use std::fs;
+use std::process::Command;
 use tempfile::tempdir;
 
 #[test]
@@ -75,6 +76,10 @@ fn test_gost_audit_compliant_repo() {
     fs::create_dir_all(&workflows_dir).unwrap();
     fs::write(workflows_dir.join("ci.yaml"), "name: CI\n").unwrap();
 
+    let site_dir = temp.path().join("site");
+    fs::create_dir_all(&site_dir).unwrap();
+    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+
     let report = run_gost_audit(temp.path(), false, &theme);
     assert_eq!(report.failures, 0, "No failures expected in compliant repo");
     assert!(report.is_success);
@@ -95,6 +100,10 @@ fn test_gost_audit_strict_mode_rejects_warnings() {
     fs::write(temp.path().join(".gitignore"), "target/\n").unwrap();
     fs::write(temp.path().join(".editorconfig"), "root = true\n").unwrap();
 
+    let site_dir = temp.path().join("site");
+    fs::create_dir_all(&site_dir).unwrap();
+    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+
     // In non-strict mode, warnings are allowed
     let report_non_strict = run_gost_audit(temp.path(), false, &theme);
     assert!(report_non_strict.is_success);
@@ -103,6 +112,83 @@ fn test_gost_audit_strict_mode_rejects_warnings() {
     // In strict mode, warnings cause failure
     let report_strict = run_gost_audit(temp.path(), true, &theme);
     assert!(!report_strict.is_success);
+}
+
+#[test]
+fn test_gost_audit_chores_exempt_from_ticket_requirement() {
+    let temp = tempdir().expect("tempdir");
+    let theme = Theme::init(true);
+
+    let status = Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(temp.path())
+        .status()
+        .expect("git init failed");
+    assert!(status.success());
+
+    Command::new("git")
+        .args(["config", "user.name", "Auditor"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "auditor@gosplan.su"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+
+    fs::write(temp.path().join("GOSTVER"), "GOST_VERSION=\"2.0.0\"\n").unwrap();
+    fs::write(temp.path().join("LICENSE"), "GPL-3.0\n").unwrap();
+    fs::write(temp.path().join("README.md"), "# Test Repo\n").unwrap();
+    fs::write(temp.path().join("VERSION"), "0.1.0\n").unwrap();
+    fs::write(temp.path().join("CHANGELOG.md"), "# Changelog\n").unwrap();
+    fs::write(temp.path().join(".gitignore"), "target/\n").unwrap();
+    fs::write(temp.path().join(".editorconfig"), "root = true\n").unwrap();
+
+    let workflows_dir = temp.path().join(".forgejo/workflows");
+    fs::create_dir_all(&workflows_dir).unwrap();
+    fs::write(workflows_dir.join("ci.yml"), "name: CI\n").unwrap();
+
+    let site_dir = temp.path().join("site");
+    fs::create_dir_all(&site_dir).unwrap();
+    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore: initial repository structure"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+
+    fs::write(temp.path().join("NOTES.md"), "just notes\n").unwrap();
+    Command::new("git")
+        .args(["add", "NOTES.md"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore(docs): update notes"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+
+    let report_strict = run_gost_audit(temp.path(), true, &theme);
+    let check_04 = report_strict
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-04-TICKETS-COMMITS")
+        .unwrap();
+    assert_eq!(check_04.status, cccp::audit::CheckStatus::Pass);
+    assert!(check_04.detail.contains("chores isentos"));
 }
 
 fn check_workflow_has_permissions(content: &str) -> bool {

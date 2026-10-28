@@ -7,6 +7,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn setup_temp_git_repo() -> tempfile::TempDir {
+    std::env::set_var("CCCP_MAESTRO_ACTIVE", "1");
     let dir = tempdir().expect("Failed to create tempdir");
     let p = dir.path();
 
@@ -340,7 +341,13 @@ fn test_reconcile_merge_version_behavior() {
         .status()
         .unwrap();
 
-    // Second commit
+    // Second commit on branch feat
+    Command::new("git")
+        .args(["checkout", "-b", "feat-a"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
     fs::write(p.join("a.txt"), "a").unwrap();
     Command::new("git")
         .args(["add", "a.txt"])
@@ -353,17 +360,51 @@ fn test_reconcile_merge_version_behavior() {
         .status()
         .unwrap();
 
-    // Now repo has 1 commit since v0.1.0, so calculated dev version is 0.2.0-dev.1+...
-    // But VERSION file still has "0.1.0"
+    // Check that fast-forward merge does not trigger reconcile
+    let repo_ff = GitRepo::open(Some(p)).expect("open repo");
+    let result_ff = reconcile_merge_version(&repo_ff, &theme).expect("reconcile check");
+    assert!(
+        result_ff.is_none(),
+        "Fast-forward / linear commit must not trigger reconcile"
+    );
+
+    // Now switch back to main, add a commit on main to diverge, and merge feat-a
+    Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    fs::write(p.join("b.txt"), "b").unwrap();
+    Command::new("git")
+        .args(["add", "b.txt"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "chore: add b on main"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    // Merge feat-a into main creating a true merge commit (2 parents)
+    Command::new("git")
+        .args(["merge", "--no-ff", "-m", "merge feat-a into main", "feat-a"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    // Now repo has a 2-parent merge commit
     let repo = GitRepo::open(Some(p)).expect("open repo");
+    assert!(repo.head_parent_count >= 2);
     let result = reconcile_merge_version(&repo, &theme).expect("reconcile failed");
     assert!(
         result.is_some(),
-        "Expected reconcile to update version and create commit"
+        "Expected reconcile to update version and create commit on true merge"
     );
 
     let version_content = fs::read_to_string(p.join("VERSION")).unwrap();
-    assert!(version_content.contains("0.2.0-dev.2"));
+    assert!(version_content.contains("0.2.0-dev.4"));
 
     // Check that a commit was created with chore(version)
     let log = Command::new("git")

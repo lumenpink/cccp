@@ -7,10 +7,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub const DEFAULT_GOST_VERSION: &str = "1.1.0";
+pub const DEFAULT_GOST_VERSION: &str = "2.0.0";
 pub const DEFAULT_PROFILE_URL: &str = "profiles/lumen.md";
 pub const DEFAULT_LANGUAGES: &str = "shell";
-pub const DEFAULT_LICENSE: &str = "CC0-1.0";
+pub const DEFAULT_LICENSE: &str = "GPL-3.0";
 pub const DEFAULT_VERSION_CONTENT: &str = "0.1.0-dev.1\n";
 
 /// Options configuring repository scaffolding
@@ -541,7 +541,7 @@ on:\n\
   pull_request:\n\n\
 jobs:\n\
   check:\n\
-    runs-on: native\n\
+    runs-on: ubuntu-latest\n\
     steps:\n\
       - uses: actions/checkout@v4\n\
       - name: GOST Compliance Audit\n\
@@ -550,9 +550,9 @@ jobs:\n\
             cccp check --strict\n\
           fi\n";
         write_file_if_missing(
-            &target_root.join(".forgejo/workflows/ci.yaml"),
+            &target_root.join(".forgejo/workflows/ci.yml"),
             ci_workflow_content,
-            ".forgejo/workflows/ci.yaml (CI)",
+            ".forgejo/workflows/ci.yml (CI)",
             opts.quiet,
             theme,
         )?;

@@ -1219,8 +1219,8 @@ pub struct InitArgs {
     #[arg(long = "lang", default_value = "shell")]
     pub lang: String,
 
-    /// SPDX license identifier (default: CC0-1.0; options: MIT, GPL-3.0, CC-BY-SA-4.0, Apache-2.0)
-    #[arg(long = "license", default_value = "CC0-1.0")]
+    /// SPDX license identifier (default: GPL-3.0; options: GPL-3.0, MIT, CC0-1.0, CC-BY-SA-4.0, Apache-2.0)
+    #[arg(long = "license", default_value = "GPL-3.0")]
     pub license: String,
 
     /// Profile implementation URL (default: profiles/lumen.md)
@@ -1235,7 +1235,7 @@ pub struct InitArgs {
     #[arg(long = "no-hooks", action = clap::ArgAction::SetTrue)]
     pub no_hooks: bool,
 
-    /// Do not generate CI workflow (.forgejo/workflows/ci.yaml)
+    /// Do not generate CI workflow (.forgejo/workflows/ci.yml)
     #[arg(long = "no-ci", action = clap::ArgAction::SetTrue)]
     pub no_ci: bool,
 

@@ -14,6 +14,7 @@ pub struct GitRepo {
     pub latest_tag: Option<TagInfo>,
     pub commits_since_tag: Vec<CommitSummary>,
     pub is_dirty: bool,
+    pub head_parent_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +64,7 @@ impl GitRepo {
                     latest_tag: None,
                     commits_since_tag: Vec::new(),
                     is_dirty: false,
+                    head_parent_count: 0,
                 });
             }
         };
@@ -81,12 +83,14 @@ impl GitRepo {
                     latest_tag: None,
                     commits_since_tag: Vec::new(),
                     is_dirty: false,
+                    head_parent_count: 0,
                 });
             }
         };
 
         let head_id = head_commit.id().to_string();
         let head_short_id = head_id.chars().take(7).collect();
+        let head_parent_count = head_commit.parent_count();
 
         // Format commit date YYYYMMDD
         let seconds = head_commit.time().seconds();
@@ -111,6 +115,7 @@ impl GitRepo {
             latest_tag,
             commits_since_tag,
             is_dirty,
+            head_parent_count,
         })
     }
 }
