@@ -1976,20 +1976,20 @@ pub fn assemble_repo(
     // 3. Auto-commit if requested
     if auto_commit {
         let diff_out = std::process::Command::new("git")
-            .args(["status", "--porcelain", ".gost/GOST.md"])
+            .args(["status", "--porcelain", ".gost", "GOSTVER"])
             .current_dir(path)
             .output()
-            .map_err(|e| format!("Falha ao verificar alterações em .gost/GOST.md: {}", e))?;
+            .map_err(|e| format!("Falha ao verificar alterações em .gost e GOSTVER: {}", e))?;
 
         if !diff_out.stdout.is_empty() {
             let add_status = std::process::Command::new("git")
-                .args(["add", ".gost/GOST.md"])
+                .args(["add", ".gost", "GOSTVER"])
                 .current_dir(path)
                 .status()
-                .map_err(|e| format!("Falha ao adicionar .gost/GOST.md ao git stage: {}", e))?;
+                .map_err(|e| format!("Falha ao adicionar .gost e GOSTVER ao git stage: {}", e))?;
 
             if !add_status.success() {
-                return Err("Falha ao adicionar .gost/GOST.md ao git stage".to_string());
+                return Err("Falha ao adicionar .gost e GOSTVER ao git stage".to_string());
             }
 
             let mut commit_cmd = std::process::Command::new("git");

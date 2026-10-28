@@ -10,14 +10,19 @@ use std::path::{Path, PathBuf};
 /// Canonical profile catalog (alias, canonical URL, description)
 pub const KNOWN_PROFILES: &[(&str, &str, &str)] = &[
     (
+        "lilya",
+        "https://lilya.2lp.in/profile.md",
+        "Perfil Pessoal Lilya (extends Kollontai, short/long versions, 2-line footer, Dark Mode)",
+    ),
+    (
         "lumen",
-        "https://gostlumen.2lp.in/profile.md",
-        "Perfil Pessoal Lumen (extends Kollontai, short/long versions, 2-line footer, Dark Mode)",
+        "https://lilya.2lp.in/profile.md",
+        "Alias de compatibilidade para o perfil pessoal Lilya",
     ),
     (
         "default",
-        "https://gostlumen.2lp.in/profile.md",
-        "Alias padrão para o perfil pessoal Lumen",
+        "https://lilya.2lp.in/profile.md",
+        "Alias padrão para o perfil pessoal Lilya",
     ),
     (
         "kollontai",
@@ -29,6 +34,9 @@ pub const KNOWN_PROFILES: &[(&str, &str, &str)] = &[
 /// Resolves a profile alias or raw URL into a canonical URL
 pub fn resolve_profile_url(name_or_url: &str) -> String {
     let trimmed = name_or_url.trim();
+    if trimmed == "profiles/lumen.md" || trimmed == "profiles/lilya.md" {
+        return "https://lilya.2lp.in/profile.md".to_string();
+    }
     for (alias, url, _) in KNOWN_PROFILES {
         if trimmed.eq_ignore_ascii_case(alias) {
             return (*url).to_string();
@@ -102,13 +110,49 @@ pub fn set_active_profile(root: &Path, name_or_url: &str) -> io::Result<String> 
         lines.join("\n") + "\n"
     } else {
         format!(
-            "# GOSTVER — Declaração de Conformidade com o Padrão GOST\nGOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"{}\"\nGOST_LANGUAGES=\"shell\"\n",
+            "# GOSTVER — Declaração de Conformidade com o Padrão GOST\nGOST_VERSION=\"{}\"\nGOST_PROFILE_URL=\"{}\"\nGOST_LANGUAGES=\"shell\"\n",
+            crate::newrepo::DEFAULT_GOST_VERSION,
             canonical_url
         )
     };
 
     fs::write(&gostver_path, new_content)?;
     Ok(canonical_url)
+}
+
+/// Updates or sets GOST_VERSION in GOSTVER file
+pub fn update_gostver_version(root: &Path, version: &str) -> io::Result<()> {
+    let gostver_path = root.join("GOSTVER");
+
+    let new_content = if gostver_path.exists() {
+        let content = fs::read_to_string(&gostver_path)?;
+        let mut replaced = false;
+        let mut lines = Vec::new();
+
+        for line in content.lines() {
+            if line.trim().starts_with("GOST_VERSION=") {
+                lines.push(format!("GOST_VERSION=\"{}\"", version));
+                replaced = true;
+            } else {
+                lines.push(line.to_string());
+            }
+        }
+
+        if !replaced {
+            lines.insert(0, format!("GOST_VERSION=\"{}\"", version));
+        }
+
+        lines.join("\n") + "\n"
+    } else {
+        format!(
+            "# GOSTVER — Declaração de Conformidade com o Padrão GOST\nGOST_VERSION=\"{}\"\nGOST_PROFILE_URL=\"{}\"\nGOST_LANGUAGES=\"shell\"\n",
+            version,
+            crate::newrepo::DEFAULT_PROFILE_URL
+        )
+    };
+
+    fs::write(&gostver_path, new_content)?;
+    Ok(())
 }
 
 /// Fetches a document by URL or local path
@@ -122,8 +166,12 @@ pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
     }
 
     // 2. Known local checkouts in ~/src
-    if trimmed.contains("gostlumen.2lp.in") || trimmed.contains("gost-profile-lumen") {
-        let local = PathBuf::from("/home/lumen/src/gost-profile-lumen/profile.md");
+    if trimmed.contains("lilya.2lp.in")
+        || trimmed.contains("gost-profile-lilya")
+        || trimmed.contains("gostlumen.2lp.in")
+        || trimmed.contains("gost-profile-lumen")
+    {
+        let local = PathBuf::from("/home/lumen/src/gost-profile-lilya/profile.md");
         if local.is_file() {
             if let Ok(c) = fs::read_to_string(&local) {
                 return Ok(c);
@@ -210,10 +258,55 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     chain
 }
 
-/// Assembles all cascading profile layers and CUSTOM.md into `.gost/GOST.md`
+/// Assembles all cascading profile layers and CUSTOM.md into `.gost/GOST.md`,
+/// synchronizes GOST resources in `.gost/`, and updates GOSTVER to the canonical version.
 pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
-    let gostver_profile = get_active_profile(root).unwrap_or_else(|_| "lumen".to_string());
+    let gostver_profile = get_active_profile(root).unwrap_or_else(|_| "lilya".to_string());
     let chain = resolve_cascading_chain(&gostver_profile);
+
+    // Read current settings to synchronize GOST specs
+    let (_, prof, langs) = crate::audit::read_gostver(root);
+    let resolved_profile = if prof == "Nenhum" || prof.is_empty() {
+        crate::newrepo::DEFAULT_PROFILE_URL
+    } else {
+        &prof
+    };
+    let resolved_langs = if langs == "Nenhuma" || langs.is_empty() {
+        "shell"
+    } else {
+        &langs
+    };
+
+    // 1. Synchronize GOST resources (rules, language specs)
+    crate::newrepo::sync_gost_specs(
+        root,
+        resolved_profile,
+        resolved_langs,
+        crate::newrepo::DEFAULT_GOST_VERSION,
+        true,
+        &crate::cultural::Theme::with_color(false),
+    );
+
+    // 2. Update GOSTVER to canonical GOST version
+    let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
+
+    // 3. Update .gost/metadata.json if present
+    let meta_path = root.join(".gost/metadata.json");
+    if meta_path.is_file() {
+        if let Ok(content) = fs::read_to_string(&meta_path) {
+            if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(obj) = json.as_object_mut() {
+                    obj.insert(
+                        "gost_version".to_string(),
+                        serde_json::Value::String(crate::newrepo::DEFAULT_GOST_VERSION.to_string()),
+                    );
+                    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
+                        let _ = fs::write(&meta_path, pretty + "\n");
+                    }
+                }
+            }
+        }
+    }
 
     let mut output = String::new();
     output.push_str("# ☭ ГОСТ / GOSPLAN — Especificação Canônica Consolidada\n\n");

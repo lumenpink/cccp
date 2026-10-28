@@ -8,12 +8,16 @@ use tempfile::tempdir;
 #[test]
 fn test_resolve_profile_aliases() {
     assert_eq!(
+        resolve_profile_url("lilya"),
+        "https://lilya.2lp.in/profile.md"
+    );
+    assert_eq!(
         resolve_profile_url("lumen"),
-        "https://gostlumen.2lp.in/profile.md"
+        "https://lilya.2lp.in/profile.md"
     );
     assert_eq!(
         resolve_profile_url("default"),
-        "https://gostlumen.2lp.in/profile.md"
+        "https://lilya.2lp.in/profile.md"
     );
     assert_eq!(
         resolve_profile_url("kollontai"),
@@ -61,17 +65,17 @@ fn test_set_and_get_active_profile() {
     let active = get_active_profile(root).unwrap();
     assert_eq!(active, "https://kollontai.2lp.in/profile.md");
 
-    // Altera para lumen usando alias
-    let updated_url = set_active_profile(root, "lumen").unwrap();
-    assert_eq!(updated_url, "https://gostlumen.2lp.in/profile.md");
+    // Altera para lilya usando alias
+    let updated_url = set_active_profile(root, "lilya").unwrap();
+    assert_eq!(updated_url, "https://lilya.2lp.in/profile.md");
 
     let active_after = get_active_profile(root).unwrap();
-    assert_eq!(active_after, "https://gostlumen.2lp.in/profile.md");
+    assert_eq!(active_after, "https://lilya.2lp.in/profile.md");
 
     // Verifica conteúdo preservado do arquivo
     let content = fs::read_to_string(root.join("GOSTVER")).unwrap();
     assert!(content.contains("GOST_VERSION=\"1.4.0\""));
-    assert!(content.contains("GOST_PROFILE_URL=\"https://gostlumen.2lp.in/profile.md\""));
+    assert!(content.contains("GOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\""));
 }
 
 #[test]
@@ -79,8 +83,7 @@ fn test_assemble_gost_specs_with_custom_md() {
     let dir = tempdir().unwrap();
     let root = dir.path();
 
-    let gostver =
-        "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://gostlumen.2lp.in/profile.md\"\n";
+    let gostver = "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n";
     fs::write(root.join("GOSTVER"), gostver).unwrap();
 
     // Cria CUSTOM.md local
