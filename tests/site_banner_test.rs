@@ -43,10 +43,17 @@ fn test_generate_site_banner_defaults() {
 
     let opts = BannerOptions::default();
     let res = generate_site_banner(root, &opts, &theme);
-    assert!(res.is_ok(), "Banner generation must succeed: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Banner generation must succeed: {:?}",
+        res.err()
+    );
 
     let target = root.join("site/assets/og_preview.png");
-    assert!(target.is_file(), "site/assets/og_preview.png must be created");
+    assert!(
+        target.is_file(),
+        "site/assets/og_preview.png must be created"
+    );
 
     let bytes = fs::read(&target).unwrap();
     let (width, height) = read_png_dimensions(&bytes).expect("Valid PNG with dimensions");
@@ -68,9 +75,16 @@ fn test_generate_site_banner_custom_options() {
     };
 
     let res = generate_site_banner(root, &opts, &theme);
-    assert!(res.is_ok(), "Custom banner generation must succeed: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "Custom banner generation must succeed: {:?}",
+        res.err()
+    );
 
-    assert!(custom_output.is_file(), "Custom output path must be created");
+    assert!(
+        custom_output.is_file(),
+        "Custom output path must be created"
+    );
     let bytes = fs::read(&custom_output).unwrap();
     let (width, height) = read_png_dimensions(&bytes).expect("Valid PNG dimensions");
     assert_eq!(width, 1200);

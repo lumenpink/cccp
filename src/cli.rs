@@ -165,6 +165,31 @@ pub enum Commands {
     /// Manage quarantined external contributions and PRs (list, review, accept)
     #[command(subcommand)]
     Inbox(InboxCommand),
+
+    /// Manage documentation showcase site and banners (GOST-20, GOST-26)
+    #[command(subcommand)]
+    Site(SiteCommand),
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum SiteCommand {
+    /// Generate deterministic Open Graph preview banner (site/assets/og_preview.png)
+    Banner(SiteBannerArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct SiteBannerArgs {
+    /// Override project title in banner
+    #[arg(short = 't', long = "title")]
+    pub title: Option<String>,
+
+    /// Override project tagline in banner (max 65 chars)
+    #[arg(long = "tagline")]
+    pub tagline: Option<String>,
+
+    /// Custom output file path (default: site/assets/og_preview.png)
+    #[arg(short = 'o', long = "output")]
+    pub output: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand, Clone)]

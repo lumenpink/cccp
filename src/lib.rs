@@ -33,6 +33,7 @@ pub mod push;
 pub mod release;
 pub mod semver_calc;
 pub mod serve;
+pub mod site_banner;
 pub mod tickets;
 pub mod update;
 pub mod web;

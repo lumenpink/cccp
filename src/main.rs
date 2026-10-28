@@ -2060,6 +2060,30 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Site(ref site_cmd)) => {
+            let root = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r.root_dir,
+                Err(_) => args.dir.clone().unwrap_or_else(|| {
+                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+                }),
+            };
+            match site_cmd {
+                cli::SiteCommand::Banner(banner_args) => {
+                    let opts = cccp::site_banner::BannerOptions {
+                        title: banner_args.title.clone(),
+                        tagline: banner_args.tagline.clone(),
+                        output: banner_args.output.clone(),
+                    };
+                    match cccp::site_banner::generate_site_banner(&root, &opts, &theme) {
+                        Ok(_) => ExitCode::SUCCESS,
+                        Err(e) => {
+                            eprintln!("{}: {}", theme.red_bold("Error"), e);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+            }
+        }
         Some(Commands::Divan(ref divan_args)) => {
             run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme)
         }
