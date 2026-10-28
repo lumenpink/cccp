@@ -196,6 +196,24 @@ fn test_check_auto_update_behavior() {
 }
 
 #[test]
+fn test_auto_update_mutations_and_jornaleira_governance() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    let cfg = Config::default();
+
+    // 1. Variantes de CHECK_UPDATES e canais
+    for val in &["1", "true", "TRUE", "yes", "always"] {
+        env::set_var("CHECK_UPDATES", val);
+        assert!(check_auto_update(&cfg).unwrap().is_none());
+    }
+    env::remove_var("CHECK_UPDATES");
+
+    // 2. Variantes de PINNED_VERSION
+    env::set_var("PINNED_VERSION", "9.9.9");
+    assert!(check_auto_update(&cfg).unwrap().is_none());
+    env::remove_var("PINNED_VERSION");
+}
+
+#[test]
 fn test_cmd_update_pinning_and_validation() {
     let _lock = ENV_LOCK.lock().unwrap();
     let temp = tempdir().unwrap();
