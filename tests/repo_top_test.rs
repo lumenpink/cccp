@@ -243,10 +243,7 @@ fn test_mutation_filters_parsing_and_labels() {
     assert_eq!(CiTopFilter::from_str("ok").unwrap(), CiTopFilter::Ok);
     assert_eq!(CiTopFilter::from_str("pass").unwrap(), CiTopFilter::Ok);
     assert_eq!(CiTopFilter::from_str("success").unwrap(), CiTopFilter::Ok);
-    assert_eq!(
-        CiTopFilter::from_str("fail").unwrap(),
-        CiTopFilter::Failure
-    );
+    assert_eq!(CiTopFilter::from_str("fail").unwrap(), CiTopFilter::Failure);
     assert_eq!(
         CiTopFilter::from_str("failure").unwrap(),
         CiTopFilter::Failure
@@ -263,10 +260,7 @@ fn test_mutation_filters_parsing_and_labels() {
         CiTopFilter::from_str("queued").unwrap(),
         CiTopFilter::Queued
     );
-    assert_eq!(
-        CiTopFilter::from_str("queue").unwrap(),
-        CiTopFilter::Queued
-    );
+    assert_eq!(CiTopFilter::from_str("queue").unwrap(), CiTopFilter::Queued);
     assert_eq!(CiTopFilter::from_str("fila").unwrap(), CiTopFilter::Queued);
     assert_eq!(
         CiTopFilter::from_str("running").unwrap(),
@@ -284,10 +278,7 @@ fn test_mutation_filters_parsing_and_labels() {
         CiTopFilter::from_str("no-queue").unwrap(),
         CiTopFilter::NoQueue
     );
-    assert_eq!(
-        CiTopFilter::from_str("none").unwrap(),
-        CiTopFilter::NoQueue
-    );
+    assert_eq!(CiTopFilter::from_str("none").unwrap(), CiTopFilter::NoQueue);
     assert_eq!(
         CiTopFilter::from_str("sem-fila").unwrap(),
         CiTopFilter::NoQueue

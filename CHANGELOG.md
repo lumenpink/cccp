@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Interactive Real-Time CI Monitoring with Repo Top
+- **Subcomando `cccp repo top` para Monitoramento Interativo de CI (`src/repo_top.rs`, `src/cli.rs`)**:
+  - **Interface TUI em Tempo Real**: Monitor interativo no estilo `top` para acompanhar o estado das esteiras de CI de todos os repositórios do catálogo/workspace.
+  - **Filtros e Ordenação Dinâmicos**: Suporte a filtros de estado de CI (`all`, `ok`, `fail`, `queued`, `no-queue`) e critérios de ordenação configuráveis (`process`, `status`, `name`).
+  - **Controles por Teclado e Atualização Periódica**: Navegação responsiva com atalhos de controle (`Ctrl+H` para ajuda, `Ctrl+F` para filtros, `Ctrl+S` para ordenação, `Ctrl+R` para recarregamento manual e `Ctrl+Q` para sair), dimensionamento pela altura do terminal e auto-refresh a cada 10 segundos. (closes #81)
+
+
+
 ### CI Pipeline Subcommands for Artifacts Publishing and Site Deployment
 - **Subcomandos de Esteira CI (`publish-artifacts` e `deploy-site`) (`src/ci_pipeline.rs`, `src/cli.rs`)**:
   - **Subcomando `cccp ci publish-artifacts`**: Empacotamento e despacho determinístico de binários e manifestos para o Cloudflare R2 / Banca (`banca.2lp.in`), gerando árvore e manifesto com somas de verificação SHA-256.
