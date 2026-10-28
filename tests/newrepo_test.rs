@@ -30,12 +30,12 @@ fn test_newrepo_scaffolding_defaults() {
     assert!(root.join("README.md").is_file());
     assert!(root.join("site/_headers").is_file());
     assert!(root.join("site/index.html").is_file());
-    assert!(root.join(".forgejo/workflows/ci.yaml").is_file());
+    assert!(root.join(".forgejo/workflows/ci.yml").is_file());
     assert!(root.join(".git").is_dir());
 
     // Content checks
     let gostver = fs::read_to_string(root.join("GOSTVER")).unwrap();
-    assert!(gostver.contains("GOST_VERSION=\"1.1.0\""));
+    assert!(gostver.contains("GOST_VERSION=\"2.0.0\""));
     assert!(gostver.contains("GOST_PROFILE_URL=\"profiles/lumen.md\""));
     assert!(gostver.contains("GOST_LANGUAGES=\"shell\""));
 
@@ -53,12 +53,15 @@ fn test_newrepo_scaffolding_defaults() {
     assert!(changelog.contains("Keep a Changelog"));
 
     let license = fs::read_to_string(root.join("LICENSE")).unwrap();
-    assert!(license.contains("CC0 1.0 Universal"));
+    assert!(license.contains("GNU GENERAL PUBLIC LICENSE"));
 
     let readme = fs::read_to_string(root.join("README.md")).unwrap();
     assert!(readme.contains("# my-test-proj"));
-    assert!(readme.contains("**Versão GOST:** `1.1.0`"));
+    assert!(readme.contains("**Versão GOST:** `2.0.0`"));
     assert!(readme.contains("shell"));
+
+    let ci_content = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
+    assert!(ci_content.contains("runs-on: ubuntu-latest"));
 
     let headers = fs::read_to_string(root.join("site/_headers")).unwrap();
     assert!(headers.contains("X-Content-Type-Options: nosniff"));
