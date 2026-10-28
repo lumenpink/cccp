@@ -90,3 +90,49 @@ fn test_generate_site_banner_custom_options() {
     assert_eq!(width, 1200);
     assert_eq!(height, 630);
 }
+
+#[test]
+fn test_generate_site_banner_mutation_edge_cases() {
+    let temp = tempdir().unwrap();
+    let root = temp.path();
+    let theme = Theme::with_color(false);
+
+    // 1. Missing metadata.json: should succeed using defaults
+    let opts = BannerOptions::default();
+    let res = generate_site_banner(root, &opts, &theme);
+    assert!(
+        res.is_ok(),
+        "Banner generation without metadata must succeed"
+    );
+    assert!(root.join("site/assets/og_preview.png").is_file());
+
+    // 2. Metadata with malformed hex colors and excessive lengths
+    fs::create_dir_all(root.join(".gost")).unwrap();
+    let malformed_metadata = r##"{
+  "name": "super-long-name-that-definitely-exceeds-the-title-length-threshold",
+  "tagline": "This is an extraordinarily long tagline designed to verify that truncation behaves deterministically and appends an ellipsis when exceeding sixty-five characters limit in site banners",
+  "theme": {
+    "bg_color": "not-a-color",
+    "accent_color": "#123"
+  }
+}"##;
+    fs::write(root.join(".gost/metadata.json"), malformed_metadata).unwrap();
+
+    let output_nested = root.join("nested/deep/dir/banner.png");
+    let opts2 = BannerOptions {
+        title: None,
+        tagline: None,
+        output: Some(output_nested.clone()),
+    };
+    let res2 = generate_site_banner(root, &opts2, &theme);
+    assert!(
+        res2.is_ok(),
+        "Must handle malformed hex and deep nested paths"
+    );
+    assert!(output_nested.is_file(), "Deep nested output must exist");
+
+    let bytes = fs::read(&output_nested).unwrap();
+    let (w, h) = read_png_dimensions(&bytes).expect("Valid PNG dimensions");
+    assert_eq!(w, 1200);
+    assert_eq!(h, 630);
+}
