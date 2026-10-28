@@ -72,3 +72,66 @@ fn test_filter_and_sort_summaries_hides_mirrors_by_default() {
     filter_and_sort_summaries(&mut summaries_with_mirrors, &include_filter);
     assert_eq!(summaries_with_mirrors.len(), 2);
 }
+
+#[test]
+fn test_filter_args_merge_preserves_include_mirrors() {
+    let base = CatalogFilterArgs {
+        include_mirrors: true,
+        ..Default::default()
+    };
+    let sub = CatalogFilterArgs::default();
+    assert!(base.merge(&sub).include_mirrors);
+
+    let base2 = CatalogFilterArgs::default();
+    let sub2 = CatalogFilterArgs {
+        include_mirrors: true,
+        ..Default::default()
+    };
+    assert!(base2.merge(&sub2).include_mirrors);
+}
+
+#[test]
+fn test_dirty_and_status_filters_respect_mirror_omission() {
+    use cccp::catalog::CatalogRepoSummary;
+
+    let mut summaries = vec![
+        CatalogRepoSummary {
+            name: "canonical-dirty".to_string(),
+            forge: "forgejo".to_string(),
+            slug: "lumen/canonical-dirty".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(false),
+            unpushed: 0,
+            status_label: "dirty [1*]".to_string(),
+            local_path: None,
+            gost_version: None,
+            ci_status: Vec::new(),
+            is_mirror: false,
+        },
+        CatalogRepoSummary {
+            name: "mirror-dirty".to_string(),
+            forge: "forgejo".to_string(),
+            slug: "lumen/mirror-dirty".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(false),
+            unpushed: 0,
+            status_label: "dirty [1*]".to_string(),
+            local_path: None,
+            gost_version: None,
+            ci_status: Vec::new(),
+            is_mirror: true,
+        },
+    ];
+
+    // Mesmo com --dirty, o espelho dirty DEVE ser ocultado sem --include-mirrors
+    let dirty_filter = CatalogFilterArgs {
+        dirty: true,
+        include_mirrors: false,
+        ..Default::default()
+    };
+    filter_and_sort_summaries(&mut summaries, &dirty_filter);
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].name, "canonical-dirty");
+}
