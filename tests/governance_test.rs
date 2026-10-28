@@ -64,7 +64,11 @@ fn test_epic_lifecycle_start_list_finish() {
 
     // 1. Start epic
     let res_start = cmd_epic_start(&repo, "rewrite-engine", &theme);
-    assert!(res_start.is_ok(), "epic start must succeed: {:?}", res_start.err());
+    assert!(
+        res_start.is_ok(),
+        "epic start must succeed: {:?}",
+        res_start.err()
+    );
 
     let repo_after_start = GitRepo::open(Some(p)).unwrap();
     assert_eq!(
@@ -82,12 +86,24 @@ fn test_epic_lifecycle_start_list_finish() {
 
     // Commit change on epic
     fs::write(p.join("feature.txt"), "epic work").unwrap();
-    Command::new("git").args(["add", "feature.txt"]).current_dir(p).status().unwrap();
-    Command::new("git").args(["commit", "-m", "feat(epic): work on rewrite"]).current_dir(p).status().unwrap();
+    Command::new("git")
+        .args(["add", "feature.txt"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "feat(epic): work on rewrite"])
+        .current_dir(p)
+        .status()
+        .unwrap();
 
     // 3. Finish epic
     let res_finish = cmd_epic_finish(&repo_after_start, "rewrite-engine", &theme);
-    assert!(res_finish.is_ok(), "epic finish must succeed: {:?}", res_finish.err());
+    assert!(
+        res_finish.is_ok(),
+        "epic finish must succeed: {:?}",
+        res_finish.err()
+    );
 
     let repo_final = GitRepo::open(Some(p)).unwrap();
     assert_eq!(repo_final.branch.as_deref(), Some("main"));
@@ -101,18 +117,56 @@ fn test_inbox_quarantine_list_review_accept() {
     let theme = Theme::with_color(false);
 
     // Set up mock mirrors
-    Command::new("git").args(["remote", "add", "origin", "git@gambi.2lp.in:lumen/test.git"]).current_dir(p).status().unwrap();
-    Command::new("git").args(["remote", "add", "codeberg", "https://codeberg.org/lumenpink/test.git"]).current_dir(p).status().unwrap();
-    Command::new("git").args(["remote", "add", "github", "https://github.com/lumenpink/test.git"]).current_dir(p).status().unwrap();
+    Command::new("git")
+        .args(["remote", "add", "origin", "git@gambi.2lp.in:lumen/test.git"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "remote",
+            "add",
+            "codeberg",
+            "https://codeberg.org/lumenpink/test.git",
+        ])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "remote",
+            "add",
+            "github",
+            "https://github.com/lumenpink/test.git",
+        ])
+        .current_dir(p)
+        .status()
+        .unwrap();
 
     // Create an external contribution in quarantine branch inbox/pr-42
-    Command::new("git").args(["checkout", "-b", "inbox/pr-42"]).current_dir(p).status().unwrap();
+    Command::new("git")
+        .args(["checkout", "-b", "inbox/pr-42"])
+        .current_dir(p)
+        .status()
+        .unwrap();
     fs::write(p.join("external_patch.txt"), "community patch").unwrap();
-    Command::new("git").args(["add", "external_patch.txt"]).current_dir(p).status().unwrap();
-    Command::new("git").args(["commit", "-m", "fix: community external contribution"]).current_dir(p).status().unwrap();
+    Command::new("git")
+        .args(["add", "external_patch.txt"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "fix: community external contribution"])
+        .current_dir(p)
+        .status()
+        .unwrap();
 
     // Switch back to main
-    Command::new("git").args(["checkout", "main"]).current_dir(p).status().unwrap();
+    Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(p)
+        .status()
+        .unwrap();
 
     let repo = GitRepo::open(Some(p)).unwrap();
 
@@ -126,7 +180,11 @@ fn test_inbox_quarantine_list_review_accept() {
 
     // 3. Accept inbox item into main
     let res_accept = cmd_inbox_accept(&repo, "pr-42", &theme);
-    assert!(res_accept.is_ok(), "accept inbox must succeed: {:?}", res_accept.err());
+    assert!(
+        res_accept.is_ok(),
+        "accept inbox must succeed: {:?}",
+        res_accept.err()
+    );
 
     assert!(p.join("external_patch.txt").is_file());
 
@@ -137,7 +195,10 @@ fn test_inbox_quarantine_list_review_accept() {
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
-    assert_eq!(codeberg_pushurl, "no_push", "GOST-25 requires codeberg mirror pushurl = no_push");
+    assert_eq!(
+        codeberg_pushurl, "no_push",
+        "GOST-25 requires codeberg mirror pushurl = no_push"
+    );
 
     let github_pushurl = Command::new("git")
         .args(["config", "remote.github.pushurl"])
@@ -145,5 +206,8 @@ fn test_inbox_quarantine_list_review_accept() {
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap_or_default();
-    assert_eq!(github_pushurl, "no_push", "GOST-25 requires github mirror pushurl = no_push");
+    assert_eq!(
+        github_pushurl, "no_push",
+        "GOST-25 requires github mirror pushurl = no_push"
+    );
 }

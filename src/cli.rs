@@ -157,6 +157,52 @@ pub enum Commands {
     /// Manage canonical GOST profiles (get, list, set)
     #[command(subcommand)]
     Profile(ProfileCommand),
+
+    /// Manage persistent epic integration branches (start, list, finish)
+    #[command(subcommand)]
+    Epic(EpicCommand),
+
+    /// Manage quarantined external contributions and PRs (list, review, accept)
+    #[command(subcommand)]
+    Inbox(InboxCommand),
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum EpicCommand {
+    /// Start a persistent epic integration branch (epic/<slug>)
+    Start(EpicSlugArgs),
+
+    /// List active persistent epic integration branches
+    List,
+
+    /// Finish and integrate a persistent epic branch into main
+    Finish(EpicSlugArgs),
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct EpicSlugArgs {
+    /// Slug of the epic (alphanumeric, hyphens, underscores)
+    #[arg(required = true)]
+    pub slug: String,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum InboxCommand {
+    /// List external contributions in quarantine (inbox/*)
+    List,
+
+    /// Review diff and commits of a quarantined contribution
+    Review(InboxIdArgs),
+
+    /// Accept and merge quarantined contribution into current branch
+    Accept(InboxIdArgs),
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct InboxIdArgs {
+    /// ID or branch name of the quarantined contribution (e.g. pr-42 or inbox/pr-42)
+    #[arg(required = true)]
+    pub id: String,
 }
 
 #[derive(Debug, Subcommand, Clone)]

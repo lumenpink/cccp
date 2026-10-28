@@ -19,6 +19,7 @@ pub mod draft;
 pub mod editor;
 pub mod forges;
 pub mod git;
+pub mod governance;
 pub mod hook_runner;
 pub mod hooks_install;
 pub mod hygiene;

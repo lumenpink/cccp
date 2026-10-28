@@ -2006,6 +2006,60 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Epic(ref epic_cmd)) => {
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let res = match epic_cmd {
+                cli::EpicCommand::Start(args) => {
+                    cccp::governance::cmd_epic_start(&repo, &args.slug, &theme)
+                }
+                cli::EpicCommand::List => {
+                    cccp::governance::cmd_epic_list(&repo, &theme).map(|_| ())
+                }
+                cli::EpicCommand::Finish(args) => {
+                    cccp::governance::cmd_epic_finish(&repo, &args.slug, &theme)
+                }
+            };
+            match res {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some(Commands::Inbox(ref inbox_cmd)) => {
+            let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let res = match inbox_cmd {
+                cli::InboxCommand::List => {
+                    cccp::governance::cmd_inbox_list(&repo, &theme).map(|_| ())
+                }
+                cli::InboxCommand::Review(args) => {
+                    cccp::governance::cmd_inbox_review(&repo, &args.id, &theme).map(|_| ())
+                }
+                cli::InboxCommand::Accept(args) => {
+                    cccp::governance::cmd_inbox_accept(&repo, &args.id, &theme)
+                }
+            };
+            match res {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some(Commands::Divan(ref divan_args)) => {
             run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme)
         }
