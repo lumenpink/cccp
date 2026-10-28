@@ -28,3 +28,10 @@ Atualmente, o comando `cccp repo list` (e `cccp catalog list`) renderiza indisti
    - `summarize_catalog` deve propagar `entry.is_mirror` e também reconhecer se o repositório local possui remote configurado como mirror.
 4. **Preservação de Integridade:**
    - Comandos diretos por identificador ou slug (como `cccp repo path <slug>`, `cccp repo assemble <slug>`) continuam operando normalmente sem bloqueio por espelhamento.
+
+---
+
+## 3. Validação e Conclusão (Fase 9)
+- Testes unitários e contratuais validados em `tests/catalog_mirror_filter_test.rs`.
+- Suporte a `--include-mirrors` e alias `--mirrors` verificado.
+- Regressão prevenida nos testes gerais do catálogo.
