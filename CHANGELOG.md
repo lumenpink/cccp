@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Discontinuation of Internal Auto-Update in Favor of Jornaleira
+- **Descontinuação de Auto-Update Interno (`src/main.rs` / `src/update.rs`)**:
+  - **Eliminação de Checagem no Startup**: Remove a rotina periódica de verificação de atualizações em background no arranque da CLI, garantindo latência zero e operação estritamente offline.
+  - **Governança via Jornaleira**: Transfere a responsabilidade de ciclo de vida e distribuição para o gerenciador central Jornaleira, adicionando orientações explícitas nos comandos de atualização. (closes #57)
+
+
 ### Git Hooks Integrity Checksum and Canonical Version Fix
 - **Correção de Checksum e Versão Canônica nos Git Hooks (`src/hooks_install.rs` / `src/update.rs`)**:
   - **Versão Canônica em Tempo de Instalação**: `install_hooks` passa a registrar `get_current_version()` em vez da constante estática `CARGO_PKG_VERSION`, sincronizando o cabeçalho com o runtime do binário.
