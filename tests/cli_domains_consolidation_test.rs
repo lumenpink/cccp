@@ -16,6 +16,12 @@ fn test_check_canonical_command() {
 }
 
 #[test]
+fn test_ci_canonical_command() {
+    let parsed = Cli::parse_from(["cccp", "ci", "status"]);
+    assert!(matches!(parsed.command, Some(Commands::Ci(_))));
+}
+
+#[test]
 fn test_repo_domain_subcommands() {
     // repo init
     let parsed_init = Cli::parse_from(["cccp", "repo", "init", "--profile", "lumen"]);
