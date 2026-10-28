@@ -31,7 +31,6 @@ fn main() -> ExitCode {
     if let Ok(current_dir) = std::env::current_dir() {
         let _ = cccp::update::check_hook_version(&current_dir);
     }
-    let _ = cccp::update::check_auto_update(&config);
 
     match args.command {
         Some(Commands::Start(start_args)) => {
