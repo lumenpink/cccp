@@ -62,6 +62,7 @@ fn test_newrepo_scaffolding_defaults() {
 
     let ci_content = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
     assert!(ci_content.contains("runs-on: ubuntu-latest"));
+    assert!(!ci_content.contains("runs-on: native"));
 
     let headers = fs::read_to_string(root.join("site/_headers")).unwrap();
     assert!(headers.contains("X-Content-Type-Options: nosniff"));
