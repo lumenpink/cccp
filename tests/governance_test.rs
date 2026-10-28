@@ -211,3 +211,30 @@ fn test_inbox_quarantine_list_review_accept() {
         "GOST-25 requires github mirror pushurl = no_push"
     );
 }
+
+#[test]
+fn test_epic_and_inbox_mutation_and_edge_cases() {
+    let temp = setup_temp_repo();
+    let p = temp.path();
+    let theme = Theme::with_color(false);
+    let repo = GitRepo::open(Some(p)).unwrap();
+
+    // 1. Invalid epic slugs
+    assert!(cmd_epic_start(&repo, "", &theme).is_err());
+    assert!(cmd_epic_start(&repo, "invalid slug with spaces", &theme).is_err());
+    assert!(cmd_epic_start(&repo, "invalid$slug!", &theme).is_err());
+
+    // 2. Epic finish with dirty working tree must fail
+    cmd_epic_start(&repo, "clean-epic", &theme).unwrap();
+    fs::write(p.join("dirty.txt"), "dirty content").unwrap();
+    let finish_res = cmd_epic_finish(&repo, "clean-epic", &theme);
+    assert!(
+        finish_res.is_err(),
+        "Dirty working tree must block epic finish"
+    );
+    fs::remove_file(p.join("dirty.txt")).unwrap();
+
+    // 3. Inbox review and accept for non-existent branch must fail
+    assert!(cmd_inbox_review(&repo, "nonexistent-pr-999", &theme).is_err());
+    assert!(cmd_inbox_accept(&repo, "nonexistent-pr-999", &theme).is_err());
+}
