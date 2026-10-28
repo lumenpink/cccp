@@ -189,6 +189,31 @@ fn test_gost_audit_chores_exempt_from_ticket_requirement() {
         .unwrap();
     assert_eq!(check_04.status, cccp::audit::CheckStatus::Pass);
     assert!(check_04.detail.contains("chores isentos"));
+
+    // Mutation: adding an invalid non-chore commit without ticket reference must FAIL
+    fs::write(temp.path().join("feat.txt"), "some feature\n").unwrap();
+    Command::new("git")
+        .args(["add", "feat.txt"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "feat: add feature without ticket"])
+        .current_dir(temp.path())
+        .status()
+        .unwrap();
+
+    let report_mutant = run_gost_audit(temp.path(), true, &theme);
+    let check_04_mutant = report_mutant
+        .checks
+        .iter()
+        .find(|c| c.code == "GOST-04-TICKETS-COMMITS")
+        .unwrap();
+    assert_eq!(
+        check_04_mutant.status,
+        cccp::audit::CheckStatus::Fail,
+        "Non-chore commit without ticket must fail GOST-04"
+    );
 }
 
 fn check_workflow_has_permissions(content: &str) -> bool {
