@@ -298,6 +298,7 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
         });
 
     println!("★ CCCP Update Verification Bureau ★");
+    println!("Gestor de Pacotes : Jornaleira ('jornaleira upgrade cccp')");
     println!("Installed Version : {}", curr_ver);
     println!("Release Channel   : {}", channel);
     if let Some(ref pin) = pinned {
@@ -365,6 +366,7 @@ pub fn cmd_check_update(channel_override: Option<&str>) -> Result<(), Box<dyn st
 
 /// Executes CCCP update or pin configuration.
 pub fn cmd_update(args: &UpdateArgs) -> Result<(), Box<dyn std::error::Error>> {
+    println!("★ GOSPLAN: A distribuição de binários é governada pela Jornaleira ('jornaleira upgrade cccp').");
     let channel = resolve_channel(args.channel.as_deref())?;
 
     let global_cfg = config::get_or_create_global_config_path();
