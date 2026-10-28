@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Persistent Epic Branches and Border Quarantine Governance
+- **Governança de Branches Épicas e Quarentena de Contribuições (`src/governance.rs`, `src/cli.rs`)**:
+  - **Subcomando `cccp epic`**: Permite gerenciar o ciclo de vida de branches persistentes de integração multi-ticket (`epic/<slug>`), suportando `start`, `list` e `finish` com validação de working tree limpa e integração na base.
+  - **Subcomando `cccp inbox`**: Provê comandos para listar (`list`), inspecionar diff e histórico (`review`) e integrar (`accept`) contribuições externas recebidas no namespace de quarentena `refs/heads/inbox/*`.
+  - **Proteção Remota GOST-25**: A aceitação de contribuições configura e garante automaticamente `pushurl = no_push` nos espelhos secundários públicos (`codeberg`, `github`), impedindo vazamento ou push não homologado. (closes #74)
+
+
 ### Profile Assemble GOST Specification and GOSTVER Synchronization
 - **Sincronização de GOST e GOSTVER no Profile Assemble (`src/profile.rs`, `src/catalog.rs`)**:
   - **Atualização Canônica do GOSTVER**: O comando `profile assemble` (individual e batch) atualiza a versão GOST para a versão canônica ativa (`2.0.0`) no `GOSTVER` e manifesto `.gost/metadata.json`.
