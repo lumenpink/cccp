@@ -187,3 +187,44 @@ fn test_assemble_idempotent_no_duplicate_commit() {
         "Idempotent assemble must not create duplicate commits"
     );
 }
+
+#[test]
+fn test_assemble_updates_outdated_gostver_and_syncs_gost_artifacts() {
+    let repo_dir = scaffold_test_repo("outdated-gostver-repo");
+    let p = repo_dir.path();
+    let theme = Theme::with_color(false);
+
+    // Overwrite GOSTVER with an outdated version
+    fs::write(
+        p.join("GOSTVER"),
+        "GOST_VERSION=\"1.1.0\"\nGOST_PROFILE_URL=\"profiles/lumen.md\"\nGOST_LANGUAGES=\"shell\"\n",
+    )
+    .unwrap();
+
+    // Commit change so tree is clean
+    Command::new("git")
+        .args(["commit", "-am", "chore: set outdated gostver"])
+        .current_dir(p)
+        .status()
+        .unwrap();
+
+    let res = assemble_repo(p, false, false, &theme);
+    assert!(res.is_ok(), "assemble_repo must succeed: {:?}", res.err());
+
+    // GOSTVER must be updated to canonical 2.0.0
+    let gostver_content = fs::read_to_string(p.join("GOSTVER")).unwrap();
+    assert!(
+        gostver_content.contains("GOST_VERSION=\"2.0.0\""),
+        "GOSTVER must be updated to 2.0.0 during assemble, but was: {}",
+        gostver_content
+    );
+
+    // .gost/GOST.md must exist
+    assert!(p.join(".gost/GOST.md").is_file());
+
+    // .gost/languages/shell.md must be synchronized
+    assert!(
+        p.join(".gost/languages/shell.md").is_file(),
+        "Language spec for shell must be synchronized during assemble"
+    );
+}
