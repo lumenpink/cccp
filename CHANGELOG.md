@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### CI Pipeline Subcommands for Artifacts Publishing and Site Deployment
+- **Subcomandos de Esteira CI (`publish-artifacts` e `deploy-site`) (`src/ci_pipeline.rs`, `src/cli.rs`)**:
+  - **Subcomando `cccp ci publish-artifacts`**: Empacotamento e despacho determinístico de binários e manifestos para o Cloudflare R2 / Banca (`banca.2lp.in`), gerando árvore e manifesto com somas de verificação SHA-256.
+  - **Subcomando `cccp ci deploy-site`**: Empacotamento da vitrine estática e publicação atômica em worktree órfã stateless `pages` para espelhos secundários sem inflação de histórico.
+  - **Integração na CLI**: Expostos como subcomandos de esteira hermética sob `cccp ci` (com suporte a `--dry-run`, `--dist-dir`, `--site-dir` e `--banca-url`) e alias `cccp act`. (closes #76)
+
+
+
 ### Mirror Repository Filtering in Catalog and Repo Listing
 - **Ocultação de Repositórios Espelho (`src/catalog.rs`, `src/cli.rs`)**:
   - **Omissão por Padrão**: O comando `cccp repo list` (e `cccp catalog list`) filtra e oculta automaticamente repositórios espelhos (`is_mirror = true`) da saída tabular do Gosplan.
