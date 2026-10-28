@@ -248,7 +248,7 @@ pub fn apply_top_filters_and_sorting(
             // Preserves original catalog ordering
         }
         CiTopSort::RepoName => {
-            filtered.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+            filtered.sort_by_key(|a| a.name.to_lowercase());
         }
         CiTopSort::CiStatus => {
             filtered.sort_by_key(|r| match repo_ci_category(&r.ci_status) {
@@ -394,8 +394,7 @@ pub fn render_top_view(
     }
 
     // Bottom Bar
-    let bottom_text =
-        "Ctrl+H help | Ctrl+S sort | Ctrl+F filter | Ctrl+R refresh | Ctrl+Q quit";
+    let bottom_text = "Ctrl+H help | Ctrl+S sort | Ctrl+F filter | Ctrl+R refresh | Ctrl+Q quit";
     out.push_str(&theme.dim(&sep));
     out.push('\n');
     out.push_str(&theme.cyan(&format!("★ {}", bottom_text)));
@@ -426,11 +425,7 @@ pub fn run_repo_top(
     // Enter Alternate Screen and enable raw mode
     enable_raw_mode().map_err(|e| format!("Failed to enable raw mode: {}", e))?;
     let mut stdout_handle = stdout();
-    let _ = execute!(
-        stdout_handle,
-        EnterAlternateScreen,
-        crossterm::cursor::Hide
-    );
+    let _ = execute!(stdout_handle, EnterAlternateScreen, crossterm::cursor::Hide);
 
     let mut last_refresh = Instant::now();
     let interval = Duration::from_secs(state.interval_secs);
@@ -479,28 +474,23 @@ pub fn run_repo_top(
                     | (KeyCode::Char('q'), KeyModifiers::NONE)
                     | (KeyCode::Esc, _) => Some(RepoTopAction::Quit),
 
-                    (KeyCode::Char('h'), KeyModifiers::CONTROL)
-                    | (KeyCode::F(1), _) => Some(RepoTopAction::ToggleHelp),
+                    (KeyCode::Char('h'), KeyModifiers::CONTROL) | (KeyCode::F(1), _) => {
+                        Some(RepoTopAction::ToggleHelp)
+                    }
 
                     (KeyCode::Char('s'), KeyModifiers::CONTROL)
-                    | (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
-                        Some(RepoTopAction::CycleSort)
-                    }
+                    | (KeyCode::Char('o'), KeyModifiers::CONTROL) => Some(RepoTopAction::CycleSort),
 
                     (KeyCode::Char('f'), KeyModifiers::CONTROL)
                     | (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
                         Some(RepoTopAction::CycleFilter)
                     }
 
-                    (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
-                        Some(RepoTopAction::Refresh)
-                    }
+                    (KeyCode::Char('r'), KeyModifiers::CONTROL) => Some(RepoTopAction::Refresh),
 
                     (KeyCode::Up, _)
                     | (KeyCode::Char('k'), KeyModifiers::NONE)
-                    | (KeyCode::Char('p'), KeyModifiers::CONTROL) => {
-                        Some(RepoTopAction::CursorUp)
-                    }
+                    | (KeyCode::Char('p'), KeyModifiers::CONTROL) => Some(RepoTopAction::CursorUp),
 
                     (KeyCode::Down, _)
                     | (KeyCode::Char('j'), KeyModifiers::NONE)
@@ -508,13 +498,11 @@ pub fn run_repo_top(
                         Some(RepoTopAction::CursorDown)
                     }
 
-                    (KeyCode::PageUp, _)
-                    | (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
+                    (KeyCode::PageUp, _) | (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
                         Some(RepoTopAction::PageUp)
                     }
 
-                    (KeyCode::PageDown, _)
-                    | (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                    (KeyCode::PageDown, _) | (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
                         Some(RepoTopAction::PageDown)
                     }
 
@@ -545,11 +533,7 @@ pub fn run_repo_top(
     }
 
     // Teardown terminal
-    let _ = execute!(
-        stdout_handle,
-        crossterm::cursor::Show,
-        LeaveAlternateScreen
-    );
+    let _ = execute!(stdout_handle, crossterm::cursor::Show, LeaveAlternateScreen);
     let _ = disable_raw_mode();
 
     Ok(())
