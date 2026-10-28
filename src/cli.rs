@@ -902,6 +902,10 @@ pub struct CatalogFilterArgs {
     #[arg(long = "ci-details")]
     pub ci_details: bool,
 
+    /// Include mirror repositories in catalog listing (hidden by default)
+    #[arg(long = "include-mirrors", alias = "mirrors")]
+    pub include_mirrors: bool,
+
     /// Sort repositories by field ('name', 'tickets', 'status', 'forge', 'gost', 'ci')
     #[arg(long = "sort", default_value = "name")]
     pub sort: String,
@@ -920,6 +924,7 @@ impl CatalogFilterArgs {
             min_tickets: sub.min_tickets.or(self.min_tickets),
             ci: sub.ci.clone().or_else(|| self.ci.clone()),
             ci_details: sub.ci_details || self.ci_details,
+            include_mirrors: sub.include_mirrors || self.include_mirrors,
             sort: if sub.sort != "name" {
                 sub.sort.clone()
             } else {

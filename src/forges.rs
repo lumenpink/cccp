@@ -330,6 +330,7 @@ pub struct RepoMetadata {
     pub website: String,
     pub topics: Vec<String>,
     pub license: String,
+    pub is_mirror: bool,
 }
 
 impl Default for ForgeClient {
@@ -429,11 +430,22 @@ impl ForgeClient {
             })
             .unwrap_or_default();
 
+        let is_mirror = body
+            .get("mirror")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+            || body
+                .get("original_url")
+                .and_then(|v| v.as_str())
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+
         Some(RepoMetadata {
             description,
             website,
             topics,
             license,
+            is_mirror,
         })
     }
 

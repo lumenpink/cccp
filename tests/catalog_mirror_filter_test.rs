@@ -1,6 +1,4 @@
-use cccp::catalog::{
-    filter_and_sort_summaries, summarize_catalog, CatalogEntry, CatalogRepoSummary,
-};
+use cccp::catalog::{filter_and_sort_summaries, summarize_catalog, CatalogEntry};
 use cccp::cli::CatalogFilterArgs;
 
 #[test]

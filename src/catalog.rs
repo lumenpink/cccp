@@ -38,6 +38,8 @@ pub struct CatalogEntry {
     pub website: String,
     #[serde(default)]
     pub is_upstream: bool,
+    #[serde(default)]
+    pub is_mirror: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open_tickets: Option<usize>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -68,6 +70,10 @@ struct RawCatalogEntry {
     pub website: String,
     #[serde(default)]
     pub is_upstream: bool,
+    #[serde(default)]
+    pub is_mirror: bool,
+    #[serde(default)]
+    pub mirror: Option<bool>,
     #[serde(default)]
     pub open_tickets: Option<usize>,
     #[serde(default)]
@@ -121,6 +127,8 @@ impl From<RawCatalogEntry> for CatalogEntry {
         let canonical = raw.canonical_url.or(raw.url);
         let host = raw.server_host.or(raw.host);
 
+        let is_mirror = raw.is_mirror || raw.mirror.unwrap_or(false);
+
         CatalogEntry {
             name: raw.name,
             forge: raw.forge,
@@ -131,6 +139,7 @@ impl From<RawCatalogEntry> for CatalogEntry {
             license: raw.license,
             website: raw.website,
             is_upstream: raw.is_upstream,
+            is_mirror,
             open_tickets: raw.open_tickets.or(raw.tickets),
             ci_status: raw.ci_status,
             canonical_url: canonical,
@@ -851,6 +860,7 @@ pub fn add_remote_repo(
             license: remote_meta.license,
             website: remote_meta.website,
             is_upstream: false,
+            is_mirror: remote_meta.is_mirror,
             open_tickets: None,
             ci_status: Vec::new(),
             ..Default::default()
@@ -1035,6 +1045,7 @@ pub fn scan_and_add_from_src(
             license: remote_meta.license,
             website: remote_meta.website,
             is_upstream: false,
+            is_mirror: remote_meta.is_mirror,
             open_tickets: None,
             ci_status: Vec::new(),
             ..Default::default()
@@ -1187,6 +1198,7 @@ pub struct CatalogRepoSummary {
     pub local_path: Option<PathBuf>,
     pub gost_version: Option<String>,
     pub ci_status: Vec<CiPipelineStatus>,
+    pub is_mirror: bool,
 }
 
 /// Gather live status (clean/dirty, unpushed commits, open tickets) for catalog entries
@@ -1265,6 +1277,7 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                 local_path,
                 gost_version,
                 ci_status,
+                is_mirror: entry.is_mirror,
             }
         })
         .collect()
@@ -1594,7 +1607,12 @@ pub fn filter_and_sort_summaries(
     summaries: &mut Vec<CatalogRepoSummary>,
     filter: &crate::cli::CatalogFilterArgs,
 ) {
-    // 0. Filter by direct flags: --dirty and --unpushed
+    // 0. Filter mirrors by default unless explicitly included with --include-mirrors
+    if !filter.include_mirrors {
+        summaries.retain(|s| !s.is_mirror);
+    }
+
+    // 1. Filter by direct flags: --dirty and --unpushed
     if filter.dirty {
         summaries.retain(|s| s.is_clean == Some(false));
     }
@@ -1602,7 +1620,7 @@ pub fn filter_and_sort_summaries(
         summaries.retain(|s| s.is_clean == Some(true) && s.unpushed > 0);
     }
 
-    // 1. Filter by status
+    // 2. Filter by status
     if let Some(ref st_filter) = filter.status {
         let clean_st = st_filter.trim().to_ascii_lowercase();
         summaries.retain(|s| match clean_st.as_str() {
