@@ -3,6 +3,9 @@ use cccp::forges::{
     resolve_token_for_host, ForgeType,
 };
 use serde_json::json;
+use std::sync::Mutex;
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn test_parse_remote_url_codeberg_ssh() {
@@ -112,6 +115,7 @@ fn test_parse_remote_url_tildegit_case_insensitive() {
 
 #[test]
 fn test_resolve_token_for_tildegit_domain_precedence() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let empty_cfg = cccp::config::Config::default();
     std::env::set_var("TILDEGIT_ORG_TOKEN", "domain_tok_111");
     std::env::set_var("TILDEGIT_TOKEN", "generic_tok_222");
@@ -136,6 +140,7 @@ fn test_parse_remote_url_invalid() {
 
 #[test]
 fn test_resolve_token_environment() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let empty_cfg = cccp::config::Config::default();
     std::env::set_var("GITHUB_TOKEN", "gh_secret_token_456");
     assert_eq!(
@@ -162,12 +167,14 @@ fn test_resolve_token_environment() {
 
 #[test]
 fn test_resolve_token_reads_home_env_when_config_none() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let saved_cb = std::env::var("CODEBERG_TOKEN").ok();
     let saved_fj = std::env::var("FORGEJO_TOKEN").ok();
     let saved_gt = std::env::var("GITEA_TOKEN").ok();
     let saved_tea = std::env::var("TEA_TOKEN").ok();
     let saved_cb_org = std::env::var("CODEBERG_ORG_TOKEN").ok();
     let saved_mock = std::env::var("MOCK_HOME_ENV_ORG_TOKEN").ok();
+    let saved_g2lp = std::env::var("GIT_2LP_IN_TOKEN").ok();
 
     std::env::remove_var("CODEBERG_TOKEN");
     std::env::remove_var("FORGEJO_TOKEN");
@@ -175,6 +182,7 @@ fn test_resolve_token_reads_home_env_when_config_none() {
     std::env::remove_var("TEA_TOKEN");
     std::env::remove_var("CODEBERG_ORG_TOKEN");
     std::env::remove_var("MOCK_HOME_ENV_ORG_TOKEN");
+    std::env::remove_var("GIT_2LP_IN_TOKEN");
 
     let mut config = cccp::config::Config::default();
     config
@@ -199,6 +207,9 @@ fn test_resolve_token_reads_home_env_when_config_none() {
     }
     if let Some(v) = saved_mock {
         std::env::set_var("MOCK_HOME_ENV_ORG_TOKEN", v);
+    }
+    if let Some(v) = saved_g2lp {
+        std::env::set_var("GIT_2LP_IN_TOKEN", v);
     }
 
     assert_eq!(token.as_deref(), Some("ci_test_token"));
@@ -303,6 +314,7 @@ fn test_host_to_token_env_var() {
 
 #[test]
 fn test_resolve_token_for_host_domain_precedence() {
+    let _lock = ENV_LOCK.lock().unwrap();
     std::env::set_var("TEST_FORGE_NET_TOKEN", "domain_secret_123");
     let resolved = resolve_token_for_host("test.forge.net", ForgeType::Codeberg, None);
     assert_eq!(resolved.as_deref(), Some("domain_secret_123"));
@@ -323,6 +335,7 @@ fn test_resolve_token_for_host_from_config_extra() {
 
 #[test]
 fn test_close_issue_missing_token_returns_error() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let saved_cb = std::env::var("CODEBERG_TOKEN").ok();
     let saved_fj = std::env::var("FORGEJO_TOKEN").ok();
     let saved_gt = std::env::var("GITEA_TOKEN").ok();
