@@ -84,20 +84,33 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
         ("origin", branch.as_str())
     };
 
-    // 4. Fetch silently from remote
-    let fetch_res = Command::new("git")
-        .args(["fetch", remote_name, remote_branch])
+    // 4. Fetch silently from remote, explicitly updating remote tracking branch
+    let refspec = format!(
+        "+refs/heads/{}:refs/remotes/{}/{}",
+        remote_branch, remote_name, remote_branch
+    );
+    let mut fetch_res = Command::new("git")
+        .args(["fetch", remote_name, &refspec])
         .current_dir(repo_path)
-        .output()
-        .map_err(|e| {
-            format!(
-                "Falha ao executar 'git fetch {} {}': {}",
-                remote_name, remote_branch, e
-            )
-        })?;
+        .output();
 
-    if !fetch_res.status.success() {
-        let err_msg = String::from_utf8_lossy(&fetch_res.stderr);
+    if fetch_res.as_ref().map(|o| !o.status.success()).unwrap_or(true) {
+        // Fallback to general fetch of remote if specific refspec was not matched
+        fetch_res = Command::new("git")
+            .args(["fetch", remote_name])
+            .current_dir(repo_path)
+            .output();
+    }
+
+    let fetch_out = fetch_res.map_err(|e| {
+        format!(
+            "Falha ao executar 'git fetch {}': {}",
+            remote_name, e
+        )
+    })?;
+
+    if !fetch_out.status.success() {
+        let err_msg = String::from_utf8_lossy(&fetch_out.stderr);
         return Err(format!(
             "Falha ao sincronizar com remote '{}': {}",
             remote_name,
