@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
-### Scoped Localhost Proxy Bypass in CI Test Step
-- **Injeção de `no_proxy` no Passo de Testes da Esteira (`.forgejo/workflows/ci.yml`, `src/ai.rs`)**:
-  - **Escopo Restrito de Bypasses Locais**: Injeta pontualmente `no_proxy` e `NO_PROXY` (`localhost,127.0.0.1,::1`) exclusivamente no passo de execução de testes unitários e de integração, evitando roteamento indevido de requisições locais para proxies de rede externos.
-  - **Resiliência em Tratamento de Erros de Conexão**: Aprimora a detecção de erros de conexão HTTP com o daemon Ollama de forma tolerante a variações de capitalização. (closes #86)
+### Case-Insensitive Network and Proxy Error Handling in AI Layer
+- **Normalização de Erros de Conexão e Proxy na Camada AI (`src/ai.rs`, `tests/ai_test.rs`, `.forgejo/workflows/ci.yml`)**:
+  - **Tratamento Case-Insensitive**: Converte mensagens de erro de rede para minúsculas antes de verificar recusas de conexão, cobrindo `CONNECT proxy failed`, `connection refused` e códigos de erro de gateway.
+  - **Consistência Multiprovedor**: Aplica o mesmo padrão de diagnóstico amigável para Ollama (`triage_ollama`) e servidores locais compatíveis (`triage_local`).
+  - **Bypass de Proxy no CI**: Injeta `no_proxy`/`NO_PROXY` para `localhost,127.0.0.1,::1` no job de testes de integração da esteira.
+  - **Testes de Contrato e Mutação**: Valida comportamento contra hosts inalcançáveis garantindo diagnósticos orientados à ação (`ollama serve`). (closes #87, closes #86)
+
 
 
 ### Explicit Remote Tracking Branch Sync in Parity Fetch
