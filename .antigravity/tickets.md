@@ -1,13 +1,13 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-29 22:43:01 UTC
+> Synced at: 2026-10-29 23:35:59 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#89] fix(ci): compilar linux-amd64 com gnu.2.28 para generic package e banca
+## [#90] fix(ci): escopar no_proxy no clippy e hermetizar teste de perfil
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/89
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/90
 
 ### Description
-Migrar compilacao linux-amd64 de musl para x86_64-unknown-linux-gnu.2.28 garantindo compatibilidade sem segfaults no Forgejo Generic Packages e Banca
+Injetar no_proxy no passo do clippy que acessa o sccache no localhost e usar perfil local hermetico em profile_test
 
 ---

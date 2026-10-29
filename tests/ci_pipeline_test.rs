@@ -75,9 +75,7 @@ fn test_ci_workflow_scopes_no_proxy_on_clippy() {
         .find("Clippy Check (Zero Warnings)")
         .expect("Clippy step must exist");
     let after_clippy = &workflow[clippy_idx..];
-    let next_step_rel = after_clippy
-        .find("- name:")
-        .unwrap_or(after_clippy.len());
+    let next_step_rel = after_clippy.find("- name:").unwrap_or(after_clippy.len());
     let clippy_block = &after_clippy[..next_step_rel];
     assert!(
         clippy_block.contains("no_proxy: \"localhost,127.0.0.1,::1\""),
