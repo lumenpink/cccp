@@ -165,6 +165,40 @@ fn test_local_ai_unreachable_host_error_message() {
 }
 
 #[test]
+fn test_mutation_ollama_and_local_case_insensitive_connection_error_mapping() {
+    let config_ollama = Config {
+        ai_provider: "ollama".into(),
+        ollama_host: "http://127.0.0.1:59998".into(),
+        ..Default::default()
+    };
+    let client_ollama = AiClient::from_config(&config_ollama);
+    let res_ollama = client_ollama.triage("test mutation", None);
+    assert!(res_ollama.is_err());
+    let err_ollama = res_ollama.unwrap_err();
+    assert!(
+        err_ollama.contains("Failed to connect to Ollama") || err_ollama.contains("ollama serve"),
+        "Ollama connection error must be mapped to friendly diagnostic: {}",
+        err_ollama
+    );
+
+    let config_local = Config {
+        ai_provider: "local".into(),
+        local_ai_host: "http://127.0.0.1:59998/v1".into(),
+        ..Default::default()
+    };
+    let client_local = AiClient::from_config(&config_local);
+    let res_local = client_local.triage("test mutation", None);
+    assert!(res_local.is_err());
+    let err_local = res_local.unwrap_err();
+    assert!(
+        err_local.contains("Failed to connect to local AI server")
+            || err_local.contains("daemon is active"),
+        "Local AI connection error must be mapped to friendly diagnostic: {}",
+        err_local
+    );
+}
+
+#[test]
 fn test_gemini_missing_api_key_error() {
     let saved_key = std::env::var("GEMINI_API_KEY").ok();
     let saved_google = std::env::var("GOOGLE_API_KEY").ok();
