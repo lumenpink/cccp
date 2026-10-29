@@ -67,6 +67,25 @@ fn test_ci_workflow_compiles_linux_amd64_gnu() {
 }
 
 #[test]
+fn test_ci_workflow_scopes_no_proxy_on_clippy() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
+    let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
+    let clippy_idx = workflow
+        .find("Clippy Check (Zero Warnings)")
+        .expect("Clippy step must exist");
+    let after_clippy = &workflow[clippy_idx..];
+    let next_step_rel = after_clippy
+        .find("- name:")
+        .unwrap_or(after_clippy.len());
+    let clippy_block = &after_clippy[..next_step_rel];
+    assert!(
+        clippy_block.contains("no_proxy: \"localhost,127.0.0.1,::1\""),
+        "Clippy step must configure no_proxy for localhost sccache daemon access"
+    );
+}
+
+#[test]
 fn test_deploy_site_dry_run() {
     let temp = tempdir().unwrap();
     let root = temp.path();
