@@ -241,6 +241,13 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
         if let Ok(base_spec) = fetch_document_content("https://gost.2lp.in/SPEC.md") {
             chain.push(("https://gost.2lp.in/SPEC.md".to_string(), base_spec));
         } else if let Ok(base_spec) =
+            fetch_document_content("https://gambi.2lp.in/lumen/gost/raw/branch/main/SPEC.md")
+        {
+            chain.push((
+                "https://gambi.2lp.in/lumen/gost/raw/branch/main/SPEC.md".to_string(),
+                base_spec,
+            ));
+        } else if let Ok(base_spec) =
             fetch_document_content("https://git.2lp.in/lumen/gost/raw/branch/main/SPEC.md")
         {
             chain.push((

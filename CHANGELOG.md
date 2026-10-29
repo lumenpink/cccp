@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Canonical Forgejo Endpoint for GOST Spec Resolution
+- **Atualização de Endpoints Canônicos da Especificação GOST (`src/profile.rs`, `src/newrepo.rs`)**:
+  - **Priorização do Domínio Gambi**: Atualiza a resolução remota de `SPEC.md` e recursos da norma GOST para priorizar o domínio canônico ativo `https://gambi.2lp.in/lumen/gost/`, mantendo fallbacks secundários e eliminando falhas de resolução DNS durante a montagem de perfis em containers de CI. (closes #88)
+
+
 ### Case-Insensitive Network and Proxy Error Handling in AI Layer
 - **Normalização de Erros de Conexão e Proxy na Camada AI (`src/ai.rs`, `tests/ai_test.rs`, `.forgejo/workflows/ci.yml`)**:
   - **Tratamento Case-Insensitive**: Converte mensagens de erro de rede para minúsculas antes de verificar recusas de conexão, cobrindo `CONNECT proxy failed`, `connection refused` e códigos de erro de gateway.

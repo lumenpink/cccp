@@ -212,9 +212,21 @@ pub fn fetch_gost_resource(
         }
     }
 
-    // 3. Remote candidate URLs (sovereign forge git.2lp.in and gost.2lp.in)
+    // 3. Remote candidate URLs (gambi.2lp.in, gost.2lp.in and legacy git.2lp.in)
     let remote_candidates = [
         format!("https://gost.2lp.in/{}", target_res),
+        format!(
+            "https://gambi.2lp.in/lumen/gost/raw/tag/v{}/{}",
+            version, target_res
+        ),
+        format!(
+            "https://gambi.2lp.in/lumen/gost/raw/tag/{}/{}",
+            version, target_res
+        ),
+        format!(
+            "https://gambi.2lp.in/lumen/gost/raw/branch/main/{}",
+            target_res
+        ),
         format!(
             "https://git.2lp.in/lumen/gost/raw/tag/v{}/{}",
             version, target_res
