@@ -4,8 +4,8 @@
 //! subcommands, argument validation, defaults, conversions, and error handling.
 
 use cccp::cli::{
-    AgentSubcommands, BumpType, Cli, Commands, DepsSubcommands, ForgeActions, HookSubcommands,
-    ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction, VersionFormat,
+    AgentSubcommands, BumpType, CiSubcommands, Cli, Commands, DepsSubcommands, ForgeActions,
+    HookSubcommands, ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction, VersionFormat,
 };
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -858,10 +858,39 @@ fn test_init_command_options() {
 }
 
 #[test]
-fn test_ci_command_removed() {
-    assert!(Cli::try_parse_from(["cccp", "ci", "status"]).is_err());
-    assert!(Cli::try_parse_from(["cccp", "ci", "run"]).is_err());
-    assert!(Cli::try_parse_from(["cccp", "ci", "log"]).is_err());
+fn test_ci_command_options() {
+    let cli = Cli::try_parse_from(["cccp", "ci", "status"]).expect("should parse cccp ci status");
+    match cli.command {
+        Some(Commands::Ci(ci)) => match ci.action {
+            Some(CiSubcommands::Status) => {}
+            _ => panic!("Expected CiSubcommands::Status"),
+        },
+        _ => panic!("Expected Commands::Ci"),
+    }
+
+    let cli_run = Cli::try_parse_from(["cccp", "ci", "run", "-j", "test"])
+        .expect("should parse cccp ci run");
+    match cli_run.command {
+        Some(Commands::Ci(ci)) => match ci.action {
+            Some(CiSubcommands::Run { job }) => {
+                assert_eq!(job, Some("test".to_string()));
+            }
+            _ => panic!("Expected CiSubcommands::Run"),
+        },
+        _ => panic!("Expected Commands::Ci"),
+    }
+
+    let cli_log =
+        Cli::try_parse_from(["cccp", "ci", "log", "-f"]).expect("should parse cccp ci log");
+    match cli_log.command {
+        Some(Commands::Ci(ci)) => match ci.action {
+            Some(CiSubcommands::Log { follow }) => {
+                assert!(follow);
+            }
+            _ => panic!("Expected CiSubcommands::Log"),
+        },
+        _ => panic!("Expected Commands::Ci"),
+    }
 }
 
 #[test]
