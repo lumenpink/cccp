@@ -640,7 +640,11 @@ Write the ticket body and descriptions in the language used by the user report, 
             Ok(r) => r,
             Err(e) => {
                 let err_str = e.to_string();
-                if err_str.contains("Connection refused") || err_str.contains("Connect") {
+                let err_lower = err_str.to_lowercase();
+                if err_lower.contains("connection refused")
+                    || err_lower.contains("connect")
+                    || err_lower.contains("proxy")
+                {
                     return Err(format!(
                         "Failed to connect to local AI server at '{}'. Ensure the server daemon is active or verify your host configuration.",
                         self.host
