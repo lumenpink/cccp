@@ -5,7 +5,8 @@
 
 use cccp::cli::{
     AgentSubcommands, BumpType, CiSubcommands, Cli, Commands, DepsSubcommands, ForgeActions,
-    HookSubcommands, ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction, VersionFormat,
+    HookSubcommands, ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction,
+    VersionFormat,
 };
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -868,8 +869,8 @@ fn test_ci_command_options() {
         _ => panic!("Expected Commands::Ci"),
     }
 
-    let cli_run = Cli::try_parse_from(["cccp", "ci", "run", "-j", "test"])
-        .expect("should parse cccp ci run");
+    let cli_run =
+        Cli::try_parse_from(["cccp", "ci", "run", "-j", "test"]).expect("should parse cccp ci run");
     match cli_run.command {
         Some(Commands::Ci(ci)) => match ci.action {
             Some(CiSubcommands::Run { job }) => {
