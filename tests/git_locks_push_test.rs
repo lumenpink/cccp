@@ -55,6 +55,7 @@ fn scaffold_test_git_repo() -> tempfile::TempDir {
     dir
 }
 
+#[allow(dead_code)]
 fn scaffold_test_bare_remote() -> tempfile::TempDir {
     let dir = tempdir().expect("remote dir");
     let status = Command::new("git")
@@ -462,4 +463,85 @@ fn test_ci_environment_bypasses_locks() {
     assert_eq!(push_res2.unwrap(), 0);
 
     std::env::remove_var("FORGEJO_ACTIONS");
+}
+
+#[test]
+fn test_contract_fetch_updates_remote_tracking_branch() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let local_dir = scaffold_test_git_repo();
+    let remote_dir = scaffold_test_bare_remote();
+
+    Command::new("git")
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    let peer_dir = tempdir().expect("peer dir");
+    Command::new("git")
+        .args([
+            "clone",
+            remote_dir.path().to_str().unwrap(),
+            peer_dir.path().to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Peer Worker"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "peer@gost.su"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    fs::write(peer_dir.path().join("peer_update.txt"), "update").unwrap();
+    Command::new("git")
+        .args(["add", "peer_update.txt"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "feat: peer update commit"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["push", "origin", "main"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+
+    let peer_tip = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(peer_dir.path())
+        .output()
+        .unwrap();
+    let peer_sha = String::from_utf8_lossy(&peer_tip.stdout).trim().to_string();
+
+    let theme = Theme::with_color(false);
+    let action = check_and_reconcile_parity(local_dir.path(), &theme).expect("parity check");
+    assert_eq!(action, ParityAction::FastForwarded);
+
+    let origin_tip = Command::new("git")
+        .args(["rev-parse", "origin/main"])
+        .current_dir(local_dir.path())
+        .output()
+        .unwrap();
+    let origin_sha = String::from_utf8_lossy(&origin_tip.stdout).trim().to_string();
+    assert_eq!(
+        peer_sha, origin_sha,
+        "Remote tracking branch origin/main must match remote SHA"
+    );
 }
