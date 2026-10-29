@@ -36,6 +36,9 @@ jobs:
         run: cargo fmt -- --check
 
       - name: "Clippy Check (Zero Warnings)"
+        env:
+          no_proxy: "localhost,127.0.0.1,::1"
+          NO_PROXY: "localhost,127.0.0.1,::1"
         run: cargo clippy --all-targets -- -D warnings
 
       - name: "Run Unit & Integration Tests"

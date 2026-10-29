@@ -83,7 +83,14 @@ fn test_assemble_gost_specs_with_custom_md() {
     let dir = tempdir().unwrap();
     let root = dir.path();
 
-    let gostver = "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n";
+    let profile_md = "# Perfil de Implementação GOST: Lilya\n\n```yaml\n---\nid: lilya\nname: \"Perfil de Implementação Lilya\"\n---\n```\n";
+    let profile_path = root.join("profile.md");
+    fs::write(&profile_path, profile_md).unwrap();
+
+    let gostver = format!(
+        "GOST_VERSION=\"1.4.0\"\nGOST_PROFILE_URL=\"{}\"\n",
+        profile_path.display()
+    );
     fs::write(root.join("GOSTVER"), gostver).unwrap();
 
     // Cria CUSTOM.md local
