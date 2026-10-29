@@ -174,6 +174,19 @@ jobs:
               --file="$PKG" --remote || true
           done
 
+      - name: "Publish Nightly Linux AMD64 Binary to Forgejo Generic Packages"
+        env:
+          TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GAMBI_2LP_IN_TOKEN || secrets.FORGEJO_TOKEN || secrets.GIT_2LP_TOKEN }}
+        run: |
+          CHANNEL="${{ steps.meta.outputs.channel }}"
+          if [ "$CHANNEL" = "nightly" ] && [ -n "$TOKEN" ] && [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
+            echo "★ Publicando binário nightly linux-amd64 direto no Forgejo Generic Packages..."
+            curl -s -f --retry 3 -X PUT \
+              -H "Authorization: token $TOKEN" \
+              -T target/x86_64-unknown-linux-musl/release/cccp \
+              "https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64" || echo "Aviso: Falha ao publicar pacote genérico no Forgejo."
+          fi
+
       - name: "Rotate Manifest & Commit to Banca"
         env:
           GIT_2LP_TOKEN: ${{ secrets.GIT_2LP_TOKEN }}

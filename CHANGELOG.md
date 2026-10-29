@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Complete Reconciliation of CLI Tests with CI Subcommands
+- **Reconciliação Completa de Testes da CLI (`tests/cli_test.rs`)**:
+  - **Eliminação de Asserção Obsoleta**: Substitui o teste legado `test_ci_command_removed` por validação abrangente de opções e subcomandos de `cccp ci` (`status`, `run`, `log`, `publish-artifacts`, `deploy-site`).
+  - **Testes de Mutação**: Adiciona `test_mutation_ci_subcommands_reject_invalid` assegurando rejeição estrita de subcomandos e opções desconhecidos.
+  - **Desbloqueio da Esteira e Banca**: Corrige a quebra do CI no Forgejo, destravando a execução do job `deploy-banca` e a distribuição contínua de binários multiarch.
+  - **Publicação de Binário Nightly no Forgejo**: Adiciona etapa de publicação direta do binário Linux x86_64 compilado no registro de Generic Packages do Forgejo, viabilizando consumo imediato pelas imagens de CI. (closes #83)
+
+
+
 ### Reconciliation of CLI Consolidation Tests with CI Subcommand
 - **Reconciliação de Testes de Consolidação da CLI (`tests/cli_domains_consolidation_test.rs`)**:
   - **Ajuste de Asserções para Subcomando Canônico**: Remove asserções obsoletas que rejeitavam `cccp ci` e proibiam sua exibição no help, refletindo sua reintrodução canônica pelo ticket #76.
