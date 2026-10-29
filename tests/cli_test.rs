@@ -891,6 +891,30 @@ fn test_ci_command_options() {
         },
         _ => panic!("Expected Commands::Ci"),
     }
+
+    let cli_pub = Cli::try_parse_from(["cccp", "ci", "publish-artifacts", "--dry-run"])
+        .expect("should parse cccp ci publish-artifacts");
+    match cli_pub.command {
+        Some(Commands::Ci(ci)) => match ci.action {
+            Some(CiSubcommands::PublishArtifacts(args)) => {
+                assert!(args.dry_run);
+            }
+            _ => panic!("Expected CiSubcommands::PublishArtifacts"),
+        },
+        _ => panic!("Expected Commands::Ci"),
+    }
+
+    let cli_deploy = Cli::try_parse_from(["cccp", "ci", "deploy-site", "--dry-run"])
+        .expect("should parse cccp ci deploy-site");
+    match cli_deploy.command {
+        Some(Commands::Ci(ci)) => match ci.action {
+            Some(CiSubcommands::DeploySite(args)) => {
+                assert!(args.dry_run);
+            }
+            _ => panic!("Expected CiSubcommands::DeploySite"),
+        },
+        _ => panic!("Expected Commands::Ci"),
+    }
 }
 
 #[test]
