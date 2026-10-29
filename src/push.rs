@@ -94,7 +94,11 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
         .current_dir(repo_path)
         .output();
 
-    if fetch_res.as_ref().map(|o| !o.status.success()).unwrap_or(true) {
+    if fetch_res
+        .as_ref()
+        .map(|o| !o.status.success())
+        .unwrap_or(true)
+    {
         // Fallback to general fetch of remote if specific refspec was not matched
         fetch_res = Command::new("git")
             .args(["fetch", remote_name])
@@ -102,12 +106,8 @@ pub fn check_and_reconcile_parity(repo_path: &Path, theme: &Theme) -> Result<Par
             .output();
     }
 
-    let fetch_out = fetch_res.map_err(|e| {
-        format!(
-            "Falha ao executar 'git fetch {}': {}",
-            remote_name, e
-        )
-    })?;
+    let fetch_out =
+        fetch_res.map_err(|e| format!("Falha ao executar 'git fetch {}': {}", remote_name, e))?;
 
     if !fetch_out.status.success() {
         let err_msg = String::from_utf8_lossy(&fetch_out.stderr);

@@ -539,7 +539,9 @@ fn test_contract_fetch_updates_remote_tracking_branch() {
         .current_dir(local_dir.path())
         .output()
         .unwrap();
-    let origin_sha = String::from_utf8_lossy(&origin_tip.stdout).trim().to_string();
+    let origin_sha = String::from_utf8_lossy(&origin_tip.stdout)
+        .trim()
+        .to_string();
     assert_eq!(
         peer_sha, origin_sha,
         "Remote tracking branch origin/main must match remote SHA"
