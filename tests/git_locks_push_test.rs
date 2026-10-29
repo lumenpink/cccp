@@ -547,3 +547,41 @@ fn test_contract_fetch_updates_remote_tracking_branch() {
         "Remote tracking branch origin/main must match remote SHA"
     );
 }
+
+#[test]
+fn test_mutation_parity_fetch_with_invalid_remote_fails_gracefully() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let local_dir = scaffold_test_git_repo();
+
+    Command::new("git")
+        .args([
+            "remote",
+            "add",
+            "origin",
+            "git://invalid.example.com/nonexistent.git",
+        ])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["branch", "-u", "origin/main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    let theme = Theme::with_color(false);
+    let res = check_and_reconcile_parity(local_dir.path(), &theme);
+    assert!(
+        res.is_err(),
+        "Invalid remote fetch must fail gracefully with Err"
+    );
+    let err_msg = res.unwrap_err();
+    assert!(err_msg.contains("Falha ao sincronizar") || err_msg.contains("Falha ao verificar"));
+}
