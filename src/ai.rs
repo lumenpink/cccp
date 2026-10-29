@@ -437,7 +437,11 @@ Write the ticket body and descriptions in the language used by the user report, 
                         self.model, self.host, self.model
                     ));
                 }
-                if err_str.contains("Connection refused") || err_str.contains("Connect") {
+                let err_lower = err_str.to_lowercase();
+                if err_lower.contains("connection refused")
+                    || err_lower.contains("connect")
+                    || err_lower.contains("proxy")
+                {
                     return Err(format!(
                         "Failed to connect to Ollama at '{}'. Ensure the Ollama daemon is active: run 'ollama serve' or check your OLLAMA_HOST.",
                         self.host

@@ -41,6 +41,8 @@ jobs:
       - name: "Run Unit & Integration Tests"
         env:
           RUST_MIN_STACK: "8388608"
+          no_proxy: "localhost,127.0.0.1,::1"
+          NO_PROXY: "localhost,127.0.0.1,::1"
         run: cargo test --all-targets
 
       - name: "Verify Standalone Bash Bundle"

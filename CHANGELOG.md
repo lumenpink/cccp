@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Scoped Localhost Proxy Bypass in CI Test Step
+- **Injeção de `no_proxy` no Passo de Testes da Esteira (`.forgejo/workflows/ci.yml`, `src/ai.rs`)**:
+  - **Escopo Restrito de Bypasses Locais**: Injeta pontualmente `no_proxy` e `NO_PROXY` (`localhost,127.0.0.1,::1`) exclusivamente no passo de execução de testes unitários e de integração, evitando roteamento indevido de requisições locais para proxies de rede externos.
+  - **Resiliência em Tratamento de Erros de Conexão**: Aprimora a detecção de erros de conexão HTTP com o daemon Ollama de forma tolerante a variações de capitalização. (closes #86)
+
+
 ### Explicit Remote Tracking Branch Sync in Parity Fetch
 - **Atualização Explícita de Tracking Branch Remoto no Fetch (`src/push.rs`, `tests/git_locks_push_test.rs`)**:
   - **Sincronização com Refspec Canônica**: Utiliza refspec explícita (`+refs/heads/<branch>:refs/remotes/<remote>/<branch>`) no fetch silencioso de paridade com fallback gracioso, garantindo atualização do tracking branch em todas as versões do Git (incluindo Git 2.39 em containers Debian/CI).

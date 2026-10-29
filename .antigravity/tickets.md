@@ -1,47 +1,20 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-29 18:52:47 UTC
+> Synced at: 2026-10-29 20:41:41 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#85] fix(push): atualizar tracking branch remota no fetch de paridade
+## [#86] fix(ci): injetar no_proxy apenas nos passos de teste com acesso local
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/85
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/86
 
 ### Description
 ## Description
-Ajustar a reconciliacao de paridade em src/push.rs para atualizar explicitamente a tracking branch remota durante o fetch silencioso, eliminando falhas em git_locks_push_test no CI.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Executar fetch atualizando o tracking branch remoto de destino em src/push.rs.
-- [ ] Garantir que HEAD...origin/branch detecte corretamente commits remotos pendentes e divergencias.
-- [ ] Validar testes em tests/git_locks_push_test.rs.
-- [ ] Desbloquear a esteira de CI e publicacao multiarch na Banca.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch fix/84-push-parity-fetch criada
-- [ ] Fase 3 - Doc/Spec: Especificacao tecnica detalhada
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementacao minima funcional com teste passando
-- [ ] Fase 6 - Refactor: Codigo limpo, idiomatico e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes criticos eliminados com assercoes robustas
-- [ ] Fase 8 - Quality Gate: Linter -D warnings e testes validados
-- [ ] Fase 9 - Close: Changelog e documentacao atualizados; commit com (closes #84)
-
----
-## [#84] fix(tests): parametrizar branch main nos remotos bare de git_locks_push_test
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/84
-
-### Description
-## Description
-Garantir que a criacao de repositorios bare e clones peer nos testes de paridade de git_locks_push_test usem explicitamente a branch main (-b main), prevenindo falhas em ambientes de CI onde init.defaultBranch nao esta configurado.
+Injetar explicitamente as variaveis de ambiente no_proxy e NO_PROXY ('localhost,127.0.0.1,::1') exclusivamente no passo 'Run Unit & Integration Tests' do workflow de CI, prevenindo interceptacao indevida de conexoes locais pelo proxy do runner.
 
 ## Acceptance Criteria
-- [ ] Inicializar remotos bare com git init --bare -b main.
-- [ ] Garantir que o clone peer respeite a branch main.
-- [ ] Passar cargo test --test git_locks_push_test com sucesso tanto localmente quanto dentro do container gost-ci-cross.
+- [ ] Definir no_proxy e NO_PROXY pontualmente no passo de testes em .forgejo/workflows/ci.yml.
+- [ ] Tornar o tratamento de erro em tests/ai_test.rs tolerante a diferencas de formato de erro de conexao.
+- [ ] Validar execucao com cargo test --test ai_test sob presenca de http_proxy.
 - [ ] Passar quality gates rigorosos (cargo fmt, cargo clippy -D warnings).
 
 ---
