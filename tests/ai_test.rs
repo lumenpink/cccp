@@ -145,6 +145,26 @@ fn test_ollama_unreachable_host_error_message() {
 }
 
 #[test]
+fn test_local_ai_unreachable_host_error_message() {
+    let config = Config {
+        ai_provider: "local".into(),
+        local_ai_host: "http://127.0.0.1:59999/v1".into(),
+        ..Default::default()
+    };
+
+    let client = AiClient::from_config(&config);
+    let result = client.triage("problem with compiler", None);
+
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.contains("Failed to connect to local AI server") || err.contains("daemon is active"),
+        "Unexpected error message: {}",
+        err
+    );
+}
+
+#[test]
 fn test_gemini_missing_api_key_error() {
     let saved_key = std::env::var("GEMINI_API_KEY").ok();
     let saved_google = std::env::var("GOOGLE_API_KEY").ok();
