@@ -24,30 +24,45 @@ fn scaffold_test_git_repo() -> tempfile::TempDir {
     assert!(status.success());
 
     // git config
-    Command::new("git")
+    let status = Command::new("git")
         .args(["config", "user.name", "Soviet Tester"])
         .current_dir(p)
         .status()
         .unwrap();
-    Command::new("git")
+    assert!(status.success());
+    let status = Command::new("git")
         .args(["config", "user.email", "tester@gost.su"])
         .current_dir(p)
         .status()
         .unwrap();
+    assert!(status.success());
 
     // Initial commit
     fs::write(p.join("VERSION"), "0.1.0\n").unwrap();
-    Command::new("git")
+    let status = Command::new("git")
         .args(["add", "VERSION"])
         .current_dir(p)
         .status()
         .unwrap();
-    Command::new("git")
+    assert!(status.success());
+    let status = Command::new("git")
         .args(["commit", "-m", "chore: initial commit"])
         .current_dir(p)
         .status()
         .unwrap();
+    assert!(status.success());
 
+    dir
+}
+
+fn scaffold_test_bare_remote() -> tempfile::TempDir {
+    let dir = tempdir().expect("remote dir");
+    let status = Command::new("git")
+        .args(["init", "--bare", "-b", "main"])
+        .current_dir(dir.path())
+        .status()
+        .expect("git init bare");
+    assert!(status.success());
     dir
 }
 
@@ -161,14 +176,7 @@ fn test_manual_push_blocked_without_maestro() {
 #[test]
 fn test_push_parity_tracking_branch_ahead() {
     let local_dir = scaffold_test_git_repo();
-    let remote_dir = tempdir().expect("remote dir");
-
-    // Create bare remote repository
-    Command::new("git")
-        .args(["init", "--bare"])
-        .current_dir(remote_dir.path())
-        .status()
-        .unwrap();
+    let remote_dir = scaffold_test_bare_remote();
 
     // Add remote to local
     Command::new("git")
@@ -210,14 +218,7 @@ fn test_push_parity_tracking_branch_ahead() {
 #[test]
 fn test_push_auto_fast_forward_when_behind() {
     let local_dir = scaffold_test_git_repo();
-    let remote_dir = tempdir().expect("remote dir");
-
-    // Bare remote
-    Command::new("git")
-        .args(["init", "--bare"])
-        .current_dir(remote_dir.path())
-        .status()
-        .unwrap();
+    let remote_dir = scaffold_test_bare_remote();
 
     // Setup local tracking origin
     Command::new("git")
@@ -238,14 +239,17 @@ fn test_push_auto_fast_forward_when_behind() {
 
     // Clone a second worker to simulate someone else pushing to origin
     let peer_dir = tempdir().expect("peer dir");
-    Command::new("git")
+    let clone_status = Command::new("git")
         .args([
             "clone",
+            "-b",
+            "main",
             remote_dir.path().to_str().unwrap(),
             peer_dir.path().to_str().unwrap(),
         ])
         .status()
         .unwrap();
+    assert!(clone_status.success());
     Command::new("git")
         .args(["config", "user.name", "Peer Worker"])
         .current_dir(peer_dir.path())
@@ -268,11 +272,12 @@ fn test_push_auto_fast_forward_when_behind() {
         .current_dir(peer_dir.path())
         .status()
         .unwrap();
-    Command::new("git")
+    let push_status = Command::new("git")
         .args(["push", "origin", "main"])
         .current_dir(peer_dir.path())
         .status()
         .unwrap();
+    assert!(push_status.success());
 
     // Now local_dir is behind origin by 1 commit and ahead by 0 commits
     let theme = Theme::with_color(false);
@@ -286,13 +291,8 @@ fn test_push_auto_fast_forward_when_behind() {
 #[test]
 fn test_push_blocked_on_divergent_history() {
     let local_dir = scaffold_test_git_repo();
-    let remote_dir = tempdir().expect("remote dir");
+    let remote_dir = scaffold_test_bare_remote();
 
-    Command::new("git")
-        .args(["init", "--bare"])
-        .current_dir(remote_dir.path())
-        .status()
-        .unwrap();
     Command::new("git")
         .args([
             "remote",
@@ -311,14 +311,17 @@ fn test_push_blocked_on_divergent_history() {
 
     // Peer pushes a commit
     let peer_dir = tempdir().expect("peer dir");
-    Command::new("git")
+    let clone_status = Command::new("git")
         .args([
             "clone",
+            "-b",
+            "main",
             remote_dir.path().to_str().unwrap(),
             peer_dir.path().to_str().unwrap(),
         ])
         .status()
         .unwrap();
+    assert!(clone_status.success());
     Command::new("git")
         .args(["config", "user.name", "Peer Worker"])
         .current_dir(peer_dir.path())
@@ -340,11 +343,12 @@ fn test_push_blocked_on_divergent_history() {
         .current_dir(peer_dir.path())
         .status()
         .unwrap();
-    Command::new("git")
+    let push_status = Command::new("git")
         .args(["push", "origin", "main"])
         .current_dir(peer_dir.path())
         .status()
         .unwrap();
+    assert!(push_status.success());
 
     // Local ALSO makes a different commit on main (divergence)
     fs::write(local_dir.path().join("local.txt"), "local").unwrap();
@@ -379,13 +383,7 @@ fn test_push_blocked_on_divergent_history() {
 #[test]
 fn test_push_parity_already_up_to_date() {
     let local_dir = scaffold_test_git_repo();
-    let remote_dir = tempdir().expect("remote dir");
-
-    Command::new("git")
-        .args(["init", "--bare"])
-        .current_dir(remote_dir.path())
-        .status()
-        .unwrap();
+    let remote_dir = scaffold_test_bare_remote();
 
     Command::new("git")
         .args([

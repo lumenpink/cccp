@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Canonical Branch Initialization for Bare Remotes in Push Lock Tests
+- **Padronização da Branch Main em Remotos Bare de Teste (`tests/git_locks_push_test.rs`)**:
+  - **Inicialização Determinística de Branch**: Define explicitamente a branch padrão `main` na inicialização de repositórios remotos bare (`git init --bare -b main`), eliminando falhas intermitentes em ambientes de CI onde `init.defaultBranch` não está pré-configurado.
+  - **Clonagem e Push Explícitos**: Garante que clones peer e comandos de push referenciem a branch `main` de ponta a ponta com asserções estritas de sucesso de execução. (closes #84)
+
+
 ### Complete Reconciliation of CLI Tests with CI Subcommands
 - **Reconciliação Completa de Testes da CLI (`tests/cli_test.rs`)**:
   - **Eliminação de Asserção Obsoleta**: Substitui o teste legado `test_ci_command_removed` por validação abrangente de opções e subcomandos de `cccp ci` (`status`, `run`, `log`, `publish-artifacts`, `deploy-site`).
