@@ -919,6 +919,14 @@ fn test_ci_command_options() {
 }
 
 #[test]
+fn test_mutation_ci_subcommands_reject_invalid() {
+    assert!(Cli::try_parse_from(["cccp", "ci", "nonexistent"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "ci", "--invalid-flag"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "ci", "status", "--invalid"]).is_err());
+    assert!(Cli::try_parse_from(["cccp", "ci", "publish-artifacts", "--invalid-opt"]).is_err());
+}
+
+#[test]
 fn test_deps_command_options() {
     let cli = Cli::try_parse_from(["cccp", "deps", "install", "--all", "act", "jq"])
         .expect("should parse deps install");
