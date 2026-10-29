@@ -52,6 +52,21 @@ fn test_publish_artifacts_dry_run() {
 }
 
 #[test]
+fn test_ci_workflow_compiles_linux_amd64_gnu() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
+    let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
+    assert!(
+        workflow.contains("x86_64-unknown-linux-gnu.2.28"),
+        "Workflow must compile x86_64-unknown-linux-gnu.2.28 for Linux AMD64"
+    );
+    assert!(
+        workflow.contains("target/x86_64-unknown-linux-gnu/release/cccp"),
+        "Workflow must package and publish x86_64-unknown-linux-gnu binary"
+    );
+}
+
+#[test]
 fn test_deploy_site_dry_run() {
     let temp = tempdir().unwrap();
     let root = temp.path();
