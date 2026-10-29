@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Explicit Remote Tracking Branch Sync in Parity Fetch
+- **Atualização Explícita de Tracking Branch Remoto no Fetch (`src/push.rs`, `tests/git_locks_push_test.rs`)**:
+  - **Sincronização com Refspec Canônica**: Utiliza refspec explícita (`+refs/heads/<branch>:refs/remotes/<remote>/<branch>`) no fetch silencioso de paridade com fallback gracioso, garantindo atualização do tracking branch em todas as versões do Git (incluindo Git 2.39 em containers Debian/CI).
+  - **Rastreabilidade e Resolução de Divergência**: Assegura cálculo determinístico em `HEAD...<upstream>` para avanço por fast-forward e detecção de histórico divergente.
+  - **Cobertura Contratual e de Mutação**: Adiciona testes contratuais e asserções de tratamento gracioso de remotos inválidos. (closes #85)
+
+
+
 ### Canonical Branch Initialization for Bare Remotes in Push Lock Tests
 - **Padronização da Branch Main em Remotos Bare de Teste (`tests/git_locks_push_test.rs`)**:
   - **Inicialização Determinística de Branch**: Define explicitamente a branch padrão `main` na inicialização de repositórios remotos bare (`git init --bare -b main`), eliminando falhas intermitentes em ambientes de CI onde `init.defaultBranch` não está pré-configurado.
