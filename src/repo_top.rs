@@ -337,7 +337,7 @@ pub fn render_top_view(
         theme.bold(&total_badge)
     );
     out.push_str(&header_line);
-    out.push('\n');
+    out.push_str("\x1b[K\r\n");
 
     // Table Column Header (line 2)
     let col_header = format!(
@@ -345,51 +345,51 @@ pub fn render_top_view(
         "REPOSITÓRIO", "FORJA", "ESTADO CI", "TICKETS", "LOCAL"
     );
     out.push_str(&theme.dim(&col_header));
-    out.push('\n');
+    out.push_str("\x1b[K\r\n");
 
     // Separator line (line 3)
     let max_table_width = repo_width + 57;
     let sep_len = cols.min(max_table_width);
     let sep = "─".repeat(sep_len);
     out.push_str(&theme.dim(&sep));
-    out.push('\n');
+    out.push_str("\x1b[K\r\n");
 
     // Help modal overlay if active
     if state.show_help {
         out.push_str(&format!(
-            "{}\n",
+            "{}\x1b[K\r\n",
             theme.gold_bold("┌─ [ Ajuda / Teclas de Atalho ] ────────────────────────────────┐")
         ));
         out.push_str(&format!(
-            "│  {:<12} : Alternar esta janela de ajuda                    │\n",
+            "│  {:<12} : Alternar esta janela de ajuda                    │\x1b[K\r\n",
             "Ctrl+H / F1"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Alternar ordenação (process -> status -> name)   │\n",
+            "│  {:<12} : Alternar ordenação (process -> status -> name)   │\x1b[K\r\n",
             "Ctrl+S / ^O"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Alternar filtro de CI (all, ok, fail, queue...)  │\n",
+            "│  {:<12} : Alternar filtro de CI (all, ok, fail, queue...)  │\x1b[K\r\n",
             "Ctrl+F / ^T"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Forçar atualização imediata do catálogo/CI      │\n",
+            "│  {:<12} : Forçar atualização imediata do catálogo/CI      │\x1b[K\r\n",
             "Ctrl+R"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Linha anterior / Linha seguinte                  │\n",
+            "│  {:<12} : Linha anterior / Linha seguinte                  │\x1b[K\r\n",
             "↑ / ↓ / j / k"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Página anterior / Página seguinte                │\n",
+            "│  {:<12} : Página anterior / Página seguinte                │\x1b[K\r\n",
             "PgUp / PgDn"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Sair do monitor top                              │\n",
+            "│  {:<12} : Sair do monitor top                              │\x1b[K\r\n",
             "Ctrl+Q / q"
         ));
         out.push_str(&format!(
-            "{}\n",
+            "{}\x1b[K\r\n",
             theme.gold_bold("└───────────────────────────────────────────────────────────────┘")
         ));
     } else {
@@ -398,7 +398,7 @@ pub fn render_top_view(
         let start = state.scroll_offset;
 
         if repos.is_empty() {
-            out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\n"));
+            out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\x1b[K\r\n"));
         } else {
             for (idx, r) in repos.iter().enumerate().skip(start).take(visible_lines) {
                 let (raw_ci, color) = format_ci_summary(&r.ci_status);
@@ -439,7 +439,7 @@ pub fn render_top_view(
                 } else {
                     out.push_str(&format!("  {}", line));
                 }
-                out.push('\n');
+                out.push_str("\x1b[K\r\n");
             }
         }
     }
@@ -452,8 +452,9 @@ pub fn render_top_view(
     };
     let bottom_display = truncate_utf8_ellipsis(bottom_text, cols.min(max_table_width));
     out.push_str(&theme.dim(&sep));
-    out.push('\n');
+    out.push_str("\x1b[K\r\n");
     out.push_str(&theme.cyan(&bottom_display));
+    out.push_str("\x1b[K");
 
     out
 }
