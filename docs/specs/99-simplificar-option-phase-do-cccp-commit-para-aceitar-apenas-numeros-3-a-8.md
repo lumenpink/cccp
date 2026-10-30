@@ -32,3 +32,9 @@ Adicionalmente, implementar travas explícitas que impeçam o uso de fases sem c
 - Testes unitários comprovando que `parse_phase("1")` e `parse_phase("2")` retornam erro explicativo indicando que fases 1 e 2 não geram commits.
 - Teste unitário comprovando que `parse_phase("9")` retorna erro indicando a obrigatoriedade do comando `cccp close`.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos ou erros.
+
+## 4. Status de Resolução e Validação
+- **Fase 5 (Green):** Implementada função `parse_phase_arg` aceitando diretamente números `3` a `8`, rejeitando `1` e `2` com explicação e rejeitando `9` com orientação expressa de `cccp close`.
+- **Fase 7 (Mutation):** Testes de mutação cobrindo espaços em branco, maiúsculas, valores fora da faixa (`0`, `10`, etc.).
+- **Fase 8 (Quality Gate):** Validado com `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --test ddtdd_phase_parsing_test` (4 testes aprovados) e `cccp check --strict` com conformidade de 100%.
+- **Fase 9 (Close):** Ciclo finalizado com laudo de encerramento GOST.
