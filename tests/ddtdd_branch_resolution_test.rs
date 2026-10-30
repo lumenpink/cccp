@@ -56,3 +56,18 @@ fn test_parse_single_issue_json() {
     assert_eq!(issue.author, "lumen");
     assert_eq!(issue.labels, vec!["enhancement"]);
 }
+
+#[test]
+fn test_canonical_branch_name_mutation_all_vowels_and_empty() {
+    let branch = canonical_branch_name(77, "refactor:  ÁÉÍÓÚ âêô ãõ ç   ");
+    assert_eq!(
+        branch, "refactor/77-aeiou-aeo-ao-c",
+        "Deve transliterar todas as vogais acentuadas maiúsculas e minúsculas"
+    );
+
+    let empty_branch = canonical_branch_name(88, "feat: !!! ???");
+    assert_eq!(
+        empty_branch, "feat/88",
+        "Quando o slug resultante for vazio, deve formatar apenas como kind/id"
+    );
+}
