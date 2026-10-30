@@ -9,6 +9,38 @@ use std::io::{self, BufRead, IsTerminal};
 use std::path::Path;
 use std::process::Command;
 
+/// Format blocked message when direct git commit is executed
+pub fn pre_commit_blocked_message(theme: &Theme) -> String {
+    format!(
+        "\n{}\n{}\nToda evolução de código deve ser coordenada pelo Maestro CCCP:\n\n  • Fases 3 a 8 : {}\n  • Fase 9      : {}\n\n",
+        theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★"),
+        theme.yellow("Execuções manuais diretas de 'git commit' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."),
+        theme.cyan("cccp commit \"<resumo>\""),
+        theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")
+    )
+}
+
+/// Format blocked message when direct git push is executed
+pub fn pre_push_blocked_message(theme: &Theme) -> String {
+    format!(
+        "\n{}\n{}\nUtilize o comando do Maestro CCCP:\n\n  • Envio Seguro : {}\n\n",
+        theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★"),
+        theme.yellow("Execuções manuais diretas de 'git push' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."),
+        theme.cyan("cccp push")
+    )
+}
+
+/// Format guidance message when commit-msg rejects Conventional Commit format
+pub fn commit_msg_rejected_guidance(theme: &Theme) -> String {
+    format!(
+        "\n{}\n  {}\n  {}\n  {}\n\n",
+        theme.bold("Gosplan Directive:"),
+        theme.cyan("Format required: <type>(<scope>): <subject>"),
+        theme.dim("Example: feat(core): implement Stakhanovite efficiency algorithm"),
+        theme.dim("Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert")
+    )
+}
+
 /// Handler for the `commit-msg` git hook
 pub fn run_commit_msg(
     file: &Path,
@@ -55,16 +87,7 @@ pub fn run_commit_msg(
             eprintln!("  {} {}", theme.yellow("Warning:"), warning);
         }
 
-        eprintln!(
-            "\n{}\n  {}\n  {}",
-            theme.bold("Gosplan Directive:"),
-            theme.cyan("Format required: <type>(<scope>): <subject>"),
-            theme.dim("Example: feat(core): implement Stakhanovite efficiency algorithm")
-        );
-        eprintln!(
-            "  {}\n",
-            theme.dim("Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert")
-        );
+        eprint!("{}", commit_msg_rejected_guidance(theme));
 
         Ok(1)
     }
@@ -87,18 +110,7 @@ pub fn run_pre_push(
         || std::env::var("FORGEJO_ACTIONS").is_ok();
 
     if !is_authorized {
-        eprintln!(
-            "\n{}",
-            theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★")
-        );
-        eprintln!(
-            "{}",
-            theme.yellow(
-                "Execuções manuais diretas de 'git push' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."
-            )
-        );
-        eprintln!("Utilize o comando do Maestro CCCP:\n");
-        eprintln!("  • Envio Seguro : {}\n", theme.cyan("cccp push"));
+        eprint!("{}", pre_push_blocked_message(theme));
         return Ok(1);
     }
 
@@ -381,25 +393,7 @@ pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32,
         || std::env::var("FORGEJO_ACTIONS").is_ok();
 
     if !is_authorized {
-        eprintln!(
-            "\n{}",
-            theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★")
-        );
-        eprintln!(
-            "{}",
-            theme.yellow(
-                "Execuções manuais diretas de 'git commit' são proibidas pela norma GOST v2.0 (Kollontai 2.0)."
-            )
-        );
-        eprintln!("Toda evolução de código deve ser coordenada pelo Maestro CCCP:\n");
-        eprintln!(
-            "  • Fases 3 a 8 : {}",
-            theme.cyan("cccp commit \"<resumo>\"")
-        );
-        eprintln!(
-            "  • Fase 9      : {}\n",
-            theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")
-        );
+        eprint!("{}", pre_commit_blocked_message(theme));
         return Ok(1);
     }
 
