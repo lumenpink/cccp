@@ -52,17 +52,32 @@ fn test_publish_artifacts_dry_run() {
 }
 
 #[test]
-fn test_ci_workflow_compiles_linux_amd64_gnu() {
+fn test_ci_workflow_compiles_linux_amd64_musl() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
     let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
     assert!(
-        workflow.contains("x86_64-unknown-linux-gnu.2.28"),
-        "Workflow must compile x86_64-unknown-linux-gnu.2.28 for Linux AMD64"
+        workflow.contains("x86_64-unknown-linux-musl"),
+        "Workflow must compile x86_64-unknown-linux-musl for Linux AMD64"
     );
     assert!(
-        workflow.contains("target/x86_64-unknown-linux-gnu/release/cccp"),
-        "Workflow must package and publish x86_64-unknown-linux-gnu binary"
+        !workflow.contains("x86_64-unknown-linux-gnu.2.28"),
+        "Workflow must not contain gnu.2.28 target for Linux AMD64"
+    );
+    assert!(
+        workflow.contains("target/x86_64-unknown-linux-musl/release/cccp"),
+        "Workflow must package and publish x86_64-unknown-linux-musl binary"
+    );
+
+    let config_path = manifest_dir.join(".cargo/config.toml");
+    let config = fs::read_to_string(&config_path).expect(".cargo/config.toml must exist");
+    assert!(
+        config.contains("CC_x86_64_unknown_linux_musl = \"musl-gcc\""),
+        ".cargo/config.toml must configure CC_x86_64_unknown_linux_musl as musl-gcc"
+    );
+    assert!(
+        config.contains("OPENSSL_STATIC = \"1\""),
+        ".cargo/config.toml must declare OPENSSL_STATIC = 1"
     );
 }
 
