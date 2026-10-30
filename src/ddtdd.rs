@@ -86,7 +86,22 @@ pub fn parse_phase_arg(input: &str) -> Result<DdtddPhase, String> {
 }
 
 /// Identifies if a commit attempt is of kind `chore`, which is exempt from ticket and branch guards.
-pub fn is_chore_commit(_cz: &CommitArgs) -> bool {
+pub fn is_chore_commit(cz: &CommitArgs) -> bool {
+    if cz.commit_type.as_deref() == Some("chore") {
+        return true;
+    }
+    if let Some(summary) = &cz.summary {
+        let s = summary.trim();
+        if s.starts_with("chore:") || s.starts_with("chore(") {
+            return true;
+        }
+    }
+    if let Some(msg) = &cz.message {
+        let m = msg.trim();
+        if m.starts_with("chore:") || m.starts_with("chore(") {
+            return true;
+        }
+    }
     false
 }
 
@@ -504,23 +519,38 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         }
     };
 
+    let is_chore = is_chore_commit(cz);
+
     let (ticket_id, kind, _) = match infer_ticket_from_branch(&branch) {
         Some(t) => t,
         None => {
-            if cz.force {
-                let formatted_msg = format_phase_commit(
-                    cz.commit_type.as_deref().unwrap_or("chore"),
-                    cz.scope.as_deref(),
-                    summary,
-                    0,
-                    DdtddPhase::Ph5,
-                );
+            if is_chore || cz.force {
+                let formatted_msg = if summary.starts_with("chore:") || summary.starts_with("chore(") {
+                    summary.to_string()
+                } else if is_chore {
+                    if let Some(scope) = &cz.scope {
+                        format!("chore({}): {}", scope, summary)
+                    } else {
+                        format!("chore: {}", summary)
+                    }
+                } else {
+                    format_phase_commit(
+                        cz.commit_type.as_deref().unwrap_or("chore"),
+                        cz.scope.as_deref(),
+                        summary,
+                        0,
+                        DdtddPhase::Ph5,
+                    )
+                };
+
+                println!("  Mensagem Canônica (Isento) : {}", theme.yellow(&formatted_msg));
+
                 let commit_opts = CommitOptions {
                     all: cz.all,
                     sign: cz.sign,
                     no_sign: cz.no_sign,
                     dry_run: cz.dry_run,
-                    force: true,
+                    force: cz.force,
                     dir: dir.map(|p| p.to_path_buf()),
                 };
                 return match execute_commit(&formatted_msg, &commit_opts, theme) {
@@ -576,8 +606,8 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         phase.description()
     );
 
-    // Validação de Phase Guards no stage (desativada quando force = true)
-    if !cz.force {
+    // Validação de Phase Guards no stage (desativada quando force = true ou chore)
+    if !cz.force && !is_chore {
         let staged_files = match get_staged_files(dir) {
             Ok(f) => f,
             Err(e) => {
