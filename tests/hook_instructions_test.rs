@@ -103,4 +103,3 @@ fn test_mutation_rejects_missing_anti_bypass_safeguards() {
         "pre-push deve citar CCCP_MAESTRO_ACTIVE"
     );
 }
-

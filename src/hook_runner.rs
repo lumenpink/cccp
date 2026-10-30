@@ -12,20 +12,14 @@ use std::process::Command;
 /// Format blocked message when direct git commit is executed
 pub fn pre_commit_blocked_message(theme: &Theme) -> String {
     format!(
-        "\n{}\n{}\n{}\n\n{}\n{}\n\n{}\n{}\n\n",
+        "\n{}\n{}\n{}\n\n  • Fases 3 a 8 (DD-TDD) : {}\n  • Fase 9 (Fechamento)  : {}\n\n{}\n{}\n\n",
         theme.red_bold("★ [CCCP MAESTRO] Acesso Direto Bloqueado ★"),
         theme.yellow(
             "Execuções manuais diretas de 'git commit' são estritamente proibidas pela norma GOST v2.0."
         ),
         theme.yellow("Toda evolução de código deve ser coordenada exclusivamente pelo Maestro CCCP:"),
-        format!(
-            "  • Fases 3 a 8 (DD-TDD) : {}",
-            theme.cyan("cccp commit \"<resumo>\"")
-        ),
-        format!(
-            "  • Fase 9 (Fechamento)  : {}",
-            theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")
-        ),
+        theme.cyan("cccp commit \"<resumo>\""),
+        theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\""),
         theme.red_bold("Atenção (Anti-Bypass):"),
         theme.red(
             "Tentativas de contorno com 'git commit --no-verify' ou manipulação manual de variáveis de ambiente (como CCCP_MAESTRO_ACTIVE ou CCCP_BYPASS_LOCKS) violam as salvaguardas da norma GOST v2.0."
@@ -36,13 +30,13 @@ pub fn pre_commit_blocked_message(theme: &Theme) -> String {
 /// Format blocked message when direct git push is executed
 pub fn pre_push_blocked_message(theme: &Theme) -> String {
     format!(
-        "\n{}\n{}\n{}\n\n{}\n\n{}\n{}\n\n",
+        "\n{}\n{}\n{}\n\n  • Envio Seguro : {}\n\n{}\n{}\n\n",
         theme.red_bold("★ [CCCP MAESTRO] Envio Direto Bloqueado ★"),
         theme.yellow(
-            "Execuções manuais diretas de 'git push' são estritamente proibidas pela norma GOST v2.0."
+            "Execuções manuais diretas de 'git push' são proibidas pela norma GOST v2.0."
         ),
         theme.yellow("Envios remotos devem ser coordenados exclusivamente pelo Maestro CCCP:"),
-        format!("  • Envio Seguro : {}", theme.cyan("cccp push")),
+        theme.cyan("cccp push"),
         theme.red_bold("Atenção (Anti-Bypass):"),
         theme.red(
             "Tentativas de contorno manual (como 'git push --no-verify' ou injeção de CCCP_MAESTRO_ACTIVE=1) são proibidas. A esteira de CI roda automaticamente durante o fluxo canônico."
@@ -53,20 +47,14 @@ pub fn pre_push_blocked_message(theme: &Theme) -> String {
 /// Format guidance message when commit-msg rejects Conventional Commit format
 pub fn commit_msg_rejected_guidance(theme: &Theme) -> String {
     format!(
-        "\n{}\n  {}\n  {}\n  {}\n\n{}\n  {}\n  {}\n\n{}\n  {}\n\n",
+        "\n{}\n  {}\n  {}\n  {}\n\n{}\n  • Commit de Fase DD-TDD : {}\n  • Fechamento de Ciclo   : {}\n\n{}\n  {}\n\n",
         theme.bold("Gosplan Directive:"),
         theme.cyan("Format required: <type>(<scope>): <subject>"),
         theme.dim("Example: feat(core): implement Stakhanovite efficiency algorithm"),
         theme.dim("Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"),
         theme.bold("Comandos Canônicos do Maestro CCCP:"),
-        format!(
-            "• Commit de Fase DD-TDD : {}",
-            theme.cyan("cccp commit \"<resumo>\"")
-        ),
-        format!(
-            "• Fechamento de Ciclo   : {}",
-            theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\"")
-        ),
+        theme.cyan("cccp commit \"<resumo>\""),
+        theme.cyan("cccp close \"<resumo>\" -b \"<laudo>\""),
         theme.red_bold("Atenção (Anti-Bypass):"),
         theme.red(
             "O uso de '--no-verify' é estritamente proibido pela norma GOST. Corrija o formato do commit utilizando 'cccp commit'."
