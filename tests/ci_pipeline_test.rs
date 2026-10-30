@@ -90,6 +90,38 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
 }
 
 #[test]
+fn test_ci_workflow_overwrites_generic_packages_with_delete_before_put() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
+    let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
+
+    let target_endpoint = "api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64";
+    assert!(
+        workflow.contains(target_endpoint),
+        "Workflow deve conter o endpoint do generic packages para cccp-linux-amd64"
+    );
+
+    // Deve conter DELETE explícito para evitar 409 Conflict
+    assert!(
+        workflow.contains("-X DELETE") && workflow.contains(target_endpoint),
+        "Workflow deve executar DELETE prévio contra o endpoint para sobrescrever o pacote sem 409 Conflict"
+    );
+
+    // O DELETE deve preceder o PUT
+    let delete_pos = workflow
+        .find("-X DELETE")
+        .expect("DELETE deve estar presente");
+    let put_pos = workflow
+        .find("-X PUT")
+        .expect("PUT deve estar presente");
+    assert!(
+        delete_pos < put_pos,
+        "A requisição DELETE deve preceder a requisição PUT para garantir sobrescrita limpa"
+    );
+}
+
+
+#[test]
 fn test_ci_pipeline_musl_static_mutation_checks() {
     // Mutation 1: config containing gcc instead of musl-gcc must be rejected
     let mutated_config_gcc = "[env]\nCC_x86_64_unknown_linux_musl = \"gcc\"\n";
