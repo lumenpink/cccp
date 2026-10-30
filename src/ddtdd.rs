@@ -250,18 +250,70 @@ fn get_branch_recent_commit_messages(dir: Option<&Path>, base: &str) -> Vec<Stri
     vec![]
 }
 
-fn sanitize_slug(text: &str) -> String {
+/// Canonical branch name builder: <kind>/<id>-<slug>
+pub fn canonical_branch_name(issue_num: u64, title: &str) -> String {
+    let trimmed = title.trim();
+    let (kind, rest) = if let Some((raw_prefix, raw_rest)) = trimmed.split_once(':') {
+        let clean_kind = raw_prefix
+            .split('(')
+            .next()
+            .unwrap_or(raw_prefix)
+            .trim()
+            .to_ascii_lowercase();
+        if [
+            "feat", "fix", "docs", "refactor", "test", "chore", "style", "perf", "build", "ci",
+        ]
+        .contains(&clean_kind.as_str())
+        {
+            (clean_kind, raw_rest.trim())
+        } else {
+            ("feat".to_string(), trimmed)
+        }
+    } else {
+        ("feat".to_string(), trimmed)
+    };
+
+    let slug = transliterate_slug(rest);
+    if slug.is_empty() {
+        format!("{}/{}", kind, issue_num)
+    } else {
+        format!("{}/{}-{}", kind, issue_num, slug)
+    }
+}
+
+pub fn transliterate_slug(text: &str) -> String {
     let mut slug = String::new();
     let mut prev_hyphen = false;
     for c in text.chars() {
-        if c.is_ascii_alphanumeric() {
-            slug.push(c.to_ascii_lowercase());
-            prev_hyphen = false;
-        } else if !prev_hyphen {
-            slug.push('-');
-            prev_hyphen = true;
-        }
-        if slug.len() >= 35 {
+        let mapped = match c {
+            'a'..='z' | '0'..='9' => {
+                slug.push(c);
+                prev_hyphen = false;
+                continue;
+            }
+            'A'..='Z' => {
+                slug.push(c.to_ascii_lowercase());
+                prev_hyphen = false;
+                continue;
+            }
+            'á' | 'à' | 'ã' | 'â' | 'ä' | 'Á' | 'À' | 'Ã' | 'Â' | 'Ä' => "a",
+            'é' | 'è' | 'ê' | 'ë' | 'É' | 'È' | 'Ê' | 'Ë' => "e",
+            'í' | 'ì' | 'î' | 'ï' | 'Í' | 'Ì' | 'Î' | 'Ï' => "i",
+            'ó' | 'ò' | 'õ' | 'ô' | 'ö' | 'Ó' | 'Ò' | 'Õ' | 'Ô' | 'Ö' => "o",
+            'ú' | 'ù' | 'û' | 'ü' | 'Ú' | 'Ù' | 'Û' | 'Ü' => "u",
+            'ç' | 'Ç' => "c",
+            'ñ' | 'Ñ' => "n",
+            _ => {
+                if !prev_hyphen && !slug.is_empty() {
+                    slug.push('-');
+                    prev_hyphen = true;
+                }
+                continue;
+            }
+        };
+        slug.push_str(mapped);
+        prev_hyphen = false;
+        if slug.len() >= 45 {
             break;
         }
     }
@@ -286,39 +338,64 @@ pub fn handle_start(args: &StartArgs, dir: Option<&Path>, theme: &Theme) -> Exit
         }
     }
 
-    // 2. Busca informações do ticket no .antigravity/tickets.md ou tickets locais
+    // 2. Busca informações do ticket no .antigravity/tickets.md ou na forja remota
     let root = dir.unwrap_or(Path::new("."));
     let tickets_path = root.join(".antigravity/tickets.md");
-    let mut kind = "feat".to_string();
-    let mut title_slug = format!("ticket-{}", args.id);
+    let mut resolved_title: Option<String> = None;
 
     if tickets_path.is_file() {
         if let Ok(content) = fs::read_to_string(&tickets_path) {
             let marker = format!("## [#{}]", args.id);
             for line in content.lines() {
-                if line.contains(&marker) {
-                    let after = line.split(&marker).nth(1).unwrap_or("").trim();
-                    if let Some(colon_pos) = after.find(':') {
-                        let raw_kind = after[..colon_pos].trim();
-                        let kind_clean = raw_kind.split('(').next().unwrap_or(raw_kind).trim();
-                        if ["feat", "fix", "docs", "refactor", "test", "chore"]
-                            .contains(&kind_clean)
-                        {
-                            kind = kind_clean.to_string();
-                        }
-                        let raw_title = after[colon_pos + 1..].trim();
-                        let s = sanitize_slug(raw_title);
-                        if !s.is_empty() {
-                            title_slug = s;
-                        }
+                if let Some(pos) = line.find(&marker) {
+                    let after = line[pos + marker.len()..].trim();
+                    if !after.is_empty() {
+                        resolved_title = Some(after.to_string());
+                        break;
                     }
-                    break;
                 }
             }
         }
     }
 
-    let branch_name = format!("{}/{}-{}", kind, args.id, title_slug);
+    let ticket_title = match resolved_title {
+        Some(t) => t,
+        None => {
+            let mut remote_title: Option<String> = None;
+            if let Ok(git_repo) = crate::git::GitRepo::open(dir) {
+                if let Ok(forge_info) = crate::forges::detect_forge_from_repo(&git_repo) {
+                    let client = crate::forges::ForgeClient::new();
+                    match client.fetch_single_issue(&forge_info, args.id) {
+                        Ok(issue) => {
+                            remote_title = Some(issue.title);
+                        }
+                        Err(err) => {
+                            eprintln!(
+                                "{} Consulta remota à forja falhou para o Ticket #{}: {}",
+                                theme.yellow("!"),
+                                args.id,
+                                err
+                            );
+                        }
+                    }
+                }
+            }
+
+            match remote_title {
+                Some(t) => t,
+                None => {
+                    eprintln!(
+                        "{}: Ticket #{} não encontrado na forja nem no cache local. Crie o ticket antes de iniciar o ciclo com 'cccp ticket new'.",
+                        theme.red_bold("Erro GOST (Fase 2)"),
+                        args.id
+                    );
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+    };
+
+    let branch_name = canonical_branch_name(args.id, &ticket_title);
     let base_branch = args.base.as_deref().unwrap_or("main");
 
     println!(
@@ -366,12 +443,13 @@ pub fn handle_start(args: &StartArgs, dir: Option<&Path>, theme: &Theme) -> Exit
                 "✓ {} Branch ativa configurada com sucesso!",
                 theme.green("Fase 2 (Branch):")
             );
+            let spec_slug = branch_name.split('/').nth(1).unwrap_or(&branch_name);
             println!(
                 "  {} {}",
                 theme.gold_bold("Próximo Passo Obrigatório:"),
                 theme.cyan(&format!(
-                    "Fase 3 (Doc/Spec): elabore a especificação em docs/spec-{}-{}.md",
-                    args.id, title_slug
+                    "Fase 3 (Doc/Spec): elabore a especificação em docs/specs/{}.md",
+                    spec_slug
                 ))
             );
             ExitCode::SUCCESS

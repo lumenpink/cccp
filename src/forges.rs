@@ -727,6 +727,80 @@ impl ForgeClient {
         parse_issues_json(&json_val, info.provider)
     }
 
+    /// Fetch a single issue by number from the specified forge repository
+    pub fn fetch_single_issue(
+        &self,
+        info: &RepoForgeInfo,
+        issue_num: u64,
+    ) -> Result<ForgeIssue, String> {
+        let api_url = match info.provider {
+            ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                format!(
+                    "https://{}/api/v1/repos/{}/{}/issues/{}",
+                    info.host, info.owner, info.repo, issue_num
+                )
+            }
+            ForgeType::GitHub => {
+                format!(
+                    "https://api.github.com/repos/{}/{}/issues/{}",
+                    info.owner, info.repo, issue_num
+                )
+            }
+            ForgeType::GitLab => {
+                let enc_path = format!("{}%2F{}", info.owner, info.repo);
+                format!(
+                    "https://{}/api/v4/projects/{}/issues/{}",
+                    info.host, enc_path, issue_num
+                )
+            }
+        };
+
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(token) = resolve_token_for_host(&info.host, info.provider, None) {
+            match info.provider {
+                ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
+                    req = req.header("Authorization", &format!("token {}", token));
+                }
+                ForgeType::GitHub => {
+                    req = req.header("Authorization", &format!("Bearer {}", token));
+                }
+                ForgeType::GitLab => {
+                    req = req.header("PRIVATE-TOKEN", &token);
+                }
+            }
+        }
+
+        let mut resp = req
+            .call()
+            .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
+        let status = resp.status();
+        if status == 404 {
+            return Err(format!("Issue #{} not found on {}", issue_num, info.host));
+        }
+        if status == 429 || status == 403 {
+            return Err(format!(
+                "Rate limit exceeded on {}. Configure an authentication token or retry later.",
+                info.host
+            ));
+        }
+        if !status.is_success() {
+            return Err(format!("Forge API returned error status {}", status));
+        }
+
+        let json_val: serde_json::Value = resp
+            .body_mut()
+            .read_json()
+            .map_err(|e| format!("Failed to parse JSON response from {}: {}", info.host, e))?;
+
+        parse_single_issue_json(&json_val)
+            .ok_or_else(|| format!("Failed to parse issue #{} from {}", issue_num, info.host))
+    }
+
     /// Fetch pull requests from the specified forge repository
     pub fn fetch_pull_requests(
         &self,
@@ -1195,23 +1269,79 @@ pub struct CreatedIssueInfo {
 
 /// Helper: generate a suggested branch name from issue number and conventional commit title
 pub fn suggest_branch_name(issue_num: u64, title: &str) -> String {
-    let clean: String = title
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' {
-                c.to_ascii_lowercase()
-            } else {
-                '-'
+    crate::ddtdd::canonical_branch_name(issue_num, title)
+}
+
+/// Parses a single issue JSON object across different forge schemas
+pub fn parse_single_issue_json(item: &serde_json::Value) -> Option<ForgeIssue> {
+    let number = item
+        .get("number")
+        .or_else(|| item.get("iid"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    let title = item
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let state = item
+        .get("state")
+        .and_then(|v| v.as_str())
+        .unwrap_or("open")
+        .to_string();
+
+    let author = item
+        .get("user")
+        .and_then(|u| u.get("login").or_else(|| u.get("username")))
+        .or_else(|| item.get("author").and_then(|a| a.get("username")))
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    let mut labels = Vec::new();
+    if let Some(l_arr) = item.get("labels").and_then(|l| l.as_array()) {
+        for l in l_arr {
+            if let Some(name) = l.as_str() {
+                labels.push(name.to_string());
+            } else if let Some(name) = l.get("name").and_then(|n| n.as_str()) {
+                labels.push(name.to_string());
             }
-        })
-        .collect();
-    let parts: Vec<&str> = clean.split('-').filter(|p| !p.is_empty()).collect();
-    let slug = parts.join("-");
-    if issue_num > 0 {
-        format!("{}-{}", issue_num, slug)
-    } else {
-        slug
+        }
     }
+
+    let body = item
+        .get("body")
+        .or_else(|| item.get("description"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let html_url = item
+        .get("html_url")
+        .or_else(|| item.get("web_url"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let created_at = item
+        .get("created_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    Some(ForgeIssue {
+        number,
+        title,
+        state,
+        author,
+        labels,
+        body,
+        html_url,
+        created_at,
+        comments: Vec::new(),
+    })
 }
 
 /// Parses issues JSON array across different forge schemas
@@ -1230,74 +1360,9 @@ pub fn parse_issues_json(
             continue;
         }
 
-        let number = item
-            .get("number")
-            .or_else(|| item.get("iid"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
-
-        let title = item
-            .get("title")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let state = item
-            .get("state")
-            .and_then(|v| v.as_str())
-            .unwrap_or("open")
-            .to_string();
-
-        let author = item
-            .get("user")
-            .and_then(|u| u.get("login").or_else(|| u.get("username")))
-            .or_else(|| item.get("author").and_then(|a| a.get("username")))
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown")
-            .to_string();
-
-        let mut labels = Vec::new();
-        if let Some(l_arr) = item.get("labels").and_then(|l| l.as_array()) {
-            for l in l_arr {
-                if let Some(name) = l.as_str() {
-                    labels.push(name.to_string());
-                } else if let Some(name) = l.get("name").and_then(|n| n.as_str()) {
-                    labels.push(name.to_string());
-                }
-            }
+        if let Some(issue) = parse_single_issue_json(item) {
+            issues.push(issue);
         }
-
-        let body = item
-            .get("body")
-            .or_else(|| item.get("description"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let html_url = item
-            .get("html_url")
-            .or_else(|| item.get("web_url"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        let created_at = item
-            .get("created_at")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        issues.push(ForgeIssue {
-            number,
-            title,
-            state,
-            author,
-            labels,
-            body,
-            html_url,
-            created_at,
-            comments: Vec::new(),
-        });
     }
 
     Ok(issues)
