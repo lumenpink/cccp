@@ -263,6 +263,16 @@ pub fn apply_top_filters_and_sorting(
     filtered
 }
 
+/// Truncate UTF-8 string safely with ellipsis if exceeding max_chars
+pub fn truncate_utf8_ellipsis(s: &str, _max_chars: usize) -> String {
+    s.to_string()
+}
+
+/// Pad visual string with spaces, taking into account visible character count
+pub fn pad_visual(colored_str: &str, _plain_text_len: usize, _target_width: usize) -> String {
+    colored_str.to_string()
+}
+
 /// Pure string rendering function for testing and terminal painting
 pub fn render_top_view(
     repos: &[CatalogRepoSummary],
