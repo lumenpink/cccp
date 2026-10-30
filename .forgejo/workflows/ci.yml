@@ -232,10 +232,10 @@ jobs:
                 --app "cccp"
             done
 
-            # Commitar manifesto atualizado na Banca
+            # Commitar manifesto e catalogo atualizados na Banca
             git config user.name "CCCP Release Bot"
             git config user.email "bot@2lp.in"
-            git add site/downloads/cccp/index.json
+            git add site/downloads/cccp/index.json site/downloads/catalog.json
             if ! git diff --staged --quiet; then
               git commit -m "chore(downloads): rotate cccp release to ${VERSION} (#55)"
               git push origin main || echo "Aviso: Push do manifesto na Banca falhou."
