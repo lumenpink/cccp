@@ -2,4 +2,7 @@
 rustflags = ["-C", "target-feature=+crt-static"]
 
 [env]
-CC_x86_64_unknown_linux_musl = "gcc"
+CC_x86_64_unknown_linux_musl = "musl-gcc"
+OPENSSL_STATIC = "1"
+LIBZ_SYS_STATIC = "1"
+PKG_CONFIG_ALL_STATIC = "1"

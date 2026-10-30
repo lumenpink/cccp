@@ -104,9 +104,8 @@ jobs:
 
       - name: "Compile CCCP Multiarch Binaries"
         run: |
-          echo "★ [1/3] Compilando x86_64-unknown-linux-gnu.2.28 (Linux AMD64)..."
-          cargo zigbuild --release --target x86_64-unknown-linux-gnu.2.28 -p cccp || \
-            cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp || \
+          echo "★ [1/3] Compilando x86_64-unknown-linux-musl (Linux AMD64)..."
+          cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp || \
             cargo build --release --target x86_64-unknown-linux-musl -p cccp
 
           echo "★ [2/3] Compilando aarch64-unknown-linux-musl (Linux ARM64)..."
@@ -123,20 +122,12 @@ jobs:
           mkdir -p dist/packages
 
           # 1. Empacotar Linux AMD64
-          LINUX_AMD64_BIN=""
-          if [ -f target/x86_64-unknown-linux-gnu/release/cccp ]; then
-            LINUX_AMD64_BIN="target/x86_64-unknown-linux-gnu/release/cccp"
-          elif [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
-            LINUX_AMD64_BIN="target/x86_64-unknown-linux-musl/release/cccp"
-          fi
-
-          if [ -n "$LINUX_AMD64_BIN" ]; then
-            BIN_DIR=$(dirname "$LINUX_AMD64_BIN")
+          if [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
             tar -czf "dist/packages/cccp-${VERSION}-linux-amd64.tar.gz" \
-              -C "$BIN_DIR" cccp \
+              -C target/x86_64-unknown-linux-musl/release cccp \
               -C "$PWD" cccp.sh install.sh README.md LICENSE 2>/dev/null || \
             tar -czf "dist/packages/cccp-${VERSION}-linux-amd64.tar.gz" \
-              -C "$BIN_DIR" cccp
+              -C target/x86_64-unknown-linux-musl/release cccp
           fi
 
           # 2. Empacotar Linux ARM64
@@ -193,18 +184,11 @@ jobs:
           TOKEN: ${{ secrets.REGISTRY_TOKEN || secrets.GAMBI_2LP_IN_TOKEN || secrets.FORGEJO_TOKEN || secrets.GIT_2LP_TOKEN }}
         run: |
           CHANNEL="${{ steps.meta.outputs.channel }}"
-          LINUX_AMD64_BIN=""
-          if [ -f target/x86_64-unknown-linux-gnu/release/cccp ]; then
-            LINUX_AMD64_BIN="target/x86_64-unknown-linux-gnu/release/cccp"
-          elif [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
-            LINUX_AMD64_BIN="target/x86_64-unknown-linux-musl/release/cccp"
-          fi
-
-          if [ "$CHANNEL" = "nightly" ] && [ -n "$TOKEN" ] && [ -n "$LINUX_AMD64_BIN" ]; then
-            echo "★ Publicando binário nightly linux-amd64 direto no Forgejo Generic Packages ($LINUX_AMD64_BIN)..."
+          if [ "$CHANNEL" = "nightly" ] && [ -n "$TOKEN" ] && [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
+            echo "★ Publicando binário nightly linux-amd64 direto no Forgejo Generic Packages (musl)..."
             curl -s -f --retry 3 -X PUT \
               -H "Authorization: token $TOKEN" \
-              -T "$LINUX_AMD64_BIN" \
+              -T target/x86_64-unknown-linux-musl/release/cccp \
               "https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64" || echo "Aviso: Falha ao publicar pacote genérico no Forgejo."
           fi
 
