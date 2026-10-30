@@ -287,3 +287,12 @@ fn test_ci_workflow_rotates_catalog_json_with_manifest() {
         "ci.yml must stage both index.json and catalog.json on release rotation"
     );
 }
+
+#[test]
+fn test_ci_workflow_rotates_catalog_json_mutation_check() {
+    let mutated_workflow = "git add site/downloads/cccp/index.json";
+    assert!(
+        !mutated_workflow.contains("site/downloads/catalog.json"),
+        "Mutated workflow without catalog.json must be caught"
+    );
+}
