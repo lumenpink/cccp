@@ -135,3 +135,109 @@ fn test_merge_live_runner_jobs() {
     let banca = summaries.iter().find(|r| r.slug == "lumen/banca").unwrap();
     assert!(banca.ci_status.iter().any(|p| p.status == "waiting" && p.name == "Deploy"));
 }
+
+#[test]
+fn test_mutation_extract_repo_slug_edge_cases() {
+    assert_eq!(extract_repo_slug_from_action_url(""), None);
+    assert_eq!(extract_repo_slug_from_action_url("not a url"), None);
+    assert_eq!(extract_repo_slug_from_action_url("http://"), None);
+    assert_eq!(extract_repo_slug_from_action_url("https://domain/repo/not-actions/run"), None);
+    assert_eq!(
+        extract_repo_slug_from_action_url("http://gambi.2lp.in/user/repo/actions/runs/1/jobs/2"),
+        Some("user/repo".to_string())
+    );
+}
+
+#[test]
+fn test_mutation_merge_live_runner_jobs_edge_cases() {
+    let mut empty_summaries: Vec<CatalogRepoSummary> = vec![];
+    let jobs = vec![ForgeActionRunnerJob {
+        id: 999,
+        run_id: 1,
+        attempt: 1,
+        handle: "h".to_string(),
+        repo_id: 1,
+        owner_id: 1,
+        name: "Test".to_string(),
+        html_url: "https://gambi.2lp.in/org/repo/actions/runs/1/jobs/1".to_string(),
+        status: "running".to_string(),
+    }];
+
+    // Merging into empty summaries must not panic
+    merge_live_runner_jobs(&mut empty_summaries, &jobs);
+    assert!(empty_summaries.is_empty());
+
+    // Merging empty jobs into summaries must not alter anything
+    let mut summaries = vec![CatalogRepoSummary {
+        name: "repo".to_string(),
+        forge: "forgejo".to_string(),
+        slug: "org/repo".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        ci_status: vec![],
+        is_mirror: false,
+    }];
+    merge_live_runner_jobs(&mut summaries, &[]);
+    assert!(summaries[0].ci_status.is_empty());
+
+    // Case-insensitive slug matching
+    let jobs_upper = vec![ForgeActionRunnerJob {
+        id: 999,
+        run_id: 1,
+        attempt: 1,
+        handle: "h".to_string(),
+        repo_id: 1,
+        owner_id: 1,
+        name: "Test".to_string(),
+        html_url: "https://gambi.2lp.in/ORG/REPO/actions/runs/1/jobs/1".to_string(),
+        status: "running".to_string(),
+    }];
+    merge_live_runner_jobs(&mut summaries, &jobs_upper);
+    assert_eq!(summaries[0].ci_status.len(), 1);
+    assert_eq!(summaries[0].ci_status[0].status, "running");
+}
+
+#[test]
+fn test_discover_forgejo_hosts() {
+    use cccp::forges::discover_forgejo_hosts;
+    use cccp::catalog::CatalogEntry;
+
+    // Empty catalog fallback
+    let hosts_fallback = discover_forgejo_hosts(&[]);
+    assert_eq!(hosts_fallback, vec!["gambi.2lp.in".to_string()]);
+
+    let entries = vec![
+        CatalogEntry {
+            name: "r1".to_string(),
+            forge: "forgejo".to_string(),
+            slug: "u/r1".to_string(),
+            server_host: Some("gambi.2lp.in".to_string()),
+            ..Default::default()
+        },
+        CatalogEntry {
+            name: "r2".to_string(),
+            forge: "codeberg".to_string(),
+            slug: "u/r2".to_string(),
+            server_host: Some("codeberg.org".to_string()),
+            ..Default::default()
+        },
+        CatalogEntry {
+            name: "r3".to_string(),
+            forge: "forgejo".to_string(),
+            slug: "u/r3".to_string(),
+            server_host: Some("gambi.2lp.in".to_string()), // duplicate
+            ..Default::default()
+        },
+    ];
+
+    let hosts = discover_forgejo_hosts(&entries);
+    assert_eq!(hosts.len(), 2);
+    assert!(hosts.contains(&"gambi.2lp.in".to_string()));
+    assert!(hosts.contains(&"codeberg.org".to_string()));
+}
+
