@@ -30,3 +30,4 @@ Garantir que o comando `cccp start <id>` nunca crie branches genéricas sem tick
 - **Fase 5 (Green):** Implementada transliteração com `transliterate_slug`, `canonical_branch_name` SSOT e integração remota `fetch_single_issue` no `ForgeClient`.
 - **Fase 7 (Mutation):** Testes de mutação cobrindo todas as vogais acentuadas maiúsculas e minúsculas, cedilhas, símbolos e fallback de slug vazio.
 - **Fase 8 (Quality Gate):** Validado com `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --test ddtdd_branch_resolution_test` (6 testes aprovados) e `cccp check --strict` com conformidade Gosplan de 100%.
+- **Fase 9 (Close):** Ciclo finalizado com laudo de encerramento e conformidade plena com diretrizes GOST.
