@@ -1536,3 +1536,33 @@ pub fn display_prs(prs: &[ForgePullRequest], theme: &Theme) {
         );
     }
 }
+
+/// Consolidated runner job descriptor returned by Forgejo `GET /api/v1/user/actions/runners/jobs`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ForgeActionRunnerJob {
+    pub id: u64,
+    pub run_id: u64,
+    pub attempt: u64,
+    #[serde(default)]
+    pub handle: String,
+    pub repo_id: u64,
+    pub owner_id: u64,
+    pub name: String,
+    pub html_url: String,
+    #[serde(default)]
+    pub status: String,
+}
+
+/// Extract repository slug (owner/repo) from a Forgejo runner job HTML URL
+pub fn extract_repo_slug_from_action_url(_html_url: &str) -> Option<String> {
+    None
+}
+
+/// Merge active live runner jobs (`waiting`, `running`) into repo summaries
+pub fn merge_live_runner_jobs(
+    _summaries: &mut [crate::catalog::CatalogRepoSummary],
+    _jobs: &[ForgeActionRunnerJob],
+) {
+    // Stub for Phase 4
+}
+
