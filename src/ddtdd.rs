@@ -502,6 +502,31 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
     let (ticket_id, kind, _) = match infer_ticket_from_branch(&branch) {
         Some(t) => t,
         None => {
+            if cz.force {
+                let formatted_msg = format_phase_commit(
+                    cz.commit_type.as_deref().unwrap_or("chore"),
+                    cz.scope.as_deref(),
+                    summary,
+                    0,
+                    DdtddPhase::Ph5,
+                );
+                let commit_opts = CommitOptions {
+                    all: cz.all,
+                    sign: cz.sign,
+                    no_sign: cz.no_sign,
+                    dry_run: cz.dry_run,
+                    force: true,
+                    dir: dir.map(|p| p.to_path_buf()),
+                };
+                return match execute_commit(&formatted_msg, &commit_opts, theme) {
+                    Ok(0) => Some(ExitCode::SUCCESS),
+                    Ok(c) => Some(ExitCode::from(c as u8)),
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Erro"), e);
+                        Some(ExitCode::FAILURE)
+                    }
+                };
+            }
             if branch == "main" && cz.phase.is_none() {
                 eprintln!(
                     "{}: Commits diretos na branch 'main' são estritamente proibidos pela norma GOST 2.0 (Regra GOST-04-B).",
@@ -546,18 +571,20 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         phase.description()
     );
 
-    // Validação de Phase Guards no stage
-    let staged_files = match get_staged_files(dir) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("{}: {}", theme.red_bold("Erro"), e);
+    // Validação de Phase Guards no stage (desativada quando force = true)
+    if !cz.force {
+        let staged_files = match get_staged_files(dir) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}: {}", theme.red_bold("Erro"), e);
+                return Some(ExitCode::FAILURE);
+            }
+        };
+        let file_slices: Vec<&str> = staged_files.iter().map(|s| s.as_str()).collect();
+        if let Err(guard_err) = validate_phase_guards(phase, &file_slices) {
+            eprintln!("{}: {}", theme.red_bold("Trava de Fase Violada"), guard_err);
             return Some(ExitCode::FAILURE);
         }
-    };
-    let file_slices: Vec<&str> = staged_files.iter().map(|s| s.as_str()).collect();
-    if let Err(guard_err) = validate_phase_guards(phase, &file_slices) {
-        eprintln!("{}: {}", theme.red_bold("Trava de Fase Violada"), guard_err);
-        return Some(ExitCode::FAILURE);
     }
 
     let final_kind = cz.commit_type.as_deref().unwrap_or(&kind);
@@ -571,7 +598,7 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         sign: cz.sign,
         no_sign: cz.no_sign,
         dry_run: cz.dry_run,
-        force: false,
+        force: cz.force,
         dir: dir.map(|p| p.to_path_buf()),
     };
 

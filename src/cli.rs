@@ -405,7 +405,8 @@ pub struct CommitArgs {
     #[arg(long = "no-sign")]
     pub no_sign: bool,
 
-    #[arg(skip)]
+    /// Bypass commit guards, ticket validations and format checks
+    #[arg(short = 'f', long = "force")]
     pub force: bool,
 }
 
