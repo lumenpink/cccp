@@ -250,6 +250,11 @@ fn get_branch_recent_commit_messages(dir: Option<&Path>, base: &str) -> Vec<Stri
     vec![]
 }
 
+/// Canonical branch name builder: <kind>/<id>-<slug>
+pub fn canonical_branch_name(issue_num: u64, _title: &str) -> String {
+    format!("feat/{}-ticket-{}", issue_num, issue_num)
+}
+
 fn sanitize_slug(text: &str) -> String {
     let mut slug = String::new();
     let mut prev_hyphen = false;
