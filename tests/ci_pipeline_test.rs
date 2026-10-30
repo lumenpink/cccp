@@ -276,3 +276,14 @@ fn test_ci_pipeline_mutation_edge_cases() {
     let res4 = deploy_site(root, &opts4, &theme);
     assert!(res4.is_err(), "Must fail when site dir does not exist");
 }
+
+#[test]
+fn test_ci_workflow_rotates_catalog_json_with_manifest() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
+    let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
+    assert!(
+        workflow.contains("git add site/downloads/cccp/index.json site/downloads/catalog.json"),
+        "ci.yml must stage both index.json and catalog.json on release rotation"
+    );
+}
