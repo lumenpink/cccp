@@ -31,3 +31,9 @@ Substituir as consultas sequenciais e repetitivas de CI repo por repo pela consu
 - Testes unitários para extração correta de slugs a partir de URLs do runner.
 - Testes unitários para mesclagem (`merge_live_runner_jobs`) atualizando ou adicionando pipelines ativos aos resumos de repositório.
 - Bateria de testes passando e `cccp check --strict` sem avisos.
+
+## 4. Conclusão e Laudo
+- [Resumo]: Integração da consulta consolidada da fila de CI de todos os repositórios através de chamada única ao endpoint `GET /api/v1/user/actions/runners/jobs` do Forgejo.
+- [Solução]: Adicionados o modelo `ForgeActionRunnerJob`, utilitários `extract_repo_slug_from_action_url`, `merge_live_runner_jobs`, `discover_forgejo_hosts` e o método `fetch_user_runner_jobs` no `ForgeClient`, integrando a atualização em tempo real no monitor interativo `run_repo_top`.
+- [Validação]: Testes automatizados em `tests/ci_consolidated_runner_jobs_test.rs`, `tests/repo_top_layout_test.rs` e `tests/repo_top_test.rs` 100% aprovados; `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem falhas.
+
