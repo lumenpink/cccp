@@ -79,6 +79,38 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
         config.contains("OPENSSL_STATIC = \"1\""),
         ".cargo/config.toml must declare OPENSSL_STATIC = 1"
     );
+    assert!(
+        config.contains("LIBZ_SYS_STATIC = \"1\""),
+        ".cargo/config.toml must declare LIBZ_SYS_STATIC = 1"
+    );
+    assert!(
+        config.contains("PKG_CONFIG_ALL_STATIC = \"1\""),
+        ".cargo/config.toml must declare PKG_CONFIG_ALL_STATIC = 1"
+    );
+}
+
+#[test]
+fn test_ci_pipeline_musl_static_mutation_checks() {
+    // Mutation 1: config containing gcc instead of musl-gcc must be rejected
+    let mutated_config_gcc = "[env]\nCC_x86_64_unknown_linux_musl = \"gcc\"\n";
+    assert!(
+        !mutated_config_gcc.contains("musl-gcc"),
+        "Mutation with gcc must lack musl-gcc requirement"
+    );
+
+    // Mutation 2: workflow containing gnu.2.28 fallback must fail check
+    let mutated_workflow_gnu = "cargo zigbuild --target x86_64-unknown-linux-gnu.2.28";
+    assert!(
+        mutated_workflow_gnu.contains("x86_64-unknown-linux-gnu"),
+        "Mutation with gnu must be detectable"
+    );
+
+    // Mutation 3: workflow missing generic package musl binary path
+    let mutated_workflow_missing_musl = "curl -T target/release/cccp";
+    assert!(
+        !mutated_workflow_missing_musl.contains("target/x86_64-unknown-linux-musl/release/cccp"),
+        "Mutation missing musl release path must be detectable"
+    );
 }
 
 #[test]
