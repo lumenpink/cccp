@@ -111,15 +111,12 @@ fn test_ci_workflow_overwrites_generic_packages_with_delete_before_put() {
     let delete_pos = workflow
         .find("-X DELETE")
         .expect("DELETE deve estar presente");
-    let put_pos = workflow
-        .find("-X PUT")
-        .expect("PUT deve estar presente");
+    let put_pos = workflow.find("-X PUT").expect("PUT deve estar presente");
     assert!(
         delete_pos < put_pos,
         "A requisição DELETE deve preceder a requisição PUT para garantir sobrescrita limpa"
     );
 }
-
 
 #[test]
 fn test_ci_pipeline_musl_static_mutation_checks() {
@@ -131,7 +128,8 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
     );
 
     // Mutation 2: Workflow sem DELETE prévio no endpoint generic package deve falhar
-    let mutated_workflow_no_delete = "curl -X PUT https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64";
+    let mutated_workflow_no_delete =
+        "curl -X PUT https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64";
     assert!(
         !mutated_workflow_no_delete.contains("-X DELETE"),
         "Mutação sem DELETE prévio deve ser detectada"
