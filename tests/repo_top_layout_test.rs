@@ -103,3 +103,51 @@ fn test_pad_visual_ansi_alignment() {
     assert_eq!(strip_ansi(&padded_green).chars().count(), 18);
     assert_eq!(strip_ansi(&padded_none).chars().count(), 18);
 }
+
+#[test]
+fn test_mutation_layout_various_widths() {
+    let theme = Theme::init(true);
+    let state = RepoTopState::new(5);
+    let repos = vec![
+        sample_repo("curto", "failure"),
+        sample_repo("um-repositorio-com-nome-bem-longo-para-testar-o-comportamento", "success"),
+    ];
+
+    for width in [40, 60, 80, 100, 120, 160] {
+        let rendered = render_top_view(&repos, &state, &theme, width, 24);
+        assert!(!rendered.is_empty());
+        if width >= 80 {
+            for (line_no, line) in rendered.lines().enumerate() {
+                let clean = strip_ansi(line);
+                let char_count = clean.chars().count();
+                assert!(
+                    char_count <= width as usize,
+                    "Width {}: linha {} excedeu largura ({} > {}): {:?}",
+                    width,
+                    line_no + 1,
+                    char_count,
+                    width,
+                    clean
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn test_mutation_truncate_and_padding_limits() {
+    assert_eq!(truncate_utf8_ellipsis("teste", 0), "");
+    assert_eq!(truncate_utf8_ellipsis("teste", 2), "t…");
+    assert_eq!(truncate_utf8_ellipsis("🚀✨🎉", 2), "🚀…");
+    assert_eq!(truncate_utf8_ellipsis("🚀✨🎉", 3), "🚀✨🎉");
+
+    // Padding when string is already >= target_width
+    let uncolored = "exatamente-18-char";
+    let padded = pad_visual(uncolored, uncolored.chars().count(), 18);
+    assert_eq!(padded, uncolored);
+
+    let longer = "string-muito-longa-que-passa-de-18";
+    let padded_longer = pad_visual(longer, longer.chars().count(), 18);
+    assert_eq!(padded_longer, longer);
+}
+
