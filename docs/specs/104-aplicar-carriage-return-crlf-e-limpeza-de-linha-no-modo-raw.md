@@ -21,3 +21,9 @@ Eliminar definitivamente o "efeito escada" (*staircase effect*) no monitor inter
 - Testes unitários comprovando que `render_top_view` termina suas linhas com `\r\n` (ou `\r`).
 - Testes unitários comprovando ausência de `\n` desacompanhado de `\r`.
 - `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` e bateria de testes 100% verde.
+
+## 4. Conclusão e Laudo
+- [Resumo]: Eliminação do efeito escada no terminal raw mode do monitor interativo repo top.
+- [Solução]: Todas as quebras de linha em render_top_view foram padronizadas para `\x1b[K\r\n`, garantindo limpeza de linha e retorno de carro à coluna 0 no modo raw do terminal.
+- [Validação]: Testes automatizados em tests/repo_top_layout_test.rs e tests/repo_top_test.rs 100% aprovados, cargo fmt --check e cargo clippy sem avisos.
+
