@@ -62,6 +62,11 @@ impl DdtddPhase {
     }
 }
 
+/// Parses the `-p / --phase` CLI argument into a valid commit phase (Ph3..Ph8).
+pub fn parse_phase_arg(_input: &str) -> Result<DdtddPhase, String> {
+    Err("stub red test".to_string())
+}
+
 /// Infers ticket ID, conventional commit kind, and title slug from branch name.
 /// Expected branch pattern: `<kind>/<id>-<slug>`
 pub fn infer_ticket_from_branch(branch: &str) -> Option<(u64, String, String)> {
