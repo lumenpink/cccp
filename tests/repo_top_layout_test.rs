@@ -182,3 +182,31 @@ fn test_render_top_view_uses_crlf_raw_mode_newlines() {
     }
 }
 
+#[test]
+fn test_mutation_crlf_and_el_in_all_states() {
+    let theme = Theme::init(true);
+    let mut help_state = RepoTopState::new(5);
+    help_state.show_help = true;
+    let repos = vec![sample_repo("test-repo", "running")];
+
+    // Help modal
+    let help_rendered = render_top_view(&repos, &help_state, &theme, 80, 24);
+    assert!(help_rendered.contains("\x1b[K\r\n"));
+    for (i, &b) in help_rendered.as_bytes().iter().enumerate() {
+        if b == b'\n' {
+            assert!(i > 0 && help_rendered.as_bytes()[i - 1] == b'\r');
+        }
+    }
+
+    // Empty repos
+    let state = RepoTopState::new(5);
+    let empty_rendered = render_top_view(&[], &state, &theme, 80, 24);
+    assert!(empty_rendered.contains("\x1b[K\r\n"));
+    for (i, &b) in empty_rendered.as_bytes().iter().enumerate() {
+        if b == b'\n' {
+            assert!(i > 0 && empty_rendered.as_bytes()[i - 1] == b'\r');
+        }
+    }
+}
+
+
