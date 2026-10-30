@@ -185,6 +185,11 @@ jobs:
         run: |
           CHANNEL="${{ steps.meta.outputs.channel }}"
           if [ "$CHANNEL" = "nightly" ] && [ -n "$TOKEN" ] && [ -f target/x86_64-unknown-linux-musl/release/cccp ]; then
+            echo "★ Limpando artefato nightly anterior no Forgejo Generic Packages..."
+            curl -s -X DELETE \
+              -H "Authorization: token $TOKEN" \
+              "https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64" >/dev/null 2>&1 || true
+
             echo "★ Publicando binário nightly linux-amd64 direto no Forgejo Generic Packages (musl)..."
             curl -s -f --retry 3 -X PUT \
               -H "Authorization: token $TOKEN" \
