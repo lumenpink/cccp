@@ -208,5 +208,3 @@ fn test_mutation_crlf_and_el_in_all_states() {
         }
     }
 }
-
-
