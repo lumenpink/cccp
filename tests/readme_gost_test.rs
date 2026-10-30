@@ -15,7 +15,10 @@ fn test_readme_conforms_to_gost_50_lines_ceiling() {
     );
 
     // Deve preservar quickstart e documentação
-    assert!(content.contains("cccp"), "README deve conter nome da ferramenta");
+    assert!(
+        content.contains("cccp"),
+        "README deve conter nome da ferramenta"
+    );
     assert!(
         content.contains("docs/"),
         "README deve referenciar o diretório docs/"
@@ -50,4 +53,3 @@ fn test_mutation_rejects_readme_exceeding_50_lines() {
         "Mutação sem docs/ deve ser detectável"
     );
 }
-
