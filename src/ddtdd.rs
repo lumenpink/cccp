@@ -571,6 +571,7 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         sign: cz.sign,
         no_sign: cz.no_sign,
         dry_run: cz.dry_run,
+        force: false,
         dir: dir.map(|p| p.to_path_buf()),
     };
 
@@ -655,6 +656,7 @@ pub fn handle_close(args: &CloseArgs, dir: Option<&Path>, theme: &Theme) -> Exit
         sign: false,
         no_sign: false,
         dry_run: false,
+        force: false,
         dir: dir.map(|p| p.to_path_buf()),
     };
 

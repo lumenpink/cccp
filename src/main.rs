@@ -74,6 +74,7 @@ fn main() -> ExitCode {
                 sign: cz.sign,
                 no_sign: cz.no_sign,
                 dry_run: cz.dry_run,
+                force: false,
                 dir: args.dir.clone(),
             };
 

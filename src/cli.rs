@@ -404,6 +404,9 @@ pub struct CommitArgs {
     /// Do not sign the commit
     #[arg(long = "no-sign")]
     pub no_sign: bool,
+
+    #[arg(skip)]
+    pub force: bool,
 }
 
 pub type CzArgs = CommitArgs;

@@ -12,6 +12,7 @@ pub struct CommitOptions {
     pub sign: bool,
     pub no_sign: bool,
     pub dry_run: bool,
+    pub force: bool,
     pub dir: Option<PathBuf>,
 }
 
