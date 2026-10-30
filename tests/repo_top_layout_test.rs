@@ -151,3 +151,34 @@ fn test_mutation_truncate_and_padding_limits() {
     let padded_longer = pad_visual(longer, longer.chars().count(), 18);
     assert_eq!(padded_longer, longer);
 }
+
+#[test]
+fn test_render_top_view_uses_crlf_raw_mode_newlines() {
+    let theme = Theme::init(true);
+    let state = RepoTopState::new(5);
+    let repos = vec![
+        sample_repo("hendu", "failure"),
+        sample_repo("guara", "success"),
+    ];
+
+    let rendered = render_top_view(&repos, &state, &theme, 80, 24);
+
+    // Must contain CRLF
+    assert!(
+        rendered.contains("\r\n"),
+        "render_top_view output deve conter \\r\\n para modo raw"
+    );
+
+    // Every \n must be preceded by \r (no standalone \n)
+    let bytes = rendered.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'\n' {
+            assert!(
+                i > 0 && bytes[i - 1] == b'\r',
+                "Encontrado LF (\\n) isolado no índice {} sem CR (\\r) anterior no output",
+                i
+            );
+        }
+    }
+}
+
