@@ -635,6 +635,42 @@ impl ForgeClient {
         Ok(pipelines)
     }
 
+    /// Fetch consolidated live runner jobs for the authenticated user from Forgejo/Gitea instance
+    pub fn fetch_user_runner_jobs(
+        &self,
+        host: &str,
+        token: Option<&str>,
+    ) -> Result<Vec<ForgeActionRunnerJob>, String> {
+        let tok = token
+            .map(|t| t.to_string())
+            .or_else(|| resolve_token_for_host(host, ForgeType::Forgejo, None));
+
+        let Some(t) = tok else {
+            return Err(format!("No authentication token found for forge host '{}'", host));
+        };
+
+        let api_url = format!("https://{}/api/v1/user/actions/runners/jobs", host);
+        let resp = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json")
+            .header("Authorization", &format!("token {}", t))
+            .call()
+            .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Forge API returned status {}", resp.status()));
+        }
+
+        let jobs: Vec<ForgeActionRunnerJob> = resp
+            .into_body()
+            .read_json()
+            .map_err(|e| format!("Failed to parse runner jobs JSON from {}: {}", api_url, e))?;
+
+        Ok(jobs)
+    }
+
     /// Fetch issues from the specified forge repository
     pub fn fetch_issues(
         &self,
@@ -1554,15 +1590,69 @@ pub struct ForgeActionRunnerJob {
 }
 
 /// Extract repository slug (owner/repo) from a Forgejo runner job HTML URL
-pub fn extract_repo_slug_from_action_url(_html_url: &str) -> Option<String> {
-    None
+pub fn extract_repo_slug_from_action_url(html_url: &str) -> Option<String> {
+    let clean = html_url
+        .trim()
+        .strip_prefix("https://")
+        .or_else(|| html_url.trim().strip_prefix("http://"))?;
+    let parts: Vec<&str> = clean.split('/').filter(|s| !s.is_empty()).collect();
+    if parts.len() >= 4 && parts[3] == "actions" {
+        Some(format!("{}/{}", parts[1], parts[2]))
+    } else {
+        None
+    }
 }
 
 /// Merge active live runner jobs (`waiting`, `running`) into repo summaries
 pub fn merge_live_runner_jobs(
-    _summaries: &mut [crate::catalog::CatalogRepoSummary],
-    _jobs: &[ForgeActionRunnerJob],
+    summaries: &mut [crate::catalog::CatalogRepoSummary],
+    jobs: &[ForgeActionRunnerJob],
 ) {
-    // Stub for Phase 4
+    for job in jobs {
+        let Some(slug) = extract_repo_slug_from_action_url(&job.html_url) else {
+            continue;
+        };
+
+        let live_status = crate::catalog::CiPipelineStatus {
+            name: job.name.clone(),
+            status: job.status.clone(),
+            description: Some(format!("Runner Job #{} on run #{}", job.id, job.run_id)),
+            target_url: Some(job.html_url.clone()),
+            updated_at: None,
+        };
+
+        for repo in summaries.iter_mut() {
+            if repo.slug.eq_ignore_ascii_case(&slug)
+                || repo.name.eq_ignore_ascii_case(&slug)
+                || repo.slug.ends_with(&format!("/{}", slug))
+            {
+                if let Some(existing) = repo.ci_status.iter_mut().find(|p| p.name == job.name) {
+                    existing.status = job.status.clone();
+                    existing.target_url = Some(job.html_url.clone());
+                } else {
+                    repo.ci_status.insert(0, live_status.clone());
+                }
+            }
+        }
+    }
+}
+
+/// Discover unique Forgejo / Gitea server hosts referenced across catalog entries
+pub fn discover_forgejo_hosts(catalog: &[crate::catalog::CatalogEntry]) -> Vec<String> {
+    let mut hosts = Vec::new();
+    for entry in catalog {
+        let info = entry.to_forge_info();
+        if matches!(
+            info.provider,
+            ForgeType::Forgejo | ForgeType::Codeberg | ForgeType::Tildegit
+        ) && !hosts.contains(&info.host)
+        {
+            hosts.push(info.host);
+        }
+    }
+    if hosts.is_empty() {
+        hosts.push("gambi.2lp.in".to_string());
+    }
+    hosts
 }
 

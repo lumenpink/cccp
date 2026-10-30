@@ -474,9 +474,22 @@ pub fn run_repo_top(
         state.sort = s;
     }
 
-    // Load initial catalog
-    let catalog = crate::catalog::load_catalog(None, catalog_path);
-    let mut raw_summaries = crate::catalog::summarize_catalog(&catalog);
+    // Helper closure to reload catalog and merge consolidated runner jobs
+    let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>| {
+        let cat = crate::catalog::load_catalog(None, catalog_path);
+        *summaries = crate::catalog::summarize_catalog(&cat);
+        let hosts = crate::forges::discover_forgejo_hosts(&cat);
+        let client = crate::forges::ForgeClient::new();
+        for host in hosts {
+            if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
+                crate::forges::merge_live_runner_jobs(summaries, &jobs);
+            }
+        }
+    };
+
+    // Load initial catalog with live CI runner jobs
+    let mut raw_summaries = Vec::new();
+    refresh_data(&mut raw_summaries);
 
     // Enter Alternate Screen and enable raw mode
     enable_raw_mode().map_err(|e| format!("Failed to enable raw mode: {}", e))?;
@@ -570,8 +583,7 @@ pub fn run_repo_top(
                         break;
                     }
                     if act == RepoTopAction::Refresh {
-                        let cat = crate::catalog::load_catalog(None, catalog_path);
-                        raw_summaries = crate::catalog::summarize_catalog(&cat);
+                        refresh_data(&mut raw_summaries);
                         last_refresh = Instant::now();
                     } else {
                         state.handle_action(act, filtered.len());
@@ -582,8 +594,7 @@ pub fn run_repo_top(
 
         // Auto refresh tick
         if last_refresh.elapsed() >= interval {
-            let cat = crate::catalog::load_catalog(None, catalog_path);
-            raw_summaries = crate::catalog::summarize_catalog(&cat);
+            refresh_data(&mut raw_summaries);
             last_refresh = Instant::now();
         }
     }
