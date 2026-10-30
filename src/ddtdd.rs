@@ -85,6 +85,11 @@ pub fn parse_phase_arg(input: &str) -> Result<DdtddPhase, String> {
     }
 }
 
+/// Identifies if a commit attempt is of kind `chore`, which is exempt from ticket and branch guards.
+pub fn is_chore_commit(_cz: &CommitArgs) -> bool {
+    false
+}
+
 /// Infers ticket ID, conventional commit kind, and title slug from branch name.
 /// Expected branch pattern: `<kind>/<id>-<slug>`
 pub fn infer_ticket_from_branch(branch: &str) -> Option<(u64, String, String)> {
