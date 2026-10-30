@@ -63,8 +63,26 @@ impl DdtddPhase {
 }
 
 /// Parses the `-p / --phase` CLI argument into a valid commit phase (Ph3..Ph8).
-pub fn parse_phase_arg(_input: &str) -> Result<DdtddPhase, String> {
-    Err("stub red test".to_string())
+pub fn parse_phase_arg(input: &str) -> Result<DdtddPhase, String> {
+    let clean = input.trim().to_ascii_lowercase();
+    match clean.as_str() {
+        "3" | "ph3" => Ok(DdtddPhase::Ph3),
+        "4" | "ph4" => Ok(DdtddPhase::Ph4),
+        "5" | "ph5" => Ok(DdtddPhase::Ph5),
+        "6" | "ph6" => Ok(DdtddPhase::Ph6),
+        "7" | "ph7" => Ok(DdtddPhase::Ph7),
+        "8" | "ph8" => Ok(DdtddPhase::Ph8),
+        "1" | "ph1" | "2" | "ph2" => Err(
+            "Fases 1 (Ticket) e 2 (Branch) não possuem commits. Inicie o ciclo com 'cccp ticket new' e 'cccp start <id>'.".to_string(),
+        ),
+        "9" | "ph9" => Err(
+            "A Fase 9 (Finish & Close) exige laudo textual e deve ser executada obrigatoriamente através do comando 'cccp close \"<resumo>\"'.".to_string(),
+        ),
+        other => Err(format!(
+            "Fase inválida '{}'. Fases de commit aceitas: 3 a 8.",
+            other
+        )),
+    }
 }
 
 /// Infers ticket ID, conventional commit kind, and title slug from branch name.
@@ -503,20 +521,10 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
     let msg_slices: Vec<&str> = log_messages.iter().map(|s| s.as_str()).collect();
 
     let phase = if let Some(ref p_str) = cz.phase {
-        match p_str.to_lowercase().as_str() {
-            "ph3" => DdtddPhase::Ph3,
-            "ph4" => DdtddPhase::Ph4,
-            "ph5" => DdtddPhase::Ph5,
-            "ph6" => DdtddPhase::Ph6,
-            "ph7" => DdtddPhase::Ph7,
-            "ph8" => DdtddPhase::Ph8,
-            "ph9" => DdtddPhase::Ph9,
-            other => {
-                eprintln!(
-                    "{}: Fase inválida '{}'. Use ph3..ph9.",
-                    theme.red_bold("Erro"),
-                    other
-                );
+        match parse_phase_arg(p_str) {
+            Ok(p) => p,
+            Err(err) => {
+                eprintln!("{}: {}", theme.red_bold("Erro GOST"), err);
                 return Some(ExitCode::FAILURE);
             }
         }
