@@ -32,3 +32,18 @@ fn test_parse_phase_arg_reject_phase_9() {
         "Fase 9 deve orientar o uso obrigatório do comando cccp close"
     );
 }
+
+#[test]
+fn test_parse_phase_arg_mutation_whitespace_and_invalid_values() {
+    assert_eq!(parse_phase_arg("  5  ").unwrap(), DdtddPhase::Ph5);
+    assert_eq!(parse_phase_arg("PH7").unwrap(), DdtddPhase::Ph7);
+
+    let err_zero = parse_phase_arg("0").unwrap_err();
+    assert!(err_zero.contains("Fase inválida '0'"));
+
+    let err_ten = parse_phase_arg("10").unwrap_err();
+    assert!(err_ten.contains("Fases de commit aceitas: 3 a 8"));
+
+    let err_invalid = parse_phase_arg("xyz").unwrap_err();
+    assert!(err_invalid.contains("Fase inválida 'xyz'"));
+}
