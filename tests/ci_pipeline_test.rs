@@ -130,7 +130,23 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
         "Mutation with gcc must lack musl-gcc requirement"
     );
 
-    // Mutation 2: workflow containing gnu.2.28 fallback must fail check
+    // Mutation 2: Workflow sem DELETE prévio no endpoint generic package deve falhar
+    let mutated_workflow_no_delete = "curl -X PUT https://gambi.2lp.in/api/packages/lumen/generic/cccp/nightly/cccp-linux-amd64";
+    assert!(
+        !mutated_workflow_no_delete.contains("-X DELETE"),
+        "Mutação sem DELETE prévio deve ser detectada"
+    );
+
+    // Mutation 3: Workflow com PUT invertido antes do DELETE deve ser rejeitado
+    let mutated_order = "-X PUT ... -X DELETE";
+    let del_idx = mutated_order.find("-X DELETE").unwrap();
+    let put_idx = mutated_order.find("-X PUT").unwrap();
+    assert!(
+        put_idx < del_idx,
+        "Mutação com ordem invertida deve falhar na checagem DELETE < PUT"
+    );
+
+    // Mutation 4: workflow containing gnu.2.28 fallback must fail check
     let mutated_workflow_gnu = "cargo zigbuild --target x86_64-unknown-linux-gnu.2.28";
     assert!(
         mutated_workflow_gnu.contains("x86_64-unknown-linux-gnu"),
