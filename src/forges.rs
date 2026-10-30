@@ -646,7 +646,10 @@ impl ForgeClient {
             .or_else(|| resolve_token_for_host(host, ForgeType::Forgejo, None));
 
         let Some(t) = tok else {
-            return Err(format!("No authentication token found for forge host '{}'", host));
+            return Err(format!(
+                "No authentication token found for forge host '{}'",
+                host
+            ));
         };
 
         let api_url = format!("https://{}/api/v1/user/actions/runners/jobs", host);
@@ -1655,4 +1658,3 @@ pub fn discover_forgejo_hosts(catalog: &[crate::catalog::CatalogEntry]) -> Vec<S
     }
     hosts
 }
-

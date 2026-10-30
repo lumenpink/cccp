@@ -1,5 +1,7 @@
 use cccp::catalog::{CatalogRepoSummary, CiPipelineStatus};
-use cccp::forges::{extract_repo_slug_from_action_url, merge_live_runner_jobs, ForgeActionRunnerJob};
+use cccp::forges::{
+    extract_repo_slug_from_action_url, merge_live_runner_jobs, ForgeActionRunnerJob,
+};
 
 #[test]
 fn test_parse_forge_action_runner_job_json() {
@@ -109,7 +111,8 @@ fn test_merge_live_runner_jobs() {
             repo_id: 1,
             owner_id: 1,
             name: "CI Gate".to_string(),
-            html_url: "https://gambi.2lp.in/lumen/cccp/actions/runs/50/jobs/1/attempt/1".to_string(),
+            html_url: "https://gambi.2lp.in/lumen/cccp/actions/runs/50/jobs/1/attempt/1"
+                .to_string(),
             status: "running".to_string(),
         },
         ForgeActionRunnerJob {
@@ -120,7 +123,8 @@ fn test_merge_live_runner_jobs() {
             repo_id: 2,
             owner_id: 1,
             name: "Deploy".to_string(),
-            html_url: "https://gambi.2lp.in/lumen/banca/actions/runs/51/jobs/2/attempt/1".to_string(),
+            html_url: "https://gambi.2lp.in/lumen/banca/actions/runs/51/jobs/2/attempt/1"
+                .to_string(),
             status: "waiting".to_string(),
         },
     ];
@@ -129,11 +133,17 @@ fn test_merge_live_runner_jobs() {
 
     // cccp must now include running job
     let cccp = summaries.iter().find(|r| r.slug == "lumen/cccp").unwrap();
-    assert!(cccp.ci_status.iter().any(|p| p.status == "running" && p.name == "CI Gate"));
+    assert!(cccp
+        .ci_status
+        .iter()
+        .any(|p| p.status == "running" && p.name == "CI Gate"));
 
     // banca must now include waiting job
     let banca = summaries.iter().find(|r| r.slug == "lumen/banca").unwrap();
-    assert!(banca.ci_status.iter().any(|p| p.status == "waiting" && p.name == "Deploy"));
+    assert!(banca
+        .ci_status
+        .iter()
+        .any(|p| p.status == "waiting" && p.name == "Deploy"));
 }
 
 #[test]
@@ -141,7 +151,10 @@ fn test_mutation_extract_repo_slug_edge_cases() {
     assert_eq!(extract_repo_slug_from_action_url(""), None);
     assert_eq!(extract_repo_slug_from_action_url("not a url"), None);
     assert_eq!(extract_repo_slug_from_action_url("http://"), None);
-    assert_eq!(extract_repo_slug_from_action_url("https://domain/repo/not-actions/run"), None);
+    assert_eq!(
+        extract_repo_slug_from_action_url("https://domain/repo/not-actions/run"),
+        None
+    );
     assert_eq!(
         extract_repo_slug_from_action_url("http://gambi.2lp.in/user/repo/actions/runs/1/jobs/2"),
         Some("user/repo".to_string())
@@ -204,8 +217,8 @@ fn test_mutation_merge_live_runner_jobs_edge_cases() {
 
 #[test]
 fn test_discover_forgejo_hosts() {
-    use cccp::forges::discover_forgejo_hosts;
     use cccp::catalog::CatalogEntry;
+    use cccp::forges::discover_forgejo_hosts;
 
     // Empty catalog fallback
     let hosts_fallback = discover_forgejo_hosts(&[]);
@@ -240,4 +253,3 @@ fn test_discover_forgejo_hosts() {
     assert!(hosts.contains(&"gambi.2lp.in".to_string()));
     assert!(hosts.contains(&"codeberg.org".to_string()));
 }
-
