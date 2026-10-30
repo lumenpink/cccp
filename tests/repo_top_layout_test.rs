@@ -83,7 +83,8 @@ fn test_truncate_utf8_ellipsis() {
     assert_eq!(truncate_utf8_ellipsis("simples", 10), "simples");
     assert_eq!(truncate_utf8_ellipsis("exato", 5), "exato");
     assert_eq!(truncate_utf8_ellipsis("curto", 4), "cur…");
-    assert_eq!(truncate_utf8_ellipsis("a", 1), "…");
+    assert_eq!(truncate_utf8_ellipsis("ab", 1), "…");
+    assert_eq!(truncate_utf8_ellipsis("a", 1), "a");
     assert_eq!(truncate_utf8_ellipsis("", 5), "");
 }
 

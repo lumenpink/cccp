@@ -264,13 +264,26 @@ pub fn apply_top_filters_and_sorting(
 }
 
 /// Truncate UTF-8 string safely with ellipsis if exceeding max_chars
-pub fn truncate_utf8_ellipsis(s: &str, _max_chars: usize) -> String {
-    s.to_string()
+pub fn truncate_utf8_ellipsis(s: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+    let count = s.chars().count();
+    if count <= max_chars {
+        return s.to_string();
+    }
+    if max_chars == 1 {
+        return "…".to_string();
+    }
+    let mut truncated: String = s.chars().take(max_chars - 1).collect();
+    truncated.push('…');
+    truncated
 }
 
 /// Pad visual string with spaces, taking into account visible character count
-pub fn pad_visual(colored_str: &str, _plain_text_len: usize, _target_width: usize) -> String {
-    colored_str.to_string()
+pub fn pad_visual(colored_str: &str, plain_text_len: usize, target_width: usize) -> String {
+    let padding = target_width.saturating_sub(plain_text_len);
+    format!("{}{}", colored_str, " ".repeat(padding))
 }
 
 /// Pure string rendering function for testing and terminal painting
@@ -285,11 +298,33 @@ pub fn render_top_view(
     let cols = width.max(40) as usize;
     let rows = height.max(10) as usize;
 
+    // Responsive column budget:
+    // Base 80-col budget:
+    // marker: 2 ("▶ " / "  ")
+    // REPOSITÓRIO: repo_width (22 in 80 cols, expands dynamically with extra space)
+    // FORJA: 9
+    // ESTADO CI: 18
+    // TICKETS: 8
+    // LOCAL: 16
+    // Inter-column spaces: 4
+    // Total for 80 cols = 2 + 22 + 1 + 9 + 1 + 18 + 1 + 8 + 1 + 16 = 79 chars.
+    let extra = cols.saturating_sub(80);
+    let deficit = 80usize.saturating_sub(cols);
+    let repo_width = if cols >= 80 {
+        22 + extra.min(30)
+    } else {
+        22usize.saturating_sub(deficit).max(8)
+    };
+
     // Header (line 1)
-    let header_title = format!(
-        "★ CCCP REPO TOP — CI MONITOR ({}s refresh)",
-        state.interval_secs
-    );
+    let header_title = if cols >= 88 {
+        format!(
+            "★ CCCP REPO TOP — CI MONITOR ({}s refresh)",
+            state.interval_secs
+        )
+    } else {
+        format!("★ CCCP REPO TOP ({}s)", state.interval_secs)
+    };
     let filter_badge = format!("[Filtro: {}]", state.filter);
     let sort_badge = format!("[Ordem: {}]", state.sort);
     let total_badge = format!("Total: {}", repos.len());
@@ -306,14 +341,16 @@ pub fn render_top_view(
 
     // Table Column Header (line 2)
     let col_header = format!(
-        "{:<18} {:<24} {:<10} {:<16} {:<8} {:<10}",
-        "REPOSITÓRIO", "SLUG", "FORJA", "ESTADO CI", "TICKETS", "LOCAL"
+        "  {:<repo_width$} {:<9} {:<18} {:<8} {:<16}",
+        "REPOSITÓRIO", "FORJA", "ESTADO CI", "TICKETS", "LOCAL"
     );
     out.push_str(&theme.dim(&col_header));
     out.push('\n');
 
     // Separator line (line 3)
-    let sep = "─".repeat(cols.min(88));
+    let max_table_width = repo_width + 57;
+    let sep_len = cols.min(max_table_width);
+    let sep = "─".repeat(sep_len);
     out.push_str(&theme.dim(&sep));
     out.push('\n');
 
@@ -364,33 +401,37 @@ pub fn render_top_view(
             out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\n"));
         } else {
             for (idx, r) in repos.iter().enumerate().skip(start).take(visible_lines) {
-                let (ci_text, color) = format_ci_summary(&r.ci_status);
+                let (raw_ci, color) = format_ci_summary(&r.ci_status);
+                let ci_text = truncate_utf8_ellipsis(&raw_ci, 18);
                 let colored_ci = match color {
                     "red" => theme.red(&ci_text),
                     "yellow" => theme.yellow(&ci_text),
                     "green" => theme.green(&ci_text),
                     _ => theme.dim(&ci_text),
                 };
+                let ci_col = pad_visual(&colored_ci, ci_text.chars().count(), 18);
 
-                let name_truncated = if r.name.len() > 17 {
-                    format!("{}…", &r.name[..16])
-                } else {
-                    r.name.clone()
-                };
-                let slug_truncated = if r.slug.len() > 23 {
-                    format!("{}…", &r.slug[..22])
-                } else {
-                    r.slug.clone()
-                };
+                let repo_name = if r.name.is_empty() { &r.slug } else { &r.name };
+                let repo_display = truncate_utf8_ellipsis(repo_name, repo_width);
+                let repo_padding = repo_width.saturating_sub(repo_display.chars().count());
+                let repo_col = format!("{}{}", repo_display, " ".repeat(repo_padding));
+
+                let forge_display = truncate_utf8_ellipsis(&r.forge, 9);
+                let forge_padding = 9usize.saturating_sub(forge_display.chars().count());
+                let forge_col = format!("{}{}", forge_display, " ".repeat(forge_padding));
+
+                let ticket_str = r.ticket_count.to_string();
+                let ticket_display = truncate_utf8_ellipsis(&ticket_str, 8);
+                let ticket_padding = 8usize.saturating_sub(ticket_display.chars().count());
+                let ticket_col = format!("{}{}", ticket_display, " ".repeat(ticket_padding));
+
+                let status_display = truncate_utf8_ellipsis(&r.status_label, 16);
+                let status_padding = 16usize.saturating_sub(status_display.chars().count());
+                let status_col = format!("{}{}", status_display, " ".repeat(status_padding));
 
                 let line = format!(
-                    "{:<18} {:<24} {:<10} {:<16} {:<8} {:<10}",
-                    name_truncated,
-                    slug_truncated,
-                    r.forge,
-                    colored_ci,
-                    r.ticket_count,
-                    r.status_label
+                    "{} {} {} {} {}",
+                    repo_col, forge_col, ci_col, ticket_col, status_col
                 );
 
                 if idx == state.selected_index {
@@ -404,10 +445,15 @@ pub fn render_top_view(
     }
 
     // Bottom Bar
-    let bottom_text = "Ctrl+H help | Ctrl+S sort | Ctrl+F filter | Ctrl+R refresh | Ctrl+Q quit";
+    let bottom_text = if cols < 78 {
+        "Ctrl+H aj | Ctrl+S ord | Ctrl+F flt | Ctrl+R rfr | Ctrl+Q sai"
+    } else {
+        "★ Ctrl+H help | Ctrl+S sort | Ctrl+F filter | Ctrl+R refresh | Ctrl+Q quit"
+    };
+    let bottom_display = truncate_utf8_ellipsis(bottom_text, cols.min(max_table_width));
     out.push_str(&theme.dim(&sep));
     out.push('\n');
-    out.push_str(&theme.cyan(&format!("★ {}", bottom_text)));
+    out.push_str(&theme.cyan(&bottom_display));
 
     out
 }
