@@ -86,6 +86,7 @@ fn test_execute_commit_dry_run() {
         sign: false,
         no_sign: true,
         dry_run: true,
+        force: false,
         dir: Some(p.to_path_buf()),
     };
 
@@ -112,6 +113,7 @@ fn test_execute_commit_empty_stage_rejection() {
         sign: false,
         no_sign: true,
         dry_run: false,
+        force: false,
         dir: Some(p.to_path_buf()),
     };
 
@@ -142,6 +144,7 @@ fn test_execute_commit_success_verifies_message() {
         sign: false,
         no_sign: true,
         dry_run: false,
+        force: false,
         dir: Some(p.to_path_buf()),
     };
 
@@ -194,6 +197,7 @@ fn test_execute_commit_with_all_flag() {
         sign: false,
         no_sign: true,
         dry_run: false,
+        force: false,
         dir: Some(p.to_path_buf()),
     };
 

@@ -1,8 +1,6 @@
 use cccp::catalog::{CatalogRepoSummary, CiPipelineStatus};
 use cccp::cultural::Theme;
-use cccp::repo_top::{
-    pad_visual, render_top_view, truncate_utf8_ellipsis, RepoTopState,
-};
+use cccp::repo_top::{pad_visual, render_top_view, truncate_utf8_ellipsis, RepoTopState};
 
 fn strip_ansi(s: &str) -> String {
     let mut out = String::new();
@@ -110,7 +108,10 @@ fn test_mutation_layout_various_widths() {
     let state = RepoTopState::new(5);
     let repos = vec![
         sample_repo("curto", "failure"),
-        sample_repo("um-repositorio-com-nome-bem-longo-para-testar-o-comportamento", "success"),
+        sample_repo(
+            "um-repositorio-com-nome-bem-longo-para-testar-o-comportamento",
+            "success",
+        ),
     ];
 
     for width in [40, 60, 80, 100, 120, 160] {
@@ -150,4 +151,3 @@ fn test_mutation_truncate_and_padding_limits() {
     let padded_longer = pad_visual(longer, longer.chars().count(), 18);
     assert_eq!(padded_longer, longer);
 }
-

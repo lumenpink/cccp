@@ -525,25 +525,29 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
         Some(t) => t,
         None => {
             if is_chore || cz.force {
-                let formatted_msg = if summary.starts_with("chore:") || summary.starts_with("chore(") {
-                    summary.to_string()
-                } else if is_chore {
-                    if let Some(scope) = &cz.scope {
-                        format!("chore({}): {}", scope, summary)
+                let formatted_msg =
+                    if summary.starts_with("chore:") || summary.starts_with("chore(") {
+                        summary.to_string()
+                    } else if is_chore {
+                        if let Some(scope) = &cz.scope {
+                            format!("chore({}): {}", scope, summary)
+                        } else {
+                            format!("chore: {}", summary)
+                        }
                     } else {
-                        format!("chore: {}", summary)
-                    }
-                } else {
-                    format_phase_commit(
-                        cz.commit_type.as_deref().unwrap_or("chore"),
-                        cz.scope.as_deref(),
-                        summary,
-                        0,
-                        DdtddPhase::Ph5,
-                    )
-                };
+                        format_phase_commit(
+                            cz.commit_type.as_deref().unwrap_or("chore"),
+                            cz.scope.as_deref(),
+                            summary,
+                            0,
+                            DdtddPhase::Ph5,
+                        )
+                    };
 
-                println!("  Mensagem Canônica (Isento) : {}", theme.yellow(&formatted_msg));
+                println!(
+                    "  Mensagem Canônica (Isento) : {}",
+                    theme.yellow(&formatted_msg)
+                );
 
                 let commit_opts = CommitOptions {
                     all: cz.all,
