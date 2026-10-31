@@ -408,3 +408,68 @@ fn test_format_catalog_ci_details_output() {
     let empty_details = format_catalog_ci_details(&[], &theme);
     assert!(empty_details.contains("No CI pipelines recorded"));
 }
+
+#[test]
+fn test_mutation_pending_ci_ascii_purity_and_column_width() {
+    use cccp::catalog::{format_ci_summary, CiPipelineStatus, CatalogRepoSummary};
+    use cccp::cultural::Theme;
+    use cccp::repo_top::{render_top_view, RepoTopState};
+
+    // 1. Single pending status
+    let (single_text, single_style) = format_ci_summary(&[CiPipelineStatus {
+        name: "test".to_string(),
+        status: "waiting".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(single_text, "~ pending");
+    assert_eq!(single_style, "yellow");
+    assert!(single_text.is_ascii(), "Must be pure ASCII for guaranteed 1-column monospaced width");
+    assert_eq!(single_text.len(), single_text.chars().count());
+
+    // 2. Multiple pending status
+    let (multi_text, multi_style) = format_ci_summary(&[
+        CiPipelineStatus {
+            name: "test".to_string(),
+            status: "progress".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "lint".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+    ]);
+    assert_eq!(multi_text, "~ pending (1/2)");
+    assert_eq!(multi_style, "yellow");
+    assert!(multi_text.is_ascii(), "Multi-pipeline pending string must also be pure ASCII");
+    assert_eq!(multi_text.len(), multi_text.chars().count());
+
+    // 3. Integration with render_top_view
+    let theme = Theme::with_color(false);
+    let state = RepoTopState::new(10);
+    let repo = CatalogRepoSummary {
+        name: "soviet-app".to_string(),
+        slug: "gosplan/soviet-app".to_string(),
+        forge: "forgejo".to_string(),
+        ci_status: vec![CiPipelineStatus {
+            name: "build".to_string(),
+            status: "pending".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+        ticket_count: 3,
+        status_label: "clean [↑1]".to_string(),
+        ..Default::default()
+    };
+
+    let rendered = render_top_view(&[repo], &state, &theme, 80, 24);
+    assert!(rendered.contains("~ pending"));
+    assert!(!rendered.contains('⏳'));
+}
