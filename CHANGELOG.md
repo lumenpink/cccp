@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Static Musl Compilation Without Dynamic Interpreter
+- **Compilação Estática Pura para Alvos Musl (`.cargo/config.toml`, `.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
+  - **Injeção de `link-arg=-static`**: Configura `-C link-arg=-static` em conjunto com `-C target-feature=+crt-static` para alvos `x86_64-unknown-linux-musl` e `aarch64-unknown-linux-musl`, eliminando o cabeçalho dinâmico `INTERP` gerado por `cargo zigbuild`.
+  - **Validação de Hermeticidade**: Adiciona asserção determinística via `readelf -l` no workflow de CI para bloquear a publicação de binários com dependência de `ld-musl`. (closes #106)
+
+
 ### Canonical Forgejo Endpoint for GOST Spec Resolution
 - **Atualização de Endpoints Canônicos da Especificação GOST (`src/profile.rs`, `src/newrepo.rs`)**:
   - **Priorização do Domínio Gambi**: Atualiza a resolução remota de `SPEC.md` e recursos da norma GOST para priorizar o domínio canônico ativo `https://gambi.2lp.in/lumen/gost/`, mantendo fallbacks secundários e eliminando falhas de resolução DNS durante a montagem de perfis em containers de CI. (closes #88)
