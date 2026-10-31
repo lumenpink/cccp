@@ -149,10 +149,7 @@ fn test_config_parsing_cccp_gemini_key_precedence_over_generic() {
     // Case C: config string with CCCP_GEMINI_TOKEN over GEMINI_API_KEY
     let mut cfg3 = Config::default();
     cfg3.merge_from_str("GEMINI_API_KEY=generic_key\nCCCP_GEMINI_TOKEN=token_key\n");
-    assert_eq!(
-        resolve_gemini_api_key(&cfg3).as_deref(),
-        Some("token_key")
-    );
+    assert_eq!(resolve_gemini_api_key(&cfg3).as_deref(), Some("token_key"));
 
     // Case D: GEMINI_API_KEY in OS env, but CCCP_GEMINI_API_KEY in loaded config file
     env::set_var("GEMINI_API_KEY", "env_generic_key");
@@ -174,7 +171,9 @@ fn test_config_merging_preserves_specific_key_against_generic_env() {
 
     // User's config file (like ~/.env or .cccprc) has CCCP_GEMINI_API_KEY
     let mut cfg = Config::default();
-    cfg.merge_from_str("CCCP_GEMINI_API_KEY=my-isolated-cccp-key\nGEMINI_API_KEY=system-generic-key\n");
+    cfg.merge_from_str(
+        "CCCP_GEMINI_API_KEY=my-isolated-cccp-key\nGEMINI_API_KEY=system-generic-key\n",
+    );
     cfg.merge_from_env();
 
     assert_eq!(cfg.gemini_api_key.as_deref(), Some("my-isolated-cccp-key"));
@@ -215,6 +214,3 @@ fn test_mutation_config_parsing_whitespace_and_format_variants() {
         "Export prefix and quotes must be stripped cleanly"
     );
 }
-
-
-

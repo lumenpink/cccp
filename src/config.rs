@@ -221,37 +221,37 @@ impl Config {
         }
     }
 
-/// Helper to extract the highest-priority Gemini API key declared within a key-value list
-pub fn find_best_gemini_key_in_kv(kv: &[(String, String)]) -> Option<(String, bool)> {
-    const SPECIFIC_KEYS: &[&str] = &["cccp_gemini_token", "cccp_gemini_api_key"];
-    const GENERIC_KEYS: &[&str] = &["gemini_token", "gemini_api_key", "google_api_key"];
+    /// Helper to extract the highest-priority Gemini API key declared within a key-value list
+    pub fn find_best_gemini_key_in_kv(kv: &[(String, String)]) -> Option<(String, bool)> {
+        const SPECIFIC_KEYS: &[&str] = &["cccp_gemini_token", "cccp_gemini_api_key"];
+        const GENERIC_KEYS: &[&str] = &["gemini_token", "gemini_api_key", "google_api_key"];
 
-    for &target in SPECIFIC_KEYS {
-        for (k, v) in kv {
-            let norm = k.to_ascii_lowercase().replace('-', "_");
-            if norm == target {
-                let trimmed = v.trim();
-                if !trimmed.is_empty() {
-                    return Some((trimmed.to_string(), true));
+        for &target in SPECIFIC_KEYS {
+            for (k, v) in kv {
+                let norm = k.to_ascii_lowercase().replace('-', "_");
+                if norm == target {
+                    let trimmed = v.trim();
+                    if !trimmed.is_empty() {
+                        return Some((trimmed.to_string(), true));
+                    }
                 }
             }
         }
-    }
 
-    for &target in GENERIC_KEYS {
-        for (k, v) in kv {
-            let norm = k.to_ascii_lowercase().replace('-', "_");
-            if norm == target {
-                let trimmed = v.trim();
-                if !trimmed.is_empty() {
-                    return Some((trimmed.to_string(), false));
+        for &target in GENERIC_KEYS {
+            for (k, v) in kv {
+                let norm = k.to_ascii_lowercase().replace('-', "_");
+                if norm == target {
+                    let trimmed = v.trim();
+                    if !trimmed.is_empty() {
+                        return Some((trimmed.to_string(), false));
+                    }
                 }
             }
         }
-    }
 
-    None
-}
+        None
+    }
 
     /// Set an individual key-value pair, routing to known fields or extra map
     pub fn set_key_value(&mut self, key: &str, val: &str) {
@@ -387,10 +387,7 @@ pub fn find_best_gemini_key_in_kv(kv: &[(String, String)]) -> Option<(String, bo
                     Some(s.to_string())
                 };
             }
-            "cccp_gemini_token"
-            | "cccp_gemini_api_key"
-            | "gemini_token"
-            | "google_api_key" => {
+            "cccp_gemini_token" | "cccp_gemini_api_key" | "gemini_token" | "google_api_key" => {
                 let s = val.trim();
                 if s.is_empty() {
                     self.extra.remove(&normalized);
@@ -513,7 +510,12 @@ pub fn find_best_gemini_key_in_kv(kv: &[(String, String)]) -> Option<(String, bo
             self.gemini_api_key = Some(key);
             self.extra
                 .insert("_gemini_key_is_specific".into(), "true".into());
-        } else if self.extra.get("_gemini_key_is_specific").map(|s| s.as_str()) != Some("true") {
+        } else if self
+            .extra
+            .get("_gemini_key_is_specific")
+            .map(|s| s.as_str())
+            != Some("true")
+        {
             if let Some(key) = crate::ai::resolve_gemini_env_key() {
                 self.gemini_api_key = Some(key);
             }

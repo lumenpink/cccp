@@ -86,10 +86,7 @@ pub const GEMINI_ENV_KEYS: &[&str] = &[
 ];
 
 /// CCCP-specific Gemini credentials that isolate quotas from generic system environment variables
-pub const CCCP_GEMINI_ENV_KEYS: &[&str] = &[
-    "CCCP_GEMINI_TOKEN",
-    "CCCP_GEMINI_API_KEY",
-];
+pub const CCCP_GEMINI_ENV_KEYS: &[&str] = &["CCCP_GEMINI_TOKEN", "CCCP_GEMINI_API_KEY"];
 
 /// Helper to read CCCP-specific Gemini API key directly from environment
 pub fn resolve_cccp_gemini_env_key() -> Option<String> {
