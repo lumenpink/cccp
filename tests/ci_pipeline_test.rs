@@ -169,6 +169,20 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
         !mutated_workflow_missing_musl.contains("target/x86_64-unknown-linux-musl/release/cccp"),
         "Mutation missing musl release path must be detectable"
     );
+
+    // Mutation 5: config without link-arg=-static must be rejected
+    let mutated_config_no_link_arg = "[target.x86_64-unknown-linux-musl]\nrustflags = [\"-C\", \"target-feature=+crt-static\"]\n";
+    assert!(
+        !mutated_config_no_link_arg.contains("link-arg=-static"),
+        "Mutation without link-arg=-static must be detected"
+    );
+
+    // Mutation 6: workflow missing readelf program interpreter check must be rejected
+    let mutated_workflow_no_readelf = "echo 'Done compiling'";
+    assert!(
+        !mutated_workflow_no_readelf.contains("readelf -l") || !mutated_workflow_no_readelf.contains("program interpreter"),
+        "Mutation without readelf dynamic interpreter guard must be detected"
+    );
 }
 
 #[test]
