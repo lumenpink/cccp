@@ -399,4 +399,16 @@ logins:
 
     let tok_missing = cccp::forges::parse_tea_token_from_yaml(sample_yaml, "nonexistent.host");
     assert_eq!(tok_missing, None);
+
+    // Edge cases: trailing slashes, quotes and empty content
+    let yaml_edge = r#"
+logins:
+    - name: 'quoted_forge'
+      url: 'https://quoted.example.org/'
+      token: "secret_quoted_token"
+      ssh_host: "quoted.example.org"
+"#;
+    let tok_quoted = cccp::forges::parse_tea_token_from_yaml(yaml_edge, "quoted.example.org");
+    assert_eq!(tok_quoted.as_deref(), Some("secret_quoted_token"));
+    assert_eq!(cccp::forges::parse_tea_token_from_yaml("", "anything"), None);
 }

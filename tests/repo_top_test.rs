@@ -469,3 +469,68 @@ fn test_mutation_edge_cases_scrolling_and_clamping() {
     state.handle_action(RepoTopAction::Quit, 10);
     assert_eq!(state.selected_index, 0);
 }
+
+#[test]
+fn test_mutation_extract_runner_job_id_edge_cases() {
+    use cccp::repo_top::extract_runner_job_id;
+
+    assert_eq!(extract_runner_job_id(&[]), None);
+
+    // Not queued status (e.g. success) must not extract job id
+    let ci_success = vec![CiPipelineStatus {
+        name: "build".to_string(),
+        status: "success".to_string(),
+        description: Some("Runner Job #123 on run #4".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(extract_runner_job_id(&ci_success), None);
+
+    // No digits after Runner Job #
+    let ci_no_digits = vec![CiPipelineStatus {
+        name: "build".to_string(),
+        status: "waiting".to_string(),
+        description: Some("Runner Job #abc on run #4".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(extract_runner_job_id(&ci_no_digits), None);
+
+    // Valid runner job extraction
+    let ci_valid = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "running".to_string(),
+        description: Some("Runner Job #9942 on run #100".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(extract_runner_job_id(&ci_valid), Some(9942));
+}
+
+#[test]
+fn test_mutation_fail_or_pending_filter_mixed() {
+    let repo_mixed = make_sample_repo(
+        "mixed",
+        "org/mixed",
+        vec![
+            CiPipelineStatus {
+                name: "test".to_string(),
+                status: "success".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            },
+            CiPipelineStatus {
+                name: "deploy".to_string(),
+                status: "failure".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            },
+        ],
+    );
+    let list = vec![repo_mixed];
+    let res = apply_top_filters_and_sorting(&list, CiTopFilter::FailOrPending, CiTopSort::CiStatus);
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].name, "mixed");
+}
