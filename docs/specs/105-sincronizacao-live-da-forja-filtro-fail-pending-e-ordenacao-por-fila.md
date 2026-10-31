@@ -38,6 +38,6 @@ Ajustar o monitor interativo `cccp repo top` para refletir o status real e em te
 - Suite de testes passando (`cargo test`) e conformidade estrita (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`).
 
 ## 4. Conclusão e Laudo
-- [Resumo]: Implementação de sincronização live da forja, filtro `fail+pending` e ordenação padrão `pending/fail/pass` ordenada por fila no `repo top`.
-- [Solução]: Token discovery via tea config, variante `FailOrPending` no `CiTopFilter`, reordenação prioritária no `CiTopSort` com queue index, e atualização de CI status em tempo real.
-- [Validação]: Testes automatizados cobrindo os novos cenários, `cargo test` e `cargo clippy` 100% aprovados.
+- [Resumo]: Sincronização em tempo real de status da forja no repo top, suporte a filtro fail+pending e ordenação prioritária na fila.
+- [Solução]: Implementada resolução de tokens via tea config, filtro CiTopFilter::FailOrPending, ordenação padrão CiTopSort::CiStatus priorizando fila do runner com extract_runner_job_id, e atualização de CI assíncrona em background.
+- [Validação]: 46 testes automatizados aprovados em repo_top_test, repo_top_layout_test, forges_test e ci_consolidated_runner_jobs_test; cargo fmt e cargo clippy sem avisos.
