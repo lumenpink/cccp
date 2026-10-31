@@ -392,3 +392,60 @@ fn test_parse_and_validate_mutation_edge_cases() {
         "Unmatched scope paren must fail validation"
     );
 }
+
+#[test]
+fn test_mutation_word_wrap_edge_cases_and_indentation() {
+    // 1. Indented code blocks
+    let code_line = "    let result = calculate_productivity();";
+    let mut ed = Editor::new("Indent", code_line);
+    ed.screen_cols = 15;
+    ed.soft_wrap = true;
+    let vlines = ed.compute_visual_lines();
+    assert!(vlines.len() >= 2);
+    let chunk0: String = ed.rows[0]
+        .chars()
+        .skip(vlines[0].char_start)
+        .take(vlines[0].char_len)
+        .collect();
+    assert!(chunk0.starts_with("    let result"));
+
+    // 2. Extremely narrow screen (cols = 1)
+    let narrow_text = "abc def";
+    let mut ed_narrow = Editor::new("Narrow", narrow_text);
+    ed_narrow.screen_cols = 1;
+    ed_narrow.soft_wrap = true;
+    let vlines_narrow = ed_narrow.compute_visual_lines();
+    for vl in &vlines_narrow {
+        assert!(vl.char_len <= 1);
+    }
+    assert_eq!(vlines_narrow.len(), 6);
+
+    // 3. Giant single word exceeding screen width
+    let giant_word = "pneumonoultramicroscopicsilicovolcanoconiosis";
+    let mut ed_giant = Editor::new("Giant", giant_word);
+    ed_giant.screen_cols = 10;
+    ed_giant.soft_wrap = true;
+    let vlines_giant = ed_giant.compute_visual_lines();
+    assert_eq!(vlines_giant.len(), 5);
+    assert_eq!(vlines_giant[0].char_len, 10);
+    assert_eq!(vlines_giant[1].char_len, 10);
+    assert_eq!(vlines_giant[2].char_len, 10);
+    assert_eq!(vlines_giant[3].char_len, 10);
+    assert_eq!(vlines_giant[4].char_len, 5);
+
+    // 4. Cursor movement across word-wrapped lines
+    let wrapped_text = "primeira palavra segunda palavra terceira";
+    let mut ed_nav = Editor::new("NavWrap", wrapped_text);
+    ed_nav.screen_cols = 17;
+    ed_nav.soft_wrap = true;
+    let vlines_nav = ed_nav.compute_visual_lines();
+    assert_eq!(vlines_nav.len(), 3);
+    ed_nav.cursor_x = 0;
+    ed_nav.cursor_y = 0;
+    ed_nav.move_cursor(crossterm::event::KeyCode::Down);
+    assert_eq!(ed_nav.cursor_to_visual_pos(&vlines_nav).0, 1);
+    ed_nav.move_cursor(crossterm::event::KeyCode::Down);
+    assert_eq!(ed_nav.cursor_to_visual_pos(&vlines_nav).0, 2);
+    ed_nav.move_cursor(crossterm::event::KeyCode::Up);
+    assert_eq!(ed_nav.cursor_to_visual_pos(&vlines_nav).0, 1);
+}
