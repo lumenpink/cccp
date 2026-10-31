@@ -740,6 +740,55 @@ where
     run_editor(editor)
 }
 
+/// Action taken when recovering from an error in Divan
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DivanRecoveryAction {
+    ReopenInEditor,
+    Skip,
+    Quit,
+}
+
+/// Parse user keypress for triage failure recovery
+pub fn parse_triage_failure_action(key: char) -> DivanRecoveryAction {
+    match key {
+        'q' | 'Q' => DivanRecoveryAction::Quit,
+        _ => DivanRecoveryAction::ReopenInEditor,
+    }
+}
+
+/// Parse user keypress for forge ticket creation failure recovery
+pub fn parse_forge_failure_action(key: char) -> DivanRecoveryAction {
+    match key {
+        's' | 'S' => DivanRecoveryAction::Skip,
+        'q' | 'Q' => DivanRecoveryAction::Quit,
+        _ => DivanRecoveryAction::ReopenInEditor,
+    }
+}
+
+/// Format the initial prompt editor buffer, preserving previous text on recovery
+pub fn format_divan_prompt_template(target_label: &str, previous_prompt: Option<&str>) -> String {
+    let header = format!(
+        "# The Divan — Target: {}\n# Describe the issue, bug, or feature request below.\n# Lines starting with '#' will be ignored.\n# Press Ctrl+S (or F2) to submit to AI triage, or Ctrl+Q (Esc) to cancel.\n\n",
+        target_label
+    );
+    if let Some(prev) = previous_prompt {
+        let trimmed = prev.trim();
+        if !trimmed.is_empty() {
+            return format!("{}{}\n", header, trimmed);
+        }
+    }
+    header
+}
+
+/// Extract clean prompt text from the editor buffer, filtering comment lines
+pub fn extract_prompt_from_buffer(content: &str) -> String {
+    let filtered: Vec<&str> = content
+        .lines()
+        .filter(|line| !line.trim().starts_with('#'))
+        .collect();
+    filtered.join("\n").trim().to_string()
+}
+
 /// Parse raw ticket editor content into (title, body).
 /// First non-empty line is the title.
 /// Remaining lines form the body, ignoring an optional immediate blank separator.
