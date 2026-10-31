@@ -569,3 +569,60 @@ fn test_render_top_view_displays_syncing_spinner_and_convergence_badge() {
     );
     assert!(!converged_view.contains("sincronizando"));
 }
+
+#[test]
+fn test_mutation_repo_top_sync_frames_and_messages() {
+    use cccp::repo_top::{TopBackgroundMsg, TOP_SPINNER_FRAMES};
+
+    assert_eq!(TOP_SPINNER_FRAMES.len(), 10);
+    for frame in TOP_SPINNER_FRAMES {
+        assert_eq!(
+            frame.chars().count(),
+            1,
+            "Spinner frame must be single character width"
+        );
+    }
+
+    let theme = Theme::with_color(false);
+    let mut state = RepoTopState::new(10);
+    let items = vec![make_sample_repo("omega", "org/omega", vec![])];
+
+    // Verify syncing takes precedence over has_converged
+    state.is_syncing = true;
+    state.has_converged = true;
+    for frame_idx in 0..TOP_SPINNER_FRAMES.len() * 2 {
+        state.spinner_frame = frame_idx;
+        let view = render_top_view(&items, &state, &theme, 90, 24);
+        let expected_frame = TOP_SPINNER_FRAMES[frame_idx % TOP_SPINNER_FRAMES.len()];
+        assert!(view.contains(expected_frame));
+        assert!(view.contains("sincronizando"));
+        assert!(!view.contains("convergente"));
+    }
+
+    // Verify TopBackgroundMsg construction and clones
+    let msg1 = TopBackgroundMsg::SyncStarted;
+    let msg2 = TopBackgroundMsg::RepoUpdate {
+        slug: "org/test".to_string(),
+        ci_status: Some(vec![]),
+        status_label: Some("clean".to_string()),
+        unpushed: Some(0),
+        is_clean: Some(true),
+    };
+    let msg3 = TopBackgroundMsg::SyncCompleted;
+
+    match msg1.clone() {
+        TopBackgroundMsg::SyncStarted => {}
+        _ => panic!("Expected SyncStarted"),
+    }
+    match msg2.clone() {
+        TopBackgroundMsg::RepoUpdate { slug, unpushed, .. } => {
+            assert_eq!(slug, "org/test");
+            assert_eq!(unpushed, Some(0));
+        }
+        _ => panic!("Expected RepoUpdate"),
+    }
+    match msg3.clone() {
+        TopBackgroundMsg::SyncCompleted => {}
+        _ => panic!("Expected SyncCompleted"),
+    }
+}
