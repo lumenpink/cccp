@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Single-Width Monospace Symbol for Pending CI in repo top
+- **Substituição da Ampulheta por Caractere de Largura 1 (`src/catalog.rs`, `tests/catalog_ci_ui_test.rs`)**:
+  - **Eliminação de Desalinhamento Tabular**: Substitui o emoji de ampulheta `⏳` (de largura visual dupla em terminais modernos) pelo caractere ASCII padrão `~`, garantindo que o status `~ pending` ocupe exatamente 9 colunas e previna o deslocamento indesejado de colunas subsequentes no `cccp repo top` e bordas verticais no `cccp catalog list`.
+  - **Padronização Visual**: Unifica os marcadores de pipelines pendentes ou em execução no catálogo expandido (`--ci-details`) para o símbolo monospaçado de largura 1 (`~`). (closes #113)
+
+
 ### Divan Editor Recovery Loop on AI Triage or Forge Creation Failure
 - **Recuperação e Retorno ao Editor Interativo no Divan (`src/main.rs`, `src/editor.rs`, `tests/divan_recovery_test.rs`)**:
   - **Preservação de Prompt em Falha de IA**: Diante de erros na chamada à API Gemini, Ollama ou LocalAI durante o `cccp ticket divan`, oferece opção para reabrir o editor interativo preenchido com o texto digitado anteriormente, impedindo perda de dados ou cancelamento abrupto.
