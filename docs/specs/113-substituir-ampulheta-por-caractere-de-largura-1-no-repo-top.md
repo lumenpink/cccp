@@ -23,3 +23,8 @@ Isso gerava um desalinhamento sistemático das colunas nas tabelas:
 - Nenhum caractere de largura dupla (`wcwidth = 2`) é utilizado na representação de status de CI em tabelas do sistema.
 - A visualização expandida de pipelines em `format_catalog_ci_details` utiliza o ícone `"~"` para status pendente/executando.
 - Todos os testes unitários e de integração validam a nova formatação e a ausência de `⏳`.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Substituído o emoji `⏳` pelo caractere de largura unitária `~` na formatação resumida e detalhada de pipelines de CI, eliminando desvios e desalinhamentos de colunas no `repo top` e `catalog list`.
+
