@@ -125,3 +125,43 @@ fn test_gemini_total_absence_returns_none() {
     let resolved = resolve_gemini_api_key(&cfg);
     assert_eq!(resolved, None);
 }
+
+#[test]
+fn test_config_parsing_cccp_gemini_key_precedence_over_generic() {
+    let _guard = EnvGuard::new();
+
+    // Case A: config string with generic GEMINI_API_KEY before CCCP_GEMINI_API_KEY
+    let mut cfg1 = Config::default();
+    cfg1.merge_from_str("GEMINI_API_KEY=deactivated_key\nCCCP_GEMINI_API_KEY=active_cccp_key\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg1).as_deref(),
+        Some("active_cccp_key")
+    );
+
+    // Case B: config string in reverse order
+    let mut cfg2 = Config::default();
+    cfg2.merge_from_str("CCCP_GEMINI_API_KEY=active_cccp_key\nGEMINI_API_KEY=deactivated_key\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg2).as_deref(),
+        Some("active_cccp_key")
+    );
+
+    // Case C: config string with CCCP_GEMINI_TOKEN over GEMINI_API_KEY
+    let mut cfg3 = Config::default();
+    cfg3.merge_from_str("GEMINI_API_KEY=generic_key\nCCCP_GEMINI_TOKEN=token_key\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg3).as_deref(),
+        Some("token_key")
+    );
+
+    // Case D: GEMINI_API_KEY in OS env, but CCCP_GEMINI_API_KEY in loaded config file
+    env::set_var("GEMINI_API_KEY", "env_generic_key");
+    let mut cfg4 = Config::default();
+    cfg4.merge_from_str("CCCP_GEMINI_API_KEY=config_cccp_key\n");
+    cfg4.merge_from_env();
+    assert_eq!(
+        resolve_gemini_api_key(&cfg4).as_deref(),
+        Some("config_cccp_key")
+    );
+}
+
