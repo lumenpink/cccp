@@ -87,6 +87,18 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
         config.contains("PKG_CONFIG_ALL_STATIC = \"1\""),
         ".cargo/config.toml must declare PKG_CONFIG_ALL_STATIC = 1"
     );
+    assert!(
+        config.contains("link-arg=-static"),
+        ".cargo/config.toml must configure link-arg=-static for musl targets"
+    );
+    assert!(
+        workflow.contains("link-arg=-static"),
+        "ci.yml must compile musl binaries with link-arg=-static"
+    );
+    assert!(
+        workflow.contains("readelf -l") && workflow.contains("program interpreter"),
+        "ci.yml must assert no dynamic interpreter before publishing musl binary"
+    );
 }
 
 #[test]
