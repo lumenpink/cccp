@@ -106,8 +106,6 @@ jobs:
         run: |
           echo "★ [1/3] Compilando x86_64-unknown-linux-musl (Linux AMD64)..."
           RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-static" \
-          cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp || \
-          RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-static" \
           cargo build --release --target x86_64-unknown-linux-musl -p cccp
 
           echo "★ [2/3] Compilando aarch64-unknown-linux-musl (Linux ARM64)..."
@@ -125,6 +123,9 @@ jobs:
             echo "ERRO CRÍTICO: target/x86_64-unknown-linux-musl/release/cccp contém interpretador dinâmico!"
             exit 1
           } || echo "✓ target/x86_64-unknown-linux-musl/release/cccp é 100% estático."
+
+          echo "★ Executando teste de fumaça no executável compilado..."
+          ./target/x86_64-unknown-linux-musl/release/cccp --version
 
       - name: "Package Artifacts & Generate Checksums"
         run: |
