@@ -270,7 +270,8 @@ impl Editor {
         };
 
         for (log_idx, row) in self.rows.iter().enumerate() {
-            let num_chars = row.chars().count();
+            let chars: Vec<char> = row.chars().collect();
+            let num_chars = chars.len();
             if !self.soft_wrap || num_chars <= cols {
                 visual_lines.push(VisualLine {
                     logical_row: log_idx,
@@ -280,13 +281,46 @@ impl Editor {
             } else {
                 let mut start = 0;
                 while start < num_chars {
-                    let len = (num_chars - start).min(cols);
+                    let remaining = num_chars - start;
+                    if remaining <= cols {
+                        visual_lines.push(VisualLine {
+                            logical_row: log_idx,
+                            char_start: start,
+                            char_len: remaining,
+                        });
+                        break;
+                    }
+
+                    // Look for word boundary within the chunk
+                    let limit = start + cols;
+                    let (len, next_start) = if chars[limit].is_whitespace() {
+                        // Word ends exactly at limit column
+                        (cols, limit + 1)
+                    } else {
+                        // Look backwards for the last whitespace in the chunk
+                        let mut last_space = None;
+                        for i in (start + 1..limit).rev() {
+                            if chars[i].is_whitespace() {
+                                last_space = Some(i);
+                                break;
+                            }
+                        }
+
+                        if let Some(space_idx) = last_space {
+                            let chunk_len = space_idx - start + 1;
+                            (chunk_len, space_idx + 1)
+                        } else {
+                            // No space found: long word fallback to cols limit
+                            (cols, start + cols)
+                        }
+                    };
+
                     visual_lines.push(VisualLine {
                         logical_row: log_idx,
                         char_start: start,
                         char_len: len,
                     });
-                    start += len;
+                    start = next_start;
                 }
             }
         }

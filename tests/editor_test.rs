@@ -225,17 +225,21 @@ fn test_editor_soft_wrap_mutation_edge_cases() {
     assert_eq!(vlines_plus[0].char_len, 10);
     assert_eq!(vlines_plus[1].char_len, 1);
 
-    // 3. UTF-8 multibyte characters (accents, emojis, cyrillic)
-    // 10 chars: "Café ☭ pão" (contains multibyte é, ☭, ã)
+    // 3. UTF-8 multibyte characters with word boundaries
+    // "Café ☭ pão!" (11 chars) with cols = 5:
+    // With word wrap, keeps "pão!" intact without splitting:
+    // line 0: "Café " (5 chars)
+    // line 1: "☭ " (2 chars)
+    // line 2: "pão!" (4 chars)
     let utf8_text = "Café ☭ pão!"; // 11 chars
     let mut editor_utf8 = Editor::new("UTF8", utf8_text);
     editor_utf8.screen_cols = 5;
     editor_utf8.soft_wrap = true;
     let vlines_utf8 = editor_utf8.compute_visual_lines();
-    assert_eq!(vlines_utf8.len(), 3); // 5, 5, 1
+    assert_eq!(vlines_utf8.len(), 3);
     assert_eq!(vlines_utf8[0].char_len, 5);
-    assert_eq!(vlines_utf8[1].char_len, 5);
-    assert_eq!(vlines_utf8[2].char_len, 1);
+    assert_eq!(vlines_utf8[1].char_len, 2);
+    assert_eq!(vlines_utf8[2].char_len, 4);
 
     // 4. PageDown and PageUp navigation with soft wrap
     let mut editor_page = Editor::new(
