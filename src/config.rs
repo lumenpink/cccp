@@ -205,10 +205,53 @@ impl Config {
     pub fn merge_from_str(&mut self, content: &str) {
         // First try parsing key-value pairs (which works for classic .cccprc and simple key = value)
         let kv = parse_key_value_lines(content);
-        for (key, val) in kv {
-            self.set_key_value(&key, &val);
+        for (key, val) in &kv {
+            self.set_key_value(key, val);
+        }
+        if let Some((best_key, is_specific)) = Self::find_best_gemini_key_in_kv(&kv) {
+            self.gemini_api_key = Some(best_key);
+            self.extra.insert(
+                "_gemini_key_is_specific".into(),
+                if is_specific {
+                    "true".into()
+                } else {
+                    "false".into()
+                },
+            );
         }
     }
+
+/// Helper to extract the highest-priority Gemini API key declared within a key-value list
+pub fn find_best_gemini_key_in_kv(kv: &[(String, String)]) -> Option<(String, bool)> {
+    const SPECIFIC_KEYS: &[&str] = &["cccp_gemini_token", "cccp_gemini_api_key"];
+    const GENERIC_KEYS: &[&str] = &["gemini_token", "gemini_api_key", "google_api_key"];
+
+    for &target in SPECIFIC_KEYS {
+        for (k, v) in kv {
+            let norm = k.to_ascii_lowercase().replace('-', "_");
+            if norm == target {
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    return Some((trimmed.to_string(), true));
+                }
+            }
+        }
+    }
+
+    for &target in GENERIC_KEYS {
+        for (k, v) in kv {
+            let norm = k.to_ascii_lowercase().replace('-', "_");
+            if norm == target {
+                let trimmed = v.trim();
+                if !trimmed.is_empty() {
+                    return Some((trimmed.to_string(), false));
+                }
+            }
+        }
+    }
+
+    None
+}
 
     /// Set an individual key-value pair, routing to known fields or extra map
     pub fn set_key_value(&mut self, key: &str, val: &str) {
@@ -344,6 +387,17 @@ impl Config {
                     Some(s.to_string())
                 };
             }
+            "cccp_gemini_token"
+            | "cccp_gemini_api_key"
+            | "gemini_token"
+            | "google_api_key" => {
+                let s = val.trim();
+                if s.is_empty() {
+                    self.extra.remove(&normalized);
+                } else {
+                    self.extra.insert(normalized, s.to_string());
+                }
+            }
             "gemini_temperature" => {
                 if let Ok(t) = val.trim().parse::<f32>() {
                     self.gemini_temperature = t;
@@ -455,8 +509,14 @@ impl Config {
         if let Ok(v) = env::var("GEMINI_MODEL") {
             self.gemini_model = v.trim().to_string();
         }
-        if let Some(key) = crate::ai::resolve_gemini_env_key() {
+        if let Some(key) = crate::ai::resolve_cccp_gemini_env_key() {
             self.gemini_api_key = Some(key);
+            self.extra
+                .insert("_gemini_key_is_specific".into(), "true".into());
+        } else if self.extra.get("_gemini_key_is_specific").map(|s| s.as_str()) != Some("true") {
+            if let Some(key) = crate::ai::resolve_gemini_env_key() {
+                self.gemini_api_key = Some(key);
+            }
         }
         if let Ok(v) = env::var("GEMINI_TEMPERATURE") {
             if let Ok(t) = v.trim().parse::<f32>() {

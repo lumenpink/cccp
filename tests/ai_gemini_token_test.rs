@@ -165,3 +165,23 @@ fn test_config_parsing_cccp_gemini_key_precedence_over_generic() {
     );
 }
 
+#[test]
+fn test_config_merging_preserves_specific_key_against_generic_env() {
+    let _guard = EnvGuard::new();
+
+    // System has generic GEMINI_API_KEY exported
+    env::set_var("GEMINI_API_KEY", "system-generic-key");
+
+    // User's config file (like ~/.env or .cccprc) has CCCP_GEMINI_API_KEY
+    let mut cfg = Config::default();
+    cfg.merge_from_str("CCCP_GEMINI_API_KEY=my-isolated-cccp-key\nGEMINI_API_KEY=system-generic-key\n");
+    cfg.merge_from_env();
+
+    assert_eq!(cfg.gemini_api_key.as_deref(), Some("my-isolated-cccp-key"));
+    assert_eq!(
+        resolve_gemini_api_key(&cfg).as_deref(),
+        Some("my-isolated-cccp-key")
+    );
+}
+
+

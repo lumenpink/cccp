@@ -1,7 +1,59 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-31 14:41:22 UTC
+> Synced at: 2026-10-31 14:49:29 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
+## [#113] fix(ui): substituir ampulheta por caractere de largura 1 no repo top
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/113
+
+### Description
+## Description
+No `cccp repo top`, o uso do caractere/emoji de ampulheta (hourglass) causa quebra e desalinhamento das colunas da tabela em diversos terminais devido à contagem de colunas/caracteres de largura dupla (wide chars / wcwidth).
+
+## Expected Behavior & Acceptance Criteria
+- [ ] Substituir o emoji de ampulheta por um símbolo ASCII padrão ou caractere monospaçado de largura 1 coluna fixa.
+- [ ] Garantir que o alinhamento tabular e o cálculo de padding vertical/horizontal permaneçam consistentes em diferentes emuladores de terminal.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
+## [#112] feat(cli): atualizar repos em segundo plano no repo top com status de convergencia
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/112
+
+### Description
+## Description
+Atualmente, a visualização do `cccp repo top` pode exibir informações defasadas em relação ao estado remoto dos repositórios (por exemplo, indicando commits pendentes de push que já foram enviados). É necessário que o comando execute verificações e atualizações periódicas em segundo plano, consultando a API da forja e o estado remoto, e apresente no cabeçalho um spinner discreto indicando atividade de rede/background, bem como um indicador visual quando tudo estiver sincronizado/convergente.
+
+## Expected Behavior & Acceptance Criteria
+- [ ] `cccp repo top` dispara checagem/sincronização de status em segundo plano sem travar a navegação interativa da TUI.
+- [ ] Cabeçalho exibe spinner discreto durante operações ativas de I/O / API da forja / git fetch.
+- [ ] Cabeçalho exibe indicador visual de convergência quando todos os repositórios monitorados estiverem atualizados.
+- [ ] O status de commits pendentes de push reflete o estado remoto real após sincronização.
+
+## Tasks / DD-TDD Checklist (9 Fases GOST)
+- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
+- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
+- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
+- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
+- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
+- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
+- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
+- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
+- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
+
+---
 ## [#111] fix(cli): retornar a edicao apos falha no envio ao gemini ou criacao na forja no divan
 - **Status**: `open`
 - **Labels**: none
@@ -79,25 +131,5 @@ Atualmente, ao executar `cccp ticket divan` fora de um repositório Git ou tenta
 - [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
 - [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
 - [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#108] fix(ai): respeitar precedencia de CCCP_GEMINI_API_KEY no parsing de arquivos de configuracao
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/108
-
-### Description
-### Descrição do Problema
-O assistente de triagem (`cccp ticket divan`) falha com HTTP 401 ao comunicar com a API do Google Gemini quando `GEMINI_API_KEY` está desativada no ambiente/dotfile, mesmo havendo uma chave ativa definida em `CCCP_GEMINI_API_KEY` ou `CCCP_GEMINI_TOKEN` no `~/.env` ou `.cccprc`.
-
-### Causa Raiz
-1. Em `src/config.rs` (`set_key_value`), apenas `gemini_api_key` é mapeada explicitamente ao ler arquivos de configuração (`.env`, `~/.env`, `.cccprc`). Variantes como `cccp_gemini_api_key` e `cccp_gemini_token` caem em `self.extra`.
-2. Em `src/ai.rs` (`resolve_gemini_api_key`), `config.gemini_api_key` é priorizada antes de avaliar chaves específicas do CCCP presentes em `config.extra`.
-3. Em `merge_from_env()`, a função `resolve_gemini_env_key()` consulta apenas variáveis exportadas no processo (`std::env::var`), ignorando a precedência normativa de chaves CCCP quando declaradas em arquivos `.env`.
-
-### Critérios de Aceitação
-- Chaves `CCCP_GEMINI_TOKEN` e `CCCP_GEMINI_API_KEY` declaradas em arquivos de configuração (`.cccprc`, `.env`, `~/.env`) devem ter precedência estrita sobre `GEMINI_API_KEY` e `GOOGLE_API_KEY`.
-- `set_key_value()` e `resolve_gemini_api_key()` devem honrar a ordem normativa do Ticket #79 independentemente da fonte (ambiente de processo ou arquivo de configuração).
-- Testes unitários cobrindo cenários com arquivos `.env` e `.cccprc` contendo `CCCP_GEMINI_API_KEY` concorrendo com `GEMINI_API_KEY`.
 
 ---

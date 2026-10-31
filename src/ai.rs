@@ -85,6 +85,25 @@ pub const GEMINI_ENV_KEYS: &[&str] = &[
     "google_api_key",
 ];
 
+/// CCCP-specific Gemini credentials that isolate quotas from generic system environment variables
+pub const CCCP_GEMINI_ENV_KEYS: &[&str] = &[
+    "CCCP_GEMINI_TOKEN",
+    "CCCP_GEMINI_API_KEY",
+];
+
+/// Helper to read CCCP-specific Gemini API key directly from environment
+pub fn resolve_cccp_gemini_env_key() -> Option<String> {
+    for &k in CCCP_GEMINI_ENV_KEYS {
+        if let Ok(v) = std::env::var(k) {
+            let trimmed = v.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// Helper to read Gemini API key directly from environment according to canonical precedence
 pub fn resolve_gemini_env_key() -> Option<String> {
     for &k in GEMINI_ENV_KEYS {
@@ -98,19 +117,33 @@ pub fn resolve_gemini_env_key() -> Option<String> {
     None
 }
 
-/// Resolves Gemini API key with strict precedence:
-/// 1. config.gemini_api_key or config.extra["gemini_api_key"]
-/// 2. CCCP_GEMINI_TOKEN / CCCP_GEMINI_API_KEY
-/// 3. GEMINI_TOKEN / GEMINI_API_KEY / gemini_api_key
-/// 4. GOOGLE_API_KEY / google_api_key
+/// Resolves Gemini API key from configuration hierarchy and environment fallback
 pub fn resolve_gemini_api_key(config: &Config) -> Option<String> {
     config
         .gemini_api_key
-        .clone()
-        .or_else(|| config.extra.get("gemini_api_key").cloned())
-        .or_else(resolve_gemini_env_key)
+        .as_deref()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
+        .or_else(|| {
+            // Check extra if config.gemini_api_key was not populated
+            const CANDIDATES: &[&str] = &[
+                "cccp_gemini_token",
+                "cccp_gemini_api_key",
+                "gemini_token",
+                "gemini_api_key",
+                "google_api_key",
+            ];
+            for &k in CANDIDATES {
+                if let Some(v) = config.extra.get(k) {
+                    let trimmed = v.trim();
+                    if !trimmed.is_empty() {
+                        return Some(trimmed.to_string());
+                    }
+                }
+            }
+            None
+        })
+        .or_else(resolve_gemini_env_key)
 }
 
 impl AiClient {
