@@ -534,3 +534,38 @@ fn test_mutation_fail_or_pending_filter_mixed() {
     assert_eq!(res.len(), 1);
     assert_eq!(res[0].name, "mixed");
 }
+
+#[test]
+fn test_render_top_view_displays_syncing_spinner_and_convergence_badge() {
+    let theme = Theme::with_color(false);
+    let mut state = RepoTopState::new(10);
+    let items = vec![make_sample_repo("omega", "org/omega", vec![])];
+
+    // 1. Initial idle state (not syncing, not converged)
+    assert!(!state.is_syncing);
+    assert!(!state.has_converged);
+    let initial_view = render_top_view(&items, &state, &theme, 80, 24);
+    assert!(!initial_view.contains("sincronizando"));
+    assert!(!initial_view.contains("convergente"));
+
+    // 2. Active syncing state with spinner
+    state.is_syncing = true;
+    state.spinner_frame = 2;
+    let syncing_view = render_top_view(&items, &state, &theme, 80, 24);
+    assert!(
+        syncing_view.contains("sincronizando"),
+        "Header must display syncing indicator while is_syncing is true. View:\n{}",
+        syncing_view
+    );
+
+    // 3. Converged state when syncing completes
+    state.is_syncing = false;
+    state.has_converged = true;
+    let converged_view = render_top_view(&items, &state, &theme, 80, 24);
+    assert!(
+        converged_view.contains("convergente"),
+        "Header must display convergence badge when has_converged is true. View:\n{}",
+        converged_view
+    );
+    assert!(!converged_view.contains("sincronizando"));
+}
