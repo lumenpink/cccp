@@ -347,7 +347,9 @@ pub fn parse_tea_token_from_yaml(yaml: &str, target_host_or_name: &str) -> Optio
     for line in yaml.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("- name:") || trimmed.starts_with("name:") {
-            if check_match(&current_name, &current_url, &current_ssh_host) && !current_token.is_empty() {
+            if check_match(&current_name, &current_url, &current_ssh_host)
+                && !current_token.is_empty()
+            {
                 return Some(current_token);
             }
             if let Some(pos) = trimmed.find(':') {

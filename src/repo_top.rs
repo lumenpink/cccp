@@ -61,13 +61,8 @@ impl FromStr for CiTopFilter {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().trim() {
             "all" | "todos" => Ok(CiTopFilter::All),
-            "fail+pending"
-            | "pending+fail"
-            | "fail-pending"
-            | "issues"
-            | "alertas"
-            | "falha+pendente"
-            | "pendente+falha" => Ok(CiTopFilter::FailOrPending),
+            "fail+pending" | "pending+fail" | "fail-pending" | "issues" | "alertas"
+            | "falha+pendente" | "pendente+falha" => Ok(CiTopFilter::FailOrPending),
             "ok" | "pass" | "success" => Ok(CiTopFilter::Ok),
             "fail" | "failure" | "falha" | "error" => Ok(CiTopFilter::Failure),
             "queued" | "queue" | "fila" | "running" | "pending" => Ok(CiTopFilter::Queued),
@@ -536,40 +531,42 @@ pub fn run_repo_top(
 
     let (tx, rx) = std::sync::mpsc::channel::<(String, Vec<CiPipelineStatus>)>();
 
-    let trigger_live_ci_sync = |entries: &[crate::catalog::CatalogEntry],
-                                sender: std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
-        let targets: Vec<(String, crate::forges::RepoForgeInfo)> = entries
-            .iter()
-            .map(|e| (e.slug.clone(), e.to_forge_info()))
-            .filter(|(_, info)| !info.owner.is_empty() && !info.repo.is_empty())
-            .collect();
+    let trigger_live_ci_sync =
+        |entries: &[crate::catalog::CatalogEntry],
+         sender: std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
+            let targets: Vec<(String, crate::forges::RepoForgeInfo)> = entries
+                .iter()
+                .map(|e| (e.slug.clone(), e.to_forge_info()))
+                .filter(|(_, info)| !info.owner.is_empty() && !info.repo.is_empty())
+                .collect();
 
-        std::thread::spawn(move || {
-            let client = crate::forges::ForgeClient::new();
-            for (slug, info) in targets {
-                if let Ok(ci) = client.fetch_ci_status(&info, Some("main")) {
-                    if !ci.is_empty() {
-                        let _ = sender.send((slug, ci));
+            std::thread::spawn(move || {
+                let client = crate::forges::ForgeClient::new();
+                for (slug, info) in targets {
+                    if let Ok(ci) = client.fetch_ci_status(&info, Some("main")) {
+                        if !ci.is_empty() {
+                            let _ = sender.send((slug, ci));
+                        }
                     }
                 }
-            }
-        });
-    };
+            });
+        };
 
     // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
-    let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>,
-                        sender: &std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
-        let cat = crate::catalog::load_catalog(None, catalog_path);
-        *summaries = crate::catalog::summarize_catalog(&cat);
-        let hosts = crate::forges::discover_forgejo_hosts(&cat);
-        let client = crate::forges::ForgeClient::new();
-        for host in hosts {
-            if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
-                crate::forges::merge_live_runner_jobs(summaries, &jobs);
+    let refresh_data =
+        |summaries: &mut Vec<CatalogRepoSummary>,
+         sender: &std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
+            let cat = crate::catalog::load_catalog(None, catalog_path);
+            *summaries = crate::catalog::summarize_catalog(&cat);
+            let hosts = crate::forges::discover_forgejo_hosts(&cat);
+            let client = crate::forges::ForgeClient::new();
+            for host in hosts {
+                if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
+                    crate::forges::merge_live_runner_jobs(summaries, &jobs);
+                }
             }
-        }
-        trigger_live_ci_sync(&cat, sender.clone());
-    };
+            trigger_live_ci_sync(&cat, sender.clone());
+        };
 
     // Load initial catalog with live CI runner jobs
     let mut raw_summaries = Vec::new();

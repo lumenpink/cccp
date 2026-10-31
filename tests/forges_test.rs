@@ -410,5 +410,8 @@ logins:
 "#;
     let tok_quoted = cccp::forges::parse_tea_token_from_yaml(yaml_edge, "quoted.example.org");
     assert_eq!(tok_quoted.as_deref(), Some("secret_quoted_token"));
-    assert_eq!(cccp::forges::parse_tea_token_from_yaml("", "anything"), None);
+    assert_eq!(
+        cccp::forges::parse_tea_token_from_yaml("", "anything"),
+        None
+    );
 }
