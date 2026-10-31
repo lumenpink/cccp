@@ -9,7 +9,7 @@ use crossterm::terminal::{
 };
 use std::fmt;
 use std::io::{stdout, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
@@ -132,6 +132,23 @@ pub enum RepoTopAction {
     Quit,
 }
 
+/// Frames for the discrete TUI background spinner
+pub const TOP_SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Messages dispatched by the background worker thread in repo top
+#[derive(Debug, Clone)]
+pub enum TopBackgroundMsg {
+    SyncStarted,
+    RepoUpdate {
+        slug: String,
+        ci_status: Option<Vec<CiPipelineStatus>>,
+        status_label: Option<String>,
+        unpushed: Option<usize>,
+        is_clean: Option<bool>,
+    },
+    SyncCompleted,
+}
+
 /// State of the interactive CI top monitor
 #[derive(Debug, Clone)]
 pub struct RepoTopState {
@@ -141,6 +158,9 @@ pub struct RepoTopState {
     pub scroll_offset: usize,
     pub show_help: bool,
     pub interval_secs: u64,
+    pub is_syncing: bool,
+    pub has_converged: bool,
+    pub spinner_frame: usize,
 }
 
 impl RepoTopState {
@@ -152,6 +172,9 @@ impl RepoTopState {
             scroll_offset: 0,
             show_help: false,
             interval_secs: interval_secs.max(1),
+            is_syncing: false,
+            has_converged: false,
+            spinner_frame: 0,
         }
     }
 
@@ -383,13 +406,33 @@ pub fn render_top_view(
     let sort_badge = format!("[Ordem: {}]", state.sort);
     let total_badge = format!("Total: {}", repos.len());
 
-    let header_line = format!(
-        "{} {} {} {}",
-        theme.gold_bold(&header_title),
-        theme.cyan(&filter_badge),
-        theme.dim(&sort_badge),
-        theme.bold(&total_badge)
-    );
+    let sync_badge = if state.is_syncing {
+        let frame = TOP_SPINNER_FRAMES[state.spinner_frame % TOP_SPINNER_FRAMES.len()];
+        theme.cyan(&format!("{} sincronizando", frame))
+    } else if state.has_converged {
+        theme.green("✓ convergente")
+    } else {
+        String::new()
+    };
+
+    let header_line = if sync_badge.is_empty() {
+        format!(
+            "{} {} {} {}",
+            theme.gold_bold(&header_title),
+            theme.cyan(&filter_badge),
+            theme.dim(&sort_badge),
+            theme.bold(&total_badge)
+        )
+    } else {
+        format!(
+            "{} {} {} {} {}",
+            theme.gold_bold(&header_title),
+            theme.cyan(&filter_badge),
+            theme.dim(&sort_badge),
+            theme.bold(&total_badge),
+            sync_badge
+        )
+    };
     out.push_str(&header_line);
     out.push_str("\x1b[K\r\n");
 
@@ -529,33 +572,84 @@ pub fn run_repo_top(
         state.sort = s;
     }
 
-    let (tx, rx) = std::sync::mpsc::channel::<(String, Vec<CiPipelineStatus>)>();
+    let (tx, rx) = std::sync::mpsc::channel::<TopBackgroundMsg>();
 
-    let trigger_live_ci_sync =
+    let trigger_background_sync =
         |entries: &[crate::catalog::CatalogEntry],
-         sender: std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
-            let targets: Vec<(String, crate::forges::RepoForgeInfo)> = entries
+         sender: std::sync::mpsc::Sender<TopBackgroundMsg>| {
+            let targets: Vec<(String, crate::forges::RepoForgeInfo, Option<PathBuf>)> = entries
                 .iter()
-                .map(|e| (e.slug.clone(), e.to_forge_info()))
-                .filter(|(_, info)| !info.owner.is_empty() && !info.repo.is_empty())
+                .map(|e| {
+                    (
+                        e.slug.clone(),
+                        e.to_forge_info(),
+                        crate::catalog::find_local_repo_path(e),
+                    )
+                })
                 .collect();
 
             std::thread::spawn(move || {
+                let _ = sender.send(TopBackgroundMsg::SyncStarted);
                 let client = crate::forges::ForgeClient::new();
-                for (slug, info) in targets {
-                    if let Ok(ci) = client.fetch_ci_status(&info, Some("main")) {
-                        if !ci.is_empty() {
-                            let _ = sender.send((slug, ci));
+                for (slug, info, local_path) in targets {
+                    let mut status_label = None;
+                    let mut unpushed = None;
+                    let mut is_clean = None;
+
+                    if let Some(ref path) = local_path {
+                        // Refresh git remote tracking references silently
+                        let _ = std::process::Command::new("git")
+                            .args(["fetch", "--quiet"])
+                            .current_dir(path)
+                            .output();
+
+                        if let Some(st) = crate::git::inspect_local_status(path) {
+                            let label = match (st.is_clean, st.ahead, st.modified_files) {
+                                (true, 0, _) => "clean".to_string(),
+                                (true, n, _) => format!("clean [↑{}]", n),
+                                (false, 0, m) => {
+                                    if m > 0 {
+                                        format!("dirty [{}*]", m)
+                                    } else {
+                                        "dirty".to_string()
+                                    }
+                                }
+                                (false, n, m) => {
+                                    if m > 0 {
+                                        format!("dirty [{}* ↑{}]", m, n)
+                                    } else {
+                                        format!("dirty [↑{}]", n)
+                                    }
+                                }
+                            };
+                            status_label = Some(label);
+                            unpushed = Some(st.ahead);
+                            is_clean = Some(st.is_clean);
                         }
                     }
+
+                    let ci_status = if !info.owner.is_empty() && !info.repo.is_empty() {
+                        client.fetch_ci_status(&info, Some("main")).ok()
+                    } else {
+                        None
+                    };
+
+                    let _ = sender.send(TopBackgroundMsg::RepoUpdate {
+                        slug,
+                        ci_status,
+                        status_label,
+                        unpushed,
+                        is_clean,
+                    });
                 }
+                let _ = sender.send(TopBackgroundMsg::SyncCompleted);
             });
         };
 
     // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
     let refresh_data =
         |summaries: &mut Vec<CatalogRepoSummary>,
-         sender: &std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
+         sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
             let cat = crate::catalog::load_catalog(None, catalog_path);
             *summaries = crate::catalog::summarize_catalog(&cat);
             let hosts = crate::forges::discover_forgejo_hosts(&cat);
@@ -565,11 +659,12 @@ pub fn run_repo_top(
                     crate::forges::merge_live_runner_jobs(summaries, &jobs);
                 }
             }
-            trigger_live_ci_sync(&cat, sender.clone());
+            trigger_background_sync(&cat, sender.clone());
         };
 
     // Load initial catalog with live CI runner jobs
     let mut raw_summaries = Vec::new();
+    state.is_syncing = true;
     refresh_data(&mut raw_summaries, &tx);
 
     // Enter Alternate Screen and enable raw mode
@@ -581,27 +676,57 @@ pub fn run_repo_top(
     let interval = Duration::from_secs(state.interval_secs);
 
     loop {
-        // Drain any incoming live CI status updates from forge API
-        while let Ok((slug, new_ci)) = rx.try_recv() {
-            for r in raw_summaries.iter_mut() {
-                if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug) {
-                    let active_runners: Vec<_> = r
-                        .ci_status
-                        .iter()
-                        .filter(|p| {
-                            let st = p.status.to_ascii_lowercase();
-                            st == "running" || st == "waiting" || st == "pending"
-                        })
-                        .cloned()
-                        .collect();
+        // Drain any incoming background sync and live CI status updates
+        while let Ok(msg) = rx.try_recv() {
+            match msg {
+                TopBackgroundMsg::SyncStarted => {
+                    state.is_syncing = true;
+                }
+                TopBackgroundMsg::RepoUpdate {
+                    slug,
+                    ci_status,
+                    status_label,
+                    unpushed,
+                    is_clean,
+                } => {
+                    for r in raw_summaries.iter_mut() {
+                        if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug) {
+                            if let Some(new_ci) = ci_status {
+                                if !new_ci.is_empty() {
+                                    let active_runners: Vec<_> = r
+                                        .ci_status
+                                        .iter()
+                                        .filter(|p| {
+                                            let st = p.status.to_ascii_lowercase();
+                                            st == "running" || st == "waiting" || st == "pending"
+                                        })
+                                        .cloned()
+                                        .collect();
 
-                    r.ci_status = new_ci.clone();
-                    for ar in active_runners {
-                        if !r.ci_status.iter().any(|p| p.name == ar.name) {
-                            r.ci_status.insert(0, ar);
+                                    r.ci_status = new_ci;
+                                    for ar in active_runners {
+                                        if !r.ci_status.iter().any(|p| p.name == ar.name) {
+                                            r.ci_status.insert(0, ar);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(lbl) = status_label {
+                                r.status_label = lbl;
+                            }
+                            if let Some(unp) = unpushed {
+                                r.unpushed = unp;
+                            }
+                            if let Some(cln) = is_clean {
+                                r.is_clean = Some(cln);
+                            }
+                            break;
                         }
                     }
-                    break;
+                }
+                TopBackgroundMsg::SyncCompleted => {
+                    state.is_syncing = false;
+                    state.has_converged = true;
                 }
             }
         }
@@ -633,9 +758,16 @@ pub fn run_repo_top(
         let _ = write!(stdout_handle, "{}", frame);
         let _ = stdout_handle.flush();
 
-        // Calculate remaining timeout
+        // Advance spinner animation while background sync is active
+        if state.is_syncing {
+            state.spinner_frame = state.spinner_frame.wrapping_add(1);
+        }
+
+        // Calculate remaining timeout: 100ms smooth animation while syncing, or interval-based
         let elapsed = last_refresh.elapsed();
-        let timeout = if elapsed >= interval {
+        let timeout = if state.is_syncing {
+            Duration::from_millis(100)
+        } else if elapsed >= interval {
             Duration::from_millis(10)
         } else {
             interval - elapsed
@@ -689,6 +821,8 @@ pub fn run_repo_top(
                         break;
                     }
                     if act == RepoTopAction::Refresh {
+                        state.is_syncing = true;
+                        state.has_converged = false;
                         refresh_data(&mut raw_summaries, &tx);
                         last_refresh = Instant::now();
                     } else {
@@ -700,6 +834,8 @@ pub fn run_repo_top(
 
         // Auto refresh tick
         if last_refresh.elapsed() >= interval {
+            state.is_syncing = true;
+            state.has_converged = false;
             refresh_data(&mut raw_summaries, &tx);
             last_refresh = Instant::now();
         }
