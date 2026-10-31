@@ -72,8 +72,8 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
     let config_path = manifest_dir.join(".cargo/config.toml");
     let config = fs::read_to_string(&config_path).expect(".cargo/config.toml must exist");
     assert!(
-        config.contains("CC_x86_64_unknown_linux_musl = \"musl-gcc\""),
-        ".cargo/config.toml must configure CC_x86_64_unknown_linux_musl as musl-gcc"
+        !config.contains("CC_x86_64_unknown_linux_musl = \"musl-gcc\""),
+        ".cargo/config.toml must not configure CC_x86_64_unknown_linux_musl as musl-gcc"
     );
     assert!(
         config.contains("OPENSSL_STATIC = \"1\""),
@@ -94,6 +94,14 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
     assert!(
         workflow.contains("link-arg=-static"),
         "ci.yml must compile musl binaries with link-arg=-static"
+    );
+    assert!(
+        workflow.contains("cargo build --release --target x86_64-unknown-linux-musl -p cccp"),
+        "ci.yml must compile x86_64-unknown-linux-musl using standard cargo build"
+    );
+    assert!(
+        workflow.contains("target/x86_64-unknown-linux-musl/release/cccp --version"),
+        "ci.yml must execute cccp --version smoke test on compiled musl binary"
     );
     assert!(
         workflow.contains("readelf -l") && workflow.contains("program interpreter"),
