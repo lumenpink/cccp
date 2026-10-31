@@ -122,6 +122,40 @@ fn test_editor_soft_wrap_visual_lines_computation() {
 }
 
 #[test]
+fn test_editor_soft_wrap_word_boundaries() {
+    let content = "hello world from gosplan";
+    let mut editor = Editor::new("Test Word Wrap", content);
+    editor.screen_cols = 10;
+    editor.soft_wrap = true;
+
+    let vlines = editor.compute_visual_lines();
+    // With character slicing, line 0 was "hello worl" (cutting 'world' into 'worl' and 'd').
+    // With word wrap, line 0 must keep 'world' intact on line 1:
+    let line0_text: String = editor.rows[0]
+        .chars()
+        .skip(vlines[0].char_start)
+        .take(vlines[0].char_len)
+        .collect();
+    assert_eq!(line0_text.trim_end(), "hello");
+    assert!(
+        !line0_text.contains("worl"),
+        "Line 0 should not cut word: got '{}'",
+        line0_text
+    );
+
+    let line1_text: String = editor.rows[0]
+        .chars()
+        .skip(vlines[1].char_start)
+        .take(vlines[1].char_len)
+        .collect();
+    assert!(
+        line1_text.starts_with("world"),
+        "Line 1 should start with whole word 'world': got '{}'",
+        line1_text
+    );
+}
+
+#[test]
 fn test_editor_soft_wrap_cursor_mapping_and_navigation() {
     let content = "0123456789ABCDEFGHIJ01234\nSecond";
     let mut editor = Editor::new("Test Nav", content);
