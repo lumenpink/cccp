@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Support for Remote Repo Option and Positional Arguments in Ticket Divan
+- **Desacoplamento de Git Local no Divan (`src/main.rs`, `tests/ticket_divan_remote_test.rs`)**:
+  - **Execução Fora de Repositório Git**: Permite que o comando `cccp ticket divan` aceite a opção `-r` / `--repo <owner/repo>` ou argumento posicional indicando o repositório de destino sem exigir que o diretório atual de execução seja um repositório Git local.
+  - **Validação Antecipada de Alvo**: Diante de execução fora de um repositório Git sem a especificação de um repositório alvo (nem por flags, nem por argumentos posicionais ou seleção de catálogo), emite mensagem de erro clara orientando o operador a utilizar `--repo <owner/repo>`. (closes #109)
+
+
 ### Word-Wrap Support in Integrated Text Editor
 - **Quebra de Linha por Limites de Palavras no Editor (`src/editor.rs`, `tests/editor_test.rs`)**:
   - **Eliminação de Truncamento Abrupto de Palavras**: Substitui a quebra puramente por caracteres no modo `soft_wrap` por detecção de limites de palavras (word-wrap), preservando termos inteiros na linha subsequente e melhorando a legibilidade na edição de tickets e mensagens de commit.
