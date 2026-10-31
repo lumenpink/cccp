@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Background Repository Sync and Convergence Status in repo top
+- **Sincronização em Segundo Plano e Indicador de Convergência (`src/repo_top.rs`, `tests/repo_top_test.rs`)**:
+  - **Thread Não-Bloqueante de I/O Remoto**: Dispara a sincronização de referências de tracking git e consulta periódica à API da forja em segundo plano via `mpsc`, mantendo a TUI responsiva a comandos e navegação interativa sem travamentos.
+  - **Spinner e Badge de Convergência no Cabeçalho**: Exibe um spinner discreto animado durante checagens ativas de I/O e um indicador visual de convergência (`✓ convergente`) quando todos os repositórios monitorados estiverem com o estado atualizado. (closes #112)
+
+
 ### Support for Remote Repo Option and Positional Arguments in Ticket Divan
 - **Desacoplamento de Git Local no Divan (`src/main.rs`, `tests/ticket_divan_remote_test.rs`)**:
   - **Execução Fora de Repositório Git**: Permite que o comando `cccp ticket divan` aceite a opção `-r` / `--repo <owner/repo>` ou argumento posicional indicando o repositório de destino sem exigir que o diretório atual de execução seja um repositório Git local.
