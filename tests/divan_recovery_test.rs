@@ -90,25 +90,19 @@ fn test_mutation_divan_recovery_case_insensitivity_and_inline_hashes() {
         parse_forge_failure_action('R'),
         DivanRecoveryAction::ReopenInEditor
     );
-    assert_eq!(
-        parse_forge_failure_action('S'),
-        DivanRecoveryAction::Skip
-    );
-    assert_eq!(
-        parse_forge_failure_action('Q'),
-        DivanRecoveryAction::Quit
-    );
+    assert_eq!(parse_forge_failure_action('S'), DivanRecoveryAction::Skip);
+    assert_eq!(parse_forge_failure_action('Q'), DivanRecoveryAction::Quit);
 
     // Mutation 2: Empty or whitespace previous prompt does not pollute template
     let empty_template = format_divan_prompt_template("repo", Some("   \n\t  "));
     assert_eq!(empty_template, format_divan_prompt_template("repo", None));
 
     // Mutation 3: Hash character in the middle of a line (e.g. ticket #42) must NOT be stripped
-    let text_with_issue_hash = "Fix error in issue #42 and ticket #99\n# Comment to ignore\nAnother line";
+    let text_with_issue_hash =
+        "Fix error in issue #42 and ticket #99\n# Comment to ignore\nAnother line";
     let extracted = extract_prompt_from_buffer(text_with_issue_hash);
     assert_eq!(
         extracted,
         "Fix error in issue #42 and ticket #99\nAnother line"
     );
 }
-
