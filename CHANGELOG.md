@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Native Musl AMD64 Compilation Without musl-gcc and zigbuild
+- **Compilação Estática Nativa para x86_64-unknown-linux-musl (`.cargo/config.toml`, `.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
+  - **Eliminação de Conflito de CRT**: Remove `CC_x86_64_unknown_linux_musl = "musl-gcc"` de `.cargo/config.toml` e substitui o uso de `cargo zigbuild` por `cargo build` padrão nativo para AMD64 Linux, prevenindo duplicação de inicialização de CRT e falhas de segmentação (SIGSEGV código 139).
+  - **Validação de Fumaça em CI**: Adiciona execução determinística de `cccp --version` no executável gerado antes do empacotamento e publicação nos pacotes genéricos do Forgejo. (closes #107)
+
 ### Static Musl Compilation Without Dynamic Interpreter
 - **Compilação Estática Pura para Alvos Musl (`.cargo/config.toml`, `.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
   - **Injeção de `link-arg=-static`**: Configura `-C link-arg=-static` em conjunto com `-C target-feature=+crt-static` para alvos `x86_64-unknown-linux-musl` e `aarch64-unknown-linux-musl`, eliminando o cabeçalho dinâmico `INTERP` gerado por `cargo zigbuild`.
