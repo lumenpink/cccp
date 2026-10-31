@@ -184,4 +184,37 @@ fn test_config_merging_preserves_specific_key_against_generic_env() {
     );
 }
 
+#[test]
+fn test_mutation_config_parsing_whitespace_and_format_variants() {
+    let _guard = EnvGuard::new();
+
+    // Mutation 1: Whitespace in CCCP_GEMINI_API_KEY must fall back to GEMINI_API_KEY
+    let mut cfg1 = Config::default();
+    cfg1.merge_from_str("CCCP_GEMINI_API_KEY=   \nGEMINI_API_KEY=fallback-key\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg1).as_deref(),
+        Some("fallback-key"),
+        "Whitespace in specific key must fallback to generic key"
+    );
+
+    // Mutation 2: Hyphenated and mixed-case keys (cccp-gemini-token)
+    let mut cfg2 = Config::default();
+    cfg2.merge_from_str("cccp-gemini-token = my-hyphen-token\ngemini-api-key = other\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg2).as_deref(),
+        Some("my-hyphen-token"),
+        "Hyphenated keys must be normalized and prioritized"
+    );
+
+    // Mutation 3: Export prefix in .env file
+    let mut cfg3 = Config::default();
+    cfg3.merge_from_str("export CCCP_GEMINI_API_KEY=\"quoted-token\"\n");
+    assert_eq!(
+        resolve_gemini_api_key(&cfg3).as_deref(),
+        Some("quoted-token"),
+        "Export prefix and quotes must be stripped cleanly"
+    );
+}
+
+
 
