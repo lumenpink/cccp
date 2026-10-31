@@ -647,20 +647,19 @@ pub fn run_repo_top(
         };
 
     // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
-    let refresh_data =
-        |summaries: &mut Vec<CatalogRepoSummary>,
-         sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
-            let cat = crate::catalog::load_catalog(None, catalog_path);
-            *summaries = crate::catalog::summarize_catalog(&cat);
-            let hosts = crate::forges::discover_forgejo_hosts(&cat);
-            let client = crate::forges::ForgeClient::new();
-            for host in hosts {
-                if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
-                    crate::forges::merge_live_runner_jobs(summaries, &jobs);
-                }
+    let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>,
+                        sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
+        let cat = crate::catalog::load_catalog(None, catalog_path);
+        *summaries = crate::catalog::summarize_catalog(&cat);
+        let hosts = crate::forges::discover_forgejo_hosts(&cat);
+        let client = crate::forges::ForgeClient::new();
+        for host in hosts {
+            if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
+                crate::forges::merge_live_runner_jobs(summaries, &jobs);
             }
-            trigger_background_sync(&cat, sender.clone());
-        };
+        }
+        trigger_background_sync(&cat, sender.clone());
+    };
 
     // Load initial catalog with live CI runner jobs
     let mut raw_summaries = Vec::new();
@@ -690,7 +689,8 @@ pub fn run_repo_top(
                     is_clean,
                 } => {
                     for r in raw_summaries.iter_mut() {
-                        if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug) {
+                        if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug)
+                        {
                             if let Some(new_ci) = ci_status {
                                 if !new_ci.is_empty() {
                                     let active_runners: Vec<_> = r
