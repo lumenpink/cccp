@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Word-Wrap Support in Integrated Text Editor
+- **Quebra de Linha por Limites de Palavras no Editor (`src/editor.rs`, `tests/editor_test.rs`)**:
+  - **Eliminação de Truncamento Abrupto de Palavras**: Substitui a quebra puramente por caracteres no modo `soft_wrap` por detecção de limites de palavras (word-wrap), preservando termos inteiros na linha subsequente e melhorando a legibilidade na edição de tickets e mensagens de commit.
+  - **Tratamento Gracioso de Palavras Longas**: Palavras que excedem sozinhas a largura total da tela (`cols`) continuam sofrendo quebra particionada segura sem travamentos ou ciclos infinitos. (closes #110)
+
+
 ### Single-Width Monospace Symbol for Pending CI in repo top
 - **Substituição da Ampulheta por Caractere de Largura 1 (`src/catalog.rs`, `tests/catalog_ci_ui_test.rs`)**:
   - **Eliminação de Desalinhamento Tabular**: Substitui o emoji de ampulheta `⏳` (de largura visual dupla em terminais modernos) pelo caractere ASCII padrão `~`, garantindo que o status `~ pending` ocupe exatamente 9 colunas e previna o deslocamento indesejado de colunas subsequentes no `cccp repo top` e bordas verticais no `cccp catalog list`.
