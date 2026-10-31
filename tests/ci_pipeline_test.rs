@@ -194,7 +194,8 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
     );
 
     // Mutation 7: workflow missing smoke test cccp --version must be rejected
-    let mutated_workflow_no_smoke = "cargo build --release --target x86_64-unknown-linux-musl\necho done";
+    let mutated_workflow_no_smoke =
+        "cargo build --release --target x86_64-unknown-linux-musl\necho done";
     assert!(
         !mutated_workflow_no_smoke.contains("cccp --version"),
         "Mutation without smoke test must be detected"
@@ -203,7 +204,8 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
     // Mutation 8: workflow using cargo zigbuild for AMD64 musl must be rejected
     let mutated_workflow_zig_musl = "cargo zigbuild --release --target x86_64-unknown-linux-musl";
     assert!(
-        mutated_workflow_zig_musl.contains("cargo zigbuild --release --target x86_64-unknown-linux-musl"),
+        mutated_workflow_zig_musl
+            .contains("cargo zigbuild --release --target x86_64-unknown-linux-musl"),
         "Mutation using zigbuild for musl amd64 must be detectable"
     );
 }
