@@ -377,3 +377,26 @@ fn test_close_issue_missing_token_returns_error() {
     let err_msg = result.unwrap_err();
     assert!(err_msg.contains("No authentication token found"));
 }
+
+#[test]
+fn test_resolve_token_from_tea_config_yaml() {
+    let sample_yaml = r#"
+logins:
+    - name: codeberg
+      url: https://codeberg.org
+      token: token_cb_123
+      ssh_host: codeberg.org
+    - name: gambi
+      url: https://gambi.2lp.in
+      token: token_gambi_456
+      ssh_host: gambi.2lp.in
+"#;
+    let tok = cccp::forges::parse_tea_token_from_yaml(sample_yaml, "gambi.2lp.in");
+    assert_eq!(tok.as_deref(), Some("token_gambi_456"));
+
+    let tok_name = cccp::forges::parse_tea_token_from_yaml(sample_yaml, "codeberg");
+    assert_eq!(tok_name.as_deref(), Some("token_cb_123"));
+
+    let tok_missing = cccp::forges::parse_tea_token_from_yaml(sample_yaml, "nonexistent.host");
+    assert_eq!(tok_missing, None);
+}

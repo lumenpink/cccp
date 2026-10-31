@@ -1,19 +1,16 @@
 # Active Tickets - cccp
-> Synced at: 2026-10-30 22:38:47 UTC
+> Synced at: 2026-10-31 00:18:48 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#104] fix(top): aplicar carriage return crlf e limpeza de linha no modo raw
+## [#105] fix(top): sincronizacao live da forja, filtro fail+pending e ordenacao por fila
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/104
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/105
 
 ### Description
 ### Descrição
-No modo raw do terminal (enable_raw_mode), o caractere \n (Line Feed) apenas desce o cursor verticalmente sem efetuar o retorno de carro (Carriage Return) para a coluna 0, provocando o efeito escada (staircase effect) em que cada linha começa onde a anterior terminou.
-
-### Requisitos
-1. Padronizar todas as quebras de linha em render_top_view para \r\n.
-2. Adicionar escape ANSI de limpeza de linha (\x1b[K) para evitar resíduos visuais.
-3. Testes unitários comprovando que render_top_view produz quebras \r\n válidas para modo raw.
+1. O 'cccp repo top' não atualizava automaticamente a partir da API da forja nem resolvia token via config do tea, mantendo status estático em vez de refletir o status real dos repositórios (como kokorosim e lumenlohn).
+2. Adicionar suporte ao filtro conjunto de falha e pendente ('fail+pending').
+3. Definir ordenação padrão para pending/fail/pass e priorizar por ordem de chegada na fila do runner.
 
 ---

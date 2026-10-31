@@ -70,6 +70,13 @@ fn test_ci_top_filters() {
     let res_all = apply_top_filters_and_sorting(&list, CiTopFilter::All, CiTopSort::ProcessOrder);
     assert_eq!(res_all.len(), 4);
 
+    // FailOrPending
+    let res_fop =
+        apply_top_filters_and_sorting(&list, CiTopFilter::FailOrPending, CiTopSort::ProcessOrder);
+    assert_eq!(res_fop.len(), 2);
+    assert!(res_fop.iter().any(|r| r.name == "beta")); // fail
+    assert!(res_fop.iter().any(|r| r.name == "gamma")); // queued
+
     // Ok
     let res_ok = apply_top_filters_and_sorting(&list, CiTopFilter::Ok, CiTopSort::ProcessOrder);
     assert_eq!(res_ok.len(), 1);
@@ -136,18 +143,111 @@ fn test_ci_top_sorting() {
     assert_eq!(res_name[1].name, "mu");
     assert_eq!(res_name[2].name, "zeta");
 
-    // CiStatus sorts by priority: Failure > Queued > Ok > None
+    // CiStatus sorts by priority: Queued > Failure > Ok > None
     let res_status = apply_top_filters_and_sorting(&list, CiTopFilter::All, CiTopSort::CiStatus);
-    assert_eq!(res_status[0].name, "alpha"); // Failure
+    assert_eq!(res_status[0].name, "alpha"); // Failure in this 3-repo list
     assert_eq!(res_status[1].name, "zeta"); // Ok
     assert_eq!(res_status[2].name, "mu"); // No queue / empty
+}
+
+#[test]
+fn test_ci_top_priority_and_queue_order() {
+    let r_ok = make_sample_repo(
+        "zeta",
+        "org/zeta",
+        vec![CiPipelineStatus {
+            name: "build".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+    let r_fail = make_sample_repo(
+        "beta",
+        "org/beta",
+        vec![CiPipelineStatus {
+            name: "test".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+    let r_queued1 = make_sample_repo(
+        "gamma1",
+        "org/gamma1",
+        vec![CiPipelineStatus {
+            name: "deploy".to_string(),
+            status: "running".to_string(),
+            description: Some("Runner Job #10".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+    let r_queued2 = make_sample_repo(
+        "gamma2",
+        "org/gamma2",
+        vec![CiPipelineStatus {
+            name: "deploy".to_string(),
+            status: "waiting".to_string(),
+            description: Some("Runner Job #20".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+    let r_none = make_sample_repo("omega", "org/omega", vec![]);
+
+    let list = vec![
+        r_none.clone(),
+        r_ok.clone(),
+        r_queued2.clone(),
+        r_fail.clone(),
+        r_queued1.clone(),
+    ];
+
+    let sorted = apply_top_filters_and_sorting(&list, CiTopFilter::All, CiTopSort::CiStatus);
+    // 1st & 2nd: Pending/Queued (gamma1 earlier in runner queue than gamma2)
+    assert_eq!(sorted[0].name, "gamma1");
+    assert_eq!(sorted[1].name, "gamma2");
+    // 3rd: Failure
+    assert_eq!(sorted[2].name, "beta");
+    // 4th: Pass / Ok
+    assert_eq!(sorted[3].name, "zeta");
+    // 5th: None
+    assert_eq!(sorted[4].name, "omega");
+}
+
+#[test]
+fn test_ci_top_filter_parsing() {
+    use std::str::FromStr;
+    assert_eq!(
+        CiTopFilter::from_str("fail+pending").unwrap(),
+        CiTopFilter::FailOrPending
+    );
+    assert_eq!(
+        CiTopFilter::from_str("pending+fail").unwrap(),
+        CiTopFilter::FailOrPending
+    );
+    assert_eq!(
+        CiTopFilter::from_str("issues").unwrap(),
+        CiTopFilter::FailOrPending
+    );
+    assert_eq!(
+        CiTopFilter::from_str("alertas").unwrap(),
+        CiTopFilter::FailOrPending
+    );
+    assert_eq!(
+        CiTopFilter::from_str("fail-pending").unwrap(),
+        CiTopFilter::FailOrPending
+    );
 }
 
 #[test]
 fn test_repo_top_state_navigation_and_help() {
     let mut state = RepoTopState::new(10);
     assert_eq!(state.filter, CiTopFilter::All);
-    assert_eq!(state.sort, CiTopSort::ProcessOrder);
+    assert_eq!(state.sort, CiTopSort::CiStatus);
     assert!(!state.show_help);
 
     // Toggle help
