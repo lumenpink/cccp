@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Precedence of CCCP_GEMINI_API_KEY in Configuration Files
+- **Resolução e Precedência de Credenciais Gemini em Arquivos de Configuração (`src/config.rs`, `src/ai.rs`, `tests/ai_gemini_token_test.rs`)**:
+  - **Precedência Normativa em Dotfiles**: Harmoniza o parsing de arquivos `.env`, `~/.env` e `.cccprc` para respeitar a ordem de prioridade definida no Ticket #79, garantindo que `CCCP_GEMINI_TOKEN` e `CCCP_GEMINI_API_KEY` tenham precedência sobre chaves genéricas como `GEMINI_API_KEY` e `GOOGLE_API_KEY`.
+  - **Proteção contra Sobrescrita por Variáveis de Ambiente Genéricas**: Impede que uma variável genérica `GEMINI_API_KEY` presente no ambiente do sistema operacional sobreponha credenciais específicas do CCCP configuradas em arquivos dotfiles. (closes #108)
+
+
 ### Native Musl AMD64 Compilation Without musl-gcc and zigbuild
 - **Compilação Estática Nativa para x86_64-unknown-linux-musl (`.cargo/config.toml`, `.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
   - **Eliminação de Conflito de CRT**: Remove `CC_x86_64_unknown_linux_musl = "musl-gcc"` de `.cargo/config.toml` e substitui o uso de `cargo zigbuild` por `cargo build` padrão nativo para AMD64 Linux, prevenindo duplicação de inicialização de CRT e falhas de segmentação (SIGSEGV código 139).
