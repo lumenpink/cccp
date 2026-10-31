@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Divan Editor Recovery Loop on AI Triage or Forge Creation Failure
+- **Recuperação e Retorno ao Editor Interativo no Divan (`src/main.rs`, `src/editor.rs`, `tests/divan_recovery_test.rs`)**:
+  - **Preservação de Prompt em Falha de IA**: Diante de erros na chamada à API Gemini, Ollama ou LocalAI durante o `cccp ticket divan`, oferece opção para reabrir o editor interativo preenchido com o texto digitado anteriormente, impedindo perda de dados ou cancelamento abrupto.
+  - **Prevenção de Envio Cego na Forja**: Na falha de publicação de issues, prioriza o reenvio/revisão no editor (`[r] Retry in editor`) por padrão, bloqueando tentativas automáticas ou descartes silenciosos sem confirmação do operador. (closes #111)
+
+
 ### Precedence of CCCP_GEMINI_API_KEY in Configuration Files
 - **Resolução e Precedência de Credenciais Gemini em Arquivos de Configuração (`src/config.rs`, `src/ai.rs`, `tests/ai_gemini_token_test.rs`)**:
   - **Precedência Normativa em Dotfiles**: Harmoniza o parsing de arquivos `.env`, `~/.env` e `.cccprc` para respeitar a ordem de prioridade definida no Ticket #79, garantindo que `CCCP_GEMINI_TOKEN` e `CCCP_GEMINI_API_KEY` tenham precedência sobre chaves genéricas como `GEMINI_API_KEY` e `GOOGLE_API_KEY`.
