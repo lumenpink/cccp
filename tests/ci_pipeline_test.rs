@@ -140,11 +140,11 @@ fn test_ci_workflow_overwrites_generic_packages_with_delete_before_put() {
 
 #[test]
 fn test_ci_pipeline_musl_static_mutation_checks() {
-    // Mutation 1: config containing gcc instead of musl-gcc must be rejected
-    let mutated_config_gcc = "[env]\nCC_x86_64_unknown_linux_musl = \"gcc\"\n";
+    // Mutation 1: config containing musl-gcc must be rejected
+    let mutated_config_musl_gcc = "[env]\nCC_x86_64_unknown_linux_musl = \"musl-gcc\"\n";
     assert!(
-        !mutated_config_gcc.contains("musl-gcc"),
-        "Mutation with gcc must lack musl-gcc requirement"
+        mutated_config_musl_gcc.contains("musl-gcc"),
+        "Mutation introducing musl-gcc must be detectable"
     );
 
     // Mutation 2: Workflow sem DELETE prévio no endpoint generic package deve falhar
@@ -191,6 +191,20 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
         !mutated_workflow_no_readelf.contains("readelf -l")
             || !mutated_workflow_no_readelf.contains("program interpreter"),
         "Mutation without readelf dynamic interpreter guard must be detected"
+    );
+
+    // Mutation 7: workflow missing smoke test cccp --version must be rejected
+    let mutated_workflow_no_smoke = "cargo build --release --target x86_64-unknown-linux-musl\necho done";
+    assert!(
+        !mutated_workflow_no_smoke.contains("cccp --version"),
+        "Mutation without smoke test must be detected"
+    );
+
+    // Mutation 8: workflow using cargo zigbuild for AMD64 musl must be rejected
+    let mutated_workflow_zig_musl = "cargo zigbuild --release --target x86_64-unknown-linux-musl";
+    assert!(
+        mutated_workflow_zig_musl.contains("cargo zigbuild --release --target x86_64-unknown-linux-musl"),
+        "Mutation using zigbuild for musl amd64 must be detectable"
     );
 }
 
