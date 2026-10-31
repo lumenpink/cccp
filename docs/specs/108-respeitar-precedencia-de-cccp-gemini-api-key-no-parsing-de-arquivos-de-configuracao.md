@@ -25,3 +25,8 @@ Entretanto, ao carregar a configuração a partir de arquivos `.env`, `~/.env` o
 - Quando `CCCP_GEMINI_API_KEY` ou `CCCP_GEMINI_TOKEN` estiver presente em `~/.env`, `.env` ou `.cccprc`, essa chave deve ter precedência sobre `GEMINI_API_KEY` e `GOOGLE_API_KEY`.
 - Se `GEMINI_API_KEY` estiver definida no ambiente ou no arquivo `.env`, mas `CCCP_GEMINI_API_KEY` estiver definida em `~/.env` ou `.cccprc`, a chave específica do CCCP deve ser a resolvida.
 - Testes automatizados de integração cobrindo a precedência completa ao carregar via `Config::load_for_dir()` e `resolve_gemini_api_key()`.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Precedência normativa de credenciais CCCP_GEMINI_TOKEN e CCCP_GEMINI_API_KEY plenamente respeitada em dotfiles e isolada de variáveis genéricas do ambiente do sistema operacional.
+
