@@ -32,3 +32,8 @@ Isso previne falhas de execução (`exit status 127` / `command not found` ou `e
 - `.cargo/config.toml` e `.forgejo/workflows/ci.yml` configurados com garantia de enlace puramente estático.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos.
 - `cccp check --strict` com conformidade aprovada.
+
+## 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Binários para alvos musl compilados com link-arg=-static, eliminando interpretador dinâmico. Pipeline e testes 100% aprovados.
+
