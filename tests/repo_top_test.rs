@@ -256,23 +256,27 @@ fn test_repo_top_state_navigation_and_help() {
     state.handle_action(RepoTopAction::ToggleHelp, 10);
     assert!(!state.show_help);
 
-    // Cycle filter
+    // Cycle filter: All -> FailOrPending -> Queued -> Failure -> Ok -> NoQueue -> All
     state.handle_action(RepoTopAction::CycleFilter, 10);
-    assert_eq!(state.filter, CiTopFilter::Ok);
+    assert_eq!(state.filter, CiTopFilter::FailOrPending);
+    state.handle_action(RepoTopAction::CycleFilter, 10);
+    assert_eq!(state.filter, CiTopFilter::Queued);
     state.handle_action(RepoTopAction::CycleFilter, 10);
     assert_eq!(state.filter, CiTopFilter::Failure);
     state.handle_action(RepoTopAction::CycleFilter, 10);
-    assert_eq!(state.filter, CiTopFilter::Queued);
+    assert_eq!(state.filter, CiTopFilter::Ok);
     state.handle_action(RepoTopAction::CycleFilter, 10);
     assert_eq!(state.filter, CiTopFilter::NoQueue);
     state.handle_action(RepoTopAction::CycleFilter, 10);
     assert_eq!(state.filter, CiTopFilter::All);
 
-    // Cycle sort
+    // Cycle sort: starts at CiStatus -> ProcessOrder -> RepoName -> CiStatus
     state.handle_action(RepoTopAction::CycleSort, 10);
-    assert_eq!(state.sort, CiTopSort::CiStatus);
+    assert_eq!(state.sort, CiTopSort::ProcessOrder);
     state.handle_action(RepoTopAction::CycleSort, 10);
     assert_eq!(state.sort, CiTopSort::RepoName);
+    state.handle_action(RepoTopAction::CycleSort, 10);
+    assert_eq!(state.sort, CiTopSort::CiStatus);
     state.handle_action(RepoTopAction::CycleSort, 10);
     assert_eq!(state.sort, CiTopSort::ProcessOrder);
 
@@ -331,11 +335,13 @@ fn test_mutation_filters_parsing_and_labels() {
 
     // Filter labels and display
     assert_eq!(CiTopFilter::All.label(), "all");
+    assert_eq!(CiTopFilter::FailOrPending.label(), "fail+pending");
     assert_eq!(CiTopFilter::Ok.label(), "ok");
     assert_eq!(CiTopFilter::Failure.label(), "fail");
     assert_eq!(CiTopFilter::Queued.label(), "queued");
     assert_eq!(CiTopFilter::NoQueue.label(), "no-queue");
     assert_eq!(format!("{}", CiTopFilter::All), "all");
+    assert_eq!(format!("{}", CiTopFilter::FailOrPending), "fail+pending");
 
     // Valid parses
     assert_eq!(CiTopFilter::from_str("all").unwrap(), CiTopFilter::All);

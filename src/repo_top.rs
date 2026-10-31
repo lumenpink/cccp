@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 pub enum CiTopFilter {
     #[default]
     All,
+    FailOrPending,
     Ok,
     Failure,
     Queued,
@@ -27,10 +28,11 @@ pub enum CiTopFilter {
 impl CiTopFilter {
     pub fn next(self) -> Self {
         match self {
-            CiTopFilter::All => CiTopFilter::Ok,
-            CiTopFilter::Ok => CiTopFilter::Failure,
-            CiTopFilter::Failure => CiTopFilter::Queued,
-            CiTopFilter::Queued => CiTopFilter::NoQueue,
+            CiTopFilter::All => CiTopFilter::FailOrPending,
+            CiTopFilter::FailOrPending => CiTopFilter::Queued,
+            CiTopFilter::Queued => CiTopFilter::Failure,
+            CiTopFilter::Failure => CiTopFilter::Ok,
+            CiTopFilter::Ok => CiTopFilter::NoQueue,
             CiTopFilter::NoQueue => CiTopFilter::All,
         }
     }
@@ -38,6 +40,7 @@ impl CiTopFilter {
     pub fn label(self) -> &'static str {
         match self {
             CiTopFilter::All => "all",
+            CiTopFilter::FailOrPending => "fail+pending",
             CiTopFilter::Ok => "ok",
             CiTopFilter::Failure => "fail",
             CiTopFilter::Queued => "queued",
@@ -58,6 +61,13 @@ impl FromStr for CiTopFilter {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().trim() {
             "all" | "todos" => Ok(CiTopFilter::All),
+            "fail+pending"
+            | "pending+fail"
+            | "fail-pending"
+            | "issues"
+            | "alertas"
+            | "falha+pendente"
+            | "pendente+falha" => Ok(CiTopFilter::FailOrPending),
             "ok" | "pass" | "success" => Ok(CiTopFilter::Ok),
             "fail" | "failure" | "falha" | "error" => Ok(CiTopFilter::Failure),
             "queued" | "queue" | "fila" | "running" | "pending" => Ok(CiTopFilter::Queued),
@@ -70,8 +80,8 @@ impl FromStr for CiTopFilter {
 /// Sort criteria for repository list
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CiTopSort {
-    #[default]
     ProcessOrder,
+    #[default]
     CiStatus,
     RepoName,
 }
@@ -79,16 +89,16 @@ pub enum CiTopSort {
 impl CiTopSort {
     pub fn next(self) -> Self {
         match self {
-            CiTopSort::ProcessOrder => CiTopSort::CiStatus,
-            CiTopSort::CiStatus => CiTopSort::RepoName,
-            CiTopSort::RepoName => CiTopSort::ProcessOrder,
+            CiTopSort::CiStatus => CiTopSort::ProcessOrder,
+            CiTopSort::ProcessOrder => CiTopSort::RepoName,
+            CiTopSort::RepoName => CiTopSort::CiStatus,
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
-            CiTopSort::ProcessOrder => "process",
             CiTopSort::CiStatus => "status",
+            CiTopSort::ProcessOrder => "process",
             CiTopSort::RepoName => "name",
         }
     }
@@ -142,7 +152,7 @@ impl RepoTopState {
     pub fn new(interval_secs: u64) -> Self {
         Self {
             filter: CiTopFilter::All,
-            sort: CiTopSort::ProcessOrder,
+            sort: CiTopSort::CiStatus,
             selected_index: 0,
             scroll_offset: 0,
             show_help: false,
@@ -222,6 +232,25 @@ fn repo_ci_category(ci: &[CiPipelineStatus]) -> &'static str {
     "ok"
 }
 
+/// Extract numeric runner job ID from pipeline descriptions (e.g. "Runner Job #1234 on run #56")
+pub fn extract_runner_job_id(ci: &[CiPipelineStatus]) -> Option<u64> {
+    for p in ci {
+        let st = p.status.to_ascii_lowercase();
+        if st == "pending" || st == "running" || st == "waiting" || st == "progress" {
+            if let Some(ref desc) = p.description {
+                if let Some(pos) = desc.find("Runner Job #") {
+                    let rest = &desc[pos + 12..];
+                    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                    if let Ok(num) = digits.parse::<u64>() {
+                        return Some(num);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Filter and sort catalog repository summaries for the top view
 pub fn apply_top_filters_and_sorting(
     repos: &[CatalogRepoSummary],
@@ -232,6 +261,10 @@ pub fn apply_top_filters_and_sorting(
         .iter()
         .filter(|r| match filter {
             CiTopFilter::All => true,
+            CiTopFilter::FailOrPending => {
+                let cat = repo_ci_category(&r.ci_status);
+                cat == "fail" || cat == "queued"
+            }
             CiTopFilter::Ok => repo_ci_category(&r.ci_status) == "ok",
             CiTopFilter::Failure => repo_ci_category(&r.ci_status) == "fail",
             CiTopFilter::Queued => repo_ci_category(&r.ci_status) == "queued",
@@ -251,11 +284,37 @@ pub fn apply_top_filters_and_sorting(
             filtered.sort_by_key(|a| a.name.to_lowercase());
         }
         CiTopSort::CiStatus => {
-            filtered.sort_by_key(|r| match repo_ci_category(&r.ci_status) {
-                "fail" => 0,
-                "queued" => 1,
-                "ok" => 2,
-                _ => 3,
+            filtered.sort_by(|a, b| {
+                let cat_a = repo_ci_category(&a.ci_status);
+                let cat_b = repo_ci_category(&b.ci_status);
+                let prio_a = match cat_a {
+                    "queued" => 0,
+                    "fail" => 1,
+                    "ok" => 2,
+                    _ => 3,
+                };
+                let prio_b = match cat_b {
+                    "queued" => 0,
+                    "fail" => 1,
+                    "ok" => 2,
+                    _ => 3,
+                };
+                if prio_a != prio_b {
+                    return prio_a.cmp(&prio_b);
+                }
+                // Within queued, order by runner queue position / runner job id
+                if prio_a == 0 {
+                    let job_a = extract_runner_job_id(&a.ci_status);
+                    let job_b = extract_runner_job_id(&b.ci_status);
+                    match (job_a, job_b) {
+                        (Some(ja), Some(jb)) if ja != jb => return ja.cmp(&jb),
+                        (Some(_), None) => return std::cmp::Ordering::Less,
+                        (None, Some(_)) => return std::cmp::Ordering::Greater,
+                        _ => {}
+                    }
+                }
+                // Tie break by repository name
+                a.name.to_lowercase().cmp(&b.name.to_lowercase())
             });
         }
     }
@@ -475,8 +534,31 @@ pub fn run_repo_top(
         state.sort = s;
     }
 
-    // Helper closure to reload catalog and merge consolidated runner jobs
-    let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>| {
+    let (tx, rx) = std::sync::mpsc::channel::<(String, Vec<CiPipelineStatus>)>();
+
+    let trigger_live_ci_sync = |entries: &[crate::catalog::CatalogEntry],
+                                sender: std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
+        let targets: Vec<(String, crate::forges::RepoForgeInfo)> = entries
+            .iter()
+            .map(|e| (e.slug.clone(), e.to_forge_info()))
+            .filter(|(_, info)| !info.owner.is_empty() && !info.repo.is_empty())
+            .collect();
+
+        std::thread::spawn(move || {
+            let client = crate::forges::ForgeClient::new();
+            for (slug, info) in targets {
+                if let Ok(ci) = client.fetch_ci_status(&info, Some("main")) {
+                    if !ci.is_empty() {
+                        let _ = sender.send((slug, ci));
+                    }
+                }
+            }
+        });
+    };
+
+    // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
+    let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>,
+                        sender: &std::sync::mpsc::Sender<(String, Vec<CiPipelineStatus>)>| {
         let cat = crate::catalog::load_catalog(None, catalog_path);
         *summaries = crate::catalog::summarize_catalog(&cat);
         let hosts = crate::forges::discover_forgejo_hosts(&cat);
@@ -486,11 +568,12 @@ pub fn run_repo_top(
                 crate::forges::merge_live_runner_jobs(summaries, &jobs);
             }
         }
+        trigger_live_ci_sync(&cat, sender.clone());
     };
 
     // Load initial catalog with live CI runner jobs
     let mut raw_summaries = Vec::new();
-    refresh_data(&mut raw_summaries);
+    refresh_data(&mut raw_summaries, &tx);
 
     // Enter Alternate Screen and enable raw mode
     enable_raw_mode().map_err(|e| format!("Failed to enable raw mode: {}", e))?;
@@ -501,6 +584,31 @@ pub fn run_repo_top(
     let interval = Duration::from_secs(state.interval_secs);
 
     loop {
+        // Drain any incoming live CI status updates from forge API
+        while let Ok((slug, new_ci)) = rx.try_recv() {
+            for r in raw_summaries.iter_mut() {
+                if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug) {
+                    let active_runners: Vec<_> = r
+                        .ci_status
+                        .iter()
+                        .filter(|p| {
+                            let st = p.status.to_ascii_lowercase();
+                            st == "running" || st == "waiting" || st == "pending"
+                        })
+                        .cloned()
+                        .collect();
+
+                    r.ci_status = new_ci.clone();
+                    for ar in active_runners {
+                        if !r.ci_status.iter().any(|p| p.name == ar.name) {
+                            r.ci_status.insert(0, ar);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
         // Compute filtered list
         let filtered = apply_top_filters_and_sorting(&raw_summaries, state.filter, state.sort);
 
@@ -584,7 +692,7 @@ pub fn run_repo_top(
                         break;
                     }
                     if act == RepoTopAction::Refresh {
-                        refresh_data(&mut raw_summaries);
+                        refresh_data(&mut raw_summaries, &tx);
                         last_refresh = Instant::now();
                     } else {
                         state.handle_action(act, filtered.len());
@@ -595,7 +703,7 @@ pub fn run_repo_top(
 
         // Auto refresh tick
         if last_refresh.elapsed() >= interval {
-            refresh_data(&mut raw_summaries);
+            refresh_data(&mut raw_summaries, &tx);
             last_refresh = Instant::now();
         }
     }

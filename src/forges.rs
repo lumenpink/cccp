@@ -312,6 +312,112 @@ pub fn resolve_token_for_host(
         }
     }
 
+    // 5. Check tea CLI configuration (~/.config/tea/config.yml) for Forgejo / Codeberg / Tildegit
+    if matches!(
+        provider,
+        ForgeType::Forgejo | ForgeType::Codeberg | ForgeType::Tildegit
+    ) {
+        if let Some(tok) = load_token_from_tea_config(host) {
+            return Some(tok);
+        }
+    }
+
+    None
+}
+
+/// Parse authentication token for a target forge host or name from tea config YAML
+pub fn parse_tea_token_from_yaml(yaml: &str, target_host_or_name: &str) -> Option<String> {
+    let target = target_host_or_name.trim().to_ascii_lowercase();
+    let mut current_name = String::new();
+    let mut current_url = String::new();
+    let mut current_token = String::new();
+    let mut current_ssh_host = String::new();
+
+    let check_match = |name: &str, url: &str, ssh: &str| -> bool {
+        if name.eq_ignore_ascii_case(&target) || ssh.eq_ignore_ascii_case(&target) {
+            return true;
+        }
+        let clean_url = url
+            .trim_start_matches("https://")
+            .trim_start_matches("http://")
+            .trim_end_matches('/');
+        clean_url.eq_ignore_ascii_case(&target)
+    };
+
+    for line in yaml.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("- name:") || trimmed.starts_with("name:") {
+            if check_match(&current_name, &current_url, &current_ssh_host) && !current_token.is_empty() {
+                return Some(current_token);
+            }
+            if let Some(pos) = trimmed.find(':') {
+                current_name = trimmed[pos + 1..]
+                    .trim()
+                    .trim_matches('\'')
+                    .trim_matches('"')
+                    .to_string();
+            }
+            current_url.clear();
+            current_token.clear();
+            current_ssh_host.clear();
+        } else if trimmed.starts_with("url:") {
+            if let Some(pos) = trimmed.find(':') {
+                current_url = trimmed[pos + 1..]
+                    .trim()
+                    .trim_matches('\'')
+                    .trim_matches('"')
+                    .to_string();
+            }
+        } else if trimmed.starts_with("token:") {
+            if let Some(pos) = trimmed.find(':') {
+                current_token = trimmed[pos + 1..]
+                    .trim()
+                    .trim_matches('\'')
+                    .trim_matches('"')
+                    .to_string();
+            }
+        } else if trimmed.starts_with("ssh_host:") {
+            if let Some(pos) = trimmed.find(':') {
+                current_ssh_host = trimmed[pos + 1..]
+                    .trim()
+                    .trim_matches('\'')
+                    .trim_matches('"')
+                    .to_string();
+            }
+        }
+    }
+
+    if check_match(&current_name, &current_url, &current_ssh_host) && !current_token.is_empty() {
+        return Some(current_token);
+    }
+
+    None
+}
+
+/// Attempt to read token from tea CLI configuration file (~/.config/tea/config.yml)
+pub fn load_token_from_tea_config(host: &str) -> Option<String> {
+    let mut candidate_paths = Vec::new();
+    if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        candidate_paths.push(std::path::PathBuf::from(xdg).join("tea").join("config.yml"));
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        candidate_paths.push(
+            std::path::PathBuf::from(home)
+                .join(".config")
+                .join("tea")
+                .join("config.yml"),
+        );
+    }
+
+    for p in candidate_paths {
+        if p.is_file() {
+            if let Ok(content) = std::fs::read_to_string(&p) {
+                if let Some(tok) = parse_tea_token_from_yaml(&content, host) {
+                    return Some(tok);
+                }
+            }
+        }
+    }
     None
 }
 
