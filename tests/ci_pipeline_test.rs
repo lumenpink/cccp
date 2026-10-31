@@ -180,7 +180,8 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
     // Mutation 6: workflow missing readelf program interpreter check must be rejected
     let mutated_workflow_no_readelf = "echo 'Done compiling'";
     assert!(
-        !mutated_workflow_no_readelf.contains("readelf -l") || !mutated_workflow_no_readelf.contains("program interpreter"),
+        !mutated_workflow_no_readelf.contains("readelf -l")
+            || !mutated_workflow_no_readelf.contains("program interpreter"),
         "Mutation without readelf dynamic interpreter guard must be detected"
     );
 }
