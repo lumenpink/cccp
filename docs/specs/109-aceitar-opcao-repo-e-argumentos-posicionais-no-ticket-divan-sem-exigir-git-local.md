@@ -23,3 +23,8 @@ Isso acontecia porque o manipulador de `Commands::Ticket` em `src/main.rs` exigi
 - `cccp ticket divan -r <owner/repo>` e `cccp ticket divan <owner/repo>` não exigem que o diretório atual seja um repositório Git local.
 - Erro claro e antecipado é exibido quando nenhum repositório for especificado fora de um repositório Git.
 - Todos os testes de unidade e integração validam o parsing e o despacho do comando.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Desacoplada a execução de `Commands::Ticket` para o subcomando `Divan` da obrigatoriedade de um repositório Git local, adicionando suporte para `--repo <owner/repo>`, argumentos posicionais e validação antecipada de repositório alvo.
+

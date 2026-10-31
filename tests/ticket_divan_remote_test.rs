@@ -11,7 +11,14 @@ fn test_ticket_divan_with_repo_option_outside_git_repo() {
 
     // Execute 'cccp ticket divan -r lumen/cccp --dry-run' outside any git repo
     let output = cccp_bin()
-        .args(["ticket", "divan", "-r", "lumen/cccp", "--dry-run", "test prompt triage"])
+        .args([
+            "ticket",
+            "divan",
+            "-r",
+            "lumen/cccp",
+            "--dry-run",
+            "test prompt triage",
+        ])
         .current_dir(empty_dir.path())
         .output()
         .expect("Failed to execute cccp");
@@ -34,7 +41,13 @@ fn test_ticket_divan_with_positional_repo_outside_git_repo() {
 
     // Execute 'cccp ticket divan lumen/cccp "prompt"' outside any git repo
     let output = cccp_bin()
-        .args(["ticket", "divan", "lumen/cccp", "--dry-run", "test positional prompt"])
+        .args([
+            "ticket",
+            "divan",
+            "lumen/cccp",
+            "--dry-run",
+            "test positional prompt",
+        ])
         .current_dir(empty_dir.path())
         .output()
         .expect("Failed to execute cccp");
