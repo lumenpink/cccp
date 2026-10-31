@@ -424,11 +424,11 @@ pub fn render_top_view(
             "Ctrl+H / F1"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Alternar ordenação (process -> status -> name)   │\x1b[K\r\n",
+            "│  {:<12} : Alternar ordenação (status -> process -> name)   │\x1b[K\r\n",
             "Ctrl+S / ^O"
         ));
         out.push_str(&format!(
-            "│  {:<12} : Alternar filtro de CI (all, ok, fail, queue...)  │\x1b[K\r\n",
+            "│  {:<12} : Alternar filtro de CI (all, fail+pending, q...)  │\x1b[K\r\n",
             "Ctrl+F / ^T"
         ));
         out.push_str(&format!(

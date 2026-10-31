@@ -1043,11 +1043,11 @@ pub struct RepoTopArgs {
     #[arg(short = 'i', long = "interval", default_value_t = 10)]
     pub interval: u64,
 
-    /// Initial CI status filter (all, ok, fail, queued, none)
+    /// Initial CI status filter (all, fail+pending, ok, fail, queued, none)
     #[arg(short = 'f', long = "filter")]
     pub filter: Option<String>,
 
-    /// Initial sorting order (process, status, name)
+    /// Initial sorting order (status, process, name)
     #[arg(short = 's', long = "sort")]
     pub sort: Option<String>,
 }
