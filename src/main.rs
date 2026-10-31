@@ -610,6 +610,10 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(Commands::Ticket(tickets)) => {
+            if let Some(cli::TicketAction::Divan(ref divan_args)) = tickets.action {
+                return run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme);
+            }
+
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
                 Err(e) => {
@@ -2284,6 +2288,15 @@ fn run_divan_cmd(
                 }
             }
         }
+    }
+
+    if detected_forge.is_none() && git_repo.is_none() {
+        eprintln!(
+            "{}: No target repository specified and current directory is not a Git repository.",
+            theme.red_bold("Error")
+        );
+        eprintln!("  Use '--repo <owner/repo>' or run inside a Git repository.");
+        return ExitCode::FAILURE;
     }
 
     // 4. Fail-fast forge token check
