@@ -200,6 +200,19 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
     assert_eq!(text, "✗ fail (1/2)");
     assert_eq!(style, "red");
 
+    // Single running / pending
+    let (text, style) = format_ci_summary(&[CiPipelineStatus {
+        name: "build".to_string(),
+        status: "running".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(text, "~ pending");
+    assert_eq!(style, "yellow");
+    assert!(!text.contains('⏳'), "Should not contain wide hourglass emoji");
+    assert_eq!(text.chars().count(), 9);
+
     // Multiple with 1 running, none failing
     let (text, style) = format_ci_summary(&[
         CiPipelineStatus {
@@ -217,8 +230,35 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
             updated_at: None,
         },
     ]);
-    assert_eq!(text, "⏳ pending (1/2)");
+    assert_eq!(text, "~ pending (1/2)");
     assert_eq!(style, "yellow");
+    assert!(!text.contains('⏳'), "Should not contain wide hourglass emoji");
+    assert_eq!(text.chars().count(), 15);
+}
+
+#[test]
+fn test_ci_details_pending_icon_has_single_width() {
+    use cccp::catalog::{format_catalog_ci_details, CatalogRepoSummary, CiPipelineStatus};
+    use cccp::cultural::Theme;
+
+    let theme = Theme::with_color(false);
+    let summary = vec![CatalogRepoSummary {
+        name: "test-repo".to_string(),
+        slug: "org/test-repo".to_string(),
+        forge: "forgejo".to_string(),
+        ci_status: vec![CiPipelineStatus {
+            name: "ci/pipeline".to_string(),
+            status: "pending".to_string(),
+            description: Some("Running in Gosplan worker".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+        ..Default::default()
+    }];
+
+    let details = format_catalog_ci_details(&summary, &theme);
+    assert!(details.contains("~ pending"), "Expected ~ icon for pending pipeline, got:\n{}", details);
+    assert!(!details.contains('⏳'), "Must not contain wide hourglass emoji");
 }
 
 #[test]
