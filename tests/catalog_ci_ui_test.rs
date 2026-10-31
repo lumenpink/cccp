@@ -210,7 +210,10 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
     }]);
     assert_eq!(text, "~ pending");
     assert_eq!(style, "yellow");
-    assert!(!text.contains('⏳'), "Should not contain wide hourglass emoji");
+    assert!(
+        !text.contains('⏳'),
+        "Should not contain wide hourglass emoji"
+    );
     assert_eq!(text.chars().count(), 9);
 
     // Multiple with 1 running, none failing
@@ -232,7 +235,10 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
     ]);
     assert_eq!(text, "~ pending (1/2)");
     assert_eq!(style, "yellow");
-    assert!(!text.contains('⏳'), "Should not contain wide hourglass emoji");
+    assert!(
+        !text.contains('⏳'),
+        "Should not contain wide hourglass emoji"
+    );
     assert_eq!(text.chars().count(), 15);
 }
 
@@ -257,8 +263,15 @@ fn test_ci_details_pending_icon_has_single_width() {
     }];
 
     let details = format_catalog_ci_details(&summary, &theme);
-    assert!(details.contains("~ pending"), "Expected ~ icon for pending pipeline, got:\n{}", details);
-    assert!(!details.contains('⏳'), "Must not contain wide hourglass emoji");
+    assert!(
+        details.contains("~ pending"),
+        "Expected ~ icon for pending pipeline, got:\n{}",
+        details
+    );
+    assert!(
+        !details.contains('⏳'),
+        "Must not contain wide hourglass emoji"
+    );
 }
 
 #[test]
@@ -411,7 +424,7 @@ fn test_format_catalog_ci_details_output() {
 
 #[test]
 fn test_mutation_pending_ci_ascii_purity_and_column_width() {
-    use cccp::catalog::{format_ci_summary, CiPipelineStatus, CatalogRepoSummary};
+    use cccp::catalog::{format_ci_summary, CatalogRepoSummary, CiPipelineStatus};
     use cccp::cultural::Theme;
     use cccp::repo_top::{render_top_view, RepoTopState};
 
@@ -425,7 +438,10 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
     }]);
     assert_eq!(single_text, "~ pending");
     assert_eq!(single_style, "yellow");
-    assert!(single_text.is_ascii(), "Must be pure ASCII for guaranteed 1-column monospaced width");
+    assert!(
+        single_text.is_ascii(),
+        "Must be pure ASCII for guaranteed 1-column monospaced width"
+    );
     assert_eq!(single_text.len(), single_text.chars().count());
 
     // 2. Multiple pending status
@@ -447,7 +463,10 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
     ]);
     assert_eq!(multi_text, "~ pending (1/2)");
     assert_eq!(multi_style, "yellow");
-    assert!(multi_text.is_ascii(), "Multi-pipeline pending string must also be pure ASCII");
+    assert!(
+        multi_text.is_ascii(),
+        "Multi-pipeline pending string must also be pure ASCII"
+    );
     assert_eq!(multi_text.len(), multi_text.chars().count());
 
     // 3. Integration with render_top_view
