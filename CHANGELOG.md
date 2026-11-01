@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Mirroring Live Queue States (running, waiting, blocked) and Composite Runner Job Matching
+- **Espelhamento Fiel das Filas e Casamento de Jobs de Runners (`src/catalog.rs`, `src/forges.rs`, `src/repo_top.rs`, `tests/catalog_ci_ui_test.rs`, `tests/repo_top_test.rs`)**:
+  - **Diferenciação Granular de Estados**: Substitui o rótulo genérico `~ pending` pelos estados reais da interface web das forjas: `~ running`, `~ waiting`, `~ blocked` e `~ pending` (todos com ícone amarelo mono-largura ASCII).
+  - **Casamento de Contextos Compostos (`pipeline_matches_job_name`)**: Normaliza e cruza nomes compostos de status de commits do Forgejo/GitHub Actions (no padrão `"<Workflow> / <Job Name> (<event>)"`) com nomes puros retornados pelos runners (`"<Job Name>"`), eliminando duplicações artificiais de pipelines.
+  - **Precedência Estrita de Fila Ativa**: Garante que jobs em fila (`waiting`, `running`, `blocked`) tenham precedência sobre falhas de execuções anteriores, exibindo e categorizando repositórios como em fila em vez de falhados. (closes #120)
+
 ### Consolidated Live Runner Jobs Monitoring and Elimination of Status Flapping in repo top
 - **Monitoramento Consolidado de CI e Fim da Redundância (`src/repo_top.rs`, `tests/repo_top_test.rs`)**:
   - **Eliminação de Varredura e Fetch Cego**: Substitui o polling sequencial de `git fetch` e requisições individuais a `/commits/main/statuses` em todos os repositórios por consulta consolidada e instantânea a `/api/v1/user/actions/runners/jobs`.
