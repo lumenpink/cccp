@@ -366,7 +366,11 @@ pub fn update_json_manifest_file(
         for line in new_lines {
             injected_lines.push(line.clone());
             if !injected && line.contains('{') {
-                injected_lines.push(format!("{}\"version\": \"{}\",", indent, new_version.trim()));
+                injected_lines.push(format!(
+                    "{}\"version\": \"{}\",",
+                    indent,
+                    new_version.trim()
+                ));
                 injected = true;
                 modified = true;
             }
@@ -425,10 +429,12 @@ fn scan_manifests_recursive(
             if !IGNORED_MANIFEST_DIRS.contains(&file_name) && !file_name.starts_with('.') {
                 scan_manifests_recursive(&path, depth + 1, max_depth, results);
             }
-        } else if path.is_file() {
-            if file_name == "Cargo.toml" || file_name == "package.json" || file_name == "composer.json" {
-                results.push(path);
-            }
+        } else if path.is_file()
+            && (file_name == "Cargo.toml"
+                || file_name == "package.json"
+                || file_name == "composer.json")
+        {
+            results.push(path);
         }
     }
 }
@@ -436,10 +442,7 @@ fn scan_manifests_recursive(
 /// Sincroniza a versão canônica em todos os manifestos de projeto suportados
 /// (Cargo.toml, package.json, composer.json) encontrados no repositório.
 /// Retorna a lista ordenada de caminhos relativos dos arquivos modificados.
-pub fn sync_project_manifests(
-    repo_root: &Path,
-    new_version: &str,
-) -> Result<Vec<PathBuf>, String> {
+pub fn sync_project_manifests(repo_root: &Path, new_version: &str) -> Result<Vec<PathBuf>, String> {
     let mut manifest_paths = Vec::new();
     scan_manifests_recursive(repo_root, 0, 5, &mut manifest_paths);
 
