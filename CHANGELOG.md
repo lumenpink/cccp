@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Disable git2 Default Features to Eliminate OpenSSL in Musl Builds
+- **Desativação de Recursos de Rede C no git2 (`Cargo.toml`, `tests/ci_pipeline_test.rs`)**:
+  - **Eliminação de Dependências C de Transporte**: Configura `git2 = { version = "0.20", default-features = false }`, removendo completamente os crates `openssl-sys` e `libssh2-sys` da árvore de compilação.
+  - **Resolução de Linkagem Musl**: Elimina erros de símbolos indefinidos (`fopen64`) e incompatibilidades de TLS/CRT em ambientes musl, preservando integralmente todas as operações de manipulação local de repositório, commits e objetos via `git2`. (closes #117)
+
 ### Multi-Language Manifest Synchronization (Cargo, package.json and composer.json)
 - **Sincronização Unificada de Manifestos Multi-Linguagem (`src/semver_calc.rs`, `src/hook_runner.rs`, `src/release.rs`, `tests/multi_manifest_sync_test.rs`)**:
   - **Varredura Recursiva e Monorepos**: Escaneia todo o repositório em busca de manifestos (`Cargo.toml`, `package.json`, `composer.json`), ignorando pastas de compilação e dependências (`target/`, `node_modules/`, `vendor/`, etc.).
