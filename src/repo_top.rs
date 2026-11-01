@@ -568,6 +568,29 @@ pub fn render_top_view(
     out
 }
 
+/// Merge new CI statuses onto a repository summary while preserving active runner jobs
+pub fn apply_repo_ci_update(repo: &mut CatalogRepoSummary, new_ci: Vec<crate::catalog::CiPipelineStatus>) {
+    if new_ci.is_empty() {
+        return;
+    }
+    let active_runners: Vec<_> = repo
+        .ci_status
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "running" || st == "waiting" || st == "pending"
+        })
+        .cloned()
+        .collect();
+
+    repo.ci_status = new_ci;
+    for ar in active_runners {
+        if !repo.ci_status.iter().any(|p| p.name == ar.name) {
+            repo.ci_status.insert(0, ar);
+        }
+    }
+}
+
 /// Interactive loop running the TUI monitor
 pub fn run_repo_top(
     catalog_path: Option<&Path>,
@@ -709,24 +732,7 @@ pub fn run_repo_top(
                         if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug)
                         {
                             if let Some(new_ci) = ci_status {
-                                if !new_ci.is_empty() {
-                                    let active_runners: Vec<_> = r
-                                        .ci_status
-                                        .iter()
-                                        .filter(|p| {
-                                            let st = p.status.to_ascii_lowercase();
-                                            st == "running" || st == "waiting" || st == "pending"
-                                        })
-                                        .cloned()
-                                        .collect();
-
-                                    r.ci_status = new_ci;
-                                    for ar in active_runners {
-                                        if !r.ci_status.iter().any(|p| p.name == ar.name) {
-                                            r.ci_status.insert(0, ar);
-                                        }
-                                    }
-                                }
+                                apply_repo_ci_update(r, new_ci);
                             }
                             if let Some(lbl) = status_label {
                                 r.status_label = lbl;

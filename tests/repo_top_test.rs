@@ -1,8 +1,8 @@
 use cccp::catalog::{CatalogRepoSummary, CiPipelineStatus};
 use cccp::cultural::Theme;
 use cccp::repo_top::{
-    apply_top_filters_and_sorting, render_top_view, CiTopFilter, CiTopSort, RepoTopAction,
-    RepoTopState,
+    apply_repo_ci_update, apply_top_filters_and_sorting, render_top_view, CiTopFilter, CiTopSort,
+    RepoTopAction, RepoTopState,
 };
 
 fn make_sample_repo(name: &str, slug: &str, ci: Vec<CiPipelineStatus>) -> CatalogRepoSummary {
@@ -20,6 +20,39 @@ fn make_sample_repo(name: &str, slug: &str, ci: Vec<CiPipelineStatus>) -> Catalo
         ci_status: ci,
         is_mirror: false,
     }
+}
+
+#[test]
+fn test_active_runner_job_precedence_over_stale_commit_failure() {
+    let mut repo = make_sample_repo(
+        "gost-ci",
+        "lumen/gost-ci",
+        vec![CiPipelineStatus {
+            name: "ci".to_string(),
+            status: "running".to_string(),
+            description: Some("Runner Job #123".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    // Stale commit status update arrives with "failure"
+    let stale_update = vec![CiPipelineStatus {
+        name: "ci".to_string(),
+        status: "failure".to_string(),
+        description: Some("Old failure on commit".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+
+    apply_repo_ci_update(&mut repo, stale_update);
+
+    // Active runner job MUST NOT be clobbered by the old failure
+    let ci_pipeline = repo.ci_status.iter().find(|p| p.name == "ci").unwrap();
+    assert_eq!(
+        ci_pipeline.status, "running",
+        "Active runner job must maintain 'running' status and not be clobbered by stale failure"
+    );
 }
 
 #[test]
