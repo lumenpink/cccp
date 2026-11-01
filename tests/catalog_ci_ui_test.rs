@@ -243,6 +243,53 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
 }
 
 #[test]
+fn test_format_ci_summary_distinguishes_running_and_waiting_and_prioritizes_over_fail() {
+    use cccp::catalog::{format_ci_summary, CiPipelineStatus};
+
+    // 1. Single waiting job
+    let (text, style) = format_ci_summary(&[CiPipelineStatus {
+        name: "build".to_string(),
+        status: "waiting".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(text, "~ waiting");
+    assert_eq!(style, "yellow");
+
+    // 2. Single running job
+    let (text, style) = format_ci_summary(&[CiPipelineStatus {
+        name: "test".to_string(),
+        status: "running".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(text, "~ running");
+    assert_eq!(style, "yellow");
+
+    // 3. Exact joaju-pdf scenario: 1 old failed job + 1 new waiting job
+    let (text, style) = format_ci_summary(&[
+        CiPipelineStatus {
+            name: "CI / Rust Checks (push)".to_string(),
+            status: "waiting".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "CI / Publish Crate (push)".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+    ]);
+    assert_eq!(text, "~ waiting (1/2)");
+    assert_eq!(style, "yellow");
+}
+
+#[test]
 fn test_ci_details_pending_icon_has_single_width() {
     use cccp::catalog::{format_catalog_ci_details, CatalogRepoSummary, CiPipelineStatus};
     use cccp::cultural::Theme;
