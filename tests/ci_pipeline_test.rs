@@ -217,7 +217,8 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
     let mutated_workflow_no_linker_override =
         "- name: \"Compile CCCP Multiarch Binaries\"\n  run: cargo build --release";
     assert!(
-        !mutated_workflow_no_linker_override.contains("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"),
+        !mutated_workflow_no_linker_override
+            .contains("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"),
         "Mutation without linker override must be detectable"
     );
 
