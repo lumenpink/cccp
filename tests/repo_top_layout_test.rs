@@ -1,6 +1,8 @@
 use cccp::catalog::{CatalogRepoSummary, CiPipelineStatus};
 use cccp::cultural::Theme;
-use cccp::repo_top::{pad_visual, render_top_view, truncate_utf8_ellipsis, RepoTopState};
+use cccp::repo_top::{
+    pad_visual, render_top_view, truncate_utf8_ellipsis, RepoTopState, FIXED_NON_DATA_ROWS,
+};
 
 fn strip_ansi(s: &str) -> String {
     let mut out = String::new();
@@ -228,3 +230,43 @@ fn test_mutation_crlf_and_el_in_all_states() {
         }
     }
 }
+
+#[test]
+fn test_mutation_fixed_rows_and_height_boundaries() {
+    assert_eq!(FIXED_NON_DATA_ROWS, 5);
+
+    let theme = Theme::init(true);
+    let mut state = RepoTopState::new(5);
+    state.has_converged = true;
+
+    // 1. First line always contains header title and convergence badge
+    let repos_single = vec![sample_repo("primeiro", "success")];
+    let rendered_header = render_top_view(&repos_single, &state, &theme, 80, 24);
+    let first_line = rendered_header.lines().next().unwrap_or("");
+    let clean_first_line = strip_ansi(first_line);
+    assert!(
+        clean_first_line.contains("CCCP REPO TOP") && clean_first_line.contains("convergente"),
+        "Primeira linha deve conter título e status de convergência: {:?}",
+        clean_first_line
+    );
+
+    // 2. Heights from 5 up to 100 with various repo counts
+    for repo_count in [0, 1, 3, 5, 20, 50, 100] {
+        let repos: Vec<CatalogRepoSummary> = (0..repo_count)
+            .map(|i| sample_repo(&format!("repo-{}", i), "success"))
+            .collect();
+
+        for height in [5, 6, 8, 10, 12, 15, 20, 24, 30, 50, 100] {
+            let rendered = render_top_view(&repos, &state, &theme, 80, height);
+            let line_count = rendered.lines().count();
+            assert!(
+                line_count <= height as usize,
+                "repos: {}, height: {} -> gerou {} linhas",
+                repo_count,
+                height,
+                line_count
+            );
+        }
+    }
+}
+
