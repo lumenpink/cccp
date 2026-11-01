@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Automatic Synchronization of Cargo.toml with VERSION
+- **Sincronização Automática de Manifestos Cargo (`src/semver_calc.rs`, `src/hook_runner.rs`, `src/release.rs`, `tests/cargo_toml_sync_test.rs`)**:
+  - **Sincronização em Mono-Pacotes e Workspaces**: Atualiza automaticamente a chave `version = "..."` em manifestos `Cargo.toml` (sob `[package]`, `[workspace.package]` e nos crates membros declarados em `members = [...]`) sempre que o arquivo `VERSION` é recalculado ou atualizado.
+  - **Inclusão Automática no Stage**: Adiciona os arquivos `Cargo.toml` modificados ao stage do Git (`git add`) conjuntamente com o `VERSION` durante o hook de pre-commit, reconciliação pós-merge e criação de tags de release, assegurando que binários e o macro `env!("CARGO_PKG_VERSION")` sempre reflitam a versão real. (closes #114)
+
 ### Background Repository Sync and Convergence Status in repo top
 - **Sincronização em Segundo Plano e Indicador de Convergência (`src/repo_top.rs`, `tests/repo_top_test.rs`)**:
   - **Thread Não-Bloqueante de I/O Remoto**: Dispara a sincronização de referências de tracking git e consulta periódica à API da forja em segundo plano via `mpsc`, mantendo a TUI responsiva a comandos e navegação interativa sem travamentos.
