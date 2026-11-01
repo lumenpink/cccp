@@ -104,6 +104,10 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
         "ci.yml must execute cccp --version smoke test on compiled musl binary"
     );
     assert!(
+        workflow.contains("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: \"x86_64-linux-gnu-gcc\""),
+        "ci.yml must override CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER with x86_64-linux-gnu-gcc to avoid musl-gcc segfault"
+    );
+    assert!(
         workflow.contains("readelf -l") && workflow.contains("program interpreter"),
         "ci.yml must assert no dynamic interpreter before publishing musl binary"
     );
