@@ -504,7 +504,9 @@ pub fn render_top_view(
 
         if repos.is_empty() {
             if visible_lines > 0 {
-                out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\x1b[K\r\n"));
+                out.push_str(
+                    &theme.dim("  Nenhum repositório corresponde ao filtro ativo.\x1b[K\r\n"),
+                );
             }
         } else {
             for (idx, r) in repos.iter().enumerate().skip(start).take(visible_lines) {
