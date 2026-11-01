@@ -586,9 +586,8 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
     std::fs::write(&version_file, format!("{}\n", target_version))
         .map_err(|e| format!("Failed to write VERSION file: {}", e))?;
 
-    let cargo_files =
-        crate::semver_calc::sync_cargo_toml_versions(&repo.root_dir, &target_version)
-            .unwrap_or_default();
+    let cargo_files = crate::semver_calc::sync_cargo_toml_versions(&repo.root_dir, &target_version)
+        .unwrap_or_default();
     let mut git_add_args = vec!["add".to_string(), "VERSION".to_string()];
     for f in &cargo_files {
         git_add_args.push(f.to_string_lossy().to_string());

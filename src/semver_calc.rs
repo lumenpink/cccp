@@ -299,7 +299,10 @@ pub fn update_cargo_toml_file(file_path: &Path, new_version: &str) -> Result<boo
 
 /// Sincroniza o arquivo VERSION com os arquivos Cargo.toml do repositório (pacote único ou workspace).
 /// Retorna a lista de caminhos relativos dos arquivos modificados.
-pub fn sync_cargo_toml_versions(repo_root: &Path, new_version: &str) -> Result<Vec<PathBuf>, String> {
+pub fn sync_cargo_toml_versions(
+    repo_root: &Path,
+    new_version: &str,
+) -> Result<Vec<PathBuf>, String> {
     let root_cargo = repo_root.join("Cargo.toml");
     if !root_cargo.is_file() {
         return Ok(Vec::new());
@@ -324,22 +327,26 @@ pub fn sync_cargo_toml_versions(repo_root: &Path, new_version: &str) -> Result<V
                         let member_dir = repo_root.join(member_str);
                         if member_dir.is_dir() {
                             let member_cargo = member_dir.join("Cargo.toml");
-                            if member_cargo.is_file() && update_cargo_toml_file(&member_cargo, new_version)? {
+                            if member_cargo.is_file()
+                                && update_cargo_toml_file(&member_cargo, new_version)?
+                            {
                                 if let Ok(rel) = member_cargo.strip_prefix(repo_root) {
                                     modified_files.push(rel.to_path_buf());
                                 } else {
-                                    modified_files.push(PathBuf::from(member_str).join("Cargo.toml"));
+                                    modified_files
+                                        .push(PathBuf::from(member_str).join("Cargo.toml"));
                                 }
                             }
-                        } else if member_str.ends_with("/*") {
-                            let base_rel = &member_str[..member_str.len() - 2];
+                        } else if let Some(base_rel) = member_str.strip_suffix("/*") {
                             let base_dir = repo_root.join(base_rel);
                             if let Ok(entries) = fs::read_dir(base_dir) {
                                 for entry in entries.flatten() {
                                     let sub_dir = entry.path();
                                     if sub_dir.is_dir() {
                                         let member_cargo = sub_dir.join("Cargo.toml");
-                                        if member_cargo.is_file() && update_cargo_toml_file(&member_cargo, new_version)? {
+                                        if member_cargo.is_file()
+                                            && update_cargo_toml_file(&member_cargo, new_version)?
+                                        {
                                             if let Ok(rel) = member_cargo.strip_prefix(repo_root) {
                                                 modified_files.push(rel.to_path_buf());
                                             }

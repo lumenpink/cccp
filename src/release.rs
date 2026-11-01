@@ -274,8 +274,8 @@ pub fn execute_release_tag(
     }
 
     // 4. Git add & commit
-    let cargo_files = crate::semver_calc::sync_cargo_toml_versions(repo_root, &clean_version)
-        .unwrap_or_default();
+    let cargo_files =
+        crate::semver_calc::sync_cargo_toml_versions(repo_root, &clean_version).unwrap_or_default();
     let mut add_cmd = Command::new("git");
     add_cmd.args(["add", "VERSION"]).current_dir(repo_root);
     for f in &cargo_files {
