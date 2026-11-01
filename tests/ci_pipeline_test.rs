@@ -212,6 +212,22 @@ fn test_ci_pipeline_musl_static_mutation_checks() {
             .contains("cargo zigbuild --release --target x86_64-unknown-linux-musl"),
         "Mutation using zigbuild for musl amd64 must be detectable"
     );
+
+    // Mutation 9: workflow missing CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER override must be rejected
+    let mutated_workflow_no_linker_override =
+        "- name: \"Compile CCCP Multiarch Binaries\"\n  run: cargo build --release";
+    assert!(
+        !mutated_workflow_no_linker_override.contains("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"),
+        "Mutation without linker override must be detectable"
+    );
+
+    // Mutation 10: workflow setting linker back to musl-gcc must be rejected
+    let mutated_workflow_musl_gcc_linker =
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: \"musl-gcc\"";
+    assert!(
+        !mutated_workflow_musl_gcc_linker.contains("x86_64-linux-gnu-gcc"),
+        "Mutation setting musl-gcc as linker must be detectable"
+    );
 }
 
 #[test]
