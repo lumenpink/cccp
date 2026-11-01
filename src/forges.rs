@@ -1744,10 +1744,18 @@ pub fn pipeline_matches_job_name(pipeline_name: &str, job_name: &str) -> bool {
         return true;
     }
     // Fallback: substring match if either is substantial
-    if j_clean.len() >= 3 && p_clean.to_ascii_lowercase().contains(&j_clean.to_ascii_lowercase()) {
+    if j_clean.len() >= 3
+        && p_clean
+            .to_ascii_lowercase()
+            .contains(&j_clean.to_ascii_lowercase())
+    {
         return true;
     }
-    if p_clean.len() >= 3 && j_clean.to_ascii_lowercase().contains(&p_clean.to_ascii_lowercase()) {
+    if p_clean.len() >= 3
+        && j_clean
+            .to_ascii_lowercase()
+            .contains(&p_clean.to_ascii_lowercase())
+    {
         return true;
     }
     false
