@@ -234,19 +234,19 @@ fn repo_ci_category(ci: &[CiPipelineStatus]) -> &'static str {
     if ci.is_empty() {
         return "none";
     }
+    let has_queued = ci.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "pending" || st == "running" || st == "waiting" || st == "progress" || st == "blocked"
+    });
+    if has_queued {
+        return "queued";
+    }
     let has_fail = ci.iter().any(|p| {
         let st = p.status.to_ascii_lowercase();
         st == "failure" || st == "fail" || st == "error"
     });
     if has_fail {
         return "fail";
-    }
-    let has_queued = ci.iter().any(|p| {
-        let st = p.status.to_ascii_lowercase();
-        st == "pending" || st == "running" || st == "waiting" || st == "progress"
-    });
-    if has_queued {
-        return "queued";
     }
     "ok"
 }
@@ -590,7 +590,11 @@ pub fn apply_repo_ci_update(
     repo.ci_status = new_ci;
 
     for ar in active_runners {
-        if let Some(existing) = repo.ci_status.iter_mut().find(|p| p.name == ar.name) {
+        if let Some(existing) = repo
+            .ci_status
+            .iter_mut()
+            .find(|p| crate::forges::pipeline_matches_job_name(&p.name, &ar.name))
+        {
             existing.status = ar.status;
             if ar.target_url.is_some() {
                 existing.target_url = ar.target_url;

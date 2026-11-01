@@ -208,7 +208,7 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
         target_url: None,
         updated_at: None,
     }]);
-    assert_eq!(text, "~ pending");
+    assert_eq!(text, "~ running");
     assert_eq!(style, "yellow");
     assert!(
         !text.contains('⏳'),
@@ -233,7 +233,7 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
             updated_at: None,
         },
     ]);
-    assert_eq!(text, "~ pending (1/2)");
+    assert_eq!(text, "~ running (1/2)");
     assert_eq!(style, "yellow");
     assert!(
         !text.contains('⏳'),
@@ -478,7 +478,7 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
     // 1. Single pending status
     let (single_text, single_style) = format_ci_summary(&[CiPipelineStatus {
         name: "test".to_string(),
-        status: "waiting".to_string(),
+        status: "pending".to_string(),
         description: None,
         target_url: None,
         updated_at: None,
@@ -491,7 +491,7 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
     );
     assert_eq!(single_text.len(), single_text.chars().count());
 
-    // 2. Multiple pending status
+    // 2. Multiple pending status (running/progress)
     let (multi_text, multi_style) = format_ci_summary(&[
         CiPipelineStatus {
             name: "test".to_string(),
@@ -508,7 +508,7 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
             updated_at: None,
         },
     ]);
-    assert_eq!(multi_text, "~ pending (1/2)");
+    assert_eq!(multi_text, "~ running (1/2)");
     assert_eq!(multi_style, "yellow");
     assert!(
         multi_text.is_ascii(),

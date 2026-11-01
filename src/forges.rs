@@ -1714,6 +1714,45 @@ pub fn extract_repo_slug_from_action_url(html_url: &str) -> Option<String> {
     }
 }
 
+/// Matches a pipeline status context name with a runner job name.
+/// Handles Forgejo/GitHub Actions composite pattern: "<Workflow Name> / <Job Name> (<event>)"
+pub fn pipeline_matches_job_name(pipeline_name: &str, job_name: &str) -> bool {
+    fn strip_composite(s: &str) -> &str {
+        let without_workflow = if let Some(slash_idx) = s.find('/') {
+            s[slash_idx + 1..].trim()
+        } else {
+            s
+        };
+        if let Some(paren_idx) = without_workflow.rfind('(') {
+            without_workflow[..paren_idx].trim()
+        } else {
+            without_workflow
+        }
+    }
+
+    let p_clean = pipeline_name.trim();
+    let j_clean = job_name.trim();
+    if p_clean.eq_ignore_ascii_case(j_clean) {
+        return true;
+    }
+    let p_core = strip_composite(p_clean);
+    let j_core = strip_composite(j_clean);
+    if p_core.eq_ignore_ascii_case(j_clean)
+        || p_clean.eq_ignore_ascii_case(j_core)
+        || p_core.eq_ignore_ascii_case(j_core)
+    {
+        return true;
+    }
+    // Fallback: substring match if either is substantial
+    if j_clean.len() >= 3 && p_clean.to_ascii_lowercase().contains(&j_clean.to_ascii_lowercase()) {
+        return true;
+    }
+    if p_clean.len() >= 3 && j_clean.to_ascii_lowercase().contains(&p_clean.to_ascii_lowercase()) {
+        return true;
+    }
+    false
+}
+
 /// Merge active live runner jobs (`waiting`, `running`) into repo summaries
 pub fn merge_live_runner_jobs(
     summaries: &mut [crate::catalog::CatalogRepoSummary],
@@ -1737,7 +1776,11 @@ pub fn merge_live_runner_jobs(
                 || repo.name.eq_ignore_ascii_case(&slug)
                 || repo.slug.ends_with(&format!("/{}", slug))
             {
-                if let Some(existing) = repo.ci_status.iter_mut().find(|p| p.name == job.name) {
+                if let Some(existing) = repo
+                    .ci_status
+                    .iter_mut()
+                    .find(|p| pipeline_matches_job_name(&p.name, &job.name))
+                {
                     existing.status = job.status.clone();
                     existing.target_url = Some(job.html_url.clone());
                 } else {

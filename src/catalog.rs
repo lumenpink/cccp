@@ -1289,6 +1289,34 @@ pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
         return ("-".to_string(), "dim");
     }
     let total = ci.len();
+    let running = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "running" || st == "progress"
+        })
+        .count();
+    let waiting = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "waiting" || st == "queued"
+        })
+        .count();
+    let blocked = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "blocked"
+        })
+        .count();
+    let pending = ci
+        .iter()
+        .filter(|p| {
+            let st = p.status.to_ascii_lowercase();
+            st == "pending"
+        })
+        .count();
     let failed = ci
         .iter()
         .filter(|p| {
@@ -1296,28 +1324,42 @@ pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
             st == "failure" || st == "fail" || st == "error"
         })
         .count();
-    let running = ci
-        .iter()
-        .filter(|p| {
-            let st = p.status.to_ascii_lowercase();
-            st == "pending" || st == "running" || st == "waiting" || st == "progress"
-        })
-        .count();
 
-    if failed > 0 {
+    if running > 0 {
+        let text = if total > 1 {
+            format!("~ running ({}/{})", running, total)
+        } else {
+            "~ running".to_string()
+        };
+        (text, "yellow")
+    } else if waiting > 0 {
+        let text = if total > 1 {
+            format!("~ waiting ({}/{})", waiting, total)
+        } else {
+            "~ waiting".to_string()
+        };
+        (text, "yellow")
+    } else if blocked > 0 {
+        let text = if total > 1 {
+            format!("~ blocked ({}/{})", blocked, total)
+        } else {
+            "~ blocked".to_string()
+        };
+        (text, "yellow")
+    } else if pending > 0 {
+        let text = if total > 1 {
+            format!("~ pending ({}/{})", pending, total)
+        } else {
+            "~ pending".to_string()
+        };
+        (text, "yellow")
+    } else if failed > 0 {
         let text = if total > 1 {
             format!("✗ fail ({}/{})", failed, total)
         } else {
             "✗ fail".to_string()
         };
         (text, "red")
-    } else if running > 0 {
-        let text = if total > 1 {
-            format!("~ pending ({}/{})", running, total)
-        } else {
-            "~ pending".to_string()
-        };
-        (text, "yellow")
     } else {
         let text = if total > 1 {
             format!("✓ pass ({})", total)
