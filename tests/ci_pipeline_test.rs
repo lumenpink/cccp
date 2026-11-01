@@ -127,6 +127,20 @@ fn test_cargo_toml_disables_git2_default_features() {
         !cargo_toml.contains("vendored-openssl"),
         "Cargo.toml must not request vendored-openssl in git2"
     );
+
+    // Mutation 1: Cargo.toml with vendored-openssl must be detectable
+    let mutated_with_openssl = "git2 = { version = \"0.20\", features = [\"vendored-openssl\"] }";
+    assert!(
+        mutated_with_openssl.contains("vendored-openssl"),
+        "Mutation introducing vendored-openssl must be detectable"
+    );
+
+    // Mutation 2: Cargo.toml without default-features = false must be detectable
+    let mutated_without_flag = "git2 = { version = \"0.20\" }";
+    assert!(
+        !mutated_without_flag.contains("default-features = false"),
+        "Mutation omitting default-features = false must be detectable"
+    );
 }
 
 #[test]
