@@ -103,6 +103,8 @@ jobs:
           chmod +x cccp.sh
 
       - name: "Compile CCCP Multiarch Binaries"
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: "x86_64-linux-gnu-gcc"
         run: |
           echo "★ [1/3] Compilando x86_64-unknown-linux-musl (Linux AMD64)..."
           RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-static" \
