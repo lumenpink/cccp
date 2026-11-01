@@ -658,4 +658,93 @@ fn test_mutation_repo_top_sync_frames_and_messages() {
         TopBackgroundMsg::SyncCompleted => {}
         _ => panic!("Expected SyncCompleted"),
     }
+
+    let msg4 = TopBackgroundMsg::RunnerJobsUpdated(vec![]);
+    match msg4.clone() {
+        TopBackgroundMsg::RunnerJobsUpdated(jobs) => {
+            assert!(jobs.is_empty());
+        }
+        _ => panic!("Expected RunnerJobsUpdated"),
+    }
 }
+
+#[test]
+fn test_mutation_apply_repo_ci_update_edge_cases() {
+    let mut repo = make_sample_repo(
+        "complex-ci",
+        "lumen/complex-ci",
+        vec![
+            CiPipelineStatus {
+                name: "lint".to_string(),
+                status: "success".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            },
+            CiPipelineStatus {
+                name: "test".to_string(),
+                status: "running".to_string(),
+                description: Some("Job #42".to_string()),
+                target_url: Some("https://ci/42".to_string()),
+                updated_at: None,
+            },
+            CiPipelineStatus {
+                name: "deploy".to_string(),
+                status: "waiting".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            },
+        ],
+    );
+
+    // 1. Empty new_ci does not clear pipelines
+    apply_repo_ci_update(&mut repo, vec![]);
+    assert_eq!(repo.ci_status.len(), 3);
+
+    // 2. new_ci updates "lint" to failure, tries to update "test" to failure, and has a new "e2e"
+    let update = vec![
+        CiPipelineStatus {
+            name: "lint".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "test".to_string(),
+            status: "failure".to_string(), // Stale failure!
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "e2e".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+    ];
+
+    apply_repo_ci_update(&mut repo, update);
+
+    // "lint" was not active runner, so it correctly becomes "failure"
+    let lint = repo.ci_status.iter().find(|p| p.name == "lint").unwrap();
+    assert_eq!(lint.status, "failure");
+
+    // "test" WAS active runner, so it MUST STAY "running"
+    let test = repo.ci_status.iter().find(|p| p.name == "test").unwrap();
+    assert_eq!(test.status, "running");
+    assert_eq!(test.description.as_deref(), Some("Job #42"));
+    assert_eq!(test.target_url.as_deref(), Some("https://ci/42"));
+
+    // "deploy" was active runner not present in update, so it was preserved/inserted
+    let deploy = repo.ci_status.iter().find(|p| p.name == "deploy").unwrap();
+    assert_eq!(deploy.status, "waiting");
+
+    // "e2e" was new, so it was included
+    let e2e = repo.ci_status.iter().find(|p| p.name == "e2e").unwrap();
+    assert_eq!(e2e.status, "success");
+}
+
