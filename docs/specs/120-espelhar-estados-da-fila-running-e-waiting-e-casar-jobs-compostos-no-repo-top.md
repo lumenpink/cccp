@@ -39,4 +39,7 @@ Na interface de monitoramento do CCCP (`cccp repo top` e `cccp repo list`), fora
 
 ### 4. Status de Resolução (Fase 9)
 - **Status**: Concluído e Aprovado.
-- **Laudo**: Implementação validada integralmente através do ciclo DD-TDD de 9 fases. Estados da fila (`running`, `waiting`, `blocked`, `pending`) granularmente identificados com precedência estrita sobre falhas passadas, e casamento robusto de nomes compostos de esteiras de runner via `pipeline_matches_job_name`. Todos os testes de unidade, integração e mutação aprovados com zero warnings em clippy e formatação canônica.
+- **Laudo**:
+  - **[Resumo]**: Espelhamento fiel dos estados da fila do Forgejo (running, waiting, blocked, pending) e eliminação de duplicidades via casamento de jobs compostos no repo top.
+  - **[Solução]**: Implementação de `pipeline_matches_job_name`, espelhamento dos estados com ícones mono-largura em amarelo (`format_ci_summary`) e precedência estrita de jobs ativos sobre falhas históricas em `repo_ci_category` e `apply_repo_ci_update`.
+  - **[Validação]**: Suíte completa de testes (`catalog_ci_ui_test`, `repo_top_test`), validação de mutação com cenário real `joaju-pdf`, `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` 100% aprovados.
