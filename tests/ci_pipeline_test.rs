@@ -114,6 +114,22 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
 }
 
 #[test]
+fn test_cargo_toml_disables_git2_default_features() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let cargo_toml_path = manifest_dir.join("Cargo.toml");
+    let cargo_toml = fs::read_to_string(&cargo_toml_path).expect("Cargo.toml must exist");
+
+    assert!(
+        cargo_toml.contains("default-features = false"),
+        "Cargo.toml must disable git2 default-features to prevent openssl-sys in musl"
+    );
+    assert!(
+        !cargo_toml.contains("vendored-openssl"),
+        "Cargo.toml must not request vendored-openssl in git2"
+    );
+}
+
+#[test]
 fn test_ci_workflow_overwrites_generic_packages_with_delete_before_put() {
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
