@@ -101,3 +101,52 @@ members = ["crates/*"]
     let content = fs::read_to_string(&root_cargo).unwrap();
     assert!(content.contains("version = \"0.2.0\""));
 }
+
+#[test]
+fn test_sync_preserves_dependency_versions() {
+    let dir = tempdir().unwrap();
+    let cargo_path = dir.path().join("Cargo.toml");
+    fs::write(
+        &cargo_path,
+        r#"[package]
+name = "dep-app"
+version = "0.1.0-dev.1"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+clap = "4.5"
+"#,
+    )
+    .unwrap();
+
+    let updated = sync_cargo_toml_versions(dir.path(), "0.1.0-dev.10").unwrap();
+    assert_eq!(updated.len(), 1);
+
+    let content = fs::read_to_string(&cargo_path).unwrap();
+    assert!(content.contains("version = \"0.1.0-dev.10\""));
+    // As versões em [dependencies] não devem ser alteradas
+    assert!(content.contains("serde = { version = \"1.0\", features = [\"derive\"] }"));
+    assert!(content.contains("clap = \"4.5\""));
+}
+
+#[test]
+fn test_sync_no_op_when_already_matching_or_missing() {
+    let dir = tempdir().unwrap();
+    // Repositório sem Cargo.toml
+    let updated = sync_cargo_toml_versions(dir.path(), "0.1.0").unwrap();
+    assert!(updated.is_empty());
+
+    // Repositório já com a versão exata
+    let cargo_path = dir.path().join("Cargo.toml");
+    fs::write(
+        &cargo_path,
+        r#"[package]
+name = "matching-app"
+version = "0.1.0"
+"#,
+    )
+    .unwrap();
+
+    let updated2 = sync_cargo_toml_versions(dir.path(), "0.1.0").unwrap();
+    assert!(updated2.is_empty());
+}
