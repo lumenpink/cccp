@@ -20,5 +20,6 @@ Como o `cccp` utiliza o `git2` exclusivamente para manipulação local de reposi
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos.
 - `tests/ci_pipeline_test.rs` aprovado com asserções positivas e de mutação.
 
-## 4. Status de Resolução (Fase 3)
-- **Status**: Especificado e aprovado para implementação.
+## 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Configuração `git2 = { version = "0.20", default-features = false }` aplicada em Cargo.toml, eliminando openssl-sys e libssh2-sys da árvore de dependências. O binário estático x86_64-unknown-linux-musl compila limpo sem fopen64 e executa cccp --version com código 0.
