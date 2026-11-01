@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Override Musl AMD64 Linker to Prevent SIGSEGV in CD Container
+- **Sobreposição de Linker Musl AMD64 (`.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
+  - **Eliminação de Conflito de CRT por Linker Global**: Define explicitamente `CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = "x86_64-linux-gnu-gcc"` na etapa de compilação multiarch do pipeline de CD, neutralizando a variável de ambiente global da imagem Docker (`musl-gcc`) e prevenindo falhas de segmentação (*SIGSEGV* código 139) na execução do binário estático. (closes #115)
+
 ### Automatic Synchronization of Cargo.toml with VERSION
 - **Sincronização Automática de Manifestos Cargo (`src/semver_calc.rs`, `src/hook_runner.rs`, `src/release.rs`, `tests/cargo_toml_sync_test.rs`)**:
   - **Sincronização em Mono-Pacotes e Workspaces**: Atualiza automaticamente a chave `version = "..."` em manifestos `Cargo.toml` (sob `[package]`, `[workspace.package]` e nos crates membros declarados em `members = [...]`) sempre que o arquivo `VERSION` é recalculado ou atualizado.
