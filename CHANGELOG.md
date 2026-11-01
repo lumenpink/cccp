@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Multi-Language Manifest Synchronization (Cargo, package.json and composer.json)
+- **Sincronização Unificada de Manifestos Multi-Linguagem (`src/semver_calc.rs`, `src/hook_runner.rs`, `src/release.rs`, `tests/multi_manifest_sync_test.rs`)**:
+  - **Varredura Recursiva e Monorepos**: Escaneia todo o repositório em busca de manifestos (`Cargo.toml`, `package.json`, `composer.json`), ignorando pastas de compilação e dependências (`target/`, `node_modules/`, `vendor/`, etc.).
+  - **Node/Bun e Composer**: Sincroniza a chave `version` no `package.json` e garante a presença e atualização do campo `version` no `composer.json`, injetando-o caso esteja ausente. (closes #116)
+
 ### Override Musl AMD64 Linker to Prevent SIGSEGV in CD Container
 - **Sobreposição de Linker Musl AMD64 (`.forgejo/workflows/ci.yml`, `tests/ci_pipeline_test.rs`)**:
   - **Eliminação de Conflito de CRT por Linker Global**: Define explicitamente `CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER = "x86_64-linux-gnu-gcc"` na etapa de compilação multiarch do pipeline de CD, neutralizando a variável de ambiente global da imagem Docker (`musl-gcc`) e prevenindo falhas de segmentação (*SIGSEGV* código 139) na execução do binário estático. (closes #115)
