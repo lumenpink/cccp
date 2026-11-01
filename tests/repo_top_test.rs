@@ -747,3 +747,87 @@ fn test_mutation_apply_repo_ci_update_edge_cases() {
     let e2e = repo.ci_status.iter().find(|p| p.name == "e2e").unwrap();
     assert_eq!(e2e.status, "success");
 }
+
+#[test]
+fn test_mutation_pipeline_matches_job_name_and_joaju_pdf_queue_scenario() {
+    use cccp::catalog::format_ci_summary;
+    use cccp::forges::{merge_live_runner_jobs, pipeline_matches_job_name, ForgeActionRunnerJob};
+
+    // 1. Verify matching behavior on composite contexts
+    assert!(pipeline_matches_job_name(
+        "CI, Quality & Release / Rust — Checks, Tests & Quality Gates (push)",
+        "Rust — Checks, Tests & Quality Gates"
+    ));
+    assert!(pipeline_matches_job_name(
+        "Rust — Checks, Tests & Quality Gates",
+        "CI, Quality & Release / Rust — Checks, Tests & Quality Gates (push)"
+    ));
+    assert!(pipeline_matches_job_name(
+        "Build & Lint / Test Suite (pull_request)",
+        "Test Suite"
+    ));
+    assert!(pipeline_matches_job_name("check", "check"));
+    assert!(!pipeline_matches_job_name("deploy-prod", "test-suite"));
+
+    // 2. Scenario joaju-pdf: Stale failure + Live waiting runner job
+    let mut repos = vec![make_sample_repo(
+        "joaju-pdf",
+        "lumen/joaju-pdf",
+        vec![CiPipelineStatus {
+            name: "CI, Quality & Release / Rust — Checks, Tests & Quality Gates (push)".to_string(),
+            status: "failure".to_string(),
+            description: Some("Workflow failed on previous run".to_string()),
+            target_url: Some("https://forge/run/10".to_string()),
+            updated_at: None,
+        }],
+    )];
+
+    let runner_jobs = vec![ForgeActionRunnerJob {
+        id: 999,
+        run_id: 11,
+        attempt: 1,
+        handle: "test".to_string(),
+        repo_id: 1,
+        owner_id: 1,
+        name: "Rust — Checks, Tests & Quality Gates".to_string(),
+        status: "waiting".to_string(),
+        html_url: "https://gambi.2lp.in/lumen/joaju-pdf/actions/runs/11/jobs/999".to_string(),
+    }];
+
+    merge_live_runner_jobs(&mut repos, &runner_jobs);
+
+    // Verify pipeline was matched and updated in-place (no duplication)
+    assert_eq!(
+        repos[0].ci_status.len(),
+        1,
+        "Must update existing pipeline instead of duplicating"
+    );
+    assert_eq!(repos[0].ci_status[0].status, "waiting");
+    assert_eq!(
+        repos[0].ci_status[0].target_url.as_deref(),
+        Some("https://gambi.2lp.in/lumen/joaju-pdf/actions/runs/11/jobs/999")
+    );
+
+    // Verify UI summary displays "~ waiting" with yellow styling, not failure
+    let (summary_text, summary_style) = format_ci_summary(&repos[0].ci_status);
+    assert_eq!(summary_text, "~ waiting");
+    assert_eq!(summary_style, "yellow");
+
+    // Verify filters: must be included in Queued, not in Failure
+    let queued_repos =
+        apply_top_filters_and_sorting(&repos, CiTopFilter::Queued, CiTopSort::ProcessOrder);
+    assert_eq!(
+        queued_repos.len(),
+        1,
+        "Repo in queue must be matched by Queued filter"
+    );
+    assert_eq!(queued_repos[0].name, "joaju-pdf");
+
+    let fail_repos =
+        apply_top_filters_and_sorting(&repos, CiTopFilter::Failure, CiTopSort::ProcessOrder);
+    assert_eq!(
+        fail_repos.len(),
+        0,
+        "Repo in queue must not be treated as Failure"
+    );
+}
