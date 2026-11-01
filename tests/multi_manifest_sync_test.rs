@@ -130,3 +130,73 @@ version = "1.0.0"
     let updated = sync_project_manifests(dir.path(), "2.0.0").unwrap();
     assert!(updated.is_empty());
 }
+
+#[test]
+fn test_sync_package_json_preserves_nested_dependency_versions() {
+    let dir = tempdir().unwrap();
+    let pkg_path = dir.path().join("package.json");
+    fs::write(
+        &pkg_path,
+        r#"{
+  "name": "app-with-deps",
+  "version": "0.1.0-dev.1",
+  "dependencies": {
+    "my-lib": "^1.2.3"
+  },
+  "devDependencies": {
+    "nested-obj": {
+      "version": "9.9.9"
+    }
+  }
+}
+"#,
+    )
+    .unwrap();
+
+    let updated = sync_project_manifests(dir.path(), "0.2.0").unwrap();
+    assert!(updated.contains(&std::path::PathBuf::from("package.json")));
+
+    let content = fs::read_to_string(&pkg_path).unwrap();
+    assert!(content.contains("\"version\": \"0.2.0\""));
+    assert!(content.contains("\"my-lib\": \"^1.2.3\""));
+    assert!(content.contains("\"version\": \"9.9.9\""));
+}
+
+#[test]
+fn test_sync_monorepo_multiple_package_json() {
+    let dir = tempdir().unwrap();
+    let app_dir = dir.path().join("apps").join("web");
+    let pkg_dir = dir.path().join("packages").join("ui");
+    fs::create_dir_all(&app_dir).unwrap();
+    fs::create_dir_all(&pkg_dir).unwrap();
+
+    fs::write(
+        app_dir.join("package.json"),
+        r#"{
+  "name": "web-app",
+  "version": "0.1.0"
+}
+"#,
+    )
+    .unwrap();
+
+    fs::write(
+        pkg_dir.join("package.json"),
+        r#"{
+  "name": "ui-lib",
+  "version": "0.1.0"
+}
+"#,
+    )
+    .unwrap();
+
+    let updated = sync_project_manifests(dir.path(), "0.2.0-dev.5").unwrap();
+    assert!(updated.contains(&std::path::PathBuf::from("apps/web/package.json")));
+    assert!(updated.contains(&std::path::PathBuf::from("packages/ui/package.json")));
+
+    let app_content = fs::read_to_string(app_dir.join("package.json")).unwrap();
+    assert!(app_content.contains("\"version\": \"0.2.0-dev.5\""));
+
+    let pkg_content = fs::read_to_string(pkg_dir.join("package.json")).unwrap();
+    assert!(pkg_content.contains("\"version\": \"0.2.0-dev.5\""));
+}
