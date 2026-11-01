@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Consolidated Live Runner Jobs Monitoring and Elimination of Status Flapping in repo top
+- **Monitoramento Consolidado de CI e Fim da Redundância (`src/repo_top.rs`, `tests/repo_top_test.rs`)**:
+  - **Eliminação de Varredura e Fetch Cego**: Substitui o polling sequencial de `git fetch` e requisições individuais a `/commits/main/statuses` em todos os repositórios por consulta consolidada e instantânea a `/api/v1/user/actions/runners/jobs`.
+  - **Fim do Flapping de Estados**: Impõe precedência estrita dos jobs ativos dos runners sobre status históricos de commits via `apply_repo_ci_update`, impedindo que pipelines em execução sofram degradação indevida para falhas passadas.
+  - **Convergência Imediata e Estável**: Assegura alcance instantâneo de convergência (< 200 ms) e previne concorrência de sincronizações, iniciando a contagem do intervalo apenas após a conclusão. (closes #119)
+
 ### Terminal Height Budgeting and Flicker-Free Redraw in repo top
 - **Cálculo de Altura e Redesenho Sem Flickering (`src/repo_top.rs`, `tests/repo_top_layout_test.rs`)**:
   - **Orçamento de Linhas Fixas**: Define `FIXED_NON_DATA_ROWS = 5` cobrindo cabeçalho de convergência, títulos de colunas, separadores superior e inferior e barra de atalhos, alocando linhas de repositórios estritamente dentro da altura do terminal e evitando scroll acidental que ocultava o cabeçalho superior.
