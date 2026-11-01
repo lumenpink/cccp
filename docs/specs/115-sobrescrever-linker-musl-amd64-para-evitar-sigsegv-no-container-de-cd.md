@@ -17,5 +17,6 @@ Por precedência do Cargo, variáveis de ambiente sobrepõem qualquer configura�
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos ou falhas.
 - Conformidade estrita com as 9 fases do GOST DD-TDD.
 
-## 4. Status de Resolução (Fase 3)
-- **Status**: Especificado e aprovado para implementação.
+## 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**: Variável de ambiente `CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: "x86_64-linux-gnu-gcc"` adicionada à etapa `Compile CCCP Multiarch Binaries` do workflow `deploy-banca`. Isso impede que o Cargo no contêiner `gost-ci-cross` herde o script `musl-gcc` do Debian que provocava SIGSEGV devido a conflitos de CRT. O binário musl AMD64 é puramente estático sem interp e executa o smoke test `cccp --version` com sucesso.
