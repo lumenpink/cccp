@@ -40,5 +40,5 @@ Na interface textual do monitor do CCCP (`cccp repo top`), o cabeçalho superior
 - Todos os testes unitários e de mutação em `tests/repo_top_layout_test.rs` passam com sucesso.
 
 ### 4. Status de Resolução (Fase 9)
-- **Status**: Em andamento.
-- **Laudo**: Pendente de implementação e validação das 9 fases de GOST DD-TDD.
+- **Status**: Concluído e Aprovado nos testes unitários e de qualidade.
+- **Laudo**: Definida a constante `FIXED_NON_DATA_ROWS = 5`, garantindo que o orçamento de linhas para a tabela considere todas as molduras e cabeçalhos sem estourar a altura do terminal nem rolar a tela. Eliminada a invocação de `Clear(All)` a cada tick de 100 ms em `run_repo_top`, adotando redesenho in-place com `MoveTo(0, 0)` e `\x1b[J`, eliminando por completo o flickering e mantendo o cabeçalho de convergência perfeitamente estável.
