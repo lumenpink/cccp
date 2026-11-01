@@ -146,6 +146,7 @@ pub enum TopBackgroundMsg {
         unpushed: Option<usize>,
         is_clean: Option<bool>,
     },
+    RunnerJobsUpdated(Vec<crate::forges::ForgeActionRunnerJob>),
     SyncCompleted,
 }
 
@@ -569,7 +570,10 @@ pub fn render_top_view(
 }
 
 /// Merge new CI statuses onto a repository summary while preserving active runner jobs
-pub fn apply_repo_ci_update(repo: &mut CatalogRepoSummary, new_ci: Vec<crate::catalog::CiPipelineStatus>) {
+pub fn apply_repo_ci_update(
+    repo: &mut CatalogRepoSummary,
+    new_ci: Vec<crate::catalog::CiPipelineStatus>,
+) {
     if new_ci.is_empty() {
         return;
     }
@@ -584,8 +588,17 @@ pub fn apply_repo_ci_update(repo: &mut CatalogRepoSummary, new_ci: Vec<crate::ca
         .collect();
 
     repo.ci_status = new_ci;
+
     for ar in active_runners {
-        if !repo.ci_status.iter().any(|p| p.name == ar.name) {
+        if let Some(existing) = repo.ci_status.iter_mut().find(|p| p.name == ar.name) {
+            existing.status = ar.status;
+            if ar.target_url.is_some() {
+                existing.target_url = ar.target_url;
+            }
+            if ar.description.is_some() {
+                existing.description = ar.description;
+            }
+        } else {
             repo.ci_status.insert(0, ar);
         }
     }
@@ -612,32 +625,28 @@ pub fn run_repo_top(
     let trigger_background_sync =
         |entries: &[crate::catalog::CatalogEntry],
          sender: std::sync::mpsc::Sender<TopBackgroundMsg>| {
-            let targets: Vec<(String, crate::forges::RepoForgeInfo, Option<PathBuf>)> = entries
+            let hosts = crate::forges::discover_forgejo_hosts(entries);
+            let local_targets: Vec<(String, Option<PathBuf>)> = entries
                 .iter()
-                .map(|e| {
-                    (
-                        e.slug.clone(),
-                        e.to_forge_info(),
-                        crate::catalog::find_local_repo_path(e),
-                    )
-                })
+                .map(|e| (e.slug.clone(), crate::catalog::find_local_repo_path(e)))
                 .collect();
 
             std::thread::spawn(move || {
                 let _ = sender.send(TopBackgroundMsg::SyncStarted);
                 let client = crate::forges::ForgeClient::new();
-                for (slug, info, local_path) in targets {
-                    let mut status_label = None;
-                    let mut unpushed = None;
-                    let mut is_clean = None;
 
+                // 1. Consolidated live runner jobs (1 HTTP call per forge host)
+                let mut all_jobs = Vec::new();
+                for host in &hosts {
+                    if let Ok(jobs) = client.fetch_user_runner_jobs(host, None) {
+                        all_jobs.extend(jobs);
+                    }
+                }
+                let _ = sender.send(TopBackgroundMsg::RunnerJobsUpdated(all_jobs));
+
+                // 2. Fast local git status inspection (pure local read, NO network git fetch)
+                for (slug, local_path) in local_targets {
                     if let Some(ref path) = local_path {
-                        // Refresh git remote tracking references silently
-                        let _ = std::process::Command::new("git")
-                            .args(["fetch", "--quiet"])
-                            .current_dir(path)
-                            .output();
-
                         if let Some(st) = crate::git::inspect_local_status(path) {
                             let label = match (st.is_clean, st.ahead, st.modified_files) {
                                 (true, 0, _) => "clean".to_string(),
@@ -657,26 +666,17 @@ pub fn run_repo_top(
                                     }
                                 }
                             };
-                            status_label = Some(label);
-                            unpushed = Some(st.ahead);
-                            is_clean = Some(st.is_clean);
+                            let _ = sender.send(TopBackgroundMsg::RepoUpdate {
+                                slug,
+                                ci_status: None,
+                                status_label: Some(label),
+                                unpushed: Some(st.ahead),
+                                is_clean: Some(st.is_clean),
+                            });
                         }
                     }
-
-                    let ci_status = if !info.owner.is_empty() && !info.repo.is_empty() {
-                        client.fetch_ci_status(&info, Some("main")).ok()
-                    } else {
-                        None
-                    };
-
-                    let _ = sender.send(TopBackgroundMsg::RepoUpdate {
-                        slug,
-                        ci_status,
-                        status_label,
-                        unpushed,
-                        is_clean,
-                    });
                 }
+
                 let _ = sender.send(TopBackgroundMsg::SyncCompleted);
             });
         };
@@ -747,9 +747,22 @@ pub fn run_repo_top(
                         }
                     }
                 }
+                TopBackgroundMsg::RunnerJobsUpdated(jobs) => {
+                    let cat = crate::catalog::load_catalog(None, catalog_path);
+                    let base_summaries = crate::catalog::summarize_catalog(&cat);
+                    for r in raw_summaries.iter_mut() {
+                        if let Some(base) =
+                            base_summaries.iter().find(|b| b.slug.eq_ignore_ascii_case(&r.slug))
+                        {
+                            r.ci_status = base.ci_status.clone();
+                        }
+                    }
+                    crate::forges::merge_live_runner_jobs(&mut raw_summaries, &jobs);
+                }
                 TopBackgroundMsg::SyncCompleted => {
                     state.is_syncing = false;
                     state.has_converged = true;
+                    last_refresh = Instant::now();
                 }
             }
         }
@@ -851,11 +864,12 @@ pub fn run_repo_top(
             }
         }
 
-        // Auto refresh tick
-        if last_refresh.elapsed() >= interval {
+        // Auto refresh tick: only when not already syncing and interval has passed since convergence
+        if !state.is_syncing && last_refresh.elapsed() >= interval {
             state.is_syncing = true;
             state.has_converged = false;
-            refresh_data(&mut raw_summaries, &tx);
+            let cat = crate::catalog::load_catalog(None, catalog_path);
+            trigger_background_sync(&cat, tx.clone());
             last_refresh = Instant::now();
         }
     }
