@@ -478,11 +478,11 @@ pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32,
             return Ok(0);
         }
 
-        let cargo_files =
-            crate::semver_calc::sync_cargo_toml_versions(&repo.root_dir, &new_version)
+        let manifest_files =
+            crate::semver_calc::sync_project_manifests(&repo.root_dir, &new_version)
                 .unwrap_or_default();
         let mut git_add_args = vec!["add".to_string(), "VERSION".to_string()];
-        for f in &cargo_files {
+        for f in &manifest_files {
             git_add_args.push(f.to_string_lossy().to_string());
         }
 
@@ -586,10 +586,11 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
     std::fs::write(&version_file, format!("{}\n", target_version))
         .map_err(|e| format!("Failed to write VERSION file: {}", e))?;
 
-    let cargo_files = crate::semver_calc::sync_cargo_toml_versions(&repo.root_dir, &target_version)
-        .unwrap_or_default();
+    let manifest_files =
+        crate::semver_calc::sync_project_manifests(&repo.root_dir, &target_version)
+            .unwrap_or_default();
     let mut git_add_args = vec!["add".to_string(), "VERSION".to_string()];
-    for f in &cargo_files {
+    for f in &manifest_files {
         git_add_args.push(f.to_string_lossy().to_string());
     }
 
@@ -597,7 +598,7 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
         .args(&git_add_args)
         .current_dir(&repo.root_dir)
         .status()
-        .map_err(|e| format!("Failed to stage VERSION and Cargo.toml: {}", e))?;
+        .map_err(|e| format!("Failed to stage VERSION and manifests: {}", e))?;
 
     if !add_status.success() {
         return Err("git add VERSION failed".to_string());

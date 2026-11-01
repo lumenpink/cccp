@@ -240,11 +240,11 @@ pub fn apply_bump(base: &Version, bump: BumpLevel) -> Version {
     next
 }
 
-/// Write calculated version string to the repository's VERSION file and synchronize Cargo.toml if present
+/// Write calculated version string to the repository's VERSION file and synchronize project manifests if present
 pub fn write_version_file(repo_root: &Path, version_str: &str) -> std::io::Result<()> {
     let version_path = repo_root.join("VERSION");
     fs::write(version_path, format!("{}\n", version_str.trim()))?;
-    let _ = sync_cargo_toml_versions(repo_root, version_str);
+    let _ = sync_project_manifests(repo_root, version_str);
     Ok(())
 }
 
@@ -297,71 +297,188 @@ pub fn update_cargo_toml_file(file_path: &Path, new_version: &str) -> Result<boo
     Ok(modified)
 }
 
-/// Sincroniza o arquivo VERSION com os arquivos Cargo.toml do repositório (pacote único ou workspace).
-/// Retorna a lista de caminhos relativos dos arquivos modificados.
-pub fn sync_cargo_toml_versions(
+/// Updates or injects `"version": "..."` in a package.json or composer.json file.
+/// If `inject_if_missing` is true and `"version"` is not present, injects it.
+pub fn update_json_manifest_file(
+    file_path: &Path,
+    new_version: &str,
+    inject_if_missing: bool,
+) -> Result<bool, String> {
+    if !file_path.is_file() {
+        return Ok(false);
+    }
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| format!("Falha ao ler {}: {}", file_path.display(), e))?;
+
+    let mut new_lines = Vec::new();
+    let mut modified = false;
+    let mut found_version = false;
+    let mut depth: i32 = 0;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        let opens = trimmed.matches('{').count() as i32;
+        let closes = trimmed.matches('}').count() as i32;
+
+        let current_depth = depth + opens;
+        if (depth == 1 || current_depth == 1) && trimmed.starts_with("\"version\"") {
+            found_version = true;
+            let parts: Vec<&str> = trimmed.splitn(2, ':').collect();
+            if parts.len() == 2 {
+                let leading_ws = &line[..line.len() - line.trim_start().len()];
+                let trailing_comma = if trimmed.ends_with(',') { "," } else { "" };
+                let new_line = format!(
+                    "{}\"version\": \"{}\"{}",
+                    leading_ws,
+                    new_version.trim(),
+                    trailing_comma
+                );
+                if line != new_line {
+                    modified = true;
+                }
+                new_lines.push(new_line);
+                depth += opens - closes;
+                continue;
+            }
+        }
+
+        new_lines.push(line.to_string());
+        depth += opens - closes;
+    }
+
+    if !found_version && inject_if_missing {
+        let mut indent = "    ";
+        for line in &new_lines {
+            if line.starts_with("    \"") {
+                indent = "    ";
+                break;
+            } else if line.starts_with("  \"") {
+                indent = "  ";
+                break;
+            } else if line.starts_with("\t\"") {
+                indent = "\t";
+                break;
+            }
+        }
+
+        let mut injected_lines = Vec::new();
+        let mut injected = false;
+        for line in new_lines {
+            injected_lines.push(line.clone());
+            if !injected && line.contains('{') {
+                injected_lines.push(format!("{}\"version\": \"{}\",", indent, new_version.trim()));
+                injected = true;
+                modified = true;
+            }
+        }
+        new_lines = injected_lines;
+    }
+
+    if modified {
+        let mut final_content = new_lines.join("\n");
+        if content.ends_with('\n') {
+            final_content.push('\n');
+        }
+        fs::write(file_path, final_content)
+            .map_err(|e| format!("Falha ao escrever {}: {}", file_path.display(), e))?;
+    }
+
+    Ok(modified)
+}
+
+const IGNORED_MANIFEST_DIRS: &[&str] = &[
+    ".git",
+    "target",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "coverage",
+    ".antigravity",
+    ".gemini",
+    "cache",
+    ".cache",
+];
+
+fn scan_manifests_recursive(
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+    results: &mut Vec<PathBuf>,
+) {
+    if depth > max_depth {
+        return;
+    }
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n,
+            None => continue,
+        };
+
+        if path.is_dir() {
+            if !IGNORED_MANIFEST_DIRS.contains(&file_name) && !file_name.starts_with('.') {
+                scan_manifests_recursive(&path, depth + 1, max_depth, results);
+            }
+        } else if path.is_file() {
+            if file_name == "Cargo.toml" || file_name == "package.json" || file_name == "composer.json" {
+                results.push(path);
+            }
+        }
+    }
+}
+
+/// Sincroniza a versão canônica em todos os manifestos de projeto suportados
+/// (Cargo.toml, package.json, composer.json) encontrados no repositório.
+/// Retorna a lista ordenada de caminhos relativos dos arquivos modificados.
+pub fn sync_project_manifests(
     repo_root: &Path,
     new_version: &str,
 ) -> Result<Vec<PathBuf>, String> {
-    let root_cargo = repo_root.join("Cargo.toml");
-    if !root_cargo.is_file() {
-        return Ok(Vec::new());
-    }
+    let mut manifest_paths = Vec::new();
+    scan_manifests_recursive(repo_root, 0, 5, &mut manifest_paths);
 
-    let mut modified_files = Vec::new();
+    let mut modified = Vec::new();
 
-    // 1. Atualizar o Cargo.toml raiz se tiver [package] ou [workspace.package]
-    if update_cargo_toml_file(&root_cargo, new_version)? {
-        modified_files.push(PathBuf::from("Cargo.toml"));
-    }
+    for path in manifest_paths {
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        let changed = match file_name {
+            "Cargo.toml" => update_cargo_toml_file(&path, new_version)?,
+            "package.json" => update_json_manifest_file(&path, new_version, false)?,
+            "composer.json" => update_json_manifest_file(&path, new_version, true)?,
+            _ => false,
+        };
 
-    // 2. Verificar se é workspace e possui membros declarados
-    let root_content = fs::read_to_string(&root_cargo)
-        .map_err(|e| format!("Falha ao ler Cargo.toml raiz: {}", e))?;
-
-    if let Ok(toml_val) = root_content.parse::<toml::Value>() {
-        if let Some(workspace) = toml_val.get("workspace") {
-            if let Some(members) = workspace.get("members").and_then(|m| m.as_array()) {
-                for member in members {
-                    if let Some(member_str) = member.as_str() {
-                        let member_dir = repo_root.join(member_str);
-                        if member_dir.is_dir() {
-                            let member_cargo = member_dir.join("Cargo.toml");
-                            if member_cargo.is_file()
-                                && update_cargo_toml_file(&member_cargo, new_version)?
-                            {
-                                if let Ok(rel) = member_cargo.strip_prefix(repo_root) {
-                                    modified_files.push(rel.to_path_buf());
-                                } else {
-                                    modified_files
-                                        .push(PathBuf::from(member_str).join("Cargo.toml"));
-                                }
-                            }
-                        } else if let Some(base_rel) = member_str.strip_suffix("/*") {
-                            let base_dir = repo_root.join(base_rel);
-                            if let Ok(entries) = fs::read_dir(base_dir) {
-                                for entry in entries.flatten() {
-                                    let sub_dir = entry.path();
-                                    if sub_dir.is_dir() {
-                                        let member_cargo = sub_dir.join("Cargo.toml");
-                                        if member_cargo.is_file()
-                                            && update_cargo_toml_file(&member_cargo, new_version)?
-                                        {
-                                            if let Ok(rel) = member_cargo.strip_prefix(repo_root) {
-                                                modified_files.push(rel.to_path_buf());
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        if changed {
+            if let Ok(rel) = path.strip_prefix(repo_root) {
+                modified.push(rel.to_path_buf());
+            } else {
+                modified.push(path);
             }
         }
     }
 
-    Ok(modified_files)
+    modified.sort();
+    modified.dedup();
+    Ok(modified)
+}
+
+/// Sincroniza o arquivo VERSION com os arquivos Cargo.toml do repositório (pacote único ou workspace).
+/// Mantido para retrocompatibilidade. Retorna a lista de caminhos relativos dos arquivos modificados.
+pub fn sync_cargo_toml_versions(
+    repo_root: &Path,
+    new_version: &str,
+) -> Result<Vec<PathBuf>, String> {
+    let all = sync_project_manifests(repo_root, new_version)?;
+    Ok(all
+        .into_iter()
+        .filter(|p| p.ends_with("Cargo.toml"))
+        .collect())
 }
 
 #[cfg(test)]
