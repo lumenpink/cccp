@@ -363,6 +363,14 @@ pub fn pad_visual(colored_str: &str, plain_text_len: usize, target_width: usize)
     format!("{}{}", colored_str, " ".repeat(padding))
 }
 
+/// Number of fixed non-data lines in the top view layout:
+/// 1. Header (title, badges, convergence indicator)
+/// 2. Column headers (REPOSITÓRIO, FORJA...)
+/// 3. Top table separator line
+/// 4. Bottom table separator line
+/// 5. Bottom shortcuts / help line
+pub const FIXED_NON_DATA_ROWS: usize = 5;
+
 /// Pure string rendering function for testing and terminal painting
 pub fn render_top_view(
     repos: &[CatalogRepoSummary],
@@ -373,7 +381,7 @@ pub fn render_top_view(
 ) -> String {
     let mut out = String::new();
     let cols = width.max(40) as usize;
-    let rows = height.max(10) as usize;
+    let rows = (height as usize).max(FIXED_NON_DATA_ROWS);
 
     // Responsive column budget:
     // Base 80-col budget:
@@ -490,12 +498,14 @@ pub fn render_top_view(
             theme.gold_bold("└───────────────────────────────────────────────────────────────┘")
         ));
     } else {
-        // Table body: available visible lines = rows - 4 (header, col_header, sep, bottom_bar)
-        let visible_lines = rows.saturating_sub(4).max(1);
+        // Table body: available visible lines = rows - FIXED_NON_DATA_ROWS
+        let visible_lines = rows.saturating_sub(FIXED_NON_DATA_ROWS);
         let start = state.scroll_offset;
 
         if repos.is_empty() {
-            out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\x1b[K\r\n"));
+            if visible_lines > 0 {
+                out.push_str(&theme.dim("  Nenhum repositório corresponde ao filtro ativo.\x1b[K\r\n"));
+            }
         } else {
             for (idx, r) in repos.iter().enumerate().skip(start).take(visible_lines) {
                 let (raw_ci, color) = format_ci_summary(&r.ci_status);
@@ -669,7 +679,12 @@ pub fn run_repo_top(
     // Enter Alternate Screen and enable raw mode
     enable_raw_mode().map_err(|e| format!("Failed to enable raw mode: {}", e))?;
     let mut stdout_handle = stdout();
-    let _ = execute!(stdout_handle, EnterAlternateScreen, crossterm::cursor::Hide);
+    let _ = execute!(
+        stdout_handle,
+        EnterAlternateScreen,
+        crossterm::cursor::Hide,
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+    );
 
     let mut last_refresh = Instant::now();
     let interval = Duration::from_secs(state.interval_secs);
@@ -741,7 +756,7 @@ pub fn run_repo_top(
 
         // Adjust scroll offset
         let (cols, rows) = crossterm::terminal::size().unwrap_or((80, 24));
-        let visible_lines = (rows as usize).saturating_sub(4).max(1);
+        let visible_lines = (rows as usize).saturating_sub(FIXED_NON_DATA_ROWS).max(1);
         if state.selected_index >= state.scroll_offset + visible_lines {
             state.scroll_offset = state.selected_index + 1 - visible_lines;
         } else if state.selected_index < state.scroll_offset {
@@ -750,12 +765,8 @@ pub fn run_repo_top(
 
         // Render frame
         let frame = render_top_view(&filtered, &state, theme, cols, rows);
-        let _ = execute!(
-            stdout_handle,
-            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
-            crossterm::cursor::MoveTo(0, 0)
-        );
-        let _ = write!(stdout_handle, "{}", frame);
+        let _ = execute!(stdout_handle, crossterm::cursor::MoveTo(0, 0));
+        let _ = write!(stdout_handle, "{}\x1b[J", frame);
         let _ = stdout_handle.flush();
 
         // Advance spinner animation while background sync is active
