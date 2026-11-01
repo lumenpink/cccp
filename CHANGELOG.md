@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Terminal Height Budgeting and Flicker-Free Redraw in repo top
+- **Cálculo de Altura e Redesenho Sem Flickering (`src/repo_top.rs`, `tests/repo_top_layout_test.rs`)**:
+  - **Orçamento de Linhas Fixas**: Define `FIXED_NON_DATA_ROWS = 5` cobrindo cabeçalho de convergência, títulos de colunas, separadores superior e inferior e barra de atalhos, alocando linhas de repositórios estritamente dentro da altura do terminal e evitando scroll acidental que ocultava o cabeçalho superior.
+  - **Redesenho In-Place Livre de Cintilação**: Elimina a limpeza total de tela (`Clear(All)`) a cada tick de 100 ms no loop interativo, reposicionando o cursor em `(0, 0)` e limpando apenas eventuais linhas residuais inferiores com `\x1b[J`, garantindo atualização atômica e estável da interface. (closes #118)
+
 ### Disable git2 Default Features to Eliminate OpenSSL in Musl Builds
 - **Desativação de Recursos de Rede C no git2 (`Cargo.toml`, `tests/ci_pipeline_test.rs`)**:
   - **Eliminação de Dependências C de Transporte**: Configura `git2 = { version = "0.20", default-features = false }`, removendo completamente os crates `openssl-sys` e `libssh2-sys` da árvore de compilação.
