@@ -47,6 +47,26 @@ fn sample_repo(name: &str, status: &str) -> CatalogRepoSummary {
 }
 
 #[test]
+fn test_render_top_view_line_count_strictly_within_terminal_height() {
+    let theme = Theme::init(true);
+    let state = RepoTopState::new(5);
+    let repos: Vec<CatalogRepoSummary> = (0..50)
+        .map(|i| sample_repo(&format!("repo-{}", i), "success"))
+        .collect();
+
+    for height in [10, 15, 20, 24, 30, 50] {
+        let rendered = render_top_view(&repos, &state, &theme, 80, height);
+        let line_count = rendered.lines().count();
+        assert!(
+            line_count <= height as usize,
+            "render_top_view produziu {} linhas, excedendo a altura do terminal de {} linhas",
+            line_count,
+            height
+        );
+    }
+}
+
+#[test]
 fn test_render_top_view_fits_80_columns() {
     let theme = Theme::init(true);
     let state = RepoTopState::new(5);
