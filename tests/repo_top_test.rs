@@ -747,4 +747,3 @@ fn test_mutation_apply_repo_ci_update_edge_cases() {
     let e2e = repo.ci_status.iter().find(|p| p.name == "e2e").unwrap();
     assert_eq!(e2e.status, "success");
 }
-

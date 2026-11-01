@@ -751,8 +751,9 @@ pub fn run_repo_top(
                     let cat = crate::catalog::load_catalog(None, catalog_path);
                     let base_summaries = crate::catalog::summarize_catalog(&cat);
                     for r in raw_summaries.iter_mut() {
-                        if let Some(base) =
-                            base_summaries.iter().find(|b| b.slug.eq_ignore_ascii_case(&r.slug))
+                        if let Some(base) = base_summaries
+                            .iter()
+                            .find(|b| b.slug.eq_ignore_ascii_case(&r.slug))
                         {
                             r.ci_status = base.ci_status.clone();
                         }
