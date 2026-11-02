@@ -415,3 +415,86 @@ logins:
         None
     );
 }
+
+#[test]
+fn test_parse_consolidated_commit_status_json() {
+    let raw_json = serde_json::json!({
+        "state": "failure",
+        "sha": "49619afac2a19bcd7fee2eb58cb8f3977a8fe97d",
+        "total_count": 2,
+        "statuses": [
+            {
+                "id": 7,
+                "status": "failure",
+                "target_url": "/lumen/lacraia/actions/runs/28/jobs/0",
+                "description": "Failing after 3m14s",
+                "context": "CI/CD & Canonical Release to Banca / Checks, Tests & Quality Gates (push)",
+                "created_at": "2026-11-02T11:29:08-03:00",
+                "updated_at": "2026-11-02T11:29:08-03:00"
+            },
+            {
+                "id": 19,
+                "status": "skipped",
+                "target_url": "/lumen/lacraia/actions/runs/28/jobs/3",
+                "description": "Has been skipped",
+                "context": "CI/CD & Canonical Release to Banca / Trigger Pratilera Store Update in Banca (push)",
+                "created_at": "2026-11-02T11:30:06-03:00",
+                "updated_at": "2026-11-02T11:30:06-03:00"
+            }
+        ]
+    });
+
+    let pipelines = cccp::forges::parse_ci_status_json(&raw_json);
+    assert_eq!(pipelines.len(), 2);
+    assert_eq!(pipelines[0].status, "failure");
+    assert_eq!(pipelines[0].description.as_deref(), Some("Failing after 3m14s"));
+    assert_eq!(pipelines[0].updated_at.as_deref(), Some("2026-11-02T11:29:08-03:00"));
+    assert_eq!(pipelines[1].status, "skipped");
+    assert_eq!(pipelines[1].updated_at.as_deref(), Some("2026-11-02T11:30:06-03:00"));
+}
+
+#[test]
+fn test_merge_live_runner_jobs_preserves_timestamp() {
+    let mut summaries = vec![cccp::catalog::CatalogRepoSummary {
+        name: "mandu".to_string(),
+        slug: "lumen/mandu".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![cccp::catalog::CiPipelineStatus {
+            name: "CI/CD & Canonical Release to Banca / Checks, Tests & Quality Gates (push)".to_string(),
+            status: "waiting".to_string(),
+            description: Some("Waiting to run".to_string()),
+            target_url: None,
+            updated_at: Some("2026-11-02T17:46:48-03:00".to_string()),
+        }],
+    }];
+
+    let live_jobs = vec![cccp::forges::ForgeActionRunnerJob {
+        id: 9682,
+        run_id: 1752,
+        attempt: 1,
+        handle: "5d05b838-f222-4fd6-96bc-c0fb4ee5ae5e".to_string(),
+        repo_id: 36,
+        owner_id: 1,
+        name: "Checks, Tests & Quality Gates".to_string(),
+        html_url: "https://gambi.2lp.in/lumen/mandu/actions/runs/86/jobs/0/attempt/1".to_string(),
+        status: "running".to_string(),
+    }];
+
+    cccp::forges::merge_live_runner_jobs(&mut summaries, &live_jobs);
+
+    assert_eq!(summaries[0].ci_status.len(), 1);
+    assert_eq!(summaries[0].ci_status[0].status, "running");
+    assert_eq!(
+        summaries[0].ci_status[0].updated_at.as_deref(),
+        Some("2026-11-02T17:46:48-03:00")
+    );
+}
+
