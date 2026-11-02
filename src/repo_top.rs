@@ -415,7 +415,11 @@ pub fn parse_iso8601_to_epoch(s: &str) -> Option<u64> {
         };
 
         if tz_part.starts_with('+') || tz_part.starts_with('-') {
-            let sign = if tz_part.starts_with('-') { -1i64 } else { 1i64 };
+            let sign = if tz_part.starts_with('-') {
+                -1i64
+            } else {
+                1i64
+            };
             let tz_nums = &tz_part[1..];
             let (th, tm) = if let Some(colon) = tz_nums.find(':') {
                 let h: i64 = tz_nums[..colon].parse().ok()?;
@@ -488,13 +492,19 @@ pub fn format_ci_elapsed_time(ci: &[CiPipelineStatus], now_epoch: u64) -> String
         if let Some(ref desc) = p.description {
             if let Some(pos) = desc.find(" in ") {
                 let candidate = desc[pos + 4..].trim();
-                let dur: String = candidate.chars().take_while(|c| c.is_alphanumeric()).collect();
+                let dur: String = candidate
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric())
+                    .collect();
                 if !dur.is_empty() {
                     return dur;
                 }
             } else if let Some(pos) = desc.find(" after ") {
                 let candidate = desc[pos + 7..].trim();
-                let dur: String = candidate.chars().take_while(|c| c.is_alphanumeric()).collect();
+                let dur: String = candidate
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric())
+                    .collect();
                 if !dur.is_empty() {
                     return dur;
                 }
