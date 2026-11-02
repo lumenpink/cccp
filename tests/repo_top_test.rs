@@ -1077,6 +1077,45 @@ fn test_format_ci_elapsed_time_resilient_to_missing_first_timestamp() {
 }
 
 #[test]
+fn test_mutation_pipeline_matches_job_name_ci_cd_slashes_and_time_resilience() {
+    use cccp::forges::pipeline_matches_job_name;
+    use cccp::repo_top::format_ci_elapsed_time;
+
+    assert!(pipeline_matches_job_name(
+        "CI/CD Pipeline / Build, Test & Release / Checks (push)",
+        "Checks"
+    ));
+    assert!(pipeline_matches_job_name("CI/CD / Lint", "Lint"));
+    assert!(!pipeline_matches_job_name("CI/CD / Lint", "Build"));
+
+    let now = 1793620800;
+    let ci = vec![
+        CiPipelineStatus {
+            name: "Job A".to_string(),
+            status: "waiting".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "Job B".to_string(),
+            status: "waiting".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "Job C".to_string(),
+            status: "waiting".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: Some("2026-11-02T11:50:00Z".to_string()), // 10m
+        },
+    ];
+    assert_eq!(format_ci_elapsed_time(&ci, now), "10m");
+}
+
+#[test]
 fn test_render_top_view_includes_tempo_column() {
     let repo = make_sample_repo(
         "mandu",
