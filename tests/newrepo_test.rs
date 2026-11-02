@@ -63,6 +63,8 @@ fn test_newrepo_scaffolding_defaults() {
     let ci_content = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
     assert!(ci_content.contains("runs-on: ubuntu-latest"));
     assert!(!ci_content.contains("runs-on: native"));
+    assert!(ci_content.contains("concurrency:"));
+    assert!(ci_content.contains("cancel-in-progress: true"));
 
     let headers = fs::read_to_string(root.join("site/_headers")).unwrap();
     assert!(headers.contains("X-Content-Type-Options: nosniff"));
@@ -73,6 +75,28 @@ fn test_newrepo_scaffolding_defaults() {
 
     let ci = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
     assert!(ci.contains("cccp check --strict"));
+}
+
+#[test]
+fn test_newrepo_ci_workflow_has_cancel_in_progress() {
+    let dir = tempdir().unwrap();
+    let root = dir.path().join("ci-check-proj");
+    let theme = Theme::init(true);
+
+    let opts = NewrepoOptions {
+        name: Some("ci-check-proj".to_string()),
+        root: Some(root.clone()),
+        sync: false,
+        quiet: true,
+        ..NewrepoOptions::default()
+    };
+
+    let res = cmd_newrepo(opts, &theme);
+    assert!(res.is_ok());
+
+    let ci = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
+    assert!(ci.contains("concurrency:"));
+    assert!(ci.contains("cancel-in-progress: true"));
 }
 
 #[test]
