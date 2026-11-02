@@ -209,7 +209,7 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
         updated_at: None,
     }]);
     assert_eq!(text, "~ running");
-    assert_eq!(style, "yellow");
+    assert_eq!(style, "cyan");
     assert!(
         !text.contains('⏳'),
         "Should not contain wide hourglass emoji"
@@ -234,7 +234,7 @@ fn test_format_ci_summary_multi_pipelines_and_running() {
         },
     ]);
     assert_eq!(text, "~ running (1/2)");
-    assert_eq!(style, "yellow");
+    assert_eq!(style, "cyan");
     assert!(
         !text.contains('⏳'),
         "Should not contain wide hourglass emoji"
@@ -266,7 +266,7 @@ fn test_format_ci_summary_distinguishes_running_and_waiting_and_prioritizes_over
         updated_at: None,
     }]);
     assert_eq!(text, "~ running");
-    assert_eq!(style, "yellow");
+    assert_eq!(style, "cyan");
 
     // 3. Exact joaju-pdf scenario: 1 old failed job + 1 new waiting job
     let (text, style) = format_ci_summary(&[
@@ -509,7 +509,7 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
         },
     ]);
     assert_eq!(multi_text, "~ running (1/2)");
-    assert_eq!(multi_style, "yellow");
+    assert_eq!(multi_style, "cyan");
     assert!(
         multi_text.is_ascii(),
         "Multi-pipeline pending string must also be pure ASCII"

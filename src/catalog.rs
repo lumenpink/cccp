@@ -1331,7 +1331,7 @@ pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
         } else {
             "~ running".to_string()
         };
-        (text, "yellow")
+        (text, "cyan")
     } else if waiting > 0 {
         let text = if total > 1 {
             format!("~ waiting ({}/{})", waiting, total)
@@ -1417,7 +1417,9 @@ pub fn format_catalog_ci_details(
                 ("✓", theme.green(&p.status))
             } else if st == "failure" || st == "fail" || st == "error" {
                 ("✗", theme.red_bold(&p.status))
-            } else if st == "pending" || st == "running" || st == "waiting" {
+            } else if st == "running" || st == "progress" {
+                ("~", theme.cyan(&p.status))
+            } else if st == "pending" || st == "waiting" || st == "blocked" {
                 ("~", theme.yellow(&p.status))
             } else {
                 ("•", theme.dim(&p.status))

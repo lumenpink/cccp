@@ -516,6 +516,7 @@ pub fn render_top_view(
                 let colored_ci = match color {
                     "red" => theme.red(&ci_text),
                     "yellow" => theme.yellow(&ci_text),
+                    "cyan" => theme.cyan(&ci_text),
                     "green" => theme.green(&ci_text),
                     _ => theme.dim(&ci_text),
                 };

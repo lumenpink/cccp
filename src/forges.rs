@@ -706,17 +706,19 @@ impl ForgeClient {
                 }
                 seen.insert(name.clone());
 
-                let status = item
+                let description = item
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                let raw_status = item
                     .get("status")
                     .or_else(|| item.get("state"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown")
                     .to_string();
 
-                let description = item
-                    .get("description")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+                let status = normalize_commit_status(&raw_status, description.as_deref());
 
                 let target_url = item
                     .get("target_url")
@@ -1759,6 +1761,27 @@ pub fn pipeline_matches_job_name(pipeline_name: &str, job_name: &str) -> bool {
         return true;
     }
     false
+}
+
+/// Normalize commit status string, taking Forgejo/Gitea description into account.
+/// The standard Commit Status API only reports "pending", but Forgejo provides
+/// granular states ("Waiting to run", "Has started running", "Blocked by required conditions")
+/// in the description field.
+pub fn normalize_commit_status(status: &str, description: Option<&str>) -> String {
+    let lower_status = status.to_ascii_lowercase();
+    if lower_status == "pending" {
+        if let Some(desc) = description {
+            let lower_desc = desc.to_ascii_lowercase();
+            if lower_desc.contains("waiting to run") {
+                return "waiting".to_string();
+            } else if lower_desc.contains("has started running") {
+                return "running".to_string();
+            } else if lower_desc.contains("blocked by required conditions") {
+                return "blocked".to_string();
+            }
+        }
+    }
+    status.to_string()
 }
 
 /// Merge active live runner jobs (`waiting`, `running`) into repo summaries
