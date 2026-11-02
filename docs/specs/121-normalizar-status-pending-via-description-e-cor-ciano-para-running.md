@@ -37,5 +37,9 @@ Na integração com o Forgejo / Gitea Actions:
 - Repositórios em `waiting` ou `blocked` mantêm a cor amarela.
 - Suíte de testes unitários e de integração aprovada sem regressões.
 
-### 4. Status de Resolução
-- **Status**: Em implementação (Fase 3).
+### 4. Status de Resolução (Fase 8)
+- **Status**: Concluído e Aprovado no Quality Gate.
+- **Laudo**:
+  - **[Resumo]**: Normalização de commit status `pending` para `waiting`, `running` e `blocked` via `description` do Forgejo e aplicação da cor ciano (`cyan`) para pipelines em `running`.
+  - **[Solução]**: Implementação de `normalize_commit_status` em `src/forges.rs`, integração em `fetch_ci_status`, atualização de `format_ci_summary` e `format_catalog_ci_details` para emitir `"cyan"` em execuções ativas e renderização compatível no `repo top`.
+  - **[Validação]**: 13 testes unitários e de mutação em `catalog_ci_ui_test`, `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` aprovados com 100% de sucesso.
