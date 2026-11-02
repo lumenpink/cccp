@@ -1063,7 +1063,8 @@ fn test_format_ci_elapsed_time_resilient_to_missing_first_timestamp() {
             updated_at: None, // Missing timestamp on first item
         },
         CiPipelineStatus {
-            name: "CI/CD & Sovereign Release to Banca / Checks, Tests & Quality Gates (push)".to_string(),
+            name: "CI/CD & Sovereign Release to Banca / Checks, Tests & Quality Gates (push)"
+                .to_string(),
             status: "running".to_string(),
             description: Some("Has started running".to_string()),
             target_url: None,
