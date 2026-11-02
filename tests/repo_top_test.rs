@@ -1064,3 +1064,36 @@ fn test_render_top_view_includes_tempo_column() {
         "Top view column headers must include TEMPO"
     );
 }
+
+#[test]
+fn test_mutation_iso_parsing_and_duration_concise_boundary_cases() {
+    use cccp::repo_top::{format_duration_concise, parse_iso8601_to_epoch};
+
+    // 1. Boundary duration formatting
+    assert_eq!(format_duration_concise(0), "0s");
+    assert_eq!(format_duration_concise(59), "59s");
+    assert_eq!(format_duration_concise(60), "1m");
+    assert_eq!(format_duration_concise(3599), "59m");
+    assert_eq!(format_duration_concise(3600), "1h00m");
+    assert_eq!(format_duration_concise(3665), "1h01m");
+    assert_eq!(format_duration_concise(86399), "23h59m");
+    assert_eq!(format_duration_concise(86400), "1d0h");
+    assert_eq!(format_duration_concise(90000), "1d1h");
+
+    // 2. ISO-8601 parsing mutations
+    assert!(parse_iso8601_to_epoch("").is_none());
+    assert!(parse_iso8601_to_epoch("not-a-timestamp").is_none());
+    assert!(parse_iso8601_to_epoch("2026-13-01T00:00:00Z").is_none()); // invalid month
+    assert!(parse_iso8601_to_epoch("2026-00-01T00:00:00Z").is_none());
+    assert!(parse_iso8601_to_epoch("2026-11-32T00:00:00Z").is_none()); // invalid day
+
+    // 3. Fractional seconds with timezone
+    let with_millis = parse_iso8601_to_epoch("2026-11-02T05:00:00.123Z");
+    let without_millis = parse_iso8601_to_epoch("2026-11-02T05:00:00Z");
+    assert_eq!(with_millis, without_millis);
+
+    // 4. Positive and negative timezone offsets
+    // UTC 05:00 == +02:00 at 07:00
+    let with_pos_tz = parse_iso8601_to_epoch("2026-11-02T07:00:00+02:00");
+    assert_eq!(with_pos_tz, without_millis);
+}
