@@ -916,3 +916,79 @@ fn test_running_repositories_prioritized_at_absolute_top_over_waiting_and_others
     assert_eq!(sorted[3].name, "fail-repo");
     assert_eq!(sorted[4].name, "ok-repo");
 }
+
+#[test]
+fn test_mutation_repo_ci_priority_edge_cases_and_precedence() {
+    use cccp::repo_top::repo_ci_priority;
+
+    // 1. Running trumps everything (failure, waiting, ok)
+    let p_running_mix = vec![
+        CiPipelineStatus {
+            name: "test".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "build".to_string(),
+            status: "running".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+    ];
+    assert_eq!(repo_ci_priority(&p_running_mix), 0);
+
+    // 2. Waiting trumps failure
+    let p_waiting_mix = vec![
+        CiPipelineStatus {
+            name: "test".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+        CiPipelineStatus {
+            name: "build".to_string(),
+            status: "waiting".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        },
+    ];
+    assert_eq!(repo_ci_priority(&p_waiting_mix), 1);
+
+    // 3. Blocked trumps failure
+    let p_blocked = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "blocked".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(repo_ci_priority(&p_blocked), 2);
+
+    // 4. Failure priority
+    let p_fail = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "failure".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(repo_ci_priority(&p_fail), 3);
+
+    // 5. Ok priority
+    let p_ok = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "success".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(repo_ci_priority(&p_ok), 4);
+
+    // 6. Empty priority
+    assert_eq!(repo_ci_priority(&[]), 5);
+}
