@@ -544,7 +544,7 @@ Distribuído sob a licença [{}](./LICENSE).\n",
         theme,
     )?;
 
-    // 10. Workflows de CI (GOST-10)
+    // 10. Workflows de CI (GOST-10) com cancel-in-progress para desobstrução de runners
     if opts.ci {
         let ci_workflow_content = "name: CI\n\n\
 on:\n\
