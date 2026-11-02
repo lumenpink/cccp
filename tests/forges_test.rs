@@ -585,3 +585,54 @@ fn test_forge_name_returns_instance_host_prefix_for_forgejo() {
     assert_eq!(summaries[0].forge, "gambi");
 }
 
+#[test]
+fn test_mutation_forge_name_edge_cases() {
+    // 1. Host with git. prefix
+    let info_git = cccp::forges::RepoForgeInfo::new(
+        cccp::forges::ForgeType::Forgejo,
+        "git.2lp.in".to_string(),
+        "lumen".to_string(),
+        "repo".to_string(),
+    );
+    assert_eq!(info_git.forge_name(), "2lp");
+
+    // 2. Host with port
+    let info_port = cccp::forges::RepoForgeInfo::new(
+        cccp::forges::ForgeType::Forgejo,
+        "gambi.2lp.in:8443".to_string(),
+        "lumen".to_string(),
+        "repo".to_string(),
+    );
+    assert_eq!(info_port.forge_name(), "gambi");
+
+    // 3. Host with no dot
+    let info_local = cccp::forges::RepoForgeInfo::new(
+        cccp::forges::ForgeType::Forgejo,
+        "localhost".to_string(),
+        "lumen".to_string(),
+        "repo".to_string(),
+    );
+    assert_eq!(info_local.forge_name(), "localhost");
+
+    // 4. Summarize catalog with canonical_url fallback
+    let entry_url = cccp::catalog::CatalogEntry {
+        name: "test-repo".to_string(),
+        forge: "forgejo".to_string(),
+        slug: "lumen/test-repo".to_string(),
+        aliases: vec![],
+        description: "Test".to_string(),
+        topics: vec![],
+        license: "MIT".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: vec![],
+        canonical_url: Some("https://git.internal.org/lumen/test-repo".to_string()),
+        server_host: None,
+    };
+    let sum_url = cccp::catalog::summarize_catalog(&[entry_url]);
+    assert_eq!(sum_url[0].forge, "internal");
+}
+
+
