@@ -634,5 +634,3 @@ fn test_mutation_forge_name_edge_cases() {
     let sum_url = cccp::catalog::summarize_catalog(&[entry_url]);
     assert_eq!(sum_url[0].forge, "internal");
 }
-
-
