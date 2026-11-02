@@ -447,10 +447,19 @@ fn test_parse_consolidated_commit_status_json() {
     let pipelines = cccp::forges::parse_ci_status_json(&raw_json);
     assert_eq!(pipelines.len(), 2);
     assert_eq!(pipelines[0].status, "failure");
-    assert_eq!(pipelines[0].description.as_deref(), Some("Failing after 3m14s"));
-    assert_eq!(pipelines[0].updated_at.as_deref(), Some("2026-11-02T11:29:08-03:00"));
+    assert_eq!(
+        pipelines[0].description.as_deref(),
+        Some("Failing after 3m14s")
+    );
+    assert_eq!(
+        pipelines[0].updated_at.as_deref(),
+        Some("2026-11-02T11:29:08-03:00")
+    );
     assert_eq!(pipelines[1].status, "skipped");
-    assert_eq!(pipelines[1].updated_at.as_deref(), Some("2026-11-02T11:30:06-03:00"));
+    assert_eq!(
+        pipelines[1].updated_at.as_deref(),
+        Some("2026-11-02T11:30:06-03:00")
+    );
 }
 
 #[test]
@@ -468,7 +477,8 @@ fn test_merge_live_runner_jobs_preserves_timestamp() {
         gost_version: None,
         is_mirror: false,
         ci_status: vec![cccp::catalog::CiPipelineStatus {
-            name: "CI/CD & Canonical Release to Banca / Checks, Tests & Quality Gates (push)".to_string(),
+            name: "CI/CD & Canonical Release to Banca / Checks, Tests & Quality Gates (push)"
+                .to_string(),
             status: "waiting".to_string(),
             description: Some("Waiting to run".to_string()),
             target_url: None,
@@ -543,5 +553,3 @@ fn test_mutation_parse_ci_status_json_edge_cases() {
     assert_eq!(dedup[0].status, "success");
     assert_eq!(dedup[0].description.as_deref(), Some("First build"));
 }
-
-
