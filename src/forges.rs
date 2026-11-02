@@ -636,13 +636,13 @@ impl ForgeClient {
         let api_url = match info.provider {
             ForgeType::Codeberg | ForgeType::Tildegit | ForgeType::Forgejo => {
                 format!(
-                    "https://{}/api/v1/repos/{}/{}/commits/{}/statuses",
+                    "https://{}/api/v1/repos/{}/{}/commits/{}/status",
                     info.host, info.owner, info.repo, r
                 )
             }
             ForgeType::GitHub => {
                 format!(
-                    "https://api.github.com/repos/{}/{}/commits/{}/statuses",
+                    "https://api.github.com/repos/{}/{}/commits/{}/status",
                     info.owner, info.repo, r
                 )
             }
@@ -688,60 +688,7 @@ impl ForgeClient {
             .read_json()
             .map_err(|e| format!("Failed to parse JSON from {}: {}", api_url, e))?;
 
-        let mut pipelines = Vec::new();
-
-        if let Some(arr) = body.as_array() {
-            let mut seen = std::collections::HashSet::new();
-            for item in arr {
-                let name = item
-                    .get("context")
-                    .or_else(|| item.get("name"))
-                    .or_else(|| item.get("ref"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("CI")
-                    .to_string();
-
-                if seen.contains(&name) {
-                    continue;
-                }
-                seen.insert(name.clone());
-
-                let description = item
-                    .get("description")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                let raw_status = item
-                    .get("status")
-                    .or_else(|| item.get("state"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                let status = normalize_commit_status(&raw_status, description.as_deref());
-
-                let target_url = item
-                    .get("target_url")
-                    .or_else(|| item.get("web_url"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                let updated_at = item
-                    .get("updated_at")
-                    .or_else(|| item.get("created_at"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                pipelines.push(crate::catalog::CiPipelineStatus {
-                    name,
-                    status,
-                    description,
-                    target_url,
-                    updated_at,
-                });
-            }
-        }
-
+        let pipelines = parse_ci_status_json(&body);
         Ok(pipelines)
     }
 
@@ -1786,6 +1733,71 @@ pub fn normalize_commit_status(status: &str, description: Option<&str>) -> Strin
     status.to_string()
 }
 
+/// Parse commit status responses from forge APIs (supports consolidated `{ "state": ..., "statuses": [...] }` and raw arrays)
+pub fn parse_ci_status_json(body: &serde_json::Value) -> Vec<crate::catalog::CiPipelineStatus> {
+    let mut pipelines = Vec::new();
+
+    let items_array = if let Some(arr) = body.as_array() {
+        Some(arr)
+    } else {
+        body.get("statuses").and_then(|v| v.as_array())
+    };
+
+    if let Some(arr) = items_array {
+        let mut seen = std::collections::HashSet::new();
+        for item in arr {
+            let name = item
+                .get("context")
+                .or_else(|| item.get("name"))
+                .or_else(|| item.get("ref"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("CI")
+                .to_string();
+
+            if seen.contains(&name) {
+                continue;
+            }
+            seen.insert(name.clone());
+
+            let description = item
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let raw_status = item
+                .get("status")
+                .or_else(|| item.get("state"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            let status = normalize_commit_status(&raw_status, description.as_deref());
+
+            let target_url = item
+                .get("target_url")
+                .or_else(|| item.get("web_url"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let updated_at = item
+                .get("updated_at")
+                .or_else(|| item.get("created_at"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            pipelines.push(crate::catalog::CiPipelineStatus {
+                name,
+                status,
+                description,
+                target_url,
+                updated_at,
+            });
+        }
+    }
+
+    pipelines
+}
+
 /// Merge active live runner jobs (`waiting`, `running`) into repo summaries
 pub fn merge_live_runner_jobs(
     summaries: &mut [crate::catalog::CatalogRepoSummary],
@@ -1816,8 +1828,12 @@ pub fn merge_live_runner_jobs(
                 {
                     existing.status = job.status.clone();
                     existing.target_url = Some(job.html_url.clone());
+                    // existing.updated_at is kept intact
                 } else {
-                    repo.ci_status.insert(0, live_status.clone());
+                    let fallback_time = repo.ci_status.iter().find_map(|p| p.updated_at.clone());
+                    let mut item = live_status.clone();
+                    item.updated_at = fallback_time;
+                    repo.ci_status.insert(0, item);
                 }
             }
         }
