@@ -28,5 +28,9 @@ Com isso, repositórios que já estavam em execução ativa (`running`) podiam s
 - Testes unitários comprovam que mesmo se um repositório em `waiting` tiver um ID de job menor (ex.: job #10 em waiting vs job #20 em running), o repositório em `running` é ordenado primeiro.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` aprovados com 100% de sucesso.
 
-### 4. Status de Resolução
-- **Status**: Em implementação (Fase 3).
+### 4. Status de Resolução (Fase 8)
+- **Status**: Concluído e Aprovado no Quality Gate.
+- **Laudo**:
+  - **[Resumo]**: Priorização de repositórios com jobs em execução ativa (`running`) no topo absoluto da ordenação por status de CI do monitor interativo `repo top`.
+  - **[Solução]**: Implementação de `repo_ci_priority` granularizando os tiers de prioridade (0: running, 1: waiting, 2: blocked/pending, 3: fail, 4: ok, 5: none) com desempate intra-nível por posição na fila (`runner_job_id`) e nome.
+  - **[Validação]**: 18 testes em `repo_top_test`, incluindo testes de priorização e mutação, `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` aprovados com 100% de sucesso.
