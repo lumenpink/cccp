@@ -467,22 +467,21 @@ pub fn format_ci_elapsed_time(ci: &[CiPipelineStatus], now_epoch: u64) -> String
         return "-".to_string();
     }
 
-    // 1. Check for active queued/running pipelines
-    let active = ci.iter().find(|p| {
+    // 1. Check all active queued/running pipelines for any valid updated_at timestamp
+    for p in ci {
         let st = p.status.to_ascii_lowercase();
-        st == "running"
+        if st == "running"
             || st == "progress"
             || st == "waiting"
             || st == "queued"
             || st == "blocked"
             || st == "pending"
-    });
-
-    if let Some(p) = active {
-        if let Some(ref updated) = p.updated_at {
-            if let Some(epoch) = parse_iso8601_to_epoch(updated) {
-                let elapsed = now_epoch.saturating_sub(epoch);
-                return format_duration_concise(elapsed);
+        {
+            if let Some(ref updated) = p.updated_at {
+                if let Some(epoch) = parse_iso8601_to_epoch(updated) {
+                    let elapsed = now_epoch.saturating_sub(epoch);
+                    return format_duration_concise(elapsed);
+                }
             }
         }
     }

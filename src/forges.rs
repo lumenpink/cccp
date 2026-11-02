@@ -1720,7 +1720,9 @@ pub fn extract_repo_slug_from_action_url(html_url: &str) -> Option<String> {
 /// Handles Forgejo/GitHub Actions composite pattern: "<Workflow Name> / <Job Name> (<event>)"
 pub fn pipeline_matches_job_name(pipeline_name: &str, job_name: &str) -> bool {
     fn strip_composite(s: &str) -> &str {
-        let without_workflow = if let Some(slash_idx) = s.find('/') {
+        let without_workflow = if let Some(slash_idx) = s.rfind(" / ") {
+            s[slash_idx + 3..].trim()
+        } else if let Some(slash_idx) = s.rfind('/') {
             s[slash_idx + 1..].trim()
         } else {
             s
