@@ -608,3 +608,42 @@ fn test_running_ci_summary_uses_cyan_style() {
     }]);
     assert_eq!(blocked_style, "yellow");
 }
+
+#[test]
+fn test_mutation_normalize_commit_status_casing_and_variations() {
+    use cccp::forges::normalize_commit_status;
+
+    // Mutation: Casing variants in status
+    assert_eq!(
+        normalize_commit_status("PENDING", Some("waiting to run")),
+        "waiting"
+    );
+    assert_eq!(
+        normalize_commit_status("Pending", Some("HAS STARTED RUNNING")),
+        "running"
+    );
+    assert_eq!(
+        normalize_commit_status("PeNdInG", Some("blocked by required conditions")),
+        "blocked"
+    );
+
+    // Mutation: Prefix / suffix noise in description
+    assert_eq!(
+        normalize_commit_status("pending", Some("Job #10: Waiting to run (attempt 1)")),
+        "waiting"
+    );
+    assert_eq!(
+        normalize_commit_status("pending", Some("Task 42: Has started running on runner")),
+        "running"
+    );
+
+    // Mutation: Other statuses must stay intact even if description matches
+    assert_eq!(
+        normalize_commit_status("skipped", Some("Waiting to run")),
+        "skipped"
+    );
+    assert_eq!(
+        normalize_commit_status("cancelled", Some("Has started running")),
+        "cancelled"
+    );
+}
