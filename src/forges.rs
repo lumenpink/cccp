@@ -91,9 +91,27 @@ impl RepoForgeInfo {
         match self.provider {
             ForgeType::Codeberg => "codeberg",
             ForgeType::Tildegit => "tildegit",
-            ForgeType::Forgejo => "forgejo",
             ForgeType::GitHub => "github",
             ForgeType::GitLab => "gitlab",
+            ForgeType::Forgejo => {
+                let clean = self.host.split(':').next().unwrap_or(&self.host).trim();
+                let without_git = if clean.starts_with("git.") && clean.len() > 4 {
+                    &clean[4..]
+                } else {
+                    clean
+                };
+                if let Some(pos) = without_git.find('.') {
+                    if pos > 0 {
+                        &without_git[..pos]
+                    } else {
+                        "forgejo"
+                    }
+                } else if !clean.is_empty() {
+                    clean
+                } else {
+                    "forgejo"
+                }
+            }
         }
     }
 

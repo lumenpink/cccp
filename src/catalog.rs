@@ -1265,9 +1265,31 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
                 Vec::new()
             };
 
+            let forge = if entry.forge.eq_ignore_ascii_case("forgejo") {
+                if let Some(ref sh) = entry.server_host {
+                    extract_domain_prefix(sh).unwrap_or_else(|| "forgejo".to_string())
+                } else if let Some(ref url) = entry.canonical_url {
+                    let host_part = if let Some(stripped) = url.strip_prefix("https://") {
+                        stripped
+                    } else if let Some(stripped) = url.strip_prefix("http://") {
+                        stripped
+                    } else if let Some(stripped) = url.strip_prefix("git@") {
+                        stripped.split(':').next().unwrap_or(stripped)
+                    } else {
+                        url.as_str()
+                    };
+                    let host = host_part.split('/').next().unwrap_or(host_part);
+                    extract_domain_prefix(host).unwrap_or_else(|| "forgejo".to_string())
+                } else {
+                    "forgejo".to_string()
+                }
+            } else {
+                entry.forge.clone()
+            };
+
             CatalogRepoSummary {
                 name: entry.name.clone(),
-                forge: entry.forge.clone(),
+                forge,
                 slug: entry.slug.clone(),
                 aliases: entry.aliases.clone(),
                 ticket_count,
