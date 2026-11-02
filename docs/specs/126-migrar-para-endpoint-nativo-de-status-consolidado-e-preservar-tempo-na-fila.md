@@ -34,3 +34,16 @@ Além disso, ao sincronizar jobs ativos de executores no monitor interativo (`re
 - Testes unitários comprovam que estados finais (`failure`, `skipped`, `success`) sobrepõem corretamente e não geram duplicatas com status `running`.
 - Testes unitários validam que `updated_at` é extraído e utilizado por `format_ci_elapsed_time` para o cálculo correto do tempo na fila.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem erros.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Migração da consulta de status de commit para o endpoint consolidado oficial do Forgejo/GitHub e preservação integral dos timestamps de fila.
+  - **[Solução]**:
+    1. Alteração da rota de status de `/commits/{ref}/statuses` para `/commits/{ref}/status` em `src/forges.rs`.
+    2. Implementação da função `parse_ci_status_json` que extrai os jobs finais consolidados e seus respectivos `updated_at` e `created_at`.
+    3. Preservação do timestamp em `merge_live_runner_jobs` durante atualizações ao vivo dos executores.
+  - **[Validação]**:
+    - Suíte de 25 testes em `tests/forges_test.rs` e 23 testes em `tests/repo_top_test.rs` (total de 48 testes) aprovados com 100% de sucesso.
+    - `cargo fmt --check` e `cargo clippy -j 1 --all-targets -- -D warnings` sem nenhum aviso.
+
