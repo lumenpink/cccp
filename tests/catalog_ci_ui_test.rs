@@ -539,3 +539,72 @@ fn test_mutation_pending_ci_ascii_purity_and_column_width() {
     assert!(rendered.contains("~ pending"));
     assert!(!rendered.contains('⏳'));
 }
+
+#[test]
+fn test_normalize_commit_status_from_forgejo_description() {
+    use cccp::forges::normalize_commit_status;
+
+    // Forgejo description mappings when status is "pending"
+    assert_eq!(
+        normalize_commit_status("pending", Some("Waiting to run")),
+        "waiting"
+    );
+    assert_eq!(
+        normalize_commit_status("pending", Some("Has started running")),
+        "running"
+    );
+    assert_eq!(
+        normalize_commit_status("pending", Some("Blocked by required conditions")),
+        "blocked"
+    );
+    assert_eq!(
+        normalize_commit_status("pending", Some("Random pending info")),
+        "pending"
+    );
+    assert_eq!(normalize_commit_status("pending", None), "pending");
+
+    // Non-pending status should never be overridden
+    assert_eq!(
+        normalize_commit_status("success", Some("Waiting to run")),
+        "success"
+    );
+    assert_eq!(
+        normalize_commit_status("failure", Some("Failing after 6m4s")),
+        "failure"
+    );
+}
+
+#[test]
+fn test_running_ci_summary_uses_cyan_style() {
+    use cccp::catalog::{format_ci_summary, CiPipelineStatus};
+
+    let (text, style) = format_ci_summary(&[CiPipelineStatus {
+        name: "check".to_string(),
+        status: "running".to_string(),
+        description: Some("Has started running".to_string()),
+        target_url: None,
+        updated_at: None,
+    }]);
+
+    assert_eq!(text, "~ running");
+    assert_eq!(style, "cyan");
+
+    // Waiting and blocked must remain yellow
+    let (_, wait_style) = format_ci_summary(&[CiPipelineStatus {
+        name: "check".to_string(),
+        status: "waiting".to_string(),
+        description: Some("Waiting to run".to_string()),
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(wait_style, "yellow");
+
+    let (_, blocked_style) = format_ci_summary(&[CiPipelineStatus {
+        name: "check".to_string(),
+        status: "blocked".to_string(),
+        description: Some("Blocked by required conditions".to_string()),
+        target_url: None,
+        updated_at: None,
+    }]);
+    assert_eq!(blocked_style, "yellow");
+}
