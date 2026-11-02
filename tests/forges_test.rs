@@ -705,3 +705,51 @@ fn test_merge_live_runner_jobs_reconciles_stale_running_ghosts() {
     );
 }
 
+#[test]
+fn test_mutation_reconcile_when_all_jobs_waiting() {
+    let mut summaries = vec![cccp::catalog::CatalogRepoSummary {
+        name: "mandu".to_string(),
+        slug: "lumen/mandu".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![cccp::catalog::CiPipelineStatus {
+            name: "Trigger".to_string(),
+            status: "running".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+    }];
+
+    // Live jobs contain only waiting jobs
+    let live_jobs = vec![cccp::forges::ForgeActionRunnerJob {
+        id: 1,
+        run_id: 1,
+        attempt: 1,
+        handle: "h".to_string(),
+        repo_id: 36,
+        owner_id: 1,
+        name: "Checks".to_string(),
+        html_url: "https://gambi.2lp.in/lumen/mandu/actions/runs/1/jobs/0/attempt/1".to_string(),
+        status: "waiting".to_string(),
+    }];
+
+    cccp::forges::merge_live_runner_jobs(&mut summaries, &live_jobs);
+
+    // The stale running job "Trigger" must have been downgraded from "running"
+    assert_ne!(summaries[0].ci_status[0].status, "running");
+    let has_any_running = summaries[0]
+        .ci_status
+        .iter()
+        .any(|p| p.status.eq_ignore_ascii_case("running"));
+    assert!(!has_any_running);
+}
+
+
