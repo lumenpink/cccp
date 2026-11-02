@@ -100,6 +100,29 @@ fn test_newrepo_ci_workflow_has_cancel_in_progress() {
 }
 
 #[test]
+fn test_mutation_ci_workflow_requires_cancel_in_progress() {
+    let dir = tempdir().unwrap();
+    let root = dir.path().join("ci-mutation-proj");
+    let theme = Theme::init(true);
+
+    let opts = NewrepoOptions {
+        name: Some("ci-mutation-proj".to_string()),
+        root: Some(root.clone()),
+        sync: false,
+        quiet: true,
+        ..NewrepoOptions::default()
+    };
+
+    let res = cmd_newrepo(opts, &theme);
+    assert!(res.is_ok());
+
+    let ci = fs::read_to_string(root.join(".forgejo/workflows/ci.yml")).unwrap();
+    assert!(!ci.contains("cancel-in-progress: false"));
+    assert!(ci.contains("cancel-in-progress: true"));
+    assert!(ci.contains("group: ${{ github.workflow }}-${{ github.ref }}"));
+}
+
+#[test]
 fn test_newrepo_custom_options() {
     let dir = tempdir().unwrap();
     let root = dir.path().join("api-rust");
