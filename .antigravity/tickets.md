@@ -1,21 +1,67 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-01 09:31:27 UTC
+> Synced at: 2026-11-02 08:35:47 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#117] fix(build): desativar default-features do git2 eliminando openssl no musl
+## [#123] feat(ci): adicionar coluna dedicada de tempo decorrido na fila do monitor
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/117
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/123
 
 ### Description
-## Description
-O git2 estava configurado com features = ["vendored-openssl"], trazendo dependencias de transporte de rede em C (openssl-sys e libssh2-sys). No alvo x86_64-unknown-linux-musl, a compilacao do OpenSSL C gerava erros de linkagem estatica (undefined reference to fopen64 e SIGSEGV codigo 139).
-Como o cccp utiliza o git2 exclusivamente para manipulacao local de repositorio, commits e objetos (sem usar funcoes de rede libgit2), a ativacao de default-features = false no git2 preserva 100% da autonomia de inspecao Git local e elimina por completo a dependencia do OpenSSL C.
+### Descrição
+Adicionar uma coluna dedicada TEMPO (com largura de 7-8 caracteres) na tabela do monitor repo top (e opcionalmente nas listagens detalhadas do catálogo), calculando o tempo decorrido relativo ao momento atual a partir de updated_at/created_at das pipelines de CI.
 
-## Expected Behavior & Acceptance Criteria
-- [ ] No Cargo.toml, configurar git2 = { version = "0.20", default-features = false }.
-- [ ] Remover dependencia transitiva de openssl-sys da arvore de dependencias.
-- [ ] O binario estatico x86_64-unknown-linux-musl deve compilar sem erros de linkagem e executar cccp --version com codigo 0.
-- [ ] Adicionar assercoes em tests/ci_pipeline_test.rs para garantir que git2 permanecera com default-features = false.
+### Fases GOST DD-TDD
+- [ ] Phase 1: Ticket criado
+- [ ] Phase 2: Branch criada
+- [ ] Phase 3: Especificação técnica documentada
+- [ ] Phase 4: Teste Red implementado
+- [ ] Phase 5: Implementação Green
+- [ ] Phase 6: Refatoração limpa
+- [ ] Phase 7: Testes de mutação aprovados
+- [ ] Phase 8: Quality Gate aprovado
+- [ ] Phase 9: Conclusão e fechamento
+
+---
+## [#122] feat(ci): priorizar repositorios em running no topo da ordenacao do monitor
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/122
+
+### Description
+### Descrição
+Refatorar a ordenação do monitor do catálogo para que repositórios com jobs em execução ativa (running > 0) fiquem no topo absoluto (prioridade 0), seguidos por waiting (prioridade 1), blocked (prioridade 2), falhas (prioridade 3) e sucesso (prioridade 4).
+
+### Fases GOST DD-TDD
+- [ ] Phase 1: Ticket criado
+- [ ] Phase 2: Branch criada
+- [ ] Phase 3: Especificação técnica documentada
+- [ ] Phase 4: Teste Red implementado
+- [ ] Phase 5: Implementação Green
+- [ ] Phase 6: Refatoração limpa
+- [ ] Phase 7: Testes de mutação aprovados
+- [ ] Phase 8: Quality Gate aprovado
+- [ ] Phase 9: Conclusão e fechamento
+
+---
+## [#121] feat(ci): normalizar status pending via description e cor ciano para running
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/121
+
+### Description
+### Descrição
+Normalizar o status de commit retornado pelo Forgejo quando for pending utilizando o campo description (Waiting to run -> waiting, Has started running -> running, Blocked by required conditions -> blocked). Aplicar a cor ciano (cyan) para running no resumo de CI e na renderização do monitor top, mantendo amarelo para waiting e blocked.
+
+### Fases GOST DD-TDD
+- [ ] Phase 1: Ticket criado
+- [ ] Phase 2: Branch criada
+- [ ] Phase 3: Especificação técnica documentada
+- [ ] Phase 4: Teste Red implementado
+- [ ] Phase 5: Implementação Green
+- [ ] Phase 6: Refatoração limpa
+- [ ] Phase 7: Testes de mutação aprovados
+- [ ] Phase 8: Quality Gate aprovado
+- [ ] Phase 9: Conclusão e fechamento
 
 ---
