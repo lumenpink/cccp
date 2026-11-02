@@ -813,7 +813,10 @@ pub fn auto_sync_catalog_ci_status(
 ) {
     let mut modified = false;
     for r in summaries {
-        if let Some(entry) = cat.iter_mut().find(|e| e.slug.eq_ignore_ascii_case(&r.slug)) {
+        if let Some(entry) = cat
+            .iter_mut()
+            .find(|e| e.slug.eq_ignore_ascii_case(&r.slug))
+        {
             if entry.ci_status != r.ci_status {
                 entry.ci_status = r.ci_status.clone();
                 modified = true;

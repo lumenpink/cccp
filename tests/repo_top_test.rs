@@ -1218,4 +1218,3 @@ fn test_auto_sync_catalog_ci_status_updates_catalog() {
     assert_eq!(cat[0].ci_status[0].status, "success");
     assert_eq!(cat[0].ci_status[0].name, "Build & Test");
 }
-

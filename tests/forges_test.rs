@@ -751,5 +751,3 @@ fn test_mutation_reconcile_when_all_jobs_waiting() {
         .any(|p| p.status.eq_ignore_ascii_case("running"));
     assert!(!has_any_running);
 }
-
-
