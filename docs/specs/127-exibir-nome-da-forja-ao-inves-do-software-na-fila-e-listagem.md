@@ -17,3 +17,15 @@ Isso gerava confusão visual: enquanto repositórios no Codeberg, GitHub e Tilde
 - Testes unitários validam que `RepoForgeInfo::forge_name` retorna `"gambi"` para `gambi.2lp.in`.
 - Testes unitários validam que `summarize_catalog` converte entradas legadas com `"forge": "forgejo"` para o nome da forja real derivada de `server_host`.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos ou erros.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Exibição do nome/host da forja ao invés do tipo genérico do software em toda a fila e listagem.
+  - **[Solução]**:
+    1. Atualização do método `forge_name` em `RepoForgeInfo` (`src/forges.rs`) para extrair o nome da forja dinamicamente do host em instâncias Forgejo (ex.: `gambi` para `gambi.2lp.in`).
+    2. Conversão transparente de registros legados com `"forge": "forgejo"` em `summarize_catalog` (`src/catalog.rs`) baseando-se em `server_host` e `canonical_url`.
+  - **[Validação]**:
+    - Suíte de 27 testes em `tests/forges_test.rs` e 23 testes em `tests/repo_top_test.rs` (50 testes no total) 100% aprovados.
+    - Formatador `cargo fmt` e `cargo clippy` com zero avisos.
+
