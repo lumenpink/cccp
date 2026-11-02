@@ -1821,6 +1821,36 @@ pub fn merge_live_runner_jobs(
     summaries: &mut [crate::catalog::CatalogRepoSummary],
     jobs: &[ForgeActionRunnerJob],
 ) {
+    // 1. Identify which repositories have at least one job actually running on a runner
+    let running_slugs: std::collections::HashSet<String> = jobs
+        .iter()
+        .filter(|j| j.status.eq_ignore_ascii_case("running"))
+        .filter_map(|j| extract_repo_slug_from_action_url(&j.html_url))
+        .map(|s| s.to_ascii_lowercase())
+        .collect();
+
+    // 2. Reconcile ghost "running" statuses: if no runner is executing jobs for a repo,
+    // downgrade any stale "running" statuses from disk to "pending"
+    for repo in summaries.iter_mut() {
+        let repo_slug = repo.slug.to_ascii_lowercase();
+        let repo_name = repo.name.to_ascii_lowercase();
+        let has_active_running_job = running_slugs.contains(&repo_slug)
+            || running_slugs
+                .iter()
+                .any(|s| s.ends_with(&format!("/{}", repo_name)));
+
+        if !has_active_running_job {
+            for p in repo.ci_status.iter_mut() {
+                if p.status.eq_ignore_ascii_case("running")
+                    || p.status.eq_ignore_ascii_case("progress")
+                {
+                    p.status = "pending".to_string();
+                }
+            }
+        }
+    }
+
+    // 3. Merge active runner jobs
     for job in jobs {
         let Some(slug) = extract_repo_slug_from_action_url(&job.html_url) else {
             continue;

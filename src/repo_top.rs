@@ -806,6 +806,25 @@ pub fn apply_repo_ci_update(
     }
 }
 
+/// Automatically synchronize reconciled CI statuses back to catalog.json on disk if modified
+pub fn auto_sync_catalog_ci_status(
+    cat: &mut [crate::catalog::CatalogEntry],
+    summaries: &[CatalogRepoSummary],
+) {
+    let mut modified = false;
+    for r in summaries {
+        if let Some(entry) = cat.iter_mut().find(|e| e.slug.eq_ignore_ascii_case(&r.slug)) {
+            if entry.ci_status != r.ci_status {
+                entry.ci_status = r.ci_status.clone();
+                modified = true;
+            }
+        }
+    }
+    if modified {
+        let _ = crate::catalog::save_catalog(cat, None);
+    }
+}
+
 /// Interactive loop running the TUI monitor
 pub fn run_repo_top(
     catalog_path: Option<&Path>,
@@ -886,13 +905,14 @@ pub fn run_repo_top(
     // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
     let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>,
                         sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
-        let cat = crate::catalog::load_catalog(None, catalog_path);
+        let mut cat = crate::catalog::load_catalog(None, catalog_path);
         *summaries = crate::catalog::summarize_catalog(&cat);
         let hosts = crate::forges::discover_forgejo_hosts(&cat);
         let client = crate::forges::ForgeClient::new();
         for host in hosts {
             if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
                 crate::forges::merge_live_runner_jobs(summaries, &jobs);
+                auto_sync_catalog_ci_status(&mut cat, summaries);
             }
         }
         trigger_background_sync(&cat, sender.clone());
@@ -950,7 +970,7 @@ pub fn run_repo_top(
                     }
                 }
                 TopBackgroundMsg::RunnerJobsUpdated(jobs) => {
-                    let cat = crate::catalog::load_catalog(None, catalog_path);
+                    let mut cat = crate::catalog::load_catalog(None, catalog_path);
                     let base_summaries = crate::catalog::summarize_catalog(&cat);
                     for r in raw_summaries.iter_mut() {
                         if let Some(base) = base_summaries
@@ -961,6 +981,7 @@ pub fn run_repo_top(
                         }
                     }
                     crate::forges::merge_live_runner_jobs(&mut raw_summaries, &jobs);
+                    auto_sync_catalog_ci_status(&mut cat, &raw_summaries);
                 }
                 TopBackgroundMsg::SyncCompleted => {
                     state.is_syncing = false;

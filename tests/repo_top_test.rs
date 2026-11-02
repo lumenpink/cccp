@@ -1171,3 +1171,51 @@ fn test_mutation_iso_parsing_and_duration_concise_boundary_cases() {
     let with_pos_tz = parse_iso8601_to_epoch("2026-11-02T07:00:00+02:00");
     assert_eq!(with_pos_tz, without_millis);
 }
+
+#[test]
+fn test_auto_sync_catalog_ci_status_updates_catalog() {
+    let mut cat = vec![cccp::catalog::CatalogEntry {
+        name: "test-repo".to_string(),
+        forge: "gambi".to_string(),
+        slug: "lumen/test-repo".to_string(),
+        aliases: vec![],
+        description: "Test".to_string(),
+        topics: vec![],
+        license: "MIT".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: vec![],
+        canonical_url: None,
+        server_host: None,
+    }];
+
+    let summaries = vec![cccp::catalog::CatalogRepoSummary {
+        name: "test-repo".to_string(),
+        slug: "lumen/test-repo".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![cccp::catalog::CiPipelineStatus {
+            name: "Build & Test".to_string(),
+            status: "success".to_string(),
+            description: Some("Passed".to_string()),
+            target_url: None,
+            updated_at: Some("2026-11-02T19:00:00Z".to_string()),
+        }],
+    }];
+
+    cccp::repo_top::auto_sync_catalog_ci_status(&mut cat, &summaries);
+
+    assert_eq!(cat[0].ci_status.len(), 1);
+    assert_eq!(cat[0].ci_status[0].status, "success");
+    assert_eq!(cat[0].ci_status[0].name, "Build & Test");
+}
+
