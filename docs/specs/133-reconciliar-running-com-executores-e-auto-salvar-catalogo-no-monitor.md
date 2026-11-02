@@ -23,3 +23,15 @@ Entretanto, foram observadas duas fragilidades:
 - Testes unitários comprovam que quando um job legítimo está em `running`, apenas ele e seu respectivo repositório são mantidos como `running`.
 - Testes unitários validam a atualização persistente do catálogo no monitor.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos ou erros.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Reconciliação autoritativa do status running com os executores e auto-salvamento do catálogo em disco no monitor.
+  - **[Solução]**:
+    1. Implementada a reconciliação em `merge_live_runner_jobs` (`src/forges.rs`), onde apenas repositórios com jobs realmente em execução pelos executores mantêm o estado `running`; qualquer status anterior herdado do disco é expurgado/reconciliado.
+    2. Implementada a função `auto_sync_catalog_ci_status` em `src/repo_top.rs`, que persiste automaticamente o estado reconciliado de CI no arquivo `catalog.json` sempre que há alterações.
+  - **[Validação]**:
+    - Suíte de 29 testes em `tests/forges_test.rs` e 24 testes em `tests/repo_top_test.rs` (53 testes no total) aprovados com 100% de sucesso.
+    - `cargo fmt --check` e `cargo clippy -j 1 --all-targets -- -D warnings` 100% limpos.
+
