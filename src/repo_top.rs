@@ -251,6 +251,48 @@ fn repo_ci_category(ci: &[CiPipelineStatus]) -> &'static str {
     "ok"
 }
 
+/// Helper to determine numeric CI priority for monitor sorting.
+/// 0: Running (actively compiling on runner)
+/// 1: Waiting (queued and waiting for runner)
+/// 2: Blocked / Pending (waiting on dependencies or external conditions)
+/// 3: Failure
+/// 4: Pass / Ok
+/// 5: None
+pub fn repo_ci_priority(ci: &[CiPipelineStatus]) -> usize {
+    if ci.is_empty() {
+        return 5;
+    }
+    let has_running = ci.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "running" || st == "progress"
+    });
+    if has_running {
+        return 0;
+    }
+    let has_waiting = ci.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "waiting" || st == "queued"
+    });
+    if has_waiting {
+        return 1;
+    }
+    let has_blocked = ci.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "blocked" || st == "pending"
+    });
+    if has_blocked {
+        return 2;
+    }
+    let has_fail = ci.iter().any(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "failure" || st == "fail" || st == "error"
+    });
+    if has_fail {
+        return 3;
+    }
+    4
+}
+
 /// Extract numeric runner job ID from pipeline descriptions (e.g. "Runner Job #1234 on run #56")
 pub fn extract_runner_job_id(ci: &[CiPipelineStatus]) -> Option<u64> {
     for p in ci {
@@ -304,25 +346,13 @@ pub fn apply_top_filters_and_sorting(
         }
         CiTopSort::CiStatus => {
             filtered.sort_by(|a, b| {
-                let cat_a = repo_ci_category(&a.ci_status);
-                let cat_b = repo_ci_category(&b.ci_status);
-                let prio_a = match cat_a {
-                    "queued" => 0,
-                    "fail" => 1,
-                    "ok" => 2,
-                    _ => 3,
-                };
-                let prio_b = match cat_b {
-                    "queued" => 0,
-                    "fail" => 1,
-                    "ok" => 2,
-                    _ => 3,
-                };
+                let prio_a = repo_ci_priority(&a.ci_status);
+                let prio_b = repo_ci_priority(&b.ci_status);
                 if prio_a != prio_b {
                     return prio_a.cmp(&prio_b);
                 }
-                // Within queued, order by runner queue position / runner job id
-                if prio_a == 0 {
+                // Within active queue tiers (running / waiting / blocked), order by runner job id
+                if prio_a <= 2 {
                     let job_a = extract_runner_job_id(&a.ci_status);
                     let job_b = extract_runner_job_id(&b.ci_status);
                     match (job_a, job_b) {
