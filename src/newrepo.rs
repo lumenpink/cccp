@@ -551,6 +551,9 @@ on:\n\
   push:\n\
     branches: [main]\n\
   pull_request:\n\n\
+concurrency:\n\
+  group: ${{ github.workflow }}-${{ github.ref }}\n\
+  cancel-in-progress: true\n\n\
 jobs:\n\
   check:\n\
     runs-on: ubuntu-latest\n\
