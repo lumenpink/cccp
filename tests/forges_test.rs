@@ -553,3 +553,35 @@ fn test_mutation_parse_ci_status_json_edge_cases() {
     assert_eq!(dedup[0].status, "success");
     assert_eq!(dedup[0].description.as_deref(), Some("First build"));
 }
+
+#[test]
+fn test_forge_name_returns_instance_host_prefix_for_forgejo() {
+    let info = cccp::forges::RepoForgeInfo::new(
+        cccp::forges::ForgeType::Forgejo,
+        "gambi.2lp.in".to_string(),
+        "lumen".to_string(),
+        "lacraia".to_string(),
+    );
+    assert_eq!(info.forge_name(), "gambi");
+
+    let entry = cccp::catalog::CatalogEntry {
+        name: "lacraia".to_string(),
+        forge: "forgejo".to_string(),
+        slug: "lumen/lacraia".to_string(),
+        aliases: vec![],
+        description: "Test".to_string(),
+        topics: vec![],
+        license: "MIT".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: vec![],
+        canonical_url: Some("https://gambi.2lp.in/lumen/lacraia".to_string()),
+        server_host: Some("gambi.2lp.in".to_string()),
+    };
+
+    let summaries = cccp::catalog::summarize_catalog(&[entry]);
+    assert_eq!(summaries[0].forge, "gambi");
+}
+
