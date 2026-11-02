@@ -498,3 +498,50 @@ fn test_merge_live_runner_jobs_preserves_timestamp() {
     );
 }
 
+#[test]
+fn test_mutation_parse_ci_status_json_edge_cases() {
+    // 1. Empty object
+    let empty_obj = serde_json::json!({});
+    assert!(cccp::forges::parse_ci_status_json(&empty_obj).is_empty());
+
+    // 2. Empty array
+    let empty_arr = serde_json::json!([]);
+    assert!(cccp::forges::parse_ci_status_json(&empty_arr).is_empty());
+
+    // 3. Flat legacy array with default fallback to "CI"
+    let legacy_arr = serde_json::json!([
+        {
+            "status": "success",
+            "description": "Passed all tests",
+            "created_at": "2026-11-02T10:00:00Z"
+        }
+    ]);
+    let res = cccp::forges::parse_ci_status_json(&legacy_arr);
+    assert_eq!(res.len(), 1);
+    assert_eq!(res[0].name, "CI");
+    assert_eq!(res[0].status, "success");
+    assert_eq!(res[0].updated_at.as_deref(), Some("2026-11-02T10:00:00Z"));
+
+    // 4. Duplicate context names are deduplicated preserving the first occurrence
+    let dup_json = serde_json::json!({
+        "state": "pending",
+        "statuses": [
+            {
+                "context": "build",
+                "status": "success",
+                "description": "First build"
+            },
+            {
+                "context": "build",
+                "status": "pending",
+                "description": "Stale build"
+            }
+        ]
+    });
+    let dedup = cccp::forges::parse_ci_status_json(&dup_json);
+    assert_eq!(dedup.len(), 1);
+    assert_eq!(dedup[0].status, "success");
+    assert_eq!(dedup[0].description.as_deref(), Some("First build"));
+}
+
+
