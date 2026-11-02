@@ -831,3 +831,88 @@ fn test_mutation_pipeline_matches_job_name_and_joaju_pdf_queue_scenario() {
         "Repo in queue must not be treated as Failure"
     );
 }
+
+#[test]
+fn test_running_repositories_prioritized_at_absolute_top_over_waiting_and_others() {
+    let r_waiting = make_sample_repo(
+        "waiting-repo",
+        "org/waiting-repo",
+        vec![CiPipelineStatus {
+            name: "test".to_string(),
+            status: "waiting".to_string(),
+            description: Some("Runner Job #10 on run #1".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let r_running = make_sample_repo(
+        "running-repo",
+        "org/running-repo",
+        vec![CiPipelineStatus {
+            name: "build".to_string(),
+            status: "running".to_string(),
+            description: Some("Runner Job #20 on run #2".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let r_blocked = make_sample_repo(
+        "blocked-repo",
+        "org/blocked-repo",
+        vec![CiPipelineStatus {
+            name: "deploy".to_string(),
+            status: "blocked".to_string(),
+            description: Some("Blocked by required conditions".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let r_fail = make_sample_repo(
+        "fail-repo",
+        "org/fail-repo",
+        vec![CiPipelineStatus {
+            name: "check".to_string(),
+            status: "failure".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let r_ok = make_sample_repo(
+        "ok-repo",
+        "org/ok-repo",
+        vec![CiPipelineStatus {
+            name: "lint".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let list = vec![
+        r_ok.clone(),
+        r_fail.clone(),
+        r_blocked.clone(),
+        r_waiting.clone(),
+        r_running.clone(),
+    ];
+
+    let sorted = apply_top_filters_and_sorting(&list, CiTopFilter::All, CiTopSort::CiStatus);
+
+    assert_eq!(
+        sorted[0].name, "running-repo",
+        "Running repos must be at the absolute top"
+    );
+    assert_eq!(
+        sorted[1].name, "waiting-repo",
+        "Waiting repos come immediately after running"
+    );
+    assert_eq!(sorted[2].name, "blocked-repo");
+    assert_eq!(sorted[3].name, "fail-repo");
+    assert_eq!(sorted[4].name, "ok-repo");
+}
