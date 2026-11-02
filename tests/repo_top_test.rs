@@ -768,6 +768,14 @@ fn test_mutation_pipeline_matches_job_name_and_joaju_pdf_queue_scenario() {
     ));
     assert!(pipeline_matches_job_name("check", "check"));
     assert!(!pipeline_matches_job_name("deploy-prod", "test-suite"));
+    assert!(pipeline_matches_job_name(
+        "CI/CD & Sovereign Release to Banca / Checks, Tests & Quality Gates (push)",
+        "Checks, Tests & Quality Gates"
+    ));
+    assert!(pipeline_matches_job_name(
+        "CI / CD Pipeline / Rust Test, Lint & E2E (GOST-CI) (push)",
+        "Rust Test, Lint & E2E (GOST-CI)"
+    ));
 
     // 2. Scenario joaju-pdf: Stale failure + Live waiting runner job
     let mut repos = vec![make_sample_repo(
@@ -1039,6 +1047,32 @@ fn test_format_ci_elapsed_time_and_iso_parsing() {
 
     // 5. Empty or missing
     assert_eq!(format_ci_elapsed_time(&[], now_14m), "-");
+}
+
+#[test]
+fn test_format_ci_elapsed_time_resilient_to_missing_first_timestamp() {
+    use cccp::repo_top::format_ci_elapsed_time;
+
+    let now = 1793620800; // 2026-11-02 12:00:00 UTC
+    let ci = vec![
+        CiPipelineStatus {
+            name: "Checks, Tests & Quality Gates".to_string(),
+            status: "running".to_string(),
+            description: Some("Runner Job #9594 on run #40".to_string()),
+            target_url: None,
+            updated_at: None, // Missing timestamp on first item
+        },
+        CiPipelineStatus {
+            name: "CI/CD & Sovereign Release to Banca / Checks, Tests & Quality Gates (push)".to_string(),
+            status: "running".to_string(),
+            description: Some("Has started running".to_string()),
+            target_url: None,
+            updated_at: Some("2026-11-02T11:45:00Z".to_string()), // 15m ago
+        },
+    ];
+
+    let result = format_ci_elapsed_time(&ci, now);
+    assert_eq!(result, "15m");
 }
 
 #[test]
