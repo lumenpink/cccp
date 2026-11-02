@@ -992,3 +992,75 @@ fn test_mutation_repo_ci_priority_edge_cases_and_precedence() {
     // 6. Empty priority
     assert_eq!(repo_ci_priority(&[]), 5);
 }
+
+#[test]
+fn test_format_ci_elapsed_time_and_iso_parsing() {
+    use cccp::repo_top::format_ci_elapsed_time;
+
+    // Fixed base time: 2026-11-02T05:00:00Z -> epoch 1793595600
+    let base_epoch = 1793595600u64;
+
+    // 1. Active running job with Z timestamp 14 minutes ago
+    let ci_running = vec![CiPipelineStatus {
+        name: "build".to_string(),
+        status: "running".to_string(),
+        description: Some("Has started running".to_string()),
+        target_url: None,
+        updated_at: Some("2026-11-02T05:00:00Z".to_string()),
+    }];
+    let now_14m = base_epoch + 14 * 60;
+    assert_eq!(format_ci_elapsed_time(&ci_running, now_14m), "14m");
+
+    // 2. Active waiting job with timezone offset (-03:00) 45 seconds ago
+    // 2026-11-02T02:00:00-03:00 == 2026-11-02T05:00:00Z
+    let ci_waiting = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "waiting".to_string(),
+        description: Some("Waiting to run".to_string()),
+        target_url: None,
+        updated_at: Some("2026-11-02T02:00:00-03:00".to_string()),
+    }];
+    let now_45s = base_epoch + 45;
+    assert_eq!(format_ci_elapsed_time(&ci_waiting, now_45s), "45s");
+
+    // 3. Active job 1h15m ago
+    let now_1h15m = base_epoch + 75 * 60;
+    assert_eq!(format_ci_elapsed_time(&ci_waiting, now_1h15m), "1h15m");
+
+    // 4. Completed job with "Successful in 14m21s"
+    let ci_done = vec![CiPipelineStatus {
+        name: "release".to_string(),
+        status: "success".to_string(),
+        description: Some("Successful in 14m21s".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(format_ci_elapsed_time(&ci_done, now_14m), "14m21s");
+
+    // 5. Empty or missing
+    assert_eq!(format_ci_elapsed_time(&[], now_14m), "-");
+}
+
+#[test]
+fn test_render_top_view_includes_tempo_column() {
+    let repo = make_sample_repo(
+        "mandu",
+        "lumen/mandu",
+        vec![CiPipelineStatus {
+            name: "build".to_string(),
+            status: "running".to_string(),
+            description: Some("Runner Job #82 on run #1".to_string()),
+            target_url: None,
+            updated_at: Some("2026-11-02T05:00:00Z".to_string()),
+        }],
+    );
+
+    let theme = Theme::with_color(false);
+    let state = RepoTopState::new(10);
+    let rendered = render_top_view(&[repo], &state, &theme, 80, 24);
+
+    assert!(
+        rendered.contains("TEMPO"),
+        "Top view column headers must include TEMPO"
+    );
+}
