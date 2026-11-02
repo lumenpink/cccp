@@ -37,8 +37,8 @@ A inclusão de uma coluna dedicada `TEMPO` com largura fixa de 7 caracteres prop
 - Testes unitários cobrem o parsing de datas ISO-8601 (com timezone e Z), formatação de durações e renderização responsiva da tabela.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` aprovados com 100% de sucesso.
 
-### 4. Status de Resolução (Fase 8)
-- **Status**: Concluído e Aprovado no Quality Gate.
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
 - **Laudo**:
   - **[Resumo]**: Inclusão de coluna dedicada TEMPO com largura de 7 caracteres no monitor interativo repo top, exibindo a duração de execução ativa ou tempo em fila.
   - **[Solução]**: Implementação de `parse_iso8601_to_epoch`, `format_duration_concise` e `format_ci_elapsed_time` em `src/repo_top.rs`, ajustando o orçamento de colunas responsivo e alinhamento visual.
