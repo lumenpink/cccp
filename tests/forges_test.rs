@@ -634,3 +634,74 @@ fn test_mutation_forge_name_edge_cases() {
     let sum_url = cccp::catalog::summarize_catalog(&[entry_url]);
     assert_eq!(sum_url[0].forge, "internal");
 }
+
+#[test]
+fn test_merge_live_runner_jobs_reconciles_stale_running_ghosts() {
+    let mut summaries = vec![
+        cccp::catalog::CatalogRepoSummary {
+            name: "lacraia".to_string(),
+            slug: "lumen/lacraia".to_string(),
+            forge: "gambi".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: None,
+            gost_version: None,
+            is_mirror: false,
+            ci_status: vec![cccp::catalog::CiPipelineStatus {
+                name: "CI/CD & Sovereign Release to Banca / Trigger Pratilera (push)".to_string(),
+                status: "running".to_string(),
+                description: Some("Has started running".to_string()),
+                target_url: None,
+                updated_at: Some("2026-11-02T11:30:06-03:00".to_string()),
+            }],
+        },
+        cccp::catalog::CatalogRepoSummary {
+            name: "gost-ci".to_string(),
+            slug: "lumen/gost-ci".to_string(),
+            forge: "gambi".to_string(),
+            aliases: vec![],
+            ticket_count: 0,
+            is_clean: Some(true),
+            unpushed: 0,
+            status_label: "clean".to_string(),
+            local_path: None,
+            gost_version: None,
+            is_mirror: false,
+            ci_status: vec![cccp::catalog::CiPipelineStatus {
+                name: "Build & Push gost-ci-deploy".to_string(),
+                status: "success".to_string(),
+                description: Some("Successful".to_string()),
+                target_url: None,
+                updated_at: Some("2026-11-02T07:52:10-03:00".to_string()),
+            }],
+        },
+    ];
+
+    let live_jobs = vec![cccp::forges::ForgeActionRunnerJob {
+        id: 9671,
+        run_id: 1751,
+        attempt: 1,
+        handle: "8ede3783-f41c-4ac0-afe4-1e9fc6d31e2f".to_string(),
+        repo_id: 25,
+        owner_id: 1,
+        name: "Build & Push gost-ci-deploy".to_string(),
+        html_url: "https://gambi.2lp.in/lumen/gost-ci/actions/runs/32/jobs/2/attempt/1".to_string(),
+        status: "running".to_string(),
+    }];
+
+    cccp::forges::merge_live_runner_jobs(&mut summaries, &live_jobs);
+
+    // gost-ci must be running
+    assert_eq!(summaries[1].ci_status[0].status, "running");
+
+    // lacraia had a stale running status on disk, but has zero running jobs on runners
+    // It must be reconciled away from "running"
+    assert_ne!(
+        summaries[0].ci_status[0].status, "running",
+        "Stale running status on lacraia must be reconciled away from running"
+    );
+}
+
