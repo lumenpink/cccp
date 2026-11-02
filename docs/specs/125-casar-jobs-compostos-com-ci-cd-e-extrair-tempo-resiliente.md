@@ -33,3 +33,10 @@ Entretanto, foram identificadas divergências graves entre o monitor e a interfa
 - Testes unitários validam que `pipeline_matches_job_name` casa com exatidão strings compostas contendo `"CI/CD"`, `"CI / CD"` e sufixos de evento.
 - Testes unitários validam que `format_ci_elapsed_time` calcula o tempo decorrido mesmo quando o primeiro job ativo da lista possui `updated_at: None`, desde que haja outro job ativo com timestamp válido.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem avisos ou erros.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Correção de casamento de nomes de jobs compostos contendo "CI/CD" e cálculo de tempo decorrido resiliente a jobs intermediários sem timestamp.
+  - **[Solução]**: Refatoração de `strip_composite` em `src/forges.rs` utilizando `rfind(" / ")` e `rfind('/')`, e iteração resiliente em `format_ci_elapsed_time` em `src/repo_top.rs`.
+  - **[Validação]**: 23 testes unitários e de mutação em `repo_top_test`, aprovação completa no Clippy com zero avisos e formatação com `cargo fmt`.
