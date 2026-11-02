@@ -1,18 +1,18 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-02 10:11:00 UTC
+> Synced at: 2026-11-02 15:50:17 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#124] feat(ci): configurar cancelamento de esteiras redundantes cancel-in-progress
+## [#125] fix(ci): casar jobs compostos com CI/CD e extrair tempo resiliente
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/124
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/125
 
 ### Description
 ### Descrição
-Configurar cancelamento de workflows concorrentes redundantes na mesma branch (concurrency.cancel-in-progress: true), evitando acúmulo de filas obsoletas.
-1. Ajustar .forgejo/workflows/ci.yml do CCCP com cancel-in-progress: true.
-2. Atualizar molde gerado em src/newrepo.rs (cccp init) para incluir concurrency com cancel-in-progress: true.
-3. Adicionar asserções em tests/newrepo_test.rs.
+Corrigir divergências entre o monitor repo top e a interface web do Forgejo:
+1. Em src/forges.rs, ajustar pipeline_matches_job_name / strip_composite para usar s.rfind(" / ") ou s.rfind('/'), permitindo casar corretamente contextos contendo CI/CD.
+2. Em src/repo_top.rs, tornar format_ci_elapsed_time resiliente para buscar qualquer job ativo com updated_at válido, evitando retornar '-' prematuramente.
+3. Adicionar testes unitários para nomes de jobs com CI/CD e formatação de tempo resiliente.
 
 ### Fases GOST DD-TDD
 - [ ] Phase 1: Ticket criado
