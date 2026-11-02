@@ -371,6 +371,150 @@ pub fn apply_top_filters_and_sorting(
     filtered
 }
 
+/// Parse an ISO-8601 timestamp string (e.g. "2026-11-02T05:00:00Z" or "2026-11-02T02:00:00-03:00")
+/// into Unix epoch seconds in UTC without external datetime dependencies.
+pub fn parse_iso8601_to_epoch(s: &str) -> Option<u64> {
+    let clean = s.trim();
+    if clean.len() < 19 {
+        return None;
+    }
+    let year: i64 = clean.get(0..4)?.parse().ok()?;
+    let month: u64 = clean.get(5..7)?.parse().ok()?;
+    let day: u64 = clean.get(8..10)?.parse().ok()?;
+    let hour: u64 = clean.get(11..13)?.parse().ok()?;
+    let min: u64 = clean.get(14..16)?.parse().ok()?;
+    let sec: u64 = clean.get(17..19)?.parse().ok()?;
+
+    if month == 0 || month > 12 || day == 0 || day > 31 || hour > 23 || min > 59 || sec > 60 {
+        return None;
+    }
+
+    // Days from civil formula (Howard Hinnant algorithm)
+    let y = year - if month <= 2 { 1 } else { 0 };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = (y - era * 400) as u64;
+    let m_adj = if month > 2 { month - 3 } else { month + 9 };
+    let doy = (153 * m_adj + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe as i64 - 719468;
+
+    let mut epoch = days * 86400 + (hour * 3600 + min * 60 + sec) as i64;
+
+    // Timezone parsing
+    let rest = &clean[19..];
+    if !rest.is_empty() && rest != "Z" {
+        let tz_part = if let Some(dot_idx) = rest.find('.') {
+            let after_dot = &rest[dot_idx + 1..];
+            if let Some(sign_idx) = after_dot.find(['+', '-', 'Z']) {
+                &after_dot[sign_idx..]
+            } else {
+                ""
+            }
+        } else {
+            rest
+        };
+
+        if tz_part.starts_with('+') || tz_part.starts_with('-') {
+            let sign = if tz_part.starts_with('-') { -1i64 } else { 1i64 };
+            let tz_nums = &tz_part[1..];
+            let (th, tm) = if let Some(colon) = tz_nums.find(':') {
+                let h: i64 = tz_nums[..colon].parse().ok()?;
+                let m: i64 = tz_nums[colon + 1..]
+                    .chars()
+                    .take(2)
+                    .collect::<String>()
+                    .parse()
+                    .ok()?;
+                (h, m)
+            } else if tz_nums.len() >= 2 {
+                let h: i64 = tz_nums[..2].parse().ok()?;
+                (h, 0)
+            } else {
+                (0, 0)
+            };
+            let offset_sec = sign * (th * 3600 + tm * 60);
+            epoch -= offset_sec;
+        }
+    }
+
+    if epoch < 0 {
+        None
+    } else {
+        Some(epoch as u64)
+    }
+}
+
+/// Format duration in seconds to a concise string fitting a 7-column cell (e.g. "45s", "14m", "1h15m", "2d4h")
+pub fn format_duration_concise(elapsed: u64) -> String {
+    if elapsed < 60 {
+        format!("{}s", elapsed)
+    } else if elapsed < 3600 {
+        format!("{}m", elapsed / 60)
+    } else if elapsed < 86400 {
+        format!("{}h{:02}m", elapsed / 3600, (elapsed % 3600) / 60)
+    } else {
+        format!("{}d{}h", elapsed / 86400, (elapsed % 86400) / 3600)
+    }
+}
+
+/// Format elapsed time or duration for CI pipelines fitting a 7-character column.
+pub fn format_ci_elapsed_time(ci: &[CiPipelineStatus], now_epoch: u64) -> String {
+    if ci.is_empty() {
+        return "-".to_string();
+    }
+
+    // 1. Check for active queued/running pipelines
+    let active = ci.iter().find(|p| {
+        let st = p.status.to_ascii_lowercase();
+        st == "running"
+            || st == "progress"
+            || st == "waiting"
+            || st == "queued"
+            || st == "blocked"
+            || st == "pending"
+    });
+
+    if let Some(p) = active {
+        if let Some(ref updated) = p.updated_at {
+            if let Some(epoch) = parse_iso8601_to_epoch(updated) {
+                let elapsed = now_epoch.saturating_sub(epoch);
+                return format_duration_concise(elapsed);
+            }
+        }
+    }
+
+    // 2. Check for completed pipelines with duration in description (e.g. "Successful in 14m21s")
+    for p in ci {
+        if let Some(ref desc) = p.description {
+            if let Some(pos) = desc.find(" in ") {
+                let candidate = desc[pos + 4..].trim();
+                let dur: String = candidate.chars().take_while(|c| c.is_alphanumeric()).collect();
+                if !dur.is_empty() {
+                    return dur;
+                }
+            } else if let Some(pos) = desc.find(" after ") {
+                let candidate = desc[pos + 7..].trim();
+                let dur: String = candidate.chars().take_while(|c| c.is_alphanumeric()).collect();
+                if !dur.is_empty() {
+                    return dur;
+                }
+            }
+        }
+    }
+
+    // 3. Fallback: single completed job with updated_at
+    if let Some(p) = ci.first() {
+        if let Some(ref updated) = p.updated_at {
+            if let Some(epoch) = parse_iso8601_to_epoch(updated) {
+                let elapsed = now_epoch.saturating_sub(epoch);
+                return format_duration_concise(elapsed);
+            }
+        }
+    }
+
+    "-".to_string()
+}
+
 /// Truncate UTF-8 string safely with ellipsis if exceeding max_chars
 pub fn truncate_utf8_ellipsis(s: &str, max_chars: usize) -> String {
     if max_chars == 0 {
@@ -413,23 +557,28 @@ pub fn render_top_view(
     let mut out = String::new();
     let cols = width.max(40) as usize;
     let rows = (height as usize).max(FIXED_NON_DATA_ROWS);
+    let now_epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
 
     // Responsive column budget:
     // Base 80-col budget:
     // marker: 2 ("▶ " / "  ")
-    // REPOSITÓRIO: repo_width (22 in 80 cols, expands dynamically with extra space)
-    // FORJA: 9
-    // ESTADO CI: 18
-    // TICKETS: 8
-    // LOCAL: 16
-    // Inter-column spaces: 4
-    // Total for 80 cols = 2 + 22 + 1 + 9 + 1 + 18 + 1 + 8 + 1 + 16 = 79 chars.
+    // REPOSITÓRIO: repo_width (20 in 80 cols, expands dynamically with extra space)
+    // FORJA: 8
+    // ESTADO CI: 16
+    // TEMPO: 7
+    // TICKETS: 7
+    // LOCAL: 15
+    // Inter-column spaces: 5
+    // Total for 80 cols = 2 + 20 + 1 + 8 + 1 + 16 + 1 + 7 + 1 + 7 + 1 + 15 = 80 chars.
     let extra = cols.saturating_sub(80);
     let deficit = 80usize.saturating_sub(cols);
     let repo_width = if cols >= 80 {
-        22 + extra.min(30)
+        20 + extra.min(30)
     } else {
-        22usize.saturating_sub(deficit).max(8)
+        20usize.saturating_sub(deficit).max(8)
     };
 
     // Header (line 1)
@@ -477,14 +626,14 @@ pub fn render_top_view(
 
     // Table Column Header (line 2)
     let col_header = format!(
-        "  {:<repo_width$} {:<9} {:<18} {:<8} {:<16}",
-        "REPOSITÓRIO", "FORJA", "ESTADO CI", "TICKETS", "LOCAL"
+        "  {:<repo_width$} {:<8} {:<16} {:<7} {:<7} {:<15}",
+        "REPOSITÓRIO", "FORJA", "ESTADO CI", "TEMPO", "TICKETS", "LOCAL"
     );
     out.push_str(&theme.dim(&col_header));
     out.push_str("\x1b[K\r\n");
 
     // Separator line (line 3)
-    let max_table_width = repo_width + 57;
+    let max_table_width = repo_width + 58;
     let sep_len = cols.min(max_table_width);
     let sep = "─".repeat(sep_len);
     out.push_str(&theme.dim(&sep));
@@ -542,7 +691,7 @@ pub fn render_top_view(
         } else {
             for (idx, r) in repos.iter().enumerate().skip(start).take(visible_lines) {
                 let (raw_ci, color) = format_ci_summary(&r.ci_status);
-                let ci_text = truncate_utf8_ellipsis(&raw_ci, 18);
+                let ci_text = truncate_utf8_ellipsis(&raw_ci, 16);
                 let colored_ci = match color {
                     "red" => theme.red(&ci_text),
                     "yellow" => theme.yellow(&ci_text),
@@ -550,29 +699,38 @@ pub fn render_top_view(
                     "green" => theme.green(&ci_text),
                     _ => theme.dim(&ci_text),
                 };
-                let ci_col = pad_visual(&colored_ci, ci_text.chars().count(), 18);
+                let ci_col = pad_visual(&colored_ci, ci_text.chars().count(), 16);
+
+                let raw_time = format_ci_elapsed_time(&r.ci_status, now_epoch);
+                let time_text = truncate_utf8_ellipsis(&raw_time, 7);
+                let colored_time = match color {
+                    "cyan" => theme.cyan(&time_text),
+                    "yellow" => theme.yellow(&time_text),
+                    _ => theme.dim(&time_text),
+                };
+                let time_col = pad_visual(&colored_time, time_text.chars().count(), 7);
 
                 let repo_name = if r.name.is_empty() { &r.slug } else { &r.name };
                 let repo_display = truncate_utf8_ellipsis(repo_name, repo_width);
                 let repo_padding = repo_width.saturating_sub(repo_display.chars().count());
                 let repo_col = format!("{}{}", repo_display, " ".repeat(repo_padding));
 
-                let forge_display = truncate_utf8_ellipsis(&r.forge, 9);
-                let forge_padding = 9usize.saturating_sub(forge_display.chars().count());
+                let forge_display = truncate_utf8_ellipsis(&r.forge, 8);
+                let forge_padding = 8usize.saturating_sub(forge_display.chars().count());
                 let forge_col = format!("{}{}", forge_display, " ".repeat(forge_padding));
 
                 let ticket_str = r.ticket_count.to_string();
-                let ticket_display = truncate_utf8_ellipsis(&ticket_str, 8);
-                let ticket_padding = 8usize.saturating_sub(ticket_display.chars().count());
+                let ticket_display = truncate_utf8_ellipsis(&ticket_str, 7);
+                let ticket_padding = 7usize.saturating_sub(ticket_display.chars().count());
                 let ticket_col = format!("{}{}", ticket_display, " ".repeat(ticket_padding));
 
-                let status_display = truncate_utf8_ellipsis(&r.status_label, 16);
-                let status_padding = 16usize.saturating_sub(status_display.chars().count());
+                let status_display = truncate_utf8_ellipsis(&r.status_label, 15);
+                let status_padding = 15usize.saturating_sub(status_display.chars().count());
                 let status_col = format!("{}{}", status_display, " ".repeat(status_padding));
 
                 let line = format!(
-                    "{} {} {} {} {}",
-                    repo_col, forge_col, ci_col, ticket_col, status_col
+                    "{} {} {} {} {} {}",
+                    repo_col, forge_col, ci_col, time_col, ticket_col, status_col
                 );
 
                 if idx == state.selected_index {
