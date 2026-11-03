@@ -806,11 +806,13 @@ pub fn apply_repo_ci_update(
     }
 }
 
-/// Automatically synchronize reconciled CI statuses back to catalog.json on disk if modified
+/// Automatically synchronize reconciled CI statuses back to catalog.json on disk if modified.
+/// If `target_path` is None, only the in-memory `cat` slice is updated and no disk writes occur.
 pub fn auto_sync_catalog_ci_status(
     cat: &mut [crate::catalog::CatalogEntry],
     summaries: &[CatalogRepoSummary],
-) {
+    target_path: Option<&Path>,
+) -> bool {
     let mut modified = false;
     for r in summaries {
         if let Some(entry) = cat
@@ -824,8 +826,11 @@ pub fn auto_sync_catalog_ci_status(
         }
     }
     if modified {
-        let _ = crate::catalog::save_catalog(cat, None);
+        if let Some(path) = target_path {
+            let _ = crate::catalog::save_catalog_to_path(cat, path);
+        }
     }
+    modified
 }
 
 /// Interactive loop running the TUI monitor
@@ -845,6 +850,9 @@ pub fn run_repo_top(
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<TopBackgroundMsg>();
+    let effective_catalog_path: Option<PathBuf> = catalog_path
+        .map(PathBuf::from)
+        .or_else(|| crate::catalog::find_catalog_path(None, None));
 
     let trigger_background_sync =
         |entries: &[crate::catalog::CatalogEntry],
@@ -915,7 +923,11 @@ pub fn run_repo_top(
         for host in hosts {
             if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
                 crate::forges::merge_live_runner_jobs(summaries, &jobs);
-                auto_sync_catalog_ci_status(&mut cat, summaries);
+                auto_sync_catalog_ci_status(
+                    &mut cat,
+                    summaries,
+                    effective_catalog_path.as_deref(),
+                );
             }
         }
         trigger_background_sync(&cat, sender.clone());
@@ -984,7 +996,11 @@ pub fn run_repo_top(
                         }
                     }
                     crate::forges::merge_live_runner_jobs(&mut raw_summaries, &jobs);
-                    auto_sync_catalog_ci_status(&mut cat, &raw_summaries);
+                    auto_sync_catalog_ci_status(
+                        &mut cat,
+                        &raw_summaries,
+                        effective_catalog_path.as_deref(),
+                    );
                 }
                 TopBackgroundMsg::SyncCompleted => {
                     state.is_syncing = false;

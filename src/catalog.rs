@@ -625,13 +625,11 @@ pub fn parse_repo_identifier(input: &str) -> Result<RepoForgeInfo, String> {
     ))
 }
 
-/// Save catalog entries to disk at the designated configuration path
-pub fn save_catalog(
+/// Save catalog entries directly to a specified path
+pub fn save_catalog_to_path(
     entries: &[CatalogEntry],
-    config: Option<&crate::config::Config>,
+    save_path: &Path,
 ) -> Result<PathBuf, String> {
-    let save_path =
-        find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
     if let Some(parent) = save_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory '{}': {}", parent.display(), e))?;
@@ -640,7 +638,7 @@ pub fn save_catalog(
     let json = serde_json::to_string_pretty(entries)
         .map_err(|e| format!("Failed to serialize catalog: {}", e))?;
 
-    fs::write(&save_path, json).map_err(|e| {
+    fs::write(save_path, json).map_err(|e| {
         format!(
             "Failed to write catalog file '{}': {}",
             save_path.display(),
@@ -648,7 +646,17 @@ pub fn save_catalog(
         )
     })?;
 
-    Ok(save_path)
+    Ok(save_path.to_path_buf())
+}
+
+/// Save catalog entries to disk at the designated configuration path
+pub fn save_catalog(
+    entries: &[CatalogEntry],
+    config: Option<&crate::config::Config>,
+) -> Result<PathBuf, String> {
+    let save_path =
+        find_catalog_path(config, None).unwrap_or_else(|| get_catalog_save_path(config));
+    save_catalog_to_path(entries, &save_path)
 }
 
 /// Validate whether an alias collides with existing repository names, slugs, or other aliases.
