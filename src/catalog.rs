@@ -168,8 +168,11 @@ pub fn extract_domain_prefix(host: &str) -> Option<String> {
 /// and custom aliases from Config.
 pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::config::Config>) {
     // 1. Resolve canonical_url
-    let needs_canonical_url = entry.canonical_url.as_deref().map_or(true, |u| {
-        if let Some(host_part) = u.strip_prefix("https://").or_else(|| u.strip_prefix("http://")) {
+    let needs_canonical_url = entry.canonical_url.as_deref().is_none_or(|u| {
+        if let Some(host_part) = u
+            .strip_prefix("https://")
+            .or_else(|| u.strip_prefix("http://"))
+        {
             let host = host_part.split('/').next().unwrap_or(host_part);
             !host.contains('.')
         } else {
@@ -206,7 +209,7 @@ pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::con
     let needs_server_host = entry
         .server_host
         .as_deref()
-        .map_or(true, |h| !h.contains('.'));
+        .is_none_or(|h| !h.contains('.'));
 
     if needs_server_host {
         let source = entry.canonical_url.as_deref().unwrap_or(&entry.forge);

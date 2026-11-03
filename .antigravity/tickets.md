@@ -1,14 +1,23 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-02 23:59:40 UTC
+> Synced at: 2026-11-03 10:37:36 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#134] fix(catalog): isolar auto sync e testes do catalogo real em disco
+## [#136] fix(catalog): resolver fqdn completo para hosts de forjas customizadas
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/134
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/136
 
 ### Description
-[Resumo]: Isolar salvamento do catalogo no repo top e garantir execucao hermetica dos testes unitarios.
+[Resumo]: Garantir resolucao de FQDN (gambi.2lp.in) para forjas customizadas no catalogo e enriquecimento de entradas.
+
+---
+## [#135] fix(catalog): resolver fqdn completo para hosts de forjas customizadas
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/135
+
+### Description
+[Resumo]: Garantir resolucao de FQDN (gambi.2lp.in) para forjas customizadas no catalogo e enriquecimento de entradas.
 
 ---
 ## [#132] refactor(cli): compactar e organizar exibição do menu de ajuda principal
@@ -106,33 +115,6 @@ Todos os comandos que executam validações de conformidade de fluxo e qualidade
 - [ ] Possibilitar inclusão de novas regras sem necessidade de alteração ou rebuild do binário CCCP.
 - [ ] `cccp check` deve carregar e reportar violações baseadas nas regras das normas presentes na cadeia ativa do repositório.
 - [ ] Tratamento gracioso de erros caso uma regra externa falhe ou apresente formato inválido.
-
-## Tasks / DD-TDD Checklist (9 Fases GOST)
-- [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
-- [ ] Fase 2 - Branch: Branch `<tipo>/<id>-<slug>` criada a partir de develop/main
-- [ ] Fase 3 - Doc/Spec: Contrato preliminar e especificação (Zero código de produção)
-- [ ] Fase 4 - Red: Teste automatizado falho comprovando o requisito
-- [ ] Fase 5 - Green: Implementação mínima funcional com teste passando
-- [ ] Fase 6 - Refactor: Código limpo, idiomático e com Zero Warnings
-- [ ] Fase 7 - Mutation: Mutantes críticos eliminados com asserções robustas
-- [ ] Fase 8 - Quality Gate: Cobertura >= 90%, linter -D warnings e formatação validados
-- [ ] Fase 9 - Close: Changelog e documentação atualizados; commit com (closes #<id>)
-
----
-## [#128] feat(core): implementar cadeia hierárquica de normas, prefixação de regras e comando assemble
-- **Status**: `open`
-- **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/128
-
-### Description
-## Description
-Atualmente a norma GOST é tratada a partir da versão mais recente sem estruturar explicitamente a cadeia de derivação inversa. A arquitetura precisa tratar a norma mais específica como raiz da resolução, encadeando retroativamente até a mais geral (ex: Lilya -> Kollontai -> GOST). Cada norma deve especificar no cabeçalho qual norma/versão estende. O comando `assemble` deve compilar essa cadeia em um artefato único. Além disso, cada norma deve possuir seu próprio `rules.json` e todas as regras devem ser prefixadas pelo nome da norma e índice sequencial (ex.: `GOST-10`, `KOLLONTAI-13`, `LILYA-34`), tanto na documentação markdown quanto no arquivo JSON compilado.
-
-## Expected Behavior & Acceptance Criteria
-- [ ] Suporte à especificação de herança/extensão nos metadados/cabeçalho das normas.
-- [ ] Cada norma gerencia seu arquivo `rules.json` respectivo com prefixos nominais e numéricos sequenciais (ex: `GOST-1`, `KOLLONTAI-2`, `LILYA-3`).
-- [ ] Implementação/atualização do comando `assemble` para consolidar a hierarquia de normas e gerar a especificação e `rules.json` unificados.
-- [ ] Validação da continuidade da cadeia garantindo ausência de ciclos e integridade dos nós ancestrais.
 
 ## Tasks / DD-TDD Checklist (9 Fases GOST)
 - [ ] Fase 1 - Ticket: Issue formalizada e escopo delimitado
