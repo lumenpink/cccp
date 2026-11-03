@@ -253,3 +253,48 @@ fn test_discover_forgejo_hosts() {
     assert!(hosts.contains(&"gambi.2lp.in".to_string()));
     assert!(hosts.contains(&"codeberg.org".to_string()));
 }
+
+#[test]
+fn test_discover_forgejo_hosts_with_short_forge_name_gambi() {
+    use cccp::catalog::CatalogEntry;
+    use cccp::forges::discover_forgejo_hosts;
+
+    let entries = vec![
+        CatalogEntry {
+            name: "r1".to_string(),
+            forge: "gambi".to_string(),
+            slug: "lumen/r1".to_string(),
+            server_host: Some("gambi".to_string()),
+            ..Default::default()
+        },
+        CatalogEntry {
+            name: "r2".to_string(),
+            forge: "gambi".to_string(),
+            slug: "lumen/r2".to_string(),
+            server_host: None,
+            ..Default::default()
+        },
+    ];
+
+    let hosts = discover_forgejo_hosts(&entries);
+    assert_eq!(hosts, vec!["gambi.2lp.in".to_string()]);
+}
+
+#[test]
+fn test_enrich_catalog_entry_resolves_gambi_fqdn() {
+    use cccp::catalog::{enrich_catalog_entry, CatalogEntry};
+
+    let mut entry = CatalogEntry {
+        name: "test-gambi".to_string(),
+        forge: "gambi".to_string(),
+        slug: "lumen/test-gambi".to_string(),
+        ..Default::default()
+    };
+
+    enrich_catalog_entry(&mut entry, None);
+    assert_eq!(entry.server_host, Some("gambi.2lp.in".to_string()));
+    assert_eq!(
+        entry.canonical_url,
+        Some("https://gambi.2lp.in/lumen/test-gambi".to_string())
+    );
+}
