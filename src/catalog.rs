@@ -168,29 +168,47 @@ pub fn extract_domain_prefix(host: &str) -> Option<String> {
 /// and custom aliases from Config.
 pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::config::Config>) {
     // 1. Resolve canonical_url
-    if entry.canonical_url.is_none() && !entry.slug.is_empty() {
-        let url = if entry.forge.starts_with("http://") || entry.forge.starts_with("https://") {
-            format!(
-                "{}/{}",
-                entry.forge.trim_end_matches('/'),
-                entry.slug.trim_start_matches('/')
-            )
-        } else if !entry.forge.is_empty() {
-            format!(
-                "https://{}/{}",
-                entry.forge.trim_end_matches('/'),
-                entry.slug.trim_start_matches('/')
-            )
+    let needs_canonical_url = entry.canonical_url.as_deref().map_or(true, |u| {
+        if let Some(host_part) = u.strip_prefix("https://").or_else(|| u.strip_prefix("http://")) {
+            let host = host_part.split('/').next().unwrap_or(host_part);
+            !host.contains('.')
         } else {
-            String::new()
-        };
-        if !url.is_empty() {
-            entry.canonical_url = Some(url);
+            true
         }
+    });
+
+    if needs_canonical_url && !entry.slug.is_empty() {
+        let base_host = match entry.forge.to_ascii_lowercase().as_str() {
+            "github" => "github.com".to_string(),
+            "gitlab" => "gitlab.com".to_string(),
+            "codeberg" | "codeberg.org" => "codeberg.org".to_string(),
+            "tildegit" | "tildegit.org" => "tildegit.org".to_string(),
+            "gambi" => "gambi.2lp.in".to_string(),
+            other => {
+                if other.contains('.') {
+                    other.to_string()
+                } else if !other.is_empty() {
+                    format!("{}.2lp.in", other)
+                } else {
+                    "gambi.2lp.in".to_string()
+                }
+            }
+        };
+        let url = format!(
+            "https://{}/{}",
+            base_host.trim_end_matches('/'),
+            entry.slug.trim_start_matches('/')
+        );
+        entry.canonical_url = Some(url);
     }
 
     // 2. Resolve server_host
-    if entry.server_host.is_none() {
+    let needs_server_host = entry
+        .server_host
+        .as_deref()
+        .map_or(true, |h| !h.contains('.'));
+
+    if needs_server_host {
         let source = entry.canonical_url.as_deref().unwrap_or(&entry.forge);
         if !source.is_empty() {
             let host_part = if let Some(stripped) = source.strip_prefix("https://") {
@@ -205,7 +223,22 @@ pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::con
             let host = host_part.split('/').next().unwrap_or(host_part);
             let clean_host = host.split(':').next().unwrap_or(host).trim();
             if !clean_host.is_empty() {
-                entry.server_host = Some(clean_host.to_string());
+                let resolved = if clean_host.contains('.') {
+                    clean_host.to_string()
+                } else if clean_host.eq_ignore_ascii_case("gambi") {
+                    "gambi.2lp.in".to_string()
+                } else if clean_host.eq_ignore_ascii_case("codeberg") {
+                    "codeberg.org".to_string()
+                } else if clean_host.eq_ignore_ascii_case("tildegit") {
+                    "tildegit.org".to_string()
+                } else if clean_host.eq_ignore_ascii_case("github") {
+                    "github.com".to_string()
+                } else if clean_host.eq_ignore_ascii_case("gitlab") {
+                    "gitlab.com".to_string()
+                } else {
+                    format!("{}.2lp.in", clean_host)
+                };
+                entry.server_host = Some(resolved);
             }
         }
     }
@@ -286,13 +319,30 @@ impl CatalogEntry {
             "tildegit" | "tildegit.org" => (ForgeType::Tildegit, "tildegit.org".to_string()),
             "codeberg" | "codeberg.org" => (ForgeType::Codeberg, "codeberg.org".to_string()),
             _ => {
-                if let Some(ref sh) = self.server_host {
-                    (ForgeType::Forgejo, sh.clone())
+                let h = if let Some(ref sh) = self.server_host {
+                    if sh.contains('.') {
+                        sh.clone()
+                    } else if sh.eq_ignore_ascii_case("gambi") {
+                        "gambi.2lp.in".to_string()
+                    } else if sh.eq_ignore_ascii_case("codeberg") {
+                        "codeberg.org".to_string()
+                    } else if sh.eq_ignore_ascii_case("tildegit") {
+                        "tildegit.org".to_string()
+                    } else {
+                        format!("{}.2lp.in", sh)
+                    }
                 } else if self.forge.contains('.') {
-                    (ForgeType::Forgejo, self.forge.clone())
+                    self.forge.clone()
+                } else if self.forge.eq_ignore_ascii_case("gambi") {
+                    "gambi.2lp.in".to_string()
+                } else if self.forge.eq_ignore_ascii_case("codeberg") {
+                    "codeberg.org".to_string()
+                } else if self.forge.eq_ignore_ascii_case("tildegit") {
+                    "tildegit.org".to_string()
                 } else {
-                    (ForgeType::Forgejo, "git.2lp.in".to_string())
-                }
+                    format!("{}.2lp.in", self.forge)
+                };
+                (ForgeType::Forgejo, h)
             }
         };
 
@@ -1043,7 +1093,7 @@ pub fn scan_and_add_from_src(
         let entry = CatalogEntry {
             name: dir_name,
             forge: forge_name,
-            slug,
+            slug: slug.clone(),
             aliases: Vec::new(),
             description: remote_meta.description,
             topics: remote_meta.topics,
@@ -1053,7 +1103,8 @@ pub fn scan_and_add_from_src(
             is_mirror: remote_meta.is_mirror,
             open_tickets: None,
             ci_status: Vec::new(),
-            ..Default::default()
+            canonical_url: Some(format!("https://{}/{}", info.host, slug)),
+            server_host: Some(info.host.clone()),
         };
 
         catalog.push(entry.clone());
