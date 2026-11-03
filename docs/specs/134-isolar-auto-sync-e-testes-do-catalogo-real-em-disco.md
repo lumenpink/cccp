@@ -33,3 +33,10 @@ No entanto, foi identificada uma falha crítica de isolamento:
 - Todos os testes de `tests/repo_top_test.rs` executam sem efeitos colaterais no filesystem do usuário.
 - O catálogo real em `~/src/catalog.json` permanece intacto após `cargo test`.
 - Cobertura completa de testes, `cargo clippy` e `cargo fmt` aprovados.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Isolamento hermético de `auto_sync_catalog_ci_status` e salvamento explícito em disco.
+  - **[Solução]**: Adicionado `save_catalog_to_path` em `catalog.rs`, parâmetro `target_path: Option<&Path>` em `auto_sync_catalog_ci_status` (desativando escritas quando `target_path` for `None`), e migração de todos os testes unitários para sandboxes descartáveis com `tempdir`.
+  - **[Validação]**: 26 testes unitários em `repo_top_test` aprovados em 0.00s, catálogo real do usuário inalterado durante a execução dos testes, `cargo fmt --check` e `cargo clippy` 100% limpos.
