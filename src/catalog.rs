@@ -626,10 +626,7 @@ pub fn parse_repo_identifier(input: &str) -> Result<RepoForgeInfo, String> {
 }
 
 /// Save catalog entries directly to a specified path
-pub fn save_catalog_to_path(
-    entries: &[CatalogEntry],
-    save_path: &Path,
-) -> Result<PathBuf, String> {
+pub fn save_catalog_to_path(entries: &[CatalogEntry], save_path: &Path) -> Result<PathBuf, String> {
     if let Some(parent) = save_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory '{}': {}", parent.display(), e))?;

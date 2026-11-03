@@ -926,11 +926,7 @@ pub fn run_repo_top(
         for host in hosts {
             if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
                 crate::forges::merge_live_runner_jobs(summaries, &jobs);
-                auto_sync_catalog_ci_status(
-                    &mut cat,
-                    summaries,
-                    effective_catalog_path.as_deref(),
-                );
+                auto_sync_catalog_ci_status(&mut cat, summaries, effective_catalog_path.as_deref());
             }
         }
         trigger_background_sync(&cat, sender.clone());
