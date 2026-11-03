@@ -1273,3 +1273,65 @@ fn test_auto_sync_catalog_ci_status_persists_to_isolated_file() {
     assert!(saved_content.contains("isolated-repo"));
     assert!(saved_content.contains("CI Check"));
 }
+
+#[test]
+fn test_mutation_auto_sync_edge_cases_and_unmodified_state() {
+    let tmp_dir = tempfile::tempdir().expect("tempdir");
+    let target_file = tmp_dir.path().join("catalog_edge.json");
+
+    // 1. Empty cat or summaries
+    let mut empty_cat: Vec<cccp::catalog::CatalogEntry> = vec![];
+    let empty_summaries: Vec<cccp::catalog::CatalogRepoSummary> = vec![];
+    assert!(!cccp::repo_top::auto_sync_catalog_ci_status(
+        &mut empty_cat,
+        &empty_summaries,
+        Some(&target_file)
+    ));
+    assert!(!target_file.exists());
+
+    // 2. Unmodified state (identical ci_status)
+    let ci = vec![cccp::catalog::CiPipelineStatus {
+        name: "test".to_string(),
+        status: "success".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    let mut cat = vec![cccp::catalog::CatalogEntry {
+        name: "repo1".to_string(),
+        forge: "gambi".to_string(),
+        slug: "Lumen/Repo1".to_string(),
+        aliases: vec![],
+        description: "".to_string(),
+        topics: vec![],
+        license: "".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: ci.clone(),
+        canonical_url: None,
+        server_host: None,
+    }];
+    let summaries = vec![cccp::catalog::CatalogRepoSummary {
+        name: "repo1".to_string(),
+        slug: "lumen/repo1".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: None,
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: ci,
+    }];
+    // When statuses are already identical, returns false and does not write to disk
+    assert!(!cccp::repo_top::auto_sync_catalog_ci_status(
+        &mut cat,
+        &summaries,
+        Some(&target_file)
+    ));
+    assert!(!target_file.exists());
+}
