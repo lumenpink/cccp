@@ -813,6 +813,9 @@ pub fn auto_sync_catalog_ci_status(
     summaries: &[CatalogRepoSummary],
     target_path: Option<&Path>,
 ) -> bool {
+    if cat.is_empty() || summaries.is_empty() {
+        return false;
+    }
     let mut modified = false;
     for r in summaries {
         if let Some(entry) = cat
