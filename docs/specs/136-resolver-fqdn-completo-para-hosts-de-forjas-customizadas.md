@@ -28,3 +28,11 @@ Após a migração para a exibição de nomes de forja (`gambi` em vez de `forge
 - `discover_forgejo_hosts` retorna `gambi.2lp.in` e nunca `gambi`.
 - Testes unitários herméticos garantem todas as regras de resolução.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` aprovados.
+
+### 4. Laudo de Implementação e Verificação
+- **Fase 4 (Red)**: Testes `test_discover_forgejo_hosts_with_short_forge_name_gambi` e `test_enrich_catalog_entry_resolves_gambi_fqdn` criados em `tests/ci_consolidated_runner_jobs_test.rs`, falhando comprovando a ausência de qualificação FQDN.
+- **Fase 5 (Green)**: Implementada normalização de FQDN em `enrich_catalog_entry`, preservação em `scan_and_add_from_src` e fallback robusto em `to_forge_info` em `src/catalog.rs`. Testes passando.
+- **Fase 6 (Refactor)**: Simplificação de fluxos e validação de clippy com `is_none_or`.
+- **Fase 7 (Mutation)**: Adicionado teste `test_mutation_catalog_fqdn_resolution_edge_cases` cobrindo cenários com URLs HTTP, SSH e forjas com e sem domínio explícito.
+- **Fase 8 (Quality Gate)**: `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` executados com sucesso total (0 erros, 0 advertências). Testes direcionados com 100% de aprovação.
+
