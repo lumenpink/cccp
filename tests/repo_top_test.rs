@@ -1173,7 +1173,7 @@ fn test_mutation_iso_parsing_and_duration_concise_boundary_cases() {
 }
 
 #[test]
-fn test_auto_sync_catalog_ci_status_updates_catalog() {
+fn test_auto_sync_catalog_ci_status_in_memory_only() {
     let mut cat = vec![cccp::catalog::CatalogEntry {
         name: "test-repo".to_string(),
         forge: "gambi".to_string(),
@@ -1212,9 +1212,64 @@ fn test_auto_sync_catalog_ci_status_updates_catalog() {
         }],
     }];
 
-    cccp::repo_top::auto_sync_catalog_ci_status(&mut cat, &summaries);
+    // Passing None for target_path must update in memory without writing to disk
+    let modified = cccp::repo_top::auto_sync_catalog_ci_status(&mut cat, &summaries, None);
 
+    assert!(modified);
     assert_eq!(cat[0].ci_status.len(), 1);
     assert_eq!(cat[0].ci_status[0].status, "success");
     assert_eq!(cat[0].ci_status[0].name, "Build & Test");
+}
+
+#[test]
+fn test_auto_sync_catalog_ci_status_persists_to_isolated_file() {
+    let tmp_dir = tempfile::tempdir().expect("tempdir");
+    let target_file = tmp_dir.path().join("catalog.json");
+
+    let mut cat = vec![cccp::catalog::CatalogEntry {
+        name: "isolated-repo".to_string(),
+        forge: "gambi".to_string(),
+        slug: "lumen/isolated-repo".to_string(),
+        aliases: vec![],
+        description: "Isolated".to_string(),
+        topics: vec![],
+        license: "MIT".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: vec![],
+        canonical_url: None,
+        server_host: None,
+    }];
+
+    let summaries = vec![cccp::catalog::CatalogRepoSummary {
+        name: "isolated-repo".to_string(),
+        slug: "lumen/isolated-repo".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![cccp::catalog::CiPipelineStatus {
+            name: "CI Check".to_string(),
+            status: "success".to_string(),
+            description: Some("Passed".to_string()),
+            target_url: None,
+            updated_at: Some("2026-11-02T20:00:00Z".to_string()),
+        }],
+    }];
+
+    let modified =
+        cccp::repo_top::auto_sync_catalog_ci_status(&mut cat, &summaries, Some(&target_file));
+
+    assert!(modified);
+    assert!(target_file.is_file());
+    let saved_content = std::fs::read_to_string(&target_file).expect("read saved file");
+    assert!(saved_content.contains("isolated-repo"));
+    assert!(saved_content.contains("CI Check"));
 }
