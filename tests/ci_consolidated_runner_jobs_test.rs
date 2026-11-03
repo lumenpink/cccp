@@ -298,3 +298,39 @@ fn test_enrich_catalog_entry_resolves_gambi_fqdn() {
         Some("https://gambi.2lp.in/lumen/test-gambi".to_string())
     );
 }
+
+#[test]
+fn test_mutation_catalog_fqdn_resolution_edge_cases() {
+    use cccp::catalog::{enrich_catalog_entry, CatalogEntry};
+    use cccp::forges::discover_forgejo_hosts;
+
+    // 1. Custom dot domain is preserved
+    let mut custom = CatalogEntry {
+        name: "custom".to_string(),
+        forge: "myforge.org".to_string(),
+        slug: "org/repo".to_string(),
+        ..Default::default()
+    };
+    enrich_catalog_entry(&mut custom, None);
+    assert_eq!(custom.server_host, Some("myforge.org".to_string()));
+    assert_eq!(
+        custom.canonical_url,
+        Some("https://myforge.org/org/repo".to_string())
+    );
+
+    // 2. Shortname generic fallback to .2lp.in
+    let mut generic = CatalogEntry {
+        name: "soviet".to_string(),
+        forge: "soviet".to_string(),
+        slug: "gosplan/fiveyear".to_string(),
+        ..Default::default()
+    };
+    enrich_catalog_entry(&mut generic, None);
+    assert_eq!(generic.server_host, Some("soviet.2lp.in".to_string()));
+
+    // 3. discover_forgejo_hosts with mixed forges
+    let entries = vec![custom, generic];
+    let hosts = discover_forgejo_hosts(&entries);
+    assert!(hosts.contains(&"myforge.org".to_string()));
+    assert!(hosts.contains(&"soviet.2lp.in".to_string()));
+}
