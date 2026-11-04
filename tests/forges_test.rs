@@ -830,3 +830,41 @@ fn test_parse_forgejo_commit_status_sanitizes_blocked_and_skipped_subjobs() {
     // Blocked by required conditions must be mapped to "skipped", not left as "waiting"
     assert_eq!(statuses[1].status, "skipped");
 }
+
+#[test]
+fn test_mutation_parse_forgejo_commit_status_root_states_and_skipped_descriptions() {
+    // 1. Root state SUCCESS in uppercase with pending/blocked subjobs
+    let json_upper = r#"{
+        "state": "SUCCESS",
+        "total_count": 2,
+        "statuses": [
+            {
+                "id": 1,
+                "status": "pending",
+                "context": "CI / Build",
+                "description": "Running check",
+                "target_url": null,
+                "updated_at": null
+            },
+            {
+                "id": 2,
+                "status": "waiting",
+                "context": "CI / Deploy",
+                "description": null,
+                "target_url": null,
+                "updated_at": null
+            }
+        ]
+    }"#;
+    let st = cccp::forges::parse_forgejo_commit_status_json(json_upper).unwrap();
+    assert_eq!(st[0].status, "skipped");
+    assert_eq!(st[1].status, "skipped");
+
+    // 2. Helper is_skipped_or_cancelled_description variations
+    assert!(cccp::catalog::is_skipped_or_cancelled_description("BLOCKED BY REQUIRED CONDITIONS"));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description("Has been skipped"));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description("Job was cancelled by user"));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description("Job canceled"));
+    assert!(!cccp::catalog::is_skipped_or_cancelled_description("Successful in 10s"));
+    assert!(!cccp::catalog::is_skipped_or_cancelled_description(""));
+}

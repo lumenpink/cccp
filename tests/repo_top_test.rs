@@ -1555,3 +1555,36 @@ fn test_apply_repo_ci_update_does_not_revive_stale_waiting_from_disk() {
     assert_eq!(repo.ci_status.len(), 1);
     assert_eq!(repo.ci_status[0].status, "success");
 }
+
+#[test]
+fn test_mutation_sanitize_pipeline_statuses_boundary_cases() {
+    // 1. Empty slice does not panic
+    let mut empty: Vec<CatalogRepoSummary> = vec![];
+    cccp::repo_top::sanitize_pipeline_statuses(&mut empty);
+    assert!(empty.is_empty());
+
+    // 2. Pipelines without descriptions or with already clean status
+    let mut clean = vec![make_sample_repo(
+        "clean-repo",
+        "lumen/clean-repo",
+        vec![
+            CiPipelineStatus {
+                name: "p1".to_string(),
+                status: "success".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            },
+            CiPipelineStatus {
+                name: "p2".to_string(),
+                status: "failure".to_string(),
+                description: Some("Failed in 5s".to_string()),
+                target_url: None,
+                updated_at: None,
+            },
+        ],
+    )];
+    cccp::repo_top::sanitize_pipeline_statuses(&mut clean);
+    assert_eq!(clean[0].ci_status[0].status, "success");
+    assert_eq!(clean[0].ci_status[1].status, "failure");
+}
