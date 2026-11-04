@@ -1484,3 +1484,74 @@ fn test_mutation_format_ci_summary_badges() {
     }];
     assert_eq!(format_ci_summary(&p_fail).1, "red");
 }
+
+#[test]
+fn test_sanitize_pipeline_statuses_expurges_falsely_waiting_and_blocked() {
+    let mut summaries = vec![
+        make_sample_repo(
+            "r1",
+            "lumen/r1",
+            vec![CiPipelineStatus {
+                name: "Job1".to_string(),
+                status: "waiting".to_string(),
+                description: Some("Successful in 1m54s".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+        make_sample_repo(
+            "r2",
+            "lumen/r2",
+            vec![CiPipelineStatus {
+                name: "Job2".to_string(),
+                status: "waiting".to_string(),
+                description: Some("Blocked by required conditions".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+        make_sample_repo(
+            "r3",
+            "lumen/r3",
+            vec![CiPipelineStatus {
+                name: "Job3".to_string(),
+                status: "pending".to_string(),
+                description: Some("Has been skipped".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+    ];
+
+    cccp::repo_top::sanitize_pipeline_statuses(&mut summaries);
+    assert_eq!(summaries[0].ci_status[0].status, "success");
+    assert_eq!(summaries[1].ci_status[0].status, "skipped");
+    assert_eq!(summaries[2].ci_status[0].status, "skipped");
+}
+
+#[test]
+fn test_apply_repo_ci_update_does_not_revive_stale_waiting_from_disk() {
+    let mut repo = make_sample_repo(
+        "r1",
+        "lumen/r1",
+        vec![CiPipelineStatus {
+            name: "Build".to_string(),
+            status: "waiting".to_string(),
+            description: Some("Old stale waiting".to_string()),
+            target_url: None,
+            updated_at: None,
+        }],
+    );
+
+    let fresh_ci = vec![CiPipelineStatus {
+        name: "Build".to_string(),
+        status: "success".to_string(),
+        description: Some("Successful in 30s".to_string()),
+        target_url: None,
+        updated_at: None,
+    }];
+
+    cccp::repo_top::apply_repo_ci_update(&mut repo, fresh_ci);
+    assert_eq!(repo.ci_status.len(), 1);
+    assert_eq!(repo.ci_status[0].status, "success");
+}

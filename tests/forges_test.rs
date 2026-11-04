@@ -799,3 +799,34 @@ fn test_mutation_parse_forgejo_commit_status_edge_cases() {
     // 4. Invalid JSON
     assert!(cccp::forges::parse_forgejo_commit_status_json("invalid json").is_err());
 }
+
+#[test]
+fn test_parse_forgejo_commit_status_sanitizes_blocked_and_skipped_subjobs() {
+    let json_resp = r#"{
+        "state": "success",
+        "total_count": 2,
+        "statuses": [
+            {
+                "id": 1,
+                "status": "success",
+                "context": "CI / Test",
+                "description": "Successful in 1m",
+                "target_url": null,
+                "updated_at": "2026-11-04T00:00:00Z"
+            },
+            {
+                "id": 2,
+                "status": "waiting",
+                "context": "CI / Deploy",
+                "description": "Blocked by required conditions",
+                "target_url": null,
+                "updated_at": "2026-11-04T00:00:00Z"
+            }
+        ]
+    }"#;
+    let statuses = cccp::forges::parse_forgejo_commit_status_json(json_resp).unwrap();
+    assert_eq!(statuses.len(), 2);
+    assert_eq!(statuses[0].status, "success");
+    // Blocked by required conditions must be mapped to "skipped", not left as "waiting"
+    assert_eq!(statuses[1].status, "skipped");
+}
