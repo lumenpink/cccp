@@ -267,10 +267,32 @@ pub fn sanitize_pipeline_statuses(repos: &mut [CatalogRepoSummary]) {
 
 /// Prioritize and limit forge repository targets for live CI status synchronization
 pub fn prioritize_forge_sync_targets(
-    _cat: &[crate::catalog::CatalogEntry],
-    _limit: usize,
+    cat: &[crate::catalog::CatalogEntry],
+    limit: usize,
 ) -> Vec<(String, String, String, String)> {
-    Vec::new() // Stub for Phase 4: red test failure
+    if cat.is_empty() || limit == 0 {
+        return Vec::new();
+    }
+
+    let mut eligible: Vec<(&crate::catalog::CatalogEntry, usize, crate::forges::RepoForgeInfo)> =
+        cat.iter()
+            .map(|e| {
+                let info = e.to_forge_info();
+                let priority = repo_ci_priority(&e.ci_status);
+                (e, priority, info)
+            })
+            .filter(|(_, _, info)| {
+                !info.host.is_empty() && !info.owner.is_empty() && !info.repo.is_empty()
+            })
+            .collect();
+
+    eligible.sort_by_key(|(_, prio, _)| *prio);
+
+    eligible
+        .into_iter()
+        .take(limit)
+        .map(|(e, _, info)| (e.slug.clone(), info.host, info.owner, info.repo))
+        .collect()
 }
 
 /// Helper to classify CI pipeline status of a repository
@@ -933,13 +955,7 @@ pub fn run_repo_top(
                 .iter()
                 .map(|e| (e.slug.clone(), crate::catalog::find_local_repo_path(e)))
                 .collect();
-            let forge_targets: Vec<(String, String, String, String)> = entries
-                .iter()
-                .map(|e| {
-                    let info = e.to_forge_info();
-                    (e.slug.clone(), info.host, info.owner, info.repo)
-                })
-                .collect();
+            let forge_targets = prioritize_forge_sync_targets(entries, 30);
 
             std::thread::spawn(move || {
                 let _ = sender.send(TopBackgroundMsg::SyncStarted);
@@ -987,42 +1003,42 @@ pub fn run_repo_top(
                     }
                 }
 
-                // 3. Live commit status inspection from forges for catalog repositories
-                for (slug, host, owner, repo) in forge_targets {
-                    if let Ok(st) =
-                        client.fetch_repo_commit_status(&host, &owner, &repo, "main", None)
-                    {
-                        if !st.is_empty() {
-                            let _ = sender.send(TopBackgroundMsg::RepoUpdate {
-                                slug,
-                                ci_status: Some(st),
-                                status_label: None,
-                                unpushed: None,
-                                is_clean: None,
+                // 3. Live commit status inspection with bounded concurrency for prioritized targets
+                for chunk in forge_targets.chunks(6) {
+                    std::thread::scope(|s| {
+                        for (slug, host, owner, repo) in chunk {
+                            let sender = sender.clone();
+                            let client = &client;
+                            s.spawn(move || {
+                                if let Ok(st) =
+                                    client.fetch_repo_commit_status(host, owner, repo, "main", None)
+                                {
+                                    if !st.is_empty() {
+                                        let _ = sender.send(TopBackgroundMsg::RepoUpdate {
+                                            slug: slug.clone(),
+                                            ci_status: Some(st),
+                                            status_label: None,
+                                            unpushed: None,
+                                            is_clean: None,
+                                        });
+                                    }
+                                }
                             });
                         }
-                    }
+                    });
                 }
 
                 let _ = sender.send(TopBackgroundMsg::SyncCompleted);
             });
         };
 
-    // Helper closure to reload catalog, merge live runner jobs, and trigger background live forge CI sync
+    // Helper closure to reload catalog and trigger non-blocking background live forge CI sync
     let refresh_data = |summaries: &mut Vec<CatalogRepoSummary>,
                         sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
         let mut cat = crate::catalog::load_catalog(None, catalog_path);
         *summaries = crate::catalog::summarize_catalog(&cat);
         sanitize_pipeline_statuses(summaries);
         auto_sync_catalog_ci_status(&mut cat, summaries, effective_catalog_path.as_deref());
-        let hosts = crate::forges::discover_forgejo_hosts(&cat);
-        let client = crate::forges::ForgeClient::new();
-        for host in hosts {
-            if let Ok(jobs) = client.fetch_user_runner_jobs(&host, None) {
-                crate::forges::merge_live_runner_jobs(summaries, &jobs);
-                auto_sync_catalog_ci_status(&mut cat, summaries, effective_catalog_path.as_deref());
-            }
-        }
         trigger_background_sync(&cat, sender.clone());
     };
 
@@ -1058,13 +1074,11 @@ pub fn run_repo_top(
                     unpushed,
                     is_clean,
                 } => {
-                    let mut ci_updated = false;
                     for r in raw_summaries.iter_mut() {
                         if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug)
                         {
                             if let Some(new_ci) = ci_status {
                                 apply_repo_ci_update(r, new_ci);
-                                ci_updated = true;
                             }
                             if let Some(lbl) = status_label {
                                 r.status_label = lbl;
@@ -1077,14 +1091,6 @@ pub fn run_repo_top(
                             }
                             break;
                         }
-                    }
-                    if ci_updated {
-                        let mut cat = crate::catalog::load_catalog(None, catalog_path);
-                        auto_sync_catalog_ci_status(
-                            &mut cat,
-                            &raw_summaries,
-                            effective_catalog_path.as_deref(),
-                        );
                     }
                 }
                 TopBackgroundMsg::RunnerJobsUpdated(jobs) => {
@@ -1112,6 +1118,12 @@ pub fn run_repo_top(
                     state.is_syncing = false;
                     state.has_converged = true;
                     last_refresh = Instant::now();
+                    let mut cat = crate::catalog::load_catalog(None, catalog_path);
+                    auto_sync_catalog_ci_status(
+                        &mut cat,
+                        &raw_summaries,
+                        effective_catalog_path.as_deref(),
+                    );
                 }
             }
         }
@@ -1223,7 +1235,10 @@ pub fn run_repo_top(
         }
     }
 
-    // Teardown terminal
+    // Teardown terminal and ensure catalog is saved
+    let mut cat = crate::catalog::load_catalog(None, catalog_path);
+    auto_sync_catalog_ci_status(&mut cat, &raw_summaries, effective_catalog_path.as_deref());
+
     let _ = execute!(stdout_handle, crossterm::cursor::Show, LeaveAlternateScreen);
     let _ = disable_raw_mode();
 
