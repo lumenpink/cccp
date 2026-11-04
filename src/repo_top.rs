@@ -274,17 +274,21 @@ pub fn prioritize_forge_sync_targets(
         return Vec::new();
     }
 
-    let mut eligible: Vec<(&crate::catalog::CatalogEntry, usize, crate::forges::RepoForgeInfo)> =
-        cat.iter()
-            .map(|e| {
-                let info = e.to_forge_info();
-                let priority = repo_ci_priority(&e.ci_status);
-                (e, priority, info)
-            })
-            .filter(|(_, _, info)| {
-                !info.host.is_empty() && !info.owner.is_empty() && !info.repo.is_empty()
-            })
-            .collect();
+    let mut eligible: Vec<(
+        &crate::catalog::CatalogEntry,
+        usize,
+        crate::forges::RepoForgeInfo,
+    )> = cat
+        .iter()
+        .map(|e| {
+            let info = e.to_forge_info();
+            let priority = repo_ci_priority(&e.ci_status);
+            (e, priority, info)
+        })
+        .filter(|(_, _, info)| {
+            !info.host.is_empty() && !info.owner.is_empty() && !info.repo.is_empty()
+        })
+        .collect();
 
     eligible.sort_by_key(|(_, prio, _)| *prio);
 
