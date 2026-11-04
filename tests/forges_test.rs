@@ -751,3 +751,26 @@ fn test_mutation_reconcile_when_all_jobs_waiting() {
         .any(|p| p.status.eq_ignore_ascii_case("running"));
     assert!(!has_any_running);
 }
+
+#[test]
+fn test_parse_forgejo_commit_status() {
+    let json_resp = r#"{
+        "state": "success",
+        "sha": "abcdef123456",
+        "total_count": 1,
+        "statuses": [
+            {
+                "id": 10,
+                "status": "success",
+                "context": "CI/CD",
+                "description": "Successful in 1m30s",
+                "target_url": "https://gambi.2lp.in/lumen/repo/actions/runs/1/jobs/0",
+                "updated_at": "2026-11-03T19:00:00-03:00"
+            }
+        ]
+    }"#;
+    let statuses = cccp::forges::parse_forgejo_commit_status_json(json_resp).unwrap();
+    assert_eq!(statuses.len(), 1);
+    assert_eq!(statuses[0].status, "success");
+    assert_eq!(statuses[0].description.as_deref(), Some("Successful in 1m30s"));
+}

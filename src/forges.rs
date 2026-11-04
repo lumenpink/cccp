@@ -1906,3 +1906,11 @@ pub fn discover_forgejo_hosts(catalog: &[crate::catalog::CatalogEntry]) -> Vec<S
     }
     hosts
 }
+
+/// Parse raw Forgejo commit status API response into CiPipelineStatus list
+pub fn parse_forgejo_commit_status_json(
+    _json_str: &str,
+) -> Result<Vec<crate::catalog::CiPipelineStatus>, String> {
+    // Stub for Phase 4: failing placeholder
+    Err("Commit status parsing not implemented yet".to_string())
+}

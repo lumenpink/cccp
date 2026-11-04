@@ -1335,3 +1335,84 @@ fn test_mutation_auto_sync_edge_cases_and_unmodified_state() {
     ));
     assert!(!target_file.exists());
 }
+
+#[test]
+fn test_repo_top_sort_recent_update() {
+    let r1 = CatalogRepoSummary {
+        name: "older-repo".to_string(),
+        slug: "lumen/older-repo".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![CiPipelineStatus {
+            name: "CI".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: Some("2026-11-01T10:00:00-03:00".to_string()),
+        }],
+    };
+    let r2 = CatalogRepoSummary {
+        name: "newer-repo".to_string(),
+        slug: "lumen/newer-repo".to_string(),
+        forge: "gambi".to_string(),
+        aliases: vec![],
+        ticket_count: 0,
+        is_clean: Some(true),
+        unpushed: 0,
+        status_label: "clean".to_string(),
+        local_path: None,
+        gost_version: None,
+        is_mirror: false,
+        ci_status: vec![CiPipelineStatus {
+            name: "CI".to_string(),
+            status: "success".to_string(),
+            description: None,
+            target_url: None,
+            updated_at: Some("2026-11-03T20:00:00-03:00".to_string()),
+        }],
+    };
+
+    let sorted = apply_top_filters_and_sorting(&[r1, r2], CiTopFilter::All, CiTopSort::RecentUpdate);
+    assert_eq!(sorted[0].name, "newer-repo");
+    assert_eq!(sorted[1].name, "older-repo");
+}
+
+#[test]
+fn test_sanitize_ghost_pending_statuses() {
+    let mut summaries = vec![
+        make_sample_repo(
+            "banca",
+            "lumen/banca",
+            vec![CiPipelineStatus {
+                name: "CI".to_string(),
+                status: "pending".to_string(),
+                description: Some("Successful in 2m56s".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+        make_sample_repo(
+            "navalha",
+            "lumen/navalha",
+            vec![CiPipelineStatus {
+                name: "CI".to_string(),
+                status: "pending".to_string(),
+                description: Some("Failing after 34s".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+    ];
+
+    cccp::repo_top::sanitize_pipeline_statuses(&mut summaries);
+
+    assert_eq!(summaries[0].ci_status[0].status, "success");
+    assert_eq!(summaries[1].ci_status[0].status, "failure");
+}

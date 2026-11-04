@@ -75,6 +75,7 @@ impl FromStr for CiTopFilter {
 /// Sort criteria for repository list
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CiTopSort {
+    RecentUpdate,
     ProcessOrder,
     #[default]
     CiStatus,
@@ -84,7 +85,8 @@ pub enum CiTopSort {
 impl CiTopSort {
     pub fn next(self) -> Self {
         match self {
-            CiTopSort::CiStatus => CiTopSort::ProcessOrder,
+            CiTopSort::CiStatus => CiTopSort::RecentUpdate,
+            CiTopSort::RecentUpdate => CiTopSort::ProcessOrder,
             CiTopSort::ProcessOrder => CiTopSort::RepoName,
             CiTopSort::RepoName => CiTopSort::CiStatus,
         }
@@ -92,6 +94,7 @@ impl CiTopSort {
 
     pub fn label(self) -> &'static str {
         match self {
+            CiTopSort::RecentUpdate => "recent",
             CiTopSort::CiStatus => "status",
             CiTopSort::ProcessOrder => "process",
             CiTopSort::RepoName => "name",
@@ -110,6 +113,7 @@ impl FromStr for CiTopSort {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().trim() {
+            "recent" | "recentupdate" | "updated" | "recente" => Ok(CiTopSort::RecentUpdate),
             "process" | "process-order" | "ordem" => Ok(CiTopSort::ProcessOrder),
             "status" | "ci" | "estado" => Ok(CiTopSort::CiStatus),
             "name" | "nome" | "repo" => Ok(CiTopSort::RepoName),
@@ -229,6 +233,11 @@ impl RepoTopState {
     }
 }
 
+/// Sanitize legacy phantom pending statuses where description indicates completion
+pub fn sanitize_pipeline_statuses(_repos: &mut [CatalogRepoSummary]) {
+    // Stub for Phase 4: no sanitization yet!
+}
+
 /// Helper to classify CI pipeline status of a repository
 fn repo_ci_category(ci: &[CiPipelineStatus]) -> &'static str {
     if ci.is_empty() {
@@ -338,6 +347,9 @@ pub fn apply_top_filters_and_sorting(
         .collect();
 
     match sort {
+        CiTopSort::RecentUpdate => {
+            // Stub for Phase 4: no sorting yet!
+        }
         CiTopSort::ProcessOrder => {
             // Preserves original catalog ordering
         }
