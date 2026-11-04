@@ -861,10 +861,20 @@ fn test_mutation_parse_forgejo_commit_status_root_states_and_skipped_description
     assert_eq!(st[1].status, "skipped");
 
     // 2. Helper is_skipped_or_cancelled_description variations
-    assert!(cccp::catalog::is_skipped_or_cancelled_description("BLOCKED BY REQUIRED CONDITIONS"));
-    assert!(cccp::catalog::is_skipped_or_cancelled_description("Has been skipped"));
-    assert!(cccp::catalog::is_skipped_or_cancelled_description("Job was cancelled by user"));
-    assert!(cccp::catalog::is_skipped_or_cancelled_description("Job canceled"));
-    assert!(!cccp::catalog::is_skipped_or_cancelled_description("Successful in 10s"));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description(
+        "BLOCKED BY REQUIRED CONDITIONS"
+    ));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description(
+        "Has been skipped"
+    ));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description(
+        "Job was cancelled by user"
+    ));
+    assert!(cccp::catalog::is_skipped_or_cancelled_description(
+        "Job canceled"
+    ));
+    assert!(!cccp::catalog::is_skipped_or_cancelled_description(
+        "Successful in 10s"
+    ));
     assert!(!cccp::catalog::is_skipped_or_cancelled_description(""));
 }

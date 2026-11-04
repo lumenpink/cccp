@@ -2013,12 +2013,11 @@ pub fn parse_forgejo_commit_status_json(
                 .unwrap_or(false);
 
             let status_lower = s.status.to_ascii_lowercase();
-            let st = if is_skipped_or_blocked {
-                "skipped".to_string()
-            } else if is_root_success
-                && (status_lower == "waiting"
-                    || status_lower == "pending"
-                    || status_lower == "blocked")
+            let st = if is_skipped_or_blocked
+                || (is_root_success
+                    && (status_lower == "waiting"
+                        || status_lower == "pending"
+                        || status_lower == "blocked"))
             {
                 "skipped".to_string()
             } else {

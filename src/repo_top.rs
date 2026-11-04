@@ -851,15 +851,9 @@ pub fn apply_repo_ci_update(
         {
             let ex_st = existing.status.to_ascii_lowercase();
             let ar_st = ar.status.to_ascii_lowercase();
-            if ar_st == "running" {
-                existing.status = ar.status;
-                if ar.target_url.is_some() {
-                    existing.target_url = ar.target_url;
-                }
-                if ar.description.is_some() {
-                    existing.description = ar.description;
-                }
-            } else if ex_st != "success" && ex_st != "failure" && ex_st != "skipped" {
+            if ar_st == "running"
+                || (ex_st != "success" && ex_st != "failure" && ex_st != "skipped")
+            {
                 existing.status = ar.status;
                 if ar.target_url.is_some() {
                     existing.target_url = ar.target_url;
