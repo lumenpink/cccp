@@ -853,6 +853,9 @@ pub fn render_top_view(
     out
 }
 
+pub const DEFAULT_SYNC_TARGET_LIMIT: usize = 30;
+pub const CONCURRENT_SYNC_BATCH_SIZE: usize = 6;
+
 /// Merge new CI statuses onto a repository summary while preserving active runner jobs
 pub fn apply_repo_ci_update(
     repo: &mut CatalogRepoSummary,
@@ -955,7 +958,7 @@ pub fn run_repo_top(
                 .iter()
                 .map(|e| (e.slug.clone(), crate::catalog::find_local_repo_path(e)))
                 .collect();
-            let forge_targets = prioritize_forge_sync_targets(entries, 30);
+            let forge_targets = prioritize_forge_sync_targets(entries, DEFAULT_SYNC_TARGET_LIMIT);
 
             std::thread::spawn(move || {
                 let _ = sender.send(TopBackgroundMsg::SyncStarted);
@@ -1004,7 +1007,7 @@ pub fn run_repo_top(
                 }
 
                 // 3. Live commit status inspection with bounded concurrency for prioritized targets
-                for chunk in forge_targets.chunks(6) {
+                for chunk in forge_targets.chunks(CONCURRENT_SYNC_BATCH_SIZE) {
                     std::thread::scope(|s| {
                         for (slug, host, owner, repo) in chunk {
                             let sender = sender.clone();
