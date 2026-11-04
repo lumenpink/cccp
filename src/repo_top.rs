@@ -245,20 +245,19 @@ pub fn sanitize_pipeline_statuses(repos: &mut [CatalogRepoSummary]) {
                 || st == "queued"
             {
                 if let Some(ref desc) = pipe.description {
-                    let d = desc.to_ascii_lowercase();
-                    if d.contains("blocked by required conditions")
-                        || d.contains("has been skipped")
-                        || d.contains("skipped")
-                    {
+                    if crate::catalog::is_skipped_or_cancelled_description(desc) {
                         pipe.status = "skipped".to_string();
-                    } else if d.contains("success") || d.contains("successful") {
-                        pipe.status = "success".to_string();
-                    } else if d.contains("fail")
-                        || d.contains("failure")
-                        || d.contains("failing")
-                        || d.contains("error")
-                    {
-                        pipe.status = "failure".to_string();
+                    } else {
+                        let d = desc.to_ascii_lowercase();
+                        if d.contains("success") || d.contains("successful") {
+                            pipe.status = "success".to_string();
+                        } else if d.contains("fail")
+                            || d.contains("failure")
+                            || d.contains("failing")
+                            || d.contains("error")
+                        {
+                            pipe.status = "failure".to_string();
+                        }
                     }
                 }
             }

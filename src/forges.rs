@@ -2006,16 +2006,11 @@ pub fn parse_forgejo_commit_status_json(
         .statuses
         .into_iter()
         .map(|s| {
-            let desc_lower = s
+            let is_skipped_or_blocked = s
                 .description
                 .as_deref()
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            let is_skipped_or_blocked = desc_lower.contains("blocked by required conditions")
-                || desc_lower.contains("has been skipped")
-                || desc_lower.contains("skipped")
-                || desc_lower.contains("cancelled")
-                || desc_lower.contains("canceled");
+                .map(crate::catalog::is_skipped_or_cancelled_description)
+                .unwrap_or(false);
 
             let status_lower = s.status.to_ascii_lowercase();
             let st = if is_skipped_or_blocked {

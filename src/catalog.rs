@@ -1364,6 +1364,16 @@ pub fn summarize_catalog(entries: &[CatalogEntry]) -> Vec<CatalogRepoSummary> {
         .collect()
 }
 
+/// Helper to identify if pipeline description indicates it was skipped or cancelled
+pub fn is_skipped_or_cancelled_description(desc: &str) -> bool {
+    let d = desc.to_ascii_lowercase();
+    d.contains("blocked by required conditions")
+        || d.contains("has been skipped")
+        || d.contains("skipped")
+        || d.contains("cancelled")
+        || d.contains("canceled")
+}
+
 /// Helper to summarize CI pipeline execution state into a short label and styling key
 pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
     if ci.is_empty() {
