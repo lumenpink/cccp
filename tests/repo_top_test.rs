@@ -1427,3 +1427,36 @@ fn test_sanitize_ghost_pending_statuses() {
     assert_eq!(summaries[0].ci_status[0].status, "success");
     assert_eq!(summaries[1].ci_status[0].status, "failure");
 }
+
+#[test]
+fn test_mutation_sanitize_pipeline_statuses_edge_cases() {
+    let mut summaries = vec![
+        make_sample_repo(
+            "r1",
+            "lumen/r1",
+            vec![CiPipelineStatus {
+                name: "Job".to_string(),
+                status: "running".to_string(),
+                description: Some("PASSED in 10s".to_string()),
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+        make_sample_repo(
+            "r2",
+            "lumen/r2",
+            vec![CiPipelineStatus {
+                name: "Job".to_string(),
+                status: "pending".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            }],
+        ),
+    ];
+
+    cccp::repo_top::sanitize_pipeline_statuses(&mut summaries);
+    // Description without "success" or "fail" leaves status unmodified
+    assert_eq!(summaries[0].ci_status[0].status, "running");
+    assert_eq!(summaries[1].ci_status[0].status, "pending");
+}

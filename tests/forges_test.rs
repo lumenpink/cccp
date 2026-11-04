@@ -774,3 +774,25 @@ fn test_parse_forgejo_commit_status() {
     assert_eq!(statuses[0].status, "success");
     assert_eq!(statuses[0].description.as_deref(), Some("Successful in 1m30s"));
 }
+
+#[test]
+fn test_mutation_parse_forgejo_commit_status_edge_cases() {
+    // 1. Empty status response with state failure
+    let json_resp = r#"{"state": "failure", "statuses": []}"#;
+    let statuses = cccp::forges::parse_forgejo_commit_status_json(json_resp).unwrap();
+    assert_eq!(statuses.len(), 1);
+    assert_eq!(statuses[0].status, "failure");
+
+    // 2. Empty state and empty statuses
+    let json_empty = r#"{"state": "", "statuses": []}"#;
+    let empty_st = cccp::forges::parse_forgejo_commit_status_json(json_empty).unwrap();
+    assert!(empty_st.is_empty());
+
+    // 3. State "none"
+    let json_none = r#"{"state": "none", "statuses": []}"#;
+    let none_st = cccp::forges::parse_forgejo_commit_status_json(json_none).unwrap();
+    assert!(none_st.is_empty());
+
+    // 4. Invalid JSON
+    assert!(cccp::forges::parse_forgejo_commit_status_json("invalid json").is_err());
+}
