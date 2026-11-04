@@ -1,19 +1,20 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-04 09:25:41 UTC
+> Synced at: 2026-11-04 19:43:55 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#139] fix(ci): respeitar estado consolidado da forja e expurgar falsos pendentes
+## [#140] perf(repo-top): inicializacao instantanea e sincronizacao concorrente de ci
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/139
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/140
 
 ### Description
-[Resumo]: Corrigir format_ci_summary e a consolidacao de esteiras para respeitar o estado canonico da forja e expurgar sub-jobs pulados ou bloqueados falsamente classificados como waiting ou pending.
-[Contexto]: Quando uma esteira conclui ou falha, sub-jobs seguintes com condicoes nao atendidas recebem status como 'Blocked by required conditions' ou 'Has been skipped'. O CCCP priorizava esses sub-jobs sobre o estado consolidado da forja, rotulando repositorios ja concluidos com sucesso ou falha como '~ waiting' ou '~ pending' infinitamente.
+[Resumo]: Eliminar atrasos de inicialização e lentidão de convergência no 'cccp repo top' através de abertura imediata, consulta prioritária aos mais recentes e concorrência no sync.
+[Contexto]: O repo top executava chamadas de rede síncronas antes de desenhar a primeira tela e iterava sequencialmente por todos os 72 repositórios do catálogo com escritas redundantes em disco a cada resposta, levando 20+ segundos para convergir.
 [Objetivo]:
-1. Fazer parse_forgejo_commit_status_json e o catalogo respeitarem o campo 'state' canonico retornado pela forja.
-2. Tratar sub-jobs com descricoes de 'Blocked by required conditions' ou 'Has been skipped' como descartados e nao como fila ativa.
-3. Ajustar a precedencia de format_ci_summary para que falha ou sucesso consolidado nao sejam mascarados por sub-jobs secundarios.
+1. Abertura instantânea da TUI sem chamadas de rede bloqueantes antes do modo gráfico.
+2. Priorização da busca de commit status nos repositórios recentes (janela de foco).
+3. Concorrência controlada (pool de threads) e gravação agregada no catálogo em lote.
+4. Convergência visual imediata após a atualização da janela prioritária.
 
 ---
 ## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado
