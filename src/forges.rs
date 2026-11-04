@@ -749,6 +749,49 @@ impl ForgeClient {
         Ok(jobs)
     }
 
+    /// Fetch latest commit status for a repository reference (e.g. branch or sha)
+    pub fn fetch_repo_commit_status(
+        &self,
+        host: &str,
+        owner: &str,
+        repo: &str,
+        git_ref: &str,
+        token: Option<&str>,
+    ) -> Result<Vec<crate::catalog::CiPipelineStatus>, String> {
+        let tok = token
+            .map(|t| t.to_string())
+            .or_else(|| resolve_token_for_host(host, ForgeType::Forgejo, None));
+
+        let api_url = format!(
+            "https://{}/api/v1/repos/{}/{}/commits/{}/status",
+            host, owner, repo, git_ref
+        );
+        let mut req = self
+            .agent
+            .get(&api_url)
+            .header("User-Agent", "cccp/3.0.0")
+            .header("Accept", "application/json");
+
+        if let Some(t) = tok {
+            req = req.header("Authorization", &format!("token {}", t));
+        }
+
+        let resp = req
+            .call()
+            .map_err(|e| format!("HTTP request to {} failed: {}", api_url, e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Forge API returned status {}", resp.status()));
+        }
+
+        let body_str: String = resp
+            .into_body()
+            .read_to_string()
+            .map_err(|e| format!("Failed to read commit status from {}: {}", api_url, e))?;
+
+        parse_forgejo_commit_status_json(&body_str)
+    }
+
     /// Fetch issues from the specified forge repository
     pub fn fetch_issues(
         &self,
@@ -1907,10 +1950,79 @@ pub fn discover_forgejo_hosts(catalog: &[crate::catalog::CatalogEntry]) -> Vec<S
     hosts
 }
 
+#[derive(Debug, serde::Deserialize)]
+struct ForgejoCombinedStatusResponse {
+    #[serde(default)]
+    state: String,
+    #[serde(default)]
+    statuses: Vec<ForgejoStatusItem>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ForgejoStatusItem {
+    #[serde(default)]
+    context: String,
+    #[serde(default)]
+    status: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    target_url: Option<String>,
+    #[serde(default)]
+    updated_at: Option<String>,
+}
+
 /// Parse raw Forgejo commit status API response into CiPipelineStatus list
 pub fn parse_forgejo_commit_status_json(
-    _json_str: &str,
+    json_str: &str,
 ) -> Result<Vec<crate::catalog::CiPipelineStatus>, String> {
-    // Stub for Phase 4: failing placeholder
-    Err("Commit status parsing not implemented yet".to_string())
+    let parsed: ForgejoCombinedStatusResponse = serde_json::from_str(json_str)
+        .map_err(|e| format!("Failed to parse Forgejo commit status JSON: {}", e))?;
+
+    if parsed.statuses.is_empty() {
+        if !parsed.state.is_empty() && parsed.state != "none" {
+            let state_lower = parsed.state.to_ascii_lowercase();
+            let st = match state_lower.as_str() {
+                "success" => "success",
+                "failure" | "error" => "failure",
+                "pending" | "running" => "pending",
+                other => other,
+            };
+            return Ok(vec![crate::catalog::CiPipelineStatus {
+                name: "commit".to_string(),
+                status: st.to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            }]);
+        }
+        return Ok(Vec::new());
+    }
+
+    let pipelines = parsed
+        .statuses
+        .into_iter()
+        .map(|s| {
+            let status_lower = s.status.to_ascii_lowercase();
+            let st = match status_lower.as_str() {
+                "success" => "success".to_string(),
+                "failure" | "error" => "failure".to_string(),
+                "pending" | "running" => "pending".to_string(),
+                other => other.to_string(),
+            };
+            crate::catalog::CiPipelineStatus {
+                name: if s.context.is_empty() {
+                    "pipeline".to_string()
+                } else {
+                    s.context
+                },
+                status: st,
+                description: s.description,
+                target_url: s.target_url,
+                updated_at: s.updated_at,
+            }
+        })
+        .collect();
+
+    Ok(pipelines)
 }

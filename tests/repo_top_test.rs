@@ -303,7 +303,9 @@ fn test_repo_top_state_navigation_and_help() {
     state.handle_action(RepoTopAction::CycleFilter, 10);
     assert_eq!(state.filter, CiTopFilter::All);
 
-    // Cycle sort: starts at CiStatus -> ProcessOrder -> RepoName -> CiStatus
+    // Cycle sort: starts at CiStatus -> RecentUpdate -> ProcessOrder -> RepoName -> CiStatus
+    state.handle_action(RepoTopAction::CycleSort, 10);
+    assert_eq!(state.sort, CiTopSort::RecentUpdate);
     state.handle_action(RepoTopAction::CycleSort, 10);
     assert_eq!(state.sort, CiTopSort::ProcessOrder);
     state.handle_action(RepoTopAction::CycleSort, 10);
@@ -311,7 +313,7 @@ fn test_repo_top_state_navigation_and_help() {
     state.handle_action(RepoTopAction::CycleSort, 10);
     assert_eq!(state.sort, CiTopSort::CiStatus);
     state.handle_action(RepoTopAction::CycleSort, 10);
-    assert_eq!(state.sort, CiTopSort::ProcessOrder);
+    assert_eq!(state.sort, CiTopSort::RecentUpdate);
 
     // Navigation bounds
     state.handle_action(RepoTopAction::CursorDown, 3);
@@ -436,9 +438,18 @@ fn test_mutation_sort_parsing_and_labels() {
     assert_eq!(CiTopSort::ProcessOrder.label(), "process");
     assert_eq!(CiTopSort::CiStatus.label(), "status");
     assert_eq!(CiTopSort::RepoName.label(), "name");
+    assert_eq!(CiTopSort::RecentUpdate.label(), "recent");
     assert_eq!(format!("{}", CiTopSort::CiStatus), "status");
 
     // Valid parses
+    assert_eq!(
+        CiTopSort::from_str("recent").unwrap(),
+        CiTopSort::RecentUpdate
+    );
+    assert_eq!(
+        CiTopSort::from_str("updated").unwrap(),
+        CiTopSort::RecentUpdate
+    );
     assert_eq!(
         CiTopSort::from_str("process").unwrap(),
         CiTopSort::ProcessOrder

@@ -234,8 +234,26 @@ impl RepoTopState {
 }
 
 /// Sanitize legacy phantom pending statuses where description indicates completion
-pub fn sanitize_pipeline_statuses(_repos: &mut [CatalogRepoSummary]) {
-    // Stub for Phase 4: no sanitization yet!
+pub fn sanitize_pipeline_statuses(repos: &mut [CatalogRepoSummary]) {
+    for repo in repos.iter_mut() {
+        for pipe in repo.ci_status.iter_mut() {
+            let st = pipe.status.to_ascii_lowercase();
+            if st == "pending" || st == "running" {
+                if let Some(ref desc) = pipe.description {
+                    let d = desc.to_ascii_lowercase();
+                    if d.contains("success") || d.contains("successful") {
+                        pipe.status = "success".to_string();
+                    } else if d.contains("fail")
+                        || d.contains("failure")
+                        || d.contains("failing")
+                        || d.contains("error")
+                    {
+                        pipe.status = "failure".to_string();
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Helper to classify CI pipeline status of a repository
@@ -348,7 +366,24 @@ pub fn apply_top_filters_and_sorting(
 
     match sort {
         CiTopSort::RecentUpdate => {
-            // Stub for Phase 4: no sorting yet!
+            filtered.sort_by(|a, b| {
+                let time_a = a
+                    .ci_status
+                    .iter()
+                    .filter_map(|p| p.updated_at.as_deref())
+                    .max()
+                    .unwrap_or("");
+                let time_b = b
+                    .ci_status
+                    .iter()
+                    .filter_map(|p| p.updated_at.as_deref())
+                    .max()
+                    .unwrap_or("");
+                if time_a != time_b {
+                    return time_b.cmp(time_a);
+                }
+                a.name.to_lowercase().cmp(&b.name.to_lowercase())
+            });
         }
         CiTopSort::ProcessOrder => {
             // Preserves original catalog ordering
@@ -860,9 +895,7 @@ pub fn run_repo_top(
     if let Some(f) = initial_filter {
         state.filter = f;
     }
-    if let Some(s) = initial_sort {
-        state.sort = s;
-    }
+    state.sort = initial_sort.unwrap_or(CiTopSort::RecentUpdate);
 
     let (tx, rx) = std::sync::mpsc::channel::<TopBackgroundMsg>();
     let effective_catalog_path: Option<PathBuf> = catalog_path
@@ -876,6 +909,13 @@ pub fn run_repo_top(
             let local_targets: Vec<(String, Option<PathBuf>)> = entries
                 .iter()
                 .map(|e| (e.slug.clone(), crate::catalog::find_local_repo_path(e)))
+                .collect();
+            let forge_targets: Vec<(String, String, String, String)> = entries
+                .iter()
+                .map(|e| {
+                    let info = e.to_forge_info();
+                    (e.slug.clone(), info.host, info.owner, info.repo)
+                })
                 .collect();
 
             std::thread::spawn(move || {
@@ -924,6 +964,21 @@ pub fn run_repo_top(
                     }
                 }
 
+                // 3. Live commit status inspection from forges for catalog repositories
+                for (slug, host, owner, repo) in forge_targets {
+                    if let Ok(st) = client.fetch_repo_commit_status(&host, &owner, &repo, "main", None) {
+                        if !st.is_empty() {
+                            let _ = sender.send(TopBackgroundMsg::RepoUpdate {
+                                slug,
+                                ci_status: Some(st),
+                                status_label: None,
+                                unpushed: None,
+                                is_clean: None,
+                            });
+                        }
+                    }
+                }
+
                 let _ = sender.send(TopBackgroundMsg::SyncCompleted);
             });
         };
@@ -933,6 +988,7 @@ pub fn run_repo_top(
                         sender: &std::sync::mpsc::Sender<TopBackgroundMsg>| {
         let mut cat = crate::catalog::load_catalog(None, catalog_path);
         *summaries = crate::catalog::summarize_catalog(&cat);
+        sanitize_pipeline_statuses(summaries);
         let hosts = crate::forges::discover_forgejo_hosts(&cat);
         let client = crate::forges::ForgeClient::new();
         for host in hosts {
