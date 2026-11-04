@@ -39,4 +39,8 @@ As causas raízes identificadas são:
 - Conformidade estrita com `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings`.
 
 ### 4. Status de Resolução (Fase 9)
-- **Status**: Pendente de implementação (Fases 4 a 8).
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Correção profunda na resolução e consolidação do commit status da forja, expurgando sub-jobs pulados ou bloqueados falsamente classificados como waiting ou pending.
+  - **[Solução]**: Implementada a precedência do estado raiz canônico em parse_forgejo_commit_status_json, normalização de jobs pulados via is_skipped_or_cancelled_description, saneamento de catálogo em sanitize_pipeline_statuses e preservação seletiva em apply_repo_ci_update.
+  - **[Validação]**: Aprovada suíte completa com 107 testes em forges_test, repo_top_test, catalog_ci_ui_test e catalog_test, com zero advertências no cargo fmt --check e cargo clippy --all-targets -- -D warnings.
