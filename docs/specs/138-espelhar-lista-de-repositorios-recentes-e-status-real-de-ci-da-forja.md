@@ -35,3 +35,16 @@ Contudo, o comportamento atual divergia severamente da interface web do Forgejo 
 - Testes unitários em `tests/repo_top_test.rs` validam a nova opção de ordenação `RecentUpdate` e o saneamento de status pendentes fantasmas.
 - A suíte de testes de `repo_top` e `forges` passa com 100% de sucesso.
 - Conformidade estrita com `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings`.
+
+### 4. Status de Resolução (Fase 9)
+- **Status**: Concluído e Aprovado.
+- **Laudo**:
+  - **[Resumo]**: Espelhamento da lista de repositórios atualizados recentemente e do status canônico da esteira (CI) da forja no monitor `repo top`.
+  - **[Solução]**:
+    1. Implementada a variante `CiTopSort::RecentUpdate` ("recent" / "updated") e definida como ordenação padrão no `repo top`.
+    2. Adicionado o método `fetch_repo_commit_status` e `parse_forgejo_commit_status_json` em `src/forges.rs` para resolução direta do commit status na forja (`/api/v1/repos/{owner}/{repo}/commits/{ref}/status`).
+    3. Implementada a função `sanitize_pipeline_statuses` em `src/repo_top.rs` para expurgar status residuais "pending" de esteiras finalizadas no catálogo.
+    4. Atualizado o ciclo em segundo plano do monitor para sincronizar os commit statuses reais da forja.
+  - **[Validação]**:
+    - Suíte com 31 testes em `tests/forges_test.rs` e 29 testes em `tests/repo_top_test.rs` (60 testes no total) aprovada com 100% de sucesso.
+    - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` 100% conformes com zero avisos.
