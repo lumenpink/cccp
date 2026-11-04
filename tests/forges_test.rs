@@ -772,7 +772,10 @@ fn test_parse_forgejo_commit_status() {
     let statuses = cccp::forges::parse_forgejo_commit_status_json(json_resp).unwrap();
     assert_eq!(statuses.len(), 1);
     assert_eq!(statuses[0].status, "success");
-    assert_eq!(statuses[0].description.as_deref(), Some("Successful in 1m30s"));
+    assert_eq!(
+        statuses[0].description.as_deref(),
+        Some("Successful in 1m30s")
+    );
 }
 
 #[test]

@@ -1390,7 +1390,8 @@ fn test_repo_top_sort_recent_update() {
         }],
     };
 
-    let sorted = apply_top_filters_and_sorting(&[r1, r2], CiTopFilter::All, CiTopSort::RecentUpdate);
+    let sorted =
+        apply_top_filters_and_sorting(&[r1, r2], CiTopFilter::All, CiTopSort::RecentUpdate);
     assert_eq!(sorted[0].name, "newer-repo");
     assert_eq!(sorted[1].name, "older-repo");
 }

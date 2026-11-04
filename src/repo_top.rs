@@ -966,7 +966,9 @@ pub fn run_repo_top(
 
                 // 3. Live commit status inspection from forges for catalog repositories
                 for (slug, host, owner, repo) in forge_targets {
-                    if let Ok(st) = client.fetch_repo_commit_status(&host, &owner, &repo, "main", None) {
+                    if let Ok(st) =
+                        client.fetch_repo_commit_status(&host, &owner, &repo, "main", None)
+                    {
                         if !st.is_empty() {
                             let _ = sender.send(TopBackgroundMsg::RepoUpdate {
                                 slug,
