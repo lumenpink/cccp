@@ -1653,3 +1653,36 @@ fn test_prioritize_forge_sync_targets_limits_and_orders_by_priority() {
     // r2 has active CI running, so it MUST be prioritized first
     assert_eq!(targets[0].0, "lumen/r2");
 }
+
+#[test]
+fn test_mutation_prioritize_forge_sync_targets_boundary_cases() {
+    // 1. Empty catalog returns empty targets
+    assert!(cccp::repo_top::prioritize_forge_sync_targets(&[], 10).is_empty());
+
+    // 2. Limit 0 returns empty targets
+    let cat = vec![cccp::catalog::CatalogEntry {
+        name: "r1".to_string(),
+        forge: "gambi".to_string(),
+        slug: "lumen/r1".to_string(),
+        aliases: vec![],
+        description: "".to_string(),
+        topics: vec![],
+        license: "".to_string(),
+        website: "".to_string(),
+        is_upstream: false,
+        is_mirror: false,
+        open_tickets: None,
+        ci_status: vec![],
+        canonical_url: None,
+        server_host: Some("gambi.2lp.in".to_string()),
+    }];
+    assert!(cccp::repo_top::prioritize_forge_sync_targets(&cat, 0).is_empty());
+
+    // 3. Limit larger than cat returns all
+    let targets = cccp::repo_top::prioritize_forge_sync_targets(&cat, 100);
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets[0].0, "lumen/r1");
+    assert_eq!(targets[0].1, "gambi.2lp.in");
+    assert_eq!(targets[0].2, "lumen");
+    assert_eq!(targets[0].3, "r1");
+}
