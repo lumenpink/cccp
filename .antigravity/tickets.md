@@ -1,14 +1,40 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-03 10:37:36 UTC
+> Synced at: 2026-11-04 00:24:32 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#136] fix(catalog): resolver fqdn completo para hosts de forjas customizadas
+## [#138] feat(repo-top): espelhar lista de repositorios recentes e status real de ci da forja
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/136
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/138
 
 ### Description
-[Resumo]: Garantir resolucao de FQDN (gambi.2lp.in) para forjas customizadas no catalogo e enriquecimento de entradas.
+[Resumo]: Fazer o 'cccp repo top' espelhar a lista de repositorios da pagina inicial da forja por atividade recente com o status real da esteira (CI) na direita.
+[Contexto]: O monitor estava desacoplado ao ler o catalogo estatico local e priorizar jobs pendentes velhos, exibindo status desatualizado em vez dos repositorios recentemente atualizados com o commit status real.
+[Objetivo]:
+1. Buscar repositorios ordenados por atividade recente da forja.
+2. Resolver o commit status real do branch padrao na coluna direita.
+3. Saneamento do catalogo contra estados pendentes fantasmas.
+
+---
+## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado
+- **Status**: `open`
+- **Labels**: none
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/137
+
+### Description
+### Descrição do Problema
+No comando 'cccp push', a função 'check_and_reconcile_parity' verifica apenas a contagem de commits à frente ('ahead') e atrás ('behind') no tracking branch remoto de HEAD. Quando 'ahead == 0', a função retorna 'ParityAction::AlreadyUpToDate' e 'handle_push' encerra antecipadamente com sucesso exibindo 'Tudo sincronizado com o remote (nada a enviar).'.
+
+Isso impede:
+1. O envio de tags anotadas criadas via 'cccp tag' (ex.: 'cccp push origin v1.0.0' ou 'cccp push origin --tags'), pois argumentos passados em 'push.git_args' são ignorados quando a branch não possui novos commits.
+2. O próprio comando 'cccp tag' instrui a rodar 'git push origin main && git push origin <tag>', mas o hook pre-push bloqueia a execução direta sem CCCP_MAESTRO_ACTIVE.
+
+### Comportamento Esperado
+- Se '!push.git_args.is_empty()', o 'cccp push' não deve abortar com AlreadyUpToDate, mas sim repassar os argumentos para 'git push' sob a guarda do Maestro.
+- Opcionalmente verificar se existem tags locais pendentes de envio ao rodar 'cccp push'.
+
+### Arquivo Afetado
+- 'src/push.rs' (linhas 201-208)
 
 ---
 ## [#135] fix(catalog): resolver fqdn completo para hosts de forjas customizadas
