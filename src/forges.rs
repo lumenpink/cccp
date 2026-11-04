@@ -1979,10 +1979,11 @@ pub fn parse_forgejo_commit_status_json(
     let parsed: ForgejoCombinedStatusResponse = serde_json::from_str(json_str)
         .map_err(|e| format!("Failed to parse Forgejo commit status JSON: {}", e))?;
 
+    let root_state = parsed.state.to_ascii_lowercase();
+
     if parsed.statuses.is_empty() {
-        if !parsed.state.is_empty() && parsed.state != "none" {
-            let state_lower = parsed.state.to_ascii_lowercase();
-            let st = match state_lower.as_str() {
+        if !root_state.is_empty() && root_state != "none" {
+            let st = match root_state.as_str() {
                 "success" => "success",
                 "failure" | "error" => "failure",
                 "pending" | "running" => "pending",
@@ -1999,16 +2000,41 @@ pub fn parse_forgejo_commit_status_json(
         return Ok(Vec::new());
     }
 
+    let is_root_success = root_state == "success";
+
     let pipelines = parsed
         .statuses
         .into_iter()
         .map(|s| {
+            let desc_lower = s
+                .description
+                .as_deref()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let is_skipped_or_blocked = desc_lower.contains("blocked by required conditions")
+                || desc_lower.contains("has been skipped")
+                || desc_lower.contains("skipped")
+                || desc_lower.contains("cancelled")
+                || desc_lower.contains("canceled");
+
             let status_lower = s.status.to_ascii_lowercase();
-            let st = match status_lower.as_str() {
-                "success" => "success".to_string(),
-                "failure" | "error" => "failure".to_string(),
-                "pending" | "running" => "pending".to_string(),
-                other => other.to_string(),
+            let st = if is_skipped_or_blocked {
+                "skipped".to_string()
+            } else if is_root_success
+                && (status_lower == "waiting"
+                    || status_lower == "pending"
+                    || status_lower == "blocked")
+            {
+                "skipped".to_string()
+            } else {
+                match status_lower.as_str() {
+                    "success" => "success".to_string(),
+                    "failure" | "error" => "failure".to_string(),
+                    "pending" | "running" => "pending".to_string(),
+                    "waiting" | "queued" => "waiting".to_string(),
+                    "blocked" => "blocked".to_string(),
+                    other => other.to_string(),
+                }
             };
             crate::catalog::CiPipelineStatus {
                 name: if s.context.is_empty() {

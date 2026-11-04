@@ -188,7 +188,7 @@ fn test_add_remote_repo_without_prior_clone() {
     assert_eq!(path, cat_path);
     assert!(!is_updated);
     assert_eq!(entry.name, "New Repo");
-    assert_eq!(entry.forge, "forgejo");
+    assert_eq!(entry.forge, "2lp");
     assert_eq!(entry.slug, "lumenpink/newrepo");
     assert_eq!(entry.description, "A brand new remote repository");
 

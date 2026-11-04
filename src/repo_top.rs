@@ -238,10 +238,20 @@ pub fn sanitize_pipeline_statuses(repos: &mut [CatalogRepoSummary]) {
     for repo in repos.iter_mut() {
         for pipe in repo.ci_status.iter_mut() {
             let st = pipe.status.to_ascii_lowercase();
-            if st == "pending" || st == "running" {
+            if st == "pending"
+                || st == "running"
+                || st == "waiting"
+                || st == "blocked"
+                || st == "queued"
+            {
                 if let Some(ref desc) = pipe.description {
                     let d = desc.to_ascii_lowercase();
-                    if d.contains("success") || d.contains("successful") {
+                    if d.contains("blocked by required conditions")
+                        || d.contains("has been skipped")
+                        || d.contains("skipped")
+                    {
+                        pipe.status = "skipped".to_string();
+                    } else if d.contains("success") || d.contains("successful") {
                         pipe.status = "success".to_string();
                     } else if d.contains("fail")
                         || d.contains("failure")
@@ -840,12 +850,24 @@ pub fn apply_repo_ci_update(
             .iter_mut()
             .find(|p| crate::forges::pipeline_matches_job_name(&p.name, &ar.name))
         {
-            existing.status = ar.status;
-            if ar.target_url.is_some() {
-                existing.target_url = ar.target_url;
-            }
-            if ar.description.is_some() {
-                existing.description = ar.description;
+            let ex_st = existing.status.to_ascii_lowercase();
+            let ar_st = ar.status.to_ascii_lowercase();
+            if ar_st == "running" {
+                existing.status = ar.status;
+                if ar.target_url.is_some() {
+                    existing.target_url = ar.target_url;
+                }
+                if ar.description.is_some() {
+                    existing.description = ar.description;
+                }
+            } else if ex_st != "success" && ex_st != "failure" && ex_st != "skipped" {
+                existing.status = ar.status;
+                if ar.target_url.is_some() {
+                    existing.target_url = ar.target_url;
+                }
+                if ar.description.is_some() {
+                    existing.description = ar.description;
+                }
             }
         } else {
             repo.ci_status.insert(0, ar);
@@ -991,6 +1013,7 @@ pub fn run_repo_top(
         let mut cat = crate::catalog::load_catalog(None, catalog_path);
         *summaries = crate::catalog::summarize_catalog(&cat);
         sanitize_pipeline_statuses(summaries);
+        auto_sync_catalog_ci_status(&mut cat, summaries, effective_catalog_path.as_deref());
         let hosts = crate::forges::discover_forgejo_hosts(&cat);
         let client = crate::forges::ForgeClient::new();
         for host in hosts {
@@ -1034,11 +1057,13 @@ pub fn run_repo_top(
                     unpushed,
                     is_clean,
                 } => {
+                    let mut ci_updated = false;
                     for r in raw_summaries.iter_mut() {
                         if r.slug.eq_ignore_ascii_case(&slug) || r.name.eq_ignore_ascii_case(&slug)
                         {
                             if let Some(new_ci) = ci_status {
                                 apply_repo_ci_update(r, new_ci);
+                                ci_updated = true;
                             }
                             if let Some(lbl) = status_label {
                                 r.status_label = lbl;
@@ -1052,16 +1077,27 @@ pub fn run_repo_top(
                             break;
                         }
                     }
+                    if ci_updated {
+                        let mut cat = crate::catalog::load_catalog(None, catalog_path);
+                        auto_sync_catalog_ci_status(
+                            &mut cat,
+                            &raw_summaries,
+                            effective_catalog_path.as_deref(),
+                        );
+                    }
                 }
                 TopBackgroundMsg::RunnerJobsUpdated(jobs) => {
                     let mut cat = crate::catalog::load_catalog(None, catalog_path);
-                    let base_summaries = crate::catalog::summarize_catalog(&cat);
+                    let mut base_summaries = crate::catalog::summarize_catalog(&cat);
+                    sanitize_pipeline_statuses(&mut base_summaries);
                     for r in raw_summaries.iter_mut() {
                         if let Some(base) = base_summaries
                             .iter()
                             .find(|b| b.slug.eq_ignore_ascii_case(&r.slug))
                         {
-                            r.ci_status = base.ci_status.clone();
+                            if !base.ci_status.is_empty() {
+                                r.ci_status = base.ci_status.clone();
+                            }
                         }
                     }
                     crate::forges::merge_live_runner_jobs(&mut raw_summaries, &jobs);

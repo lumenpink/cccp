@@ -1420,6 +1420,13 @@ pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
             "~ waiting".to_string()
         };
         (text, "yellow")
+    } else if failed > 0 {
+        let text = if total > 1 {
+            format!("✗ fail ({}/{})", failed, total)
+        } else {
+            "✗ fail".to_string()
+        };
+        (text, "red")
     } else if blocked > 0 {
         let text = if total > 1 {
             format!("~ blocked ({}/{})", blocked, total)
@@ -1434,13 +1441,6 @@ pub fn format_ci_summary(ci: &[CiPipelineStatus]) -> (String, &'static str) {
             "~ pending".to_string()
         };
         (text, "yellow")
-    } else if failed > 0 {
-        let text = if total > 1 {
-            format!("✗ fail ({}/{})", failed, total)
-        } else {
-            "✗ fail".to_string()
-        };
-        (text, "red")
     } else {
         let text = if total > 1 {
             format!("✓ pass ({})", total)
