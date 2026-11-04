@@ -265,6 +265,14 @@ pub fn sanitize_pipeline_statuses(repos: &mut [CatalogRepoSummary]) {
     }
 }
 
+/// Prioritize and limit forge repository targets for live CI status synchronization
+pub fn prioritize_forge_sync_targets(
+    _cat: &[crate::catalog::CatalogEntry],
+    _limit: usize,
+) -> Vec<(String, String, String, String)> {
+    Vec::new() // Stub for Phase 4: red test failure
+}
+
 /// Helper to classify CI pipeline status of a repository
 fn repo_ci_category(ci: &[CiPipelineStatus]) -> &'static str {
     if ci.is_empty() {

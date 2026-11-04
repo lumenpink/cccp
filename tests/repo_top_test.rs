@@ -1588,3 +1588,68 @@ fn test_mutation_sanitize_pipeline_statuses_boundary_cases() {
     assert_eq!(clean[0].ci_status[0].status, "success");
     assert_eq!(clean[0].ci_status[1].status, "failure");
 }
+
+#[test]
+fn test_prioritize_forge_sync_targets_limits_and_orders_by_priority() {
+    let cat = vec![
+        cccp::catalog::CatalogEntry {
+            name: "r1".to_string(),
+            forge: "gambi".to_string(),
+            slug: "lumen/r1".to_string(),
+            aliases: vec![],
+            description: "".to_string(),
+            topics: vec![],
+            license: "".to_string(),
+            website: "".to_string(),
+            is_upstream: false,
+            is_mirror: false,
+            open_tickets: None,
+            ci_status: vec![],
+            canonical_url: None,
+            server_host: Some("gambi.2lp.in".to_string()),
+        },
+        cccp::catalog::CatalogEntry {
+            name: "r2".to_string(),
+            forge: "gambi".to_string(),
+            slug: "lumen/r2".to_string(),
+            aliases: vec![],
+            description: "".to_string(),
+            topics: vec![],
+            license: "".to_string(),
+            website: "".to_string(),
+            is_upstream: false,
+            is_mirror: false,
+            open_tickets: None,
+            ci_status: vec![CiPipelineStatus {
+                name: "ci".to_string(),
+                status: "running".to_string(),
+                description: None,
+                target_url: None,
+                updated_at: None,
+            }],
+            canonical_url: None,
+            server_host: Some("gambi.2lp.in".to_string()),
+        },
+        cccp::catalog::CatalogEntry {
+            name: "r3".to_string(),
+            forge: "gambi".to_string(),
+            slug: "lumen/r3".to_string(),
+            aliases: vec![],
+            description: "".to_string(),
+            topics: vec![],
+            license: "".to_string(),
+            website: "".to_string(),
+            is_upstream: false,
+            is_mirror: false,
+            open_tickets: None,
+            ci_status: vec![],
+            canonical_url: None,
+            server_host: Some("gambi.2lp.in".to_string()),
+        },
+    ];
+
+    let targets = cccp::repo_top::prioritize_forge_sync_targets(&cat, 2);
+    assert_eq!(targets.len(), 2);
+    // r2 has active CI running, so it MUST be prioritized first
+    assert_eq!(targets[0].0, "lumen/r2");
+}
