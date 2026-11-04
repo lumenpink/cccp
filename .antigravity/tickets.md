@@ -1,19 +1,19 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-04 00:24:32 UTC
+> Synced at: 2026-11-04 09:25:41 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#138] feat(repo-top): espelhar lista de repositorios recentes e status real de ci da forja
+## [#139] fix(ci): respeitar estado consolidado da forja e expurgar falsos pendentes
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/138
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/139
 
 ### Description
-[Resumo]: Fazer o 'cccp repo top' espelhar a lista de repositorios da pagina inicial da forja por atividade recente com o status real da esteira (CI) na direita.
-[Contexto]: O monitor estava desacoplado ao ler o catalogo estatico local e priorizar jobs pendentes velhos, exibindo status desatualizado em vez dos repositorios recentemente atualizados com o commit status real.
+[Resumo]: Corrigir format_ci_summary e a consolidacao de esteiras para respeitar o estado canonico da forja e expurgar sub-jobs pulados ou bloqueados falsamente classificados como waiting ou pending.
+[Contexto]: Quando uma esteira conclui ou falha, sub-jobs seguintes com condicoes nao atendidas recebem status como 'Blocked by required conditions' ou 'Has been skipped'. O CCCP priorizava esses sub-jobs sobre o estado consolidado da forja, rotulando repositorios ja concluidos com sucesso ou falha como '~ waiting' ou '~ pending' infinitamente.
 [Objetivo]:
-1. Buscar repositorios ordenados por atividade recente da forja.
-2. Resolver o commit status real do branch padrao na coluna direita.
-3. Saneamento do catalogo contra estados pendentes fantasmas.
+1. Fazer parse_forgejo_commit_status_json e o catalogo respeitarem o campo 'state' canonico retornado pela forja.
+2. Tratar sub-jobs com descricoes de 'Blocked by required conditions' ou 'Has been skipped' como descartados e nao como fila ativa.
+3. Ajustar a precedencia de format_ci_summary para que falha ou sucesso consolidado nao sejam mascarados por sub-jobs secundarios.
 
 ---
 ## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado
