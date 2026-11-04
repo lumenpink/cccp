@@ -1460,3 +1460,26 @@ fn test_mutation_sanitize_pipeline_statuses_edge_cases() {
     assert_eq!(summaries[0].ci_status[0].status, "running");
     assert_eq!(summaries[1].ci_status[0].status, "pending");
 }
+
+#[test]
+fn test_mutation_format_ci_summary_badges() {
+    use cccp::catalog::format_ci_summary;
+
+    let p_pass = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "success".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(format_ci_summary(&p_pass).1, "green");
+
+    let p_fail = vec![CiPipelineStatus {
+        name: "test".to_string(),
+        status: "failure".to_string(),
+        description: None,
+        target_url: None,
+        updated_at: None,
+    }];
+    assert_eq!(format_ci_summary(&p_fail).1, "red");
+}
