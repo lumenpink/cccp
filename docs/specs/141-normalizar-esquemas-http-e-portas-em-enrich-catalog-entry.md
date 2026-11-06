@@ -49,4 +49,6 @@ O objetivo desta especificação é definir a extração canônica de host para 
 ---
 
 ## 4. Relatório de Conclusão (Fase 9)
-*(A ser preenchido ao término da implementação com [Resumo], [Solução] e [Validação])*
+[Resumo]: Corrigida a extração de host em `enrich_catalog_entry` para limpar esquemas `http(s)://`, `git@` e portas residuais, sanando as quebras da esteira de CI.
+[Solução]: Implementadas funções utilitárias `sanitize_forge_host` e `resolve_forge_fqdn` em `src/catalog.rs` que stripam protocolos e portas de forma uniforme, garantindo resolução canônica do FQDN tanto para `canonical_url` quanto para `server_host` e aliases automáticos.
+[Validação]: Testes de unidade e integração em `tests/catalog_metadata_aliases_test.rs` executados com 100% de sucesso (6 testes passando, incluindo mutação e sanitização). Validação de formatação com `cargo fmt --check` e linter com `cargo clippy --all-targets -- -D warnings` sem qualquer advertência.
