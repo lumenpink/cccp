@@ -104,6 +104,10 @@ fn test_ssh_and_port_host_extraction() {
     enrich_catalog_entry(&mut entry, None);
     assert_eq!(entry.server_host.as_deref(), Some("git.local.internal"));
     assert_eq!(
+        entry.canonical_url.as_deref(),
+        Some("https://git.local.internal/team/service")
+    );
+    assert_eq!(
         extract_domain_prefix("git.local.internal"),
         Some("local".to_string())
     );
