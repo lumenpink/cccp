@@ -127,3 +127,21 @@ fn test_domain_prefix_edge_cases() {
         Some("company".to_string())
     );
 }
+
+#[test]
+fn test_mutation_sanitize_and_resolve_forge_fqdn() {
+    use cccp::catalog::{resolve_forge_fqdn, sanitize_forge_host};
+
+    assert_eq!(sanitize_forge_host("https://github.com/org/repo"), "github.com");
+    assert_eq!(sanitize_forge_host("http://myhost:9000/path"), "myhost");
+    assert_eq!(sanitize_forge_host("git@gitlab.com:org/repo.git"), "gitlab.com");
+    assert_eq!(sanitize_forge_host("  custom.host.io:443  "), "custom.host.io");
+
+    assert_eq!(resolve_forge_fqdn("github"), "github.com");
+    assert_eq!(resolve_forge_fqdn("https://gitlab"), "gitlab.com");
+    assert_eq!(resolve_forge_fqdn("http://codeberg.org:3000"), "codeberg.org");
+    assert_eq!(resolve_forge_fqdn("gambi"), "gambi.2lp.in");
+    assert_eq!(resolve_forge_fqdn("custom"), "custom.2lp.in");
+    assert_eq!(resolve_forge_fqdn("my.server.net"), "my.server.net");
+    assert_eq!(resolve_forge_fqdn(""), "gambi.2lp.in");
+}
