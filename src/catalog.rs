@@ -167,26 +167,31 @@ pub fn extract_domain_prefix(host: &str) -> Option<String> {
 /// Enriches a CatalogEntry with canonical URL, server host, domain-based aliases,
 /// and custom aliases from Config.
 pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::config::Config>) {
-    // 1. Resolve canonical_url
-    let needs_canonical_url = entry.canonical_url.as_deref().is_none_or(|u| {
-        if let Some(host_part) = u
-            .strip_prefix("https://")
-            .or_else(|| u.strip_prefix("http://"))
-        {
-            let host = host_part.split('/').next().unwrap_or(host_part);
-            !host.contains('.')
+    // Helper to sanitize host from forge string or URL
+    let sanitize_host = |raw: &str| -> String {
+        let trimmed = raw.trim();
+        let stripped = if let Some(s) = trimmed.strip_prefix("https://") {
+            s
+        } else if let Some(s) = trimmed.strip_prefix("http://") {
+            s
+        } else if let Some(s) = trimmed.strip_prefix("git@") {
+            s.split(':').next().unwrap_or(s)
         } else {
-            true
-        }
-    });
+            trimmed
+        };
+        let host_no_path = stripped.split('/').next().unwrap_or(stripped);
+        let host_no_port = host_no_path.split(':').next().unwrap_or(host_no_path);
+        host_no_port.trim().to_ascii_lowercase()
+    };
 
-    if needs_canonical_url && !entry.slug.is_empty() {
-        let base_host = match entry.forge.to_ascii_lowercase().as_str() {
-            "github" => "github.com".to_string(),
-            "gitlab" => "gitlab.com".to_string(),
+    let resolve_fqdn = |raw: &str| -> String {
+        let clean = sanitize_host(raw);
+        match clean.as_str() {
+            "github" | "github.com" => "github.com".to_string(),
+            "gitlab" | "gitlab.com" => "gitlab.com".to_string(),
             "codeberg" | "codeberg.org" => "codeberg.org".to_string(),
             "tildegit" | "tildegit.org" => "tildegit.org".to_string(),
-            "gambi" => "gambi.2lp.in".to_string(),
+            "gambi" | "gambi.2lp.in" => "gambi.2lp.in".to_string(),
             other => {
                 if other.contains('.') {
                     other.to_string()
@@ -196,7 +201,17 @@ pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::con
                     "gambi.2lp.in".to_string()
                 }
             }
-        };
+        }
+    };
+
+    // 1. Resolve canonical_url
+    let needs_canonical_url = entry.canonical_url.as_deref().is_none_or(|u| {
+        let host = sanitize_host(u);
+        !host.contains('.')
+    });
+
+    if needs_canonical_url && !entry.slug.is_empty() {
+        let base_host = resolve_fqdn(&entry.forge);
         let url = format!(
             "https://{}/{}",
             base_host.trim_end_matches('/'),
@@ -213,36 +228,9 @@ pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::con
 
     if needs_server_host {
         let source = entry.canonical_url.as_deref().unwrap_or(&entry.forge);
-        if !source.is_empty() {
-            let host_part = if let Some(stripped) = source.strip_prefix("https://") {
-                stripped
-            } else if let Some(stripped) = source.strip_prefix("http://") {
-                stripped
-            } else if let Some(stripped) = source.strip_prefix("git@") {
-                stripped.split(':').next().unwrap_or(stripped)
-            } else {
-                source
-            };
-            let host = host_part.split('/').next().unwrap_or(host_part);
-            let clean_host = host.split(':').next().unwrap_or(host).trim();
-            if !clean_host.is_empty() {
-                let resolved = if clean_host.contains('.') {
-                    clean_host.to_string()
-                } else if clean_host.eq_ignore_ascii_case("gambi") {
-                    "gambi.2lp.in".to_string()
-                } else if clean_host.eq_ignore_ascii_case("codeberg") {
-                    "codeberg.org".to_string()
-                } else if clean_host.eq_ignore_ascii_case("tildegit") {
-                    "tildegit.org".to_string()
-                } else if clean_host.eq_ignore_ascii_case("github") {
-                    "github.com".to_string()
-                } else if clean_host.eq_ignore_ascii_case("gitlab") {
-                    "gitlab.com".to_string()
-                } else {
-                    format!("{}.2lp.in", clean_host)
-                };
-                entry.server_host = Some(resolved);
-            }
+        if !source.trim().is_empty() {
+            let resolved = resolve_fqdn(source);
+            entry.server_host = Some(resolved);
         }
     }
 
