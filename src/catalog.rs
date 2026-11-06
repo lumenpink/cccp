@@ -148,7 +148,45 @@ impl From<RawCatalogEntry> for CatalogEntry {
     }
 }
 
-/// Extracts the domain prefix according to Soviet Gosplan rules:
+/// Strips schemes (`https://`, `http://`, `git@`), paths and ports from a URL or forge string.
+pub fn sanitize_forge_host(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let stripped = if let Some(s) = trimmed.strip_prefix("https://") {
+        s
+    } else if let Some(s) = trimmed.strip_prefix("http://") {
+        s
+    } else if let Some(s) = trimmed.strip_prefix("git@") {
+        s.split(':').next().unwrap_or(s)
+    } else {
+        trimmed
+    };
+    let host_no_path = stripped.split('/').next().unwrap_or(stripped);
+    let host_no_port = host_no_path.split(':').next().unwrap_or(host_no_path);
+    host_no_port.trim().to_ascii_lowercase()
+}
+
+/// Resolves a raw forge name or server URL to its canonical fully-qualified domain name (FQDN).
+pub fn resolve_forge_fqdn(raw: &str) -> String {
+    let clean = sanitize_forge_host(raw);
+    match clean.as_str() {
+        "github" | "github.com" => "github.com".to_string(),
+        "gitlab" | "gitlab.com" => "gitlab.com".to_string(),
+        "codeberg" | "codeberg.org" => "codeberg.org".to_string(),
+        "tildegit" | "tildegit.org" => "tildegit.org".to_string(),
+        "gambi" | "gambi.2lp.in" => "gambi.2lp.in".to_string(),
+        other => {
+            if other.contains('.') {
+                other.to_string()
+            } else if !other.is_empty() {
+                format!("{}.2lp.in", other)
+            } else {
+                "gambi.2lp.in".to_string()
+            }
+        }
+    }
+}
+
+/// Extracts the domain prefix according to Gosplan rules:
 /// - If first part is "git" and there are more parts (e.g. git.subversao.su), uses the second part ("subversao").
 /// - Otherwise uses the first part (e.g. gambi.2lp.in -> "gambi", codeberg.org -> "codeberg").
 pub fn extract_domain_prefix(host: &str) -> Option<String> {
@@ -167,51 +205,14 @@ pub fn extract_domain_prefix(host: &str) -> Option<String> {
 /// Enriches a CatalogEntry with canonical URL, server host, domain-based aliases,
 /// and custom aliases from Config.
 pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::config::Config>) {
-    // Helper to sanitize host from forge string or URL
-    let sanitize_host = |raw: &str| -> String {
-        let trimmed = raw.trim();
-        let stripped = if let Some(s) = trimmed.strip_prefix("https://") {
-            s
-        } else if let Some(s) = trimmed.strip_prefix("http://") {
-            s
-        } else if let Some(s) = trimmed.strip_prefix("git@") {
-            s.split(':').next().unwrap_or(s)
-        } else {
-            trimmed
-        };
-        let host_no_path = stripped.split('/').next().unwrap_or(stripped);
-        let host_no_port = host_no_path.split(':').next().unwrap_or(host_no_path);
-        host_no_port.trim().to_ascii_lowercase()
-    };
-
-    let resolve_fqdn = |raw: &str| -> String {
-        let clean = sanitize_host(raw);
-        match clean.as_str() {
-            "github" | "github.com" => "github.com".to_string(),
-            "gitlab" | "gitlab.com" => "gitlab.com".to_string(),
-            "codeberg" | "codeberg.org" => "codeberg.org".to_string(),
-            "tildegit" | "tildegit.org" => "tildegit.org".to_string(),
-            "gambi" | "gambi.2lp.in" => "gambi.2lp.in".to_string(),
-            other => {
-                if other.contains('.') {
-                    other.to_string()
-                } else if !other.is_empty() {
-                    format!("{}.2lp.in", other)
-                } else {
-                    "gambi.2lp.in".to_string()
-                }
-            }
-        }
-    };
-
     // 1. Resolve canonical_url
     let needs_canonical_url = entry.canonical_url.as_deref().is_none_or(|u| {
-        let host = sanitize_host(u);
+        let host = sanitize_forge_host(u);
         !host.contains('.')
     });
 
     if needs_canonical_url && !entry.slug.is_empty() {
-        let base_host = resolve_fqdn(&entry.forge);
+        let base_host = resolve_forge_fqdn(&entry.forge);
         let url = format!(
             "https://{}/{}",
             base_host.trim_end_matches('/'),
@@ -229,7 +230,7 @@ pub fn enrich_catalog_entry(entry: &mut CatalogEntry, config: Option<&crate::con
     if needs_server_host {
         let source = entry.canonical_url.as_deref().unwrap_or(&entry.forge);
         if !source.trim().is_empty() {
-            let resolved = resolve_fqdn(source);
+            let resolved = resolve_forge_fqdn(source);
             entry.server_host = Some(resolved);
         }
     }
