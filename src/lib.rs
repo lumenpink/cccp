@@ -18,6 +18,7 @@ pub mod ddtdd;
 pub mod deps;
 pub mod draft;
 pub mod editor;
+pub mod external;
 pub mod forges;
 pub mod git;
 pub mod governance;
