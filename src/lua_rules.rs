@@ -66,6 +66,57 @@ pub fn read_disabled_rules(root: &Path) -> Vec<String> {
     disabled
 }
 
+pub fn disable_rules_in_config(root: &Path, rules_to_disable: &[String]) -> std::io::Result<()> {
+    let gost_dir = root.join(".gost");
+    let _ = fs::create_dir_all(&gost_dir);
+    let config_path = gost_dir.join("config");
+
+    let mut current_disabled = read_disabled_rules(root);
+    for r in rules_to_disable {
+        let trimmed = r.trim().to_string();
+        if !trimmed.is_empty() && !current_disabled.contains(&trimmed) {
+            current_disabled.push(trimmed);
+        }
+    }
+
+    write_disabled_rules(&config_path, &current_disabled)
+}
+
+pub fn enable_rules_in_config(root: &Path, rules_to_enable: &[String]) -> std::io::Result<()> {
+    let gost_dir = root.join(".gost");
+    let _ = fs::create_dir_all(&gost_dir);
+    let config_path = gost_dir.join("config");
+
+    let mut current_disabled = read_disabled_rules(root);
+    current_disabled.retain(|r| !rules_to_enable.iter().any(|to_en| to_en.trim() == r));
+
+    write_disabled_rules(&config_path, &current_disabled)
+}
+
+fn write_disabled_rules(config_path: &Path, disabled: &[String]) -> std::io::Result<()> {
+    let mut lines = Vec::new();
+    let mut found = false;
+
+    if config_path.is_file() {
+        if let Ok(content) = fs::read_to_string(config_path) {
+            for line in content.lines() {
+                if line.trim().starts_with("DISABLED_RULES=") {
+                    lines.push(format!("DISABLED_RULES=\"{}\"", disabled.join(", ")));
+                    found = true;
+                } else {
+                    lines.push(line.to_string());
+                }
+            }
+        }
+    }
+
+    if !found {
+        lines.push(format!("DISABLED_RULES=\"{}\"", disabled.join(", ")));
+    }
+
+    fs::write(config_path, lines.join("\n") + "\n")
+}
+
 pub fn load_rules_from_repo(root: &Path) -> HashMap<String, RuleDefinition> {
     let mut all_rules = HashMap::new();
     let candidates = [
@@ -311,7 +362,7 @@ pub fn evaluate_lua_rules(root: &Path, disabled_rules: &[String]) -> Vec<AuditCh
                 code: Box::leak(key.into_boxed_str()),
                 title: Box::leak(rule.name.clone().into_boxed_str()),
                 detail: format!("Regra dispensada por configuração ({})", rule.description),
-                status: CheckStatus::Pass, // Marked as skip/pass in report
+                status: CheckStatus::Skip,
             });
             continue;
         }

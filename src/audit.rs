@@ -10,6 +10,7 @@ pub enum CheckStatus {
     Pass,
     Warn,
     Fail,
+    Skip,
 }
 
 #[derive(Debug, Clone)]
@@ -474,6 +475,7 @@ pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
             CheckStatus::Pass => theme.green("[PASS]"),
             CheckStatus::Warn => theme.yellow("[WARN]"),
             CheckStatus::Fail => theme.red_bold("[FAIL]"),
+            CheckStatus::Skip => theme.cyan("[SKIP]"),
         };
         println!("  {} {:<25} : {}", status_badge, check.code, check.detail);
     }

@@ -998,6 +998,59 @@ fn main() -> ExitCode {
                     println!("{} = {}", k, v);
                 }
             } else if let Some(ref key) = cfg.key {
+                if key == "disable" {
+                    let mut rules = Vec::new();
+                    if let Some(ref first) = cfg.value {
+                        for part in first.split(',') {
+                            let clean = part.trim();
+                            if !clean.is_empty() {
+                                rules.push(clean.to_string());
+                            }
+                        }
+                    }
+                    for extra in &cfg.extra_args {
+                        for part in extra.split(',') {
+                            let clean = part.trim();
+                            if !clean.is_empty() {
+                                rules.push(clean.to_string());
+                            }
+                        }
+                    }
+                    let root = args.dir.clone().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    if let Err(e) = cccp::lua_rules::disable_rules_in_config(&root, &rules) {
+                        eprintln!("{}: {}", theme.red_bold("Erro ao dispensar regras"), e);
+                        return ExitCode::FAILURE;
+                    } else {
+                        println!("{} {}", theme.green("✔ Regras dispensadas em .gost/config:"), rules.join(", "));
+                        return ExitCode::SUCCESS;
+                    }
+                } else if key == "enable" {
+                    let mut rules = Vec::new();
+                    if let Some(ref first) = cfg.value {
+                        for part in first.split(',') {
+                            let clean = part.trim();
+                            if !clean.is_empty() {
+                                rules.push(clean.to_string());
+                            }
+                        }
+                    }
+                    for extra in &cfg.extra_args {
+                        for part in extra.split(',') {
+                            let clean = part.trim();
+                            if !clean.is_empty() {
+                                rules.push(clean.to_string());
+                            }
+                        }
+                    }
+                    let root = args.dir.clone().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    if let Err(e) = cccp::lua_rules::enable_rules_in_config(&root, &rules) {
+                        eprintln!("{}: {}", theme.red_bold("Erro ao habilitar regras"), e);
+                        return ExitCode::FAILURE;
+                    } else {
+                        println!("{} {}", theme.green("✔ Regras habilitadas em .gost/config:"), rules.join(", "));
+                        return ExitCode::SUCCESS;
+                    }
+                }
                 if let Some(ref value) = cfg.value {
                     let target_path = if cfg.is_global {
                         config::find_global_config_path().unwrap_or_else(|| {
@@ -1068,6 +1121,16 @@ fn main() -> ExitCode {
             let report = cccp::audit::run_gost_audit(start_dir, gost.strict, &theme);
             if report.is_success {
                 ExitCode::SUCCESS
+            } else if gost.force {
+                if let Some(ref reason) = gost.reason {
+                    println!();
+                    println!("{}", theme.yellow("★ APROVAÇÃO FORÇADA (--force) ★"));
+                    println!("{}: {}", theme.bold("Justificativa registrada"), reason);
+                    ExitCode::SUCCESS
+                } else {
+                    eprintln!("{}", theme.red_bold("Erro: O uso de --force exige obrigatoriamente uma justificativa formal via --reason '<texto>'."));
+                    ExitCode::FAILURE
+                }
             } else {
                 ExitCode::FAILURE
             }

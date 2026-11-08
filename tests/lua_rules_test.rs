@@ -88,6 +88,6 @@ script = "this is not valid lua code!!!"
     let skip_report = run_gost_audit(p, false, &theme);
     let test_skipped = skip_report.checks.iter().find(|c| c.code == "TEST-ERR");
     assert!(test_skipped.is_some());
-    assert_eq!(test_skipped.unwrap().status, cccp::audit::CheckStatus::Pass);
+    assert_eq!(test_skipped.unwrap().status, cccp::audit::CheckStatus::Skip);
     assert!(test_skipped.unwrap().detail.contains("dispensada por configuração"));
 }

@@ -780,11 +780,15 @@ pub struct PushArgs {
 
 #[derive(Debug, Args)]
 pub struct ConfigArgs {
-    /// Configuration key to read or write
+    /// Configuration key to read or write (or 'disable'/'enable' actions)
     pub key: Option<String>,
 
-    /// Configuration value to set
+    /// Configuration value or target rule identifier
     pub value: Option<String>,
+
+    /// Additional rule identifiers for disable/enable
+    #[arg(trailing_var_arg = true)]
+    pub extra_args: Vec<String>,
 
     /// List all resolved configuration entries
     #[arg(short = 'l', long = "list")]
@@ -800,6 +804,14 @@ pub struct AuditArgs {
     /// Fail immediately on any GOST compliance warning
     #[arg(long = "strict")]
     pub strict: bool,
+
+    /// Force pass with justification waiver
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
+    /// Mandatory justification when using --force
+    #[arg(long = "reason")]
+    pub reason: Option<String>,
 }
 
 pub type GostArgs = AuditArgs;
