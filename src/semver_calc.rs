@@ -548,4 +548,23 @@ mod tests {
         let major = apply_bump(&v, BumpLevel::Major);
         assert_eq!(major.to_string(), "2.0.0");
     }
+
+    #[test]
+    fn test_empty_repo_semver_calc() {
+        let repo = crate::git::GitRepo {
+            root_dir: std::path::PathBuf::from("."),
+            branch: Some("main".into()),
+            head_id: String::new(),
+            head_short_id: String::new(),
+            head_date: "20261108".into(),
+            latest_tag: None,
+            commits_since_tag: Vec::new(),
+            is_dirty: false,
+            head_parent_count: 0,
+        };
+        let res = calculate_version(&repo, "0.1.0", false, None);
+        assert!(res.is_ok(), "Expected calculate_version to succeed on empty repo, got: {:?}", res);
+        let pred = res.unwrap();
+        assert_eq!(pred.dev_version, "0.1.0-dev.0+20261108.0000000");
+    }
 }
