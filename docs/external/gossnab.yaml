@@ -1,0 +1,390 @@
+openapi: 3.0.3
+info:
+  title: Gossnab API
+  description: API canônica do Órgão Central de Abastecimento e Estado do Ecossistema Gosplan.
+  license:
+    name: GPL-3.0
+  version: 1.0.0
+paths:
+  /api/v1/apps/{slug}/update:
+    get:
+      tags:
+      - crate
+      operationId: get_app_update
+      parameters:
+      - name: slug
+        in: path
+        description: Slug do aplicativo
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Informações de atualização para o app e canal solicitado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppUpdateResponse'
+  /api/v1/artifacts/pending-cd:
+    get:
+      tags:
+      - crate
+      operationId: get_pending_cd
+      responses:
+        '200':
+          description: Lista de artefatos de staging pendentes para CD
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StagingArtifact'
+  /api/v1/catalog:
+    get:
+      tags:
+      - crate
+      operationId: get_catalog
+      responses:
+        '200':
+          description: Catálogo consolidado de aplicativos publicados na Banca
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+  /api/v1/events/deployment:
+    post:
+      tags:
+      - crate
+      operationId: post_deployment_event
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentEvent'
+        required: true
+      responses:
+        '200':
+          description: Deploy e purga de staging confirmados
+  /api/v1/queue:
+    get:
+      tags:
+      - crate
+      operationId: get_queue
+      responses:
+        '200':
+          description: Fila integrada de CI/CD em tempo real
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueResponse'
+  /api/v1/webhooks/forgejo:
+    post:
+      tags:
+      - crate
+      operationId: post_forgejo_webhook
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+        required: true
+      responses:
+        '202':
+          description: Webhook Forgejo aceito para processamento assíncrono
+  /api/v1/webhooks/github:
+    post:
+      tags:
+      - crate
+      operationId: post_github_webhook
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+        required: true
+      responses:
+        '202':
+          description: Webhook GitHub aceito para processamento assíncrono
+  /api/v1/webhooks/sourcehut:
+    post:
+      tags:
+      - crate
+      operationId: post_sourcehut_webhook
+      requestBody:
+        content:
+          application/json:
+            schema: {}
+        required: true
+      responses:
+        '202':
+          description: Webhook SourceHut aceito para processamento assíncrono
+  /healthz:
+    get:
+      tags:
+      - crate
+      operationId: get_healthz
+      responses:
+        '200':
+          description: Probe de vitalidade e integridade do Gossnab
+components:
+  schemas:
+    App:
+      type: object
+      required:
+      - slug
+      - name
+      - description
+      - primary_forge
+      - mirrors
+      - site_url
+      properties:
+        description:
+          type: string
+          example: Editor e formatador tipográfico
+        mirrors:
+          type: array
+          items:
+            type: string
+          example:
+          - https://github.com/lumenpink/lauda
+        name:
+          type: string
+          example: Lauda
+        primary_forge:
+          type: string
+          example: https://gambi.2lp.in/lumen/lauda
+        site_url:
+          type: string
+          example: https://lauda.2lp.in
+        slug:
+          type: string
+          example: lauda
+      additionalProperties: false
+    AppUpdateResponse:
+      type: object
+      required:
+      - app
+      - channel
+      - latest_version
+      - download_url
+      - sha256
+      - published_at
+      properties:
+        app:
+          type: string
+          example: lauda
+        channel:
+          type: string
+          example: stable
+        download_url:
+          type: string
+          example: https://banca.2lp.in/downloads/lauda/lauda-latest-x86_64-linux.tar.gz
+        latest_version:
+          type: string
+          example: 1.4.0
+        published_at:
+          type: string
+          example: 2026-11-08T11:50:00Z
+        sha256:
+          type: string
+          example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      additionalProperties: false
+    CatalogApp:
+      type: object
+      required:
+      - slug
+      - name
+      - description
+      - latest_version
+      - channel
+      - download_url
+      properties:
+        channel:
+          type: string
+          example: stable
+        description:
+          type: string
+          example: Editor e formatador tipográfico
+        download_url:
+          type: string
+          example: https://banca.2lp.in/downloads/lauda/lauda-latest-x86_64-linux.tar.gz
+        latest_version:
+          type: string
+          example: 1.4.0
+        name:
+          type: string
+          example: Lauda
+        slug:
+          type: string
+          example: lauda
+      additionalProperties: false
+    CatalogResponse:
+      type: object
+      required:
+      - apps
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogApp'
+      additionalProperties: false
+    DeploymentEvent:
+      type: object
+      required:
+      - artifact_id
+      - app
+      - version
+      - channel
+      - status
+      - staging_purged
+      - nodes_updated
+      properties:
+        app:
+          type: string
+          example: lauda
+        artifact_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        channel:
+          type: string
+          example: stable
+        nodes_updated:
+          type: array
+          items:
+            type: string
+          example:
+          - obizero
+        staging_purged:
+          type: boolean
+          example: true
+        status:
+          type: string
+          example: success
+        version:
+          type: string
+          example: 1.4.0
+      additionalProperties: false
+    PipelineRun:
+      type: object
+      required:
+      - run_id
+      - forge
+      - app
+      - commit_sha
+      - ref_name
+      - status
+      - duration_secs
+      properties:
+        app:
+          type: string
+          example: lauda
+        commit_sha:
+          type: string
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef12
+        duration_secs:
+          type: integer
+          format: int64
+          example: 184
+          minimum: 0
+        forge:
+          type: string
+          example: forgejo
+        ref_name:
+          type: string
+          example: refs/heads/main
+        run_id:
+          type: integer
+          format: int64
+          example: 412
+          minimum: 0
+        status:
+          type: string
+          example: success
+      additionalProperties: false
+    QueueItem:
+      type: object
+      required:
+      - job_id
+      - app
+      - forge
+      - status
+      - job
+      - commit
+      properties:
+        app:
+          type: string
+          example: lauda
+        commit:
+          type: string
+          example: a1b2c3d
+        forge:
+          type: string
+          example: forgejo
+        job:
+          type: string
+          example: build-binaries
+        job_id:
+          type: string
+        status:
+          type: string
+          example: in_progress
+      additionalProperties: false
+    QueueResponse:
+      type: object
+      required:
+      - active_jobs_count
+      - queue
+      properties:
+        active_jobs_count:
+          type: integer
+          minimum: 0
+        queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+      additionalProperties: false
+    StagingArtifact:
+      type: object
+      required:
+      - id
+      - app
+      - version
+      - channel
+      - commit_sha
+      - file_name
+      - sha256
+      - staging_download_url
+      properties:
+        app:
+          type: string
+          example: lauda
+        channel:
+          type: string
+          example: stable
+        commit_sha:
+          type: string
+          example: a1b2c3d4e5f67890abcdef1234567890abcdef12
+        file_name:
+          type: string
+          example: lauda-x86_64-linux.tar.gz
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        sha256:
+          type: string
+          example: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        staging_download_url:
+          type: string
+          example: https://gambi.2lp.in/api/packages/lumen/generic/lauda/1.4.0/lauda.tar.gz
+        version:
+          type: string
+          example: 1.4.0
+      additionalProperties: false
+    WebhookPayload:
+      oneOf:
+      - {}
+      - {}
+      - {}
+tags:
+- name: Gossnab
+  description: Fonte Única da Verdade de Releases, Artefatos e Fila Integrada
