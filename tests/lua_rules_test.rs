@@ -67,4 +67,27 @@ ERR_FILE_MISSING = "Target file '{target}' is completely missing"
         "Detail should interpolate '{{target}}' into 'missing_file.txt': got '{}'",
         test_002.unwrap().detail
     );
+
+    // Test Mutation / Edge cases:
+    // 1. Syntax error in rule script
+    let syntax_err_toml = r#"
+[rules.TEST-ERR]
+name = "SYNTAX-ERROR-RULE"
+script = "this is not valid lua code!!!"
+"#;
+    fs::write(p.join("rules.toml"), syntax_err_toml).unwrap();
+    let err_report = run_gost_audit(p, false, &theme);
+    let test_err = err_report.checks.iter().find(|c| c.code == "TEST-ERR");
+    assert!(test_err.is_some());
+    assert_eq!(test_err.unwrap().status, cccp::audit::CheckStatus::Fail);
+    assert!(test_err.unwrap().detail.contains("Erro de execução no script Lua"));
+
+    // 2. Disabled rule via .gost/config
+    fs::create_dir_all(p.join(".gost")).unwrap();
+    fs::write(p.join(".gost").join("config"), "DISABLED_RULES=\"TEST-ERR\"\n").unwrap();
+    let skip_report = run_gost_audit(p, false, &theme);
+    let test_skipped = skip_report.checks.iter().find(|c| c.code == "TEST-ERR");
+    assert!(test_skipped.is_some());
+    assert_eq!(test_skipped.unwrap().status, cccp::audit::CheckStatus::Pass);
+    assert!(test_skipped.unwrap().detail.contains("dispensada por configuração"));
 }
