@@ -38,4 +38,14 @@ script = "return false, 'ERR', {}"
     let check = report.checks.iter().find(|c| c.code == "GOST-002");
     assert!(check.is_some());
     assert_eq!(check.unwrap().status, CheckStatus::Skip);
+
+    // Mutation Test: duplicates in disable are idempotent
+    disable_rules_in_config(p, &["GOST-002".to_string(), "GOST-002".to_string()]).unwrap();
+    let deduplicated = read_disabled_rules(p);
+    assert_eq!(deduplicated, vec!["GOST-002"]);
+
+    // Mutation Test: enabling non-existent rule is a no-op
+    enable_rules_in_config(p, &["NON-EXISTENT".to_string()]).unwrap();
+    let still_same = read_disabled_rules(p);
+    assert_eq!(still_same, vec!["GOST-002"]);
 }
