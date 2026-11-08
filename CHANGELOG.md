@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Cascading Rules Assembly and Local Override
+- **Assemble em Cascata de rules.toml (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
+  - **Suporte a inherits_from.base_url**: Extrai o caminho canônico a montante da Metanorma GOST e GOSPLAN.
+  - **Compilação de .gost/rules.toml**: Mescla recursivamente as regras das camadas Fundamental, Estratégica, Tática e Operacional.
+  - **Sobreposição Local Máxima**: Mescla regras de `custom-rules.toml` da raiz do repositório no manifesto compilado `.gost/rules.toml`.
+  - **Purga Terminológica**: Substitui referências imperialistas nos comentários gerados pelo assemble. (closes #143)
+
 ### Embedded Lua Rules Runtime and gost Library Primitives
 - **Runtime Lua Embutido e Primitivos gost (`src/lua_rules.rs`, `src/audit.rs`, `tests/lua_rules_test.rs`)**:
   - **Execução Declarativa de Regras**: Capacita `cccp check` a executar validações declarativas expressas em `rules.toml` utilizando a engine segura `mlua`.
