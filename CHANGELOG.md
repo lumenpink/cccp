@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Embedded Lua Rules Runtime and gost Library Primitives
+- **Runtime Lua Embutido e Primitivos gost (`src/lua_rules.rs`, `src/audit.rs`, `tests/lua_rules_test.rs`)**:
+  - **Execução Declarativa de Regras**: Capacita `cccp check` a executar validações declarativas expressas em `rules.toml` utilizando a engine segura `mlua`.
+  - **Biblioteca gost.***: Injeta o namespace canônico com primitivos de sistema de arquivos, git e parsers (`gost.file_exists`, `gost.is_dir`, `gost.read_file`, `gost.count_lines`, `gost.list_files`, `gost.git_branch`, `gost.git_commits`, `gost.parse_toml`, `gost.parse_json`).
+  - **I18n e Interpolação**: Mapeia códigos de erro e interpola dicionários de parâmetros a partir dos catálogos de tradução (`locales/<lang>.toml`). (closes #142)
+
 ### Mirroring Live Queue States (running, waiting, blocked) and Composite Runner Job Matching
 - **Espelhamento Fiel das Filas e Casamento de Jobs de Runners (`src/catalog.rs`, `src/forges.rs`, `src/repo_top.rs`, `tests/catalog_ci_ui_test.rs`, `tests/repo_top_test.rs`)**:
   - **Diferenciação Granular de Estados**: Substitui o rótulo genérico `~ pending` pelos estados reais da interface web das forjas: `~ running`, `~ waiting`, `~ blocked` e `~ pending` (todos com ícone amarelo mono-largura ASCII).
