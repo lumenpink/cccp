@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixação do Snapshot OpenAPI e Modelos de Integração com Gossnab
+- **Modelos de Integração Gossnab e Fail-Fast (`src/external/gossnab.rs`, `docs/external/gossnab.yaml`, `tests/external_contracts_test.rs`)**:
+  - Adiciona o snapshot OpenAPI canônico de integração em `docs/external/gossnab.yaml`.
+  - Implementa modelos fortemente tipados com `#[serde(deny_unknown_fields)]` para respostas de atualização, fila e catálogo do Gossnab, prevenindo drift de API. (closes #147)
+
+
 ### Integração da Engine Lunokhod e Suporte a Novas Branches
 - **Delegação da Avaliação de Regras para Lunokhod (`src/lua_rules.rs`, `src/ddtdd.rs`, `Cargo.toml`)**:
   - Integra o crate dedicado `lunokhod` para a execução isolada de scripts Lua e primitivos `gost.*`.
