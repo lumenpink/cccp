@@ -8,7 +8,11 @@ fn test_assemble_rules_cascade_and_custom_rules() {
     let p = dir.path();
 
     fs::create_dir_all(p.join(".gost")).unwrap();
-    fs::write(p.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n").unwrap();
+    fs::write(
+        p.join("GOSTVER"),
+        "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n",
+    )
+    .unwrap();
     fs::write(p.join("VERSION"), "1.0.0\n").unwrap();
 
     // Create a local custom-rules.toml
@@ -23,7 +27,11 @@ script = "return true"
     fs::write(p.join("custom-rules.toml"), custom_rules).unwrap();
 
     let res = assemble_gost_specs(p);
-    assert!(res.is_ok(), "assemble_gost_specs should succeed: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "assemble_gost_specs should succeed: {:?}",
+        res.err()
+    );
 
     let compiled_rules_path = p.join(".gost").join("rules.toml");
     assert!(
@@ -51,7 +59,11 @@ script = "return true"
     let dir_no_custom = tempdir().expect("tempdir");
     let p2 = dir_no_custom.path();
     fs::create_dir_all(p2.join(".gost")).unwrap();
-    fs::write(p2.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n").unwrap();
+    fs::write(
+        p2.join("GOSTVER"),
+        "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n",
+    )
+    .unwrap();
     fs::write(p2.join("VERSION"), "1.0.0\n").unwrap();
 
     let res2 = assemble_gost_specs(p2);

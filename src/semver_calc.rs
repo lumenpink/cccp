@@ -573,7 +573,11 @@ mod tests {
             head_parent_count: 0,
         };
         let res = calculate_version(&repo, "0.1.0", false, None);
-        assert!(res.is_ok(), "Expected calculate_version to succeed on empty repo, got: {:?}", res);
+        assert!(
+            res.is_ok(),
+            "Expected calculate_version to succeed on empty repo, got: {:?}",
+            res
+        );
         let pred = res.unwrap();
         assert_eq!(pred.dev_version, "0.1.0-dev.0+20261108.0000000");
     }

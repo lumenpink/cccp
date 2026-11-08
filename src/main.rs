@@ -1016,12 +1016,19 @@ fn main() -> ExitCode {
                             }
                         }
                     }
-                    let root = args.dir.clone().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    let root = args
+                        .dir
+                        .clone()
+                        .unwrap_or_else(|| std::path::PathBuf::from("."));
                     if let Err(e) = cccp::lua_rules::disable_rules_in_config(&root, &rules) {
                         eprintln!("{}: {}", theme.red_bold("Erro ao dispensar regras"), e);
                         return ExitCode::FAILURE;
                     } else {
-                        println!("{} {}", theme.green("✔ Regras dispensadas em .gost/config:"), rules.join(", "));
+                        println!(
+                            "{} {}",
+                            theme.green("✔ Regras dispensadas em .gost/config:"),
+                            rules.join(", ")
+                        );
                         return ExitCode::SUCCESS;
                     }
                 } else if key == "enable" {
@@ -1042,12 +1049,19 @@ fn main() -> ExitCode {
                             }
                         }
                     }
-                    let root = args.dir.clone().unwrap_or_else(|| std::path::PathBuf::from("."));
+                    let root = args
+                        .dir
+                        .clone()
+                        .unwrap_or_else(|| std::path::PathBuf::from("."));
                     if let Err(e) = cccp::lua_rules::enable_rules_in_config(&root, &rules) {
                         eprintln!("{}: {}", theme.red_bold("Erro ao habilitar regras"), e);
                         return ExitCode::FAILURE;
                     } else {
-                        println!("{} {}", theme.green("✔ Regras habilitadas em .gost/config:"), rules.join(", "));
+                        println!(
+                            "{} {}",
+                            theme.green("✔ Regras habilitadas em .gost/config:"),
+                            rules.join(", ")
+                        );
                         return ExitCode::SUCCESS;
                     }
                 }

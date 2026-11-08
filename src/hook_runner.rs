@@ -436,8 +436,16 @@ pub fn run_pre_commit(repo: &GitRepo, theme: &Theme, verbose: u8) -> Result<i32,
     // For the upcoming commit in pre-commit, the commit count is commits_since_tag + 1
     let next_commits_count = repo.commits_since_tag.len() + 1;
     let pre_str = format!("dev.{}", next_commits_count);
-    let short_id = if repo.head_short_id.is_empty() { "0000000" } else { repo.head_short_id.as_str() };
-    let head_date = if repo.head_date.is_empty() { "19700101" } else { repo.head_date.as_str() };
+    let short_id = if repo.head_short_id.is_empty() {
+        "0000000"
+    } else {
+        repo.head_short_id.as_str()
+    };
+    let head_date = if repo.head_date.is_empty() {
+        "19700101"
+    } else {
+        repo.head_date.as_str()
+    };
     let build_str = format!("{}.{}", head_date, short_id);
 
     let mut dev_ver = match semver::Version::parse(&predicted.target_version) {
@@ -568,8 +576,16 @@ pub fn reconcile_merge_version(repo: &GitRepo, theme: &Theme) -> Result<Option<S
     } else {
         let next_count = fresh_repo.commits_since_tag.len() + 1;
         let pre_str = format!("dev.{}", next_count);
-        let short_id = if fresh_repo.head_short_id.is_empty() { "0000000" } else { fresh_repo.head_short_id.as_str() };
-        let head_date = if fresh_repo.head_date.is_empty() { "19700101" } else { fresh_repo.head_date.as_str() };
+        let short_id = if fresh_repo.head_short_id.is_empty() {
+            "0000000"
+        } else {
+            fresh_repo.head_short_id.as_str()
+        };
+        let head_date = if fresh_repo.head_date.is_empty() {
+            "19700101"
+        } else {
+            fresh_repo.head_date.as_str()
+        };
         let build_str = format!("{}.{}", head_date, short_id);
 
         let mut dev_ver = match semver::Version::parse(&predicted.target_version) {

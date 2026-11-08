@@ -114,7 +114,9 @@ pub fn infer_ticket_from_branch(branch: &str) -> Option<(u64, String, String)> {
         return None;
     }
     let kind = parts[0];
-    let valid_kinds = ["feat", "fix", "docs", "refactor", "test", "chore", "perf"];
+    let valid_kinds = [
+        "feat", "fix", "docs", "refactor", "test", "chore", "perf", "ci", "build", "style",
+    ];
     if !valid_kinds.contains(&kind) {
         return None;
     }
