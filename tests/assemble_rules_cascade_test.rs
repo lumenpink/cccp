@@ -46,4 +46,18 @@ script = "return true"
             ".gost/GOST.md must not contain prohibited imperialist terms"
         );
     }
+
+    // Mutation Test: ensure assemble handles repositories without custom-rules.toml
+    let dir_no_custom = tempdir().expect("tempdir");
+    let p2 = dir_no_custom.path();
+    fs::create_dir_all(p2.join(".gost")).unwrap();
+    fs::write(p2.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n").unwrap();
+    fs::write(p2.join("VERSION"), "1.0.0\n").unwrap();
+
+    let res2 = assemble_gost_specs(p2);
+    assert!(res2.is_ok());
+    let compiled_no_custom = p2.join(".gost").join("rules.toml");
+    assert!(compiled_no_custom.is_file());
+    let content_no_custom = fs::read_to_string(&compiled_no_custom).unwrap();
+    assert!(!content_no_custom.contains("[rules.LOCAL-001]"));
 }
