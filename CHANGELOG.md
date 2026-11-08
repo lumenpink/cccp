@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Rule Disabling Ergonomics and Disabled Rules Support
+- **Gestão de Regras Dispensadas e Status Skip (`src/audit.rs`, `src/lua_rules.rs`, `src/cli.rs`, `src/main.rs`, `tests/config_disable_test.rs`)**:
+  - **Subcomandos CLI**: `cccp config disable <REGRAS...>` e `cccp config enable <REGRAS...>` para manipulação idempotente de `DISABLED_RULES` em `.gost/config`.
+  - **Exibição de Status [SKIP]**: Regras dispensadas são avaliadas com `CheckStatus::Skip` e badge colorida no relatório sem computar como falhas.
+  - **Flag Universal --force com Justificativa**: Exige justificativa formal obrigatória (`--reason`) para waivers de auditoria. (closes #144)
+
 ### Cascading Rules Assembly and Local Override
 - **Assemble em Cascata de rules.toml (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
   - **Suporte a inherits_from.base_url**: Extrai o caminho canônico a montante da Metanorma GOST e GOSPLAN.
