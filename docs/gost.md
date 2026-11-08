@@ -39,7 +39,7 @@ cccp gost sync
 ```
 
 ### `cccp check` (ou `cccp gost check`)
-Audita as regras do repositório contra as normas técnicas do GOST:
+Audita as regras do repositório contra as normas técnicas do GOST utilizando a engine isolada **Lunokhod** (`lk`):
 - **`GOST-16-GOSTVER`**: Presença e validade do `GOSTVER`.
 - **`GOST-01-LICENSE`**: Presença do arquivo `LICENSE` válido e não-vazio.
 - **`GOST-02-ANATOMY-ROOT`**: Presença dos arquivos essenciais (`README.md`, `VERSION`, `CHANGELOG.md`, `.gitignore`, `.editorconfig`).
