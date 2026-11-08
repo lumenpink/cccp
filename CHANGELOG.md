@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fallback SemVer em Repositórios Vazios sem Commits
+- **Suporte a Cálculo de Versão Inicial no Dia Zero (`src/semver_calc.rs`, `src/git.rs`, `src/hook_runner.rs`)**:
+  - Evita falha `empty identifier segment in build metadata` em repositórios recém-inicializados atribuindo fallback seguro `0000000` quando não houver commits. (closes #145)
+
 ### Rule Disabling Ergonomics and Disabled Rules Support
 - **Gestão de Regras Dispensadas e Status Skip (`src/audit.rs`, `src/lua_rules.rs`, `src/cli.rs`, `src/main.rs`, `tests/config_disable_test.rs`)**:
   - **Subcomandos CLI**: `cccp config disable <REGRAS...>` e `cccp config enable <REGRAS...>` para manipulação idempotente de `DISABLED_RULES` em `.gost/config`.
