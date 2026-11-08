@@ -1,6 +1,6 @@
 [package]
 name = "cccp"
-version = "3.2.0-dev.732+20261108.90ef548"
+version = "3.2.0-dev.733+20261108.5471bbb"
 edition = "2021"
 authors = ["Lumen Pink <hi@lumen.pink>"]
 description = "Conventional Commits Compliance Program (CCCP) - Native Standalone Binary"
@@ -21,7 +21,7 @@ tempfile = "3.17"
 crossterm = "0.29"
 flate2 = "1.0"
 ureq = { version = "3.4", features = ["json"] }
-mlua = { version = "0.12.2", features = ["lua54", "vendored"] }
+mlua = { version = "0.12.2", features = ["lua54", "serialize", "vendored"] }
 
 [dev-dependencies]
 

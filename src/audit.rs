@@ -416,6 +416,11 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
     // 13. GOST-27-DDD-HEXAGONAL-PURITY (GOST 2.0)
     checks.push(check_gost27_domain_purity(root));
 
+    // 14. Lua Declarative Rules (GOST v3.0.0 rules.toml)
+    let disabled_rules = crate::lua_rules::read_disabled_rules(root);
+    let lua_checks = crate::lua_rules::evaluate_lua_rules(root, &disabled_rules);
+    checks.extend(lua_checks);
+
     let passed = checks
         .iter()
         .filter(|c| c.status == CheckStatus::Pass)

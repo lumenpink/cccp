@@ -26,6 +26,7 @@ pub mod hooks_install;
 pub mod hygiene;
 pub mod i18n;
 pub mod lint;
+pub mod lua_rules;
 pub mod matraca;
 pub mod newrepo;
 pub mod profile;
