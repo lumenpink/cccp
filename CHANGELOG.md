@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Integração da Engine Lunokhod e Suporte a Novas Branches
+- **Delegação da Avaliação de Regras para Lunokhod (`src/lua_rules.rs`, `src/ddtdd.rs`, `Cargo.toml`)**:
+  - Integra o crate dedicado `lunokhod` para a execução isolada de scripts Lua e primitivos `gost.*`.
+  - Expande a inferência de branches no ciclo DD-TDD para reconhecer prefixos `ci/`, `build/` e `style/`. (closes #146)
+
 ### Fallback SemVer em Repositórios Vazios sem Commits
 - **Suporte a Cálculo de Versão Inicial no Dia Zero (`src/semver_calc.rs`, `src/git.rs`, `src/hook_runner.rs`)**:
   - Evita falha `empty identifier segment in build metadata` em repositórios recém-inicializados atribuindo fallback seguro `0000000` quando não houver commits. (closes #145)
