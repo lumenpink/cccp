@@ -99,7 +99,17 @@ pub fn calculate_version(
     } else {
         let mut dev_ver = target_semver.clone();
         let pre_str = format!("dev.{}", commits_count);
-        let build_str = format!("{}.{}", repo.head_date, repo.head_short_id);
+        let short_id = if repo.head_short_id.is_empty() {
+            "0000000"
+        } else {
+            repo.head_short_id.as_str()
+        };
+        let head_date = if repo.head_date.is_empty() {
+            "19700101"
+        } else {
+            repo.head_date.as_str()
+        };
+        let build_str = format!("{}.{}", head_date, short_id);
 
         dev_ver.pre =
             Prerelease::new(&pre_str).map_err(|e| format!("Invalid prerelease metadata: {}", e))?;

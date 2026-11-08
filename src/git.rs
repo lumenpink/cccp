@@ -58,8 +58,8 @@ impl GitRepo {
                 return Ok(Self {
                     root_dir,
                     branch: None,
-                    head_id: String::new(),
-                    head_short_id: String::new(),
+                    head_id: "0000000000000000000000000000000000000000".to_string(),
+                    head_short_id: "0000000".to_string(),
                     head_date: format_date_now(),
                     latest_tag: None,
                     commits_since_tag: Vec::new(),
@@ -77,8 +77,8 @@ impl GitRepo {
                 return Ok(Self {
                     root_dir,
                     branch,
-                    head_id: String::new(),
-                    head_short_id: String::new(),
+                    head_id: "0000000000000000000000000000000000000000".to_string(),
+                    head_short_id: "0000000".to_string(),
                     head_date: format_date_now(),
                     latest_tag: None,
                     commits_since_tag: Vec::new(),
