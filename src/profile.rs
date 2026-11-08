@@ -45,14 +45,40 @@ pub fn resolve_profile_url(name_or_url: &str) -> String {
     trimmed.to_string()
 }
 
-/// Extracts `extends: <url>` from markdown frontmatter or YAML block
+/// Extracts `extends: <url>` or `inherits_from.base_url` from markdown frontmatter or YAML block
 pub fn extract_extends_url(content: &str) -> Option<String> {
+    if let Some(base) = extract_inherits_from_base_url(content) {
+        return Some(base);
+    }
     for line in content.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("extends:") {
             let val = rest.trim().trim_matches('"').trim_matches('\'').trim();
             if !val.is_empty() {
                 return Some(val.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Extracts `base_url` inside `inherits_from:` block from YAML frontmatter
+pub fn extract_inherits_from_base_url(content: &str) -> Option<String> {
+    let mut in_inherits = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("inherits_from:") {
+            in_inherits = true;
+            continue;
+        }
+        if in_inherits {
+            if let Some(rest) = trimmed.strip_prefix("base_url:") {
+                let val = rest.trim().trim_matches('"').trim_matches('\'').trim();
+                if !val.is_empty() {
+                    return Some(val.to_string());
+                }
+            } else if !trimmed.is_empty() && !line.starts_with(' ') && !line.starts_with('\t') {
+                in_inherits = false;
             }
         }
     }
@@ -186,6 +212,14 @@ pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
             }
         }
     }
+    if trimmed.contains("gosplan.2lp.in") || trimmed.contains("gosplan") {
+        let local = PathBuf::from("/home/lumen/src/gosplan/SPEC.md");
+        if local.is_file() {
+            if let Ok(c) = fs::read_to_string(&local) {
+                return Ok(c);
+            }
+        }
+    }
     if trimmed.contains("gost.2lp.in") || trimmed.ends_with("SPEC.md") {
         let local = PathBuf::from("/home/lumen/src/gost/SPEC.md");
         if local.is_file() {
@@ -211,6 +245,68 @@ pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
         ErrorKind::NotFound,
         format!("Não foi possível obter conteúdo de '{}'", url_or_path),
     ))
+}
+
+/// Fetches the declarative `rules.toml` content corresponding to a normative layer
+pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
+    if url.contains("lilya") {
+        let p = Path::new("/home/lumen/src/gost-profile-lilya/rules.toml");
+        if p.is_file() {
+            if let Ok(c) = fs::read_to_string(p) {
+                return Some(c);
+            }
+        }
+    }
+    if url.contains("kollontai") {
+        let p = Path::new("/home/lumen/src/gost-profile-kollontai/rules.toml");
+        if p.is_file() {
+            if let Ok(c) = fs::read_to_string(p) {
+                return Some(c);
+            }
+        }
+    }
+    if url.contains("gosplan") {
+        let p = Path::new("/home/lumen/src/gosplan/rules.toml");
+        if p.is_file() {
+            if let Ok(c) = fs::read_to_string(p) {
+                return Some(c);
+            }
+        }
+    }
+    if url.contains("gost") {
+        let p1 = Path::new("/home/lumen/src/gost/specs/rules.toml");
+        if p1.is_file() {
+            if let Ok(c) = fs::read_to_string(p1) {
+                return Some(c);
+            }
+        }
+        let p2 = Path::new("/home/lumen/src/gost/rules.toml");
+        if p2.is_file() {
+            if let Ok(c) = fs::read_to_string(p2) {
+                return Some(c);
+            }
+        }
+    }
+
+    let rules_url = if url.ends_with('/') {
+        format!("{}rules.toml", url)
+    } else if let Some((dir, _)) = url.rsplit_once('/') {
+        format!("{}/rules.toml", dir)
+    } else {
+        format!("{}/rules.toml", url)
+    };
+
+    if rules_url.starts_with("http://") || rules_url.starts_with("https://") {
+        if let Ok(resp) = ureq::get(&rules_url).call() {
+            if let Ok(body) = resp.into_body().read_to_string() {
+                let lower = body.to_ascii_lowercase();
+                if !lower.contains("<html") && !lower.contains("<!doctype") {
+                    return Some(body);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Recursively resolves the cascading profile chain starting from the root profile URL down to base GOST
@@ -331,7 +427,7 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     let custom_file = root.join("CUSTOM.md");
     if custom_file.is_file() {
         output.push_str(&format!(
-            "{}. Camada Local Soberana: `CUSTOM.md`\n",
+            "{}. Camada Local Autônoma: `CUSTOM.md`\n",
             chain.len() + 1
         ));
     }
@@ -357,7 +453,7 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
                 "<!-- ===================================================================== -->\n",
             );
             output.push_str(
-                "<!-- CAMADA LOCAL SOBERANA: CUSTOM.md (Precedência Máxima do Repositório) -->\n",
+                "<!-- CAMADA LOCAL AUTÔNOMA: CUSTOM.md (Precedência Máxima do Repositório) -->\n",
             );
             output.push_str(
                 "<!-- ===================================================================== -->\n\n",
@@ -371,6 +467,51 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     let _ = fs::create_dir_all(&gost_dir);
     let target_path = gost_dir.join("GOST.md");
     fs::write(&target_path, &output)?;
+
+    // 4. Compile .gost/rules.toml cascading all layers + local custom-rules.toml
+    let mut combined_rules: toml::map::Map<String, toml::Value> = toml::map::Map::new();
+
+    for (url, _) in &chain {
+        if let Some(rules_content) = fetch_rules_for_layer(url) {
+            if let Ok(toml_val) = toml::from_str::<toml::Value>(&rules_content) {
+                if let Some(rules_table) = toml_val.get("rules").and_then(|r| r.as_table()) {
+                    for (k, v) in rules_table {
+                        combined_rules.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    // Merge custom-rules.toml from root if exists
+    let custom_rules_candidates = [
+        root.join("custom-rules.toml"),
+        root.join("custom_rules.toml"),
+        root.join("rules.toml"),
+    ];
+    for cr in &custom_rules_candidates {
+        if cr.is_file() {
+            if let Ok(cr_content) = fs::read_to_string(cr) {
+                if let Ok(toml_val) = toml::from_str::<toml::Value>(&cr_content) {
+                    if let Some(rules_table) = toml_val.get("rules").and_then(|r| r.as_table()) {
+                        for (k, v) in rules_table {
+                            combined_rules.insert(k.clone(), v.clone());
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    if !combined_rules.is_empty() {
+        let mut root_val = toml::map::Map::new();
+        root_val.insert("rules".to_string(), toml::Value::Table(combined_rules));
+        if let Ok(serialized) = toml::to_string_pretty(&toml::Value::Table(root_val)) {
+            let rules_out = gost_dir.join("rules.toml");
+            let _ = fs::write(&rules_out, serialized);
+        }
+    }
 
     Ok(output)
 }
