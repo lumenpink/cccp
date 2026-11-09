@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Suporte a Cabeçalhos Universais no Laudo da Fase 9
+- **Resolução de Laudos com Cabeçalhos em Inglês (`src/ddtdd.rs`, `src/cli.rs`, `tests/ddtdd_lifecycle_test.rs`)**:
+  - Atualiza `validate_resolution_report` para suportar cabeçalhos universais `[Summary]:`, `[Solution]:`, `[Validation]:` mantendo compatibilidade com as formas em português.
+  - Atualiza template interativo e ajuda do CLI `cccp close`. (closes #151)
+
 ### Integração do Escopo post-build e Reconhecimento de APP_TYPE
 - **Auditoria Pós-Compilação e Arquétipos de Aplicação (`src/audit.rs`, `src/cli.rs`, `src/main.rs`, `tests/lua_rules_test.rs`)**:
   - Implementa flag `--scope` em `cccp check` permitindo avaliar regras sob o escopo canônico `post-build`.
