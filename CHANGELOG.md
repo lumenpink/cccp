@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Consumo Canônico de Lunokhod e Expurgo de Dependência Local
+- **Consumo via Registry Gambi e Correção de CI (`Cargo.toml`, `.forgejo/workflows/ci.yml`, `tests/lunokhod_integration_test.rs`)**:
+  - Migra dependência `lunokhod` para consumo a partir do registro `gambi` (`https://gambi.2lp.in/api/packages/lumen/cargo/`), eliminando dependência por caminho local em conformidade com `KOLLONTAI-016`.
+  - Configura o registro `gambi` na esteira de CI do Forgejo e expurga terminologia imperialista. (closes #152)
+
 ### Suporte a Cabeçalhos Universais no Laudo da Fase 9
 - **Resolução de Laudos com Cabeçalhos em Inglês (`src/ddtdd.rs`, `src/cli.rs`, `tests/ddtdd_lifecycle_test.rs`)**:
   - Atualiza `validate_resolution_report` para suportar cabeçalhos universais `[Summary]:`, `[Solution]:`, `[Validation]:` mantendo compatibilidade com as formas em português.

@@ -1,14 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-09 11:33:01 UTC
+> Synced at: 2026-11-09 23:06:42 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#150] feat: integracao do escopo post-build e leitura de APP_TYPE do GOSTVER
+## [#152] fix(ci): consumir lunokhod via registry gambi e expurgar path dep
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/150
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/152
 
 ### Description
-Implementar no cccp o suporte a execucao de regras sob o escopo post-build (cccp check --scope post-build e hook pos-compilacao) e a leitura de APP_TYPE no GOSTVER, adaptando os ciclos e auditorias para os 4 arquetipos de aplicacao.
+Consumir a crate lunokhod a partir do registro gambi (https://gambi.2lp.in/api/packages/lumen/cargo/) em vez de dependência local por caminho (path = "../lunokhod"), garantindo conformidade com a regra KOLLONTAI-016 e corrigindo a falha do CI no Forgejo.
 
 ---
 ## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado
