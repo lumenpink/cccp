@@ -179,6 +179,16 @@ Integration test suite verifying full backward compatibility and universal confo
 "#;
     assert!(validate_resolution_report(valid_english_report).is_ok());
 
+    // Mutante: Laudo em inglês faltando [Validation]:
+    let missing_english_validation = r#"
+[Summary]:
+Implementation of universal Phase 9 resolution report headers in English.
+
+[Solution]:
+Updated validate_resolution_report and template generator to support Summary, Solution, and Validation.
+"#;
+    assert!(validate_resolution_report(missing_english_validation).is_err());
+
     // Faltando cabeçalho [Validação]:
     let missing_section = r#"
 [Resumo]:
