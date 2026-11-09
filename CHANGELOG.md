@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Suporte a Ciclos Short e Chore no DD-TDD
+- **Inferência e Validação de Ciclos (`src/ddtdd.rs`, `tests/ddtdd_lifecycle_test.rs`)**:
+  - Implementa `infer_next_phase_for_kind` permitindo avanço direto de `ph3` para `ph8` em ciclos curtos (`docs`, `style`).
+  - Suporta ciclo administrativo simplificado para `chore`, `ci` e `build` permitindo commits com `ref #ID` sem exigir fases intermediárias.
+  - Elimina recomendação de criação de arquivos efêmeros em `docs/specs/`. (closes #148)
+
+
 ### Fixação do Snapshot OpenAPI e Modelos de Integração com Gossnab
 - **Modelos de Integração Gossnab e Fail-Fast (`src/external/gossnab.rs`, `docs/external/gossnab.yaml`, `tests/external_contracts_test.rs`)**:
   - Adiciona o snapshot OpenAPI canônico de integração em `docs/external/gossnab.yaml`.
