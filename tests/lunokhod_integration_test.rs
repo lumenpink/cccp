@@ -36,3 +36,14 @@ fn test_lunokhod_dependency_is_not_path_dependent() {
         "Manifest must consume lunokhod via registry = \"gambi\""
     );
 }
+
+#[test]
+fn test_manifest_path_dependency_mutant_detection() {
+    let mutated_manifest = "[dependencies]\nlunokhod = { path = \"../lunokhod\" }\n";
+    let has_forbidden_path = mutated_manifest.contains("path = \"..")
+        || mutated_manifest.contains("path = \"/");
+    assert!(
+        has_forbidden_path,
+        "Mutant with path dependency must be detected as invalid"
+    );
+}
