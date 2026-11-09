@@ -93,6 +93,23 @@ fn test_infer_next_phase_state_machine() {
 }
 
 #[test]
+fn test_infer_next_phase_short_cycles() {
+    let history_ph3 = vec!["docs: update living documentation (ref #42 - ph3)"];
+    assert_eq!(
+        cccp::ddtdd::infer_next_phase_for_kind("docs", &history_ph3),
+        DdtddPhase::Ph8
+    );
+    assert_eq!(
+        cccp::ddtdd::infer_next_phase_for_kind("style", &history_ph3),
+        DdtddPhase::Ph8
+    );
+    assert_eq!(
+        cccp::ddtdd::infer_next_phase_for_kind("feat", &history_ph3),
+        DdtddPhase::Ph4
+    );
+}
+
+#[test]
 fn test_format_phase_commit_message() {
     let msg1 = format_phase_commit(
         "feat",
