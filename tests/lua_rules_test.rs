@@ -121,6 +121,13 @@ severity = "error"
 scope = "project"
 description = "Evaluated during project audit"
 script = "return true"
+
+[rules.SCOPE-003]
+name = "POST-BUILD-RULE"
+severity = "error"
+scope = "post-build"
+description = "Evaluated after build"
+script = "return true"
 "#;
     fs::write(p.join("rules.toml"), rules_toml).unwrap();
 
@@ -141,4 +148,24 @@ script = "return true"
     );
     assert_eq!(commit_checks[0].code, "SCOPE-001");
     assert_eq!(commit_checks[0].status, cccp::audit::CheckStatus::Fail);
+
+    let post_build_checks =
+        cccp::lua_rules::evaluate_lua_rules_for_scope(p, &[], Some("post-build"));
+    assert_eq!(
+        post_build_checks.len(),
+        1,
+        "Only post-build scope rule must be evaluated"
+    );
+    assert_eq!(post_build_checks[0].code, "SCOPE-003");
+    assert_eq!(post_build_checks[0].status, cccp::audit::CheckStatus::Pass);
+}
+
+#[test]
+fn test_read_app_type_from_gostver() {
+    let dir = tempdir().expect("tempdir");
+    let p = dir.path();
+
+    fs::write(p.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\nAPP_TYPE=\"hybrid\"\n").unwrap();
+    let app_type = cccp::audit::read_app_type(p);
+    assert_eq!(app_type, "hybrid", "read_app_type deve extrair o valor de APP_TYPE do GOSTVER");
 }
