@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cccp"
-version = "3.2.0-dev.769+20261109.bd49254"
+version = "3.2.0-dev.777+20261109.675e955"
 dependencies = [
  "clap",
  "clap_complete",
@@ -685,6 +685,8 @@ dependencies = [
 [[package]]
 name = "lunokhod"
 version = "0.1.0-dev.33+20261109.27f4e1c"
+source = "sparse+https://gambi.2lp.in/api/packages/lumen/cargo/"
+checksum = "b33a66c4a5799909c2c0da2a8c1c82e0ff126d44a069eb6a6c06a78efbc7c6c5"
 dependencies = [
  "clap",
  "git2",
