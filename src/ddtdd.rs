@@ -87,18 +87,32 @@ pub fn parse_phase_arg(input: &str) -> Result<DdtddPhase, String> {
 
 /// Identifies if a commit attempt is of kind `chore`, which is exempt from ticket and branch guards.
 pub fn is_chore_commit(cz: &CommitArgs) -> bool {
-    if cz.commit_type.as_deref() == Some("chore") {
-        return true;
+    if let Some(t) = cz.commit_type.as_deref() {
+        if ["chore", "ci", "build"].contains(&t) {
+            return true;
+        }
     }
     if let Some(summary) = &cz.summary {
         let s = summary.trim();
-        if s.starts_with("chore:") || s.starts_with("chore(") {
+        if s.starts_with("chore:")
+            || s.starts_with("chore(")
+            || s.starts_with("ci:")
+            || s.starts_with("ci(")
+            || s.starts_with("build:")
+            || s.starts_with("build(")
+        {
             return true;
         }
     }
     if let Some(msg) = &cz.message {
         let m = msg.trim();
-        if m.starts_with("chore:") || m.starts_with("chore(") {
+        if m.starts_with("chore:")
+            || m.starts_with("chore(")
+            || m.starts_with("ci:")
+            || m.starts_with("ci(")
+            || m.starts_with("build:")
+            || m.starts_with("build(")
+        {
             return true;
         }
     }
@@ -131,8 +145,10 @@ pub fn infer_ticket_from_branch(branch: &str) -> Option<(u64, String, String)> {
     Some((id, kind.to_string(), slug.to_string()))
 }
 
-/// Infers the next required DD-TDD phase based on the commit history of the branch.
-pub fn infer_next_phase(log_messages: &[&str]) -> DdtddPhase {
+/// Infers the next required DD-TDD phase based on kind and commit history.
+/// For short cycles (docs, style), ph3 transitions directly to ph8.
+pub fn infer_next_phase_for_kind(kind: &str, log_messages: &[&str]) -> DdtddPhase {
+    let is_short = kind == "docs" || kind == "style";
     for msg in log_messages {
         let trimmed = msg.trim();
         if trimmed.contains("- ph8)") {
@@ -151,10 +167,18 @@ pub fn infer_next_phase(log_messages: &[&str]) -> DdtddPhase {
             return DdtddPhase::Ph5;
         }
         if trimmed.contains("- ph3)") {
+            if is_short {
+                return DdtddPhase::Ph8;
+            }
             return DdtddPhase::Ph4;
         }
     }
     DdtddPhase::Ph3
+}
+
+/// Infers the next required DD-TDD phase based on the commit history of the branch.
+pub fn infer_next_phase(log_messages: &[&str]) -> DdtddPhase {
+    infer_next_phase_for_kind("feat", log_messages)
 }
 
 /// Formats a conventional commit message tagged with ticket ID and phase suffix.
@@ -488,14 +512,10 @@ pub fn handle_start(args: &StartArgs, dir: Option<&Path>, theme: &Theme) -> Exit
                 "✓ {} Branch ativa configurada com sucesso!",
                 theme.green("Fase 2 (Branch):")
             );
-            let spec_slug = branch_name.split('/').nth(1).unwrap_or(&branch_name);
             println!(
                 "  {} {}",
                 theme.gold_bold("Próximo Passo Obrigatório:"),
-                theme.cyan(&format!(
-                    "Fase 3 (Doc/Spec): elabore a especificação em docs/specs/{}.md",
-                    spec_slug
-                ))
+                theme.cyan("Fase 3 (Doc/Spec): elabore a documentação em docs/ e README.md")
             );
             ExitCode::SUCCESS
         }
@@ -595,7 +615,7 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
             }
         }
     } else {
-        infer_next_phase(&msg_slices)
+        infer_next_phase_for_kind(&kind, &msg_slices)
     };
 
     println!(
@@ -629,8 +649,16 @@ pub fn handle_commit(cz: &CommitArgs, dir: Option<&Path>, theme: &Theme) -> Opti
     }
 
     let final_kind = cz.commit_type.as_deref().unwrap_or(&kind);
-    let formatted_msg =
-        format_phase_commit(final_kind, cz.scope.as_deref(), summary, ticket_id, phase);
+    let is_chore_branch = final_kind == "chore" || final_kind == "ci" || final_kind == "build";
+    let formatted_msg = if is_chore_branch && cz.phase.is_none() {
+        let scope_part = match cz.scope.as_deref() {
+            Some(s) if !s.trim().is_empty() => format!("({})", s.trim()),
+            _ => String::new(),
+        };
+        format!("{final_kind}{scope_part}: {summary} (ref #{ticket_id})")
+    } else {
+        format_phase_commit(final_kind, cz.scope.as_deref(), summary, ticket_id, phase)
+    };
 
     println!("  Mensagem Canônica  : {}", theme.yellow(&formatted_msg));
 
