@@ -166,6 +166,19 @@ Suíte de testes de integração ddtdd_lifecycle_test cobrindo todas as fases e 
 "#;
     assert!(validate_resolution_report(valid_report).is_ok());
 
+    // Relatório com cabeçalhos canônicos universais em inglês
+    let valid_english_report = r#"
+[Summary]:
+Implementation of universal Phase 9 resolution report headers in English.
+
+[Solution]:
+Updated validate_resolution_report and template generator to support Summary, Solution, and Validation.
+
+[Validation]:
+Integration test suite verifying full backward compatibility and universal conformance.
+"#;
+    assert!(validate_resolution_report(valid_english_report).is_ok());
+
     // Faltando cabeçalho [Validação]:
     let missing_section = r#"
 [Resumo]:
