@@ -812,6 +812,10 @@ pub struct AuditArgs {
     /// Mandatory justification when using --force
     #[arg(long = "reason")]
     pub reason: Option<String>,
+
+    /// Evaluation scope for rules (e.g. 'project', 'post-build', 'commit-msg')
+    #[arg(long = "scope")]
+    pub scope: Option<String>,
 }
 
 pub type GostArgs = AuditArgs;

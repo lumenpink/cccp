@@ -1132,7 +1132,12 @@ fn main() -> ExitCode {
                 .dir
                 .as_deref()
                 .unwrap_or_else(|| std::path::Path::new("."));
-            let report = cccp::audit::run_gost_audit(start_dir, gost.strict, &theme);
+            let report = cccp::audit::run_gost_audit_with_scope(
+                start_dir,
+                gost.strict,
+                gost.scope.as_deref(),
+                &theme,
+            );
             if report.is_success {
                 ExitCode::SUCCESS
             } else if gost.force {

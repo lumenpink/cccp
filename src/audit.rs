@@ -73,8 +73,40 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
     )
 }
 
+/// Extracts declared APP_TYPE from the GOSTVER file in a repository directory,
+/// defaulting to "binary" if Cargo.toml exists, or "manifesto" otherwise.
+pub fn read_app_type(root: &Path) -> String {
+    let gostver_file = root.join("GOSTVER");
+    if let Ok(content) = fs::read_to_string(gostver_file) {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("APP_TYPE=") {
+                let val = rest.trim_matches('"').trim_matches('\'').trim().to_lowercase();
+                if !val.is_empty() {
+                    return val;
+                }
+            }
+        }
+    }
+    if root.join("Cargo.toml").is_file() {
+        "binary".to_string()
+    } else {
+        "manifesto".to_string()
+    }
+}
+
 /// Executes full GOST compliance check on the specified root directory
 pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
+    run_gost_audit_with_scope(root, strict, None, theme)
+}
+
+/// Executes GOST compliance check filtering Lua rules by scope
+pub fn run_gost_audit_with_scope(
+    root: &Path,
+    strict: bool,
+    scope: Option<&str>,
+    theme: &Theme,
+) -> AuditReport {
     let (gost_ver, gost_prof, gost_langs) = read_gostver(root);
     let mut checks = Vec::new();
 
@@ -419,7 +451,9 @@ pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
 
     // 14. Lua Declarative Rules (GOST v3.0.0 rules.toml)
     let disabled_rules = crate::lua_rules::read_disabled_rules(root);
-    let lua_checks = crate::lua_rules::evaluate_lua_rules(root, &disabled_rules);
+    let target_scope = scope.unwrap_or("project");
+    let lua_checks =
+        crate::lua_rules::evaluate_lua_rules_for_scope(root, &disabled_rules, Some(target_scope));
     checks.extend(lua_checks);
 
     let passed = checks
