@@ -101,3 +101,45 @@ script = "this is not valid lua code!!!"
         .detail
         .contains("dispensada por configuração"));
 }
+
+#[test]
+fn test_lua_rules_scope_filtering() {
+    let dir = tempdir().expect("tempdir");
+    let p = dir.path();
+
+    let rules_toml = r#"
+[rules.SCOPE-001]
+name = "COMMIT-MSG-RULE"
+severity = "error"
+scope = "commit-msg"
+description = "Only evaluated during commit"
+script = "return false"
+
+[rules.SCOPE-002]
+name = "PROJECT-RULE"
+severity = "error"
+scope = "project"
+description = "Evaluated during project audit"
+script = "return true"
+"#;
+    fs::write(p.join("rules.toml"), rules_toml).unwrap();
+
+    let project_checks = cccp::lua_rules::evaluate_lua_rules(p, &[]);
+    assert_eq!(
+        project_checks.len(),
+        1,
+        "Only project scope rule must be evaluated in audit"
+    );
+    assert_eq!(project_checks[0].code, "SCOPE-002");
+    assert_eq!(project_checks[0].status, cccp::audit::CheckStatus::Pass);
+
+    let commit_checks = cccp::lua_rules::evaluate_lua_rules_for_scope(p, &[], Some("commit-msg"));
+    assert_eq!(
+        commit_checks.len(),
+        1,
+        "Only commit-msg scope rule must be evaluated"
+    );
+    assert_eq!(commit_checks[0].code, "SCOPE-001");
+    assert_eq!(commit_checks[0].status, cccp::audit::CheckStatus::Fail);
+}
+
