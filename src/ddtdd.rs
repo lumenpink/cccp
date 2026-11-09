@@ -229,7 +229,7 @@ pub fn validate_phase_guards(phase: DdtddPhase, staged_files: &[&str]) -> Result
 }
 
 /// Validates that the Phase 9 resolution report meets GOST requirements.
-/// Requires headers `[Resumo]:`, `[Solução]:`, `[Validação]:` and minimum 80 characters.
+/// Requires headers `[Summary]:` (or `[Resumo]:`), `[Solution]:` (or `[Solução]:`), `[Validation]:` (or `[Validação]:`) and minimum 80 characters.
 pub fn validate_resolution_report(body: &str) -> Result<(), String> {
     let trimmed = body.trim();
     if trimmed.chars().count() < 80 {
@@ -238,14 +238,26 @@ pub fn validate_resolution_report(body: &str) -> Result<(), String> {
             trimmed.chars().count()
         ));
     }
-    let required_headers = ["[Resumo]:", "[Solução]:", "[Validação]:"];
-    for header in &required_headers {
-        if !trimmed.contains(header) {
-            return Err(format!(
-                "Laudo de resolução incompleto. Cabeçalho obrigatório ausente: '{}'",
-                header
-            ));
-        }
+    let has_summary = trimmed.contains("[Summary]:") || trimmed.contains("[Resumo]:");
+    if !has_summary {
+        return Err(
+            "Laudo de resolução incompleto. Cabeçalho obrigatório ausente: '[Summary]:' (ou '[Resumo]:')"
+                .to_string(),
+        );
+    }
+    let has_solution = trimmed.contains("[Solution]:") || trimmed.contains("[Solução]:");
+    if !has_solution {
+        return Err(
+            "Laudo de resolução incompleto. Cabeçalho obrigatório ausente: '[Solution]:' (ou '[Solução]:')"
+                .to_string(),
+        );
+    }
+    let has_validation = trimmed.contains("[Validation]:") || trimmed.contains("[Validação]:");
+    if !has_validation {
+        return Err(
+            "Laudo de resolução incompleto. Cabeçalho obrigatório ausente: '[Validation]:' (ou '[Validação]:')"
+                .to_string(),
+        );
     }
     Ok(())
 }
@@ -723,14 +735,14 @@ pub fn handle_close(args: &CloseArgs, dir: Option<&Path>, theme: &Theme) -> Exit
     } else {
         // Template padrão para edição
         let template = format!(
-            "[Resumo]:\nConclusão do atendimento do Ticket #{ticket_id}.\n\n[Solução]:\nImplementadas as alterações e validações requeridas conforme especificação.\n\n[Validação]:\nExecutados testes unitários, análise estática (-D warnings) e testes de regressão com sucesso.\n"
+            "[Summary]:\nConclusão do atendimento do Ticket #{ticket_id}.\n\n[Solution]:\nImplementadas as alterações e validações requeridas conforme especificação.\n\n[Validation]:\nExecutados testes unitários, análise estática (-D warnings) e testes de regressão com sucesso.\n"
         );
         template
     };
 
     if let Err(val_err) = validate_resolution_report(&body) {
         eprintln!(
-            "{}: {}\n\nO Laudo Textual da Fase 9 exige comprimento >= 80 caracteres e os cabeçalhos:\n  • [Resumo]:\n  • [Solução]:\n  • [Validação]:",
+            "{}: {}\n\nO Laudo Textual da Fase 9 exige comprimento >= 80 caracteres e os cabeçalhos:\n  • [Summary]: (ou [Resumo]:)\n  • [Solution]: (ou [Solução]:)\n  • [Validation]: (ou [Validação]:)",
             theme.red_bold("Laudo Inválido"),
             val_err
         );

@@ -309,7 +309,7 @@ pub struct CloseArgs {
     /// Executive summary of the closing commit (<= 72 chars)
     pub summary: String,
 
-    /// Resolution report body (must contain [Resumo]:, [Solução]:, [Validação]:)
+    /// Resolution report body (must contain [Summary]:, [Solution]:, [Validation]:)
     #[arg(short = 'b', long = "body")]
     pub body: Option<String>,
 
