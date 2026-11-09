@@ -73,7 +73,16 @@ cccp gost upgrade 1.1.0
 
 ---
 
-## 3. Disciplina de Terminal e Cores
+## 3. Tipologia de Ciclos no DD-TDD (Full, Short, Chore)
+
+O `cccp` implementa a máquina de inferência e validação de fases do DD-TDD diferenciando os 3 ciclos canônicos:
+1. **Ciclo Full (`feat`, `fix`, `perf`):** 9 fases sequenciais completas (ph1 a ph9), exigindo testes Red/Green e de mutação.
+2. **Ciclo Short (`docs`, `style`):** Fluxo enxuto que transita de `ph3` (Doc/Style) diretamente para `ph8` (Quality Gate / Hygiene) e `ph9` (Finish & Close), sem testes unitários artificiais.
+3. **Ciclo Chore (`chore`, `ci`, `build`):** Tarefas administrativas permitindo commits com `(ref #ID)` e encerramento objetivo `(closes #ID - ph9)` sem obrigatoriedade de numeração de fases intermediárias.
+
+---
+
+## 4. Disciplina de Terminal e Cores
 
 - **Suporte ANSI Completo**: O relatório de auditoria apresenta cores temáticas Gosplan (`[PASS]` em verde, `[WARN]` em amarelo, `[FAIL]` em vermelho).
 - **Suporte a `NO_COLOR`**: Atende estritamente à especificação [no-color.org](https://no-color.org) quando a variável de ambiente `NO_COLOR=1` estiver definida.
