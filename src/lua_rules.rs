@@ -175,8 +175,13 @@ pub fn create_lua_environment(root: &Path) -> mlua::Result<Lua> {
     lunokhod::create_lua_environment(root)
 }
 
-pub fn evaluate_lua_rules(root: &Path, disabled_rules: &[String]) -> Vec<AuditCheck> {
-    let lk_checks = lunokhod::evaluate_lua_rules(root, disabled_rules, "pt-br");
+pub fn evaluate_lua_rules_for_scope(
+    root: &Path,
+    disabled_rules: &[String],
+    target_scope: Option<&str>,
+) -> Vec<AuditCheck> {
+    let lk_checks =
+        lunokhod::evaluate_lua_rules_for_scope(root, disabled_rules, "pt-br", target_scope);
     lk_checks
         .into_iter()
         .map(|c| {
@@ -194,4 +199,8 @@ pub fn evaluate_lua_rules(root: &Path, disabled_rules: &[String]) -> Vec<AuditCh
             }
         })
         .collect()
+}
+
+pub fn evaluate_lua_rules(root: &Path, disabled_rules: &[String]) -> Vec<AuditCheck> {
+    evaluate_lua_rules_for_scope(root, disabled_rules, Some("project"))
 }

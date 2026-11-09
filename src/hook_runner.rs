@@ -80,6 +80,24 @@ pub fn run_commit_msg(
     let result = lint_commit_file(file, config, true)?;
 
     if result.is_valid {
+        // Evaluate declarative Lua rules for scope "commit-msg"
+        let repo_root = file
+            .parent()
+            .and_then(|p| p.parent())
+            .unwrap_or(Path::new("."));
+        let disabled = crate::lua_rules::read_disabled_rules(repo_root);
+        let commit_checks = crate::lua_rules::evaluate_lua_rules_for_scope(
+            repo_root,
+            &disabled,
+            Some("commit-msg"),
+        );
+        for check in commit_checks {
+            if check.status == crate::audit::CheckStatus::Fail {
+                eprintln!("  {} [{}] {}", theme.red("✗"), check.code, check.detail);
+                return Ok(1);
+            }
+        }
+
         if verbose > 0 {
             println!(
                 "{} Commit message compliant with Conventional Commits 1.0.0",
