@@ -142,4 +142,3 @@ script = "return true"
     assert_eq!(commit_checks[0].code, "SCOPE-001");
     assert_eq!(commit_checks[0].status, cccp::audit::CheckStatus::Fail);
 }
-

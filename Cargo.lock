@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cccp"
-version = "3.2.0-dev.755+20261108.6bbc4ef"
+version = "3.2.0-dev.764+20261109.f1fd212"
 dependencies = [
  "clap",
  "clap_complete",
@@ -684,7 +684,7 @@ dependencies = [
 
 [[package]]
 name = "lunokhod"
-version = "0.1.0-dev.21+20261108.c40b957"
+version = "0.1.0-dev.28+20261109.074ba28"
 dependencies = [
  "clap",
  "git2",

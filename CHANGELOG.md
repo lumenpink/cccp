@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Filtragem de Regras por Escopo Canônico
+- **Separação de Escopos na Execução de Regras (`src/lua_rules.rs`, `src/hook_runner.rs`, `tests/lua_rules_test.rs`)**:
+  - Implementa `evaluate_lua_rules_for_scope` restringindo a execução de `cccp check` ao escopo `project`.
+  - Integra a avaliação de regras com escopo `commit-msg` diretamente na interceptação do hook `commit-msg`. (closes #149)
+
+
 ### Suporte a Ciclos Short e Chore no DD-TDD
 - **Inferência e Validação de Ciclos (`src/ddtdd.rs`, `tests/ddtdd_lifecycle_test.rs`)**:
   - Implementa `infer_next_phase_for_kind` permitindo avanço direto de `ph3` para `ph8` em ciclos curtos (`docs`, `style`).
