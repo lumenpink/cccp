@@ -165,14 +165,24 @@ fn test_read_app_type_from_gostver() {
     let dir = tempdir().expect("tempdir");
     let p = dir.path();
 
-    fs::write(p.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\nAPP_TYPE=\"hybrid\"\n").unwrap();
+    fs::write(
+        p.join("GOSTVER"),
+        "GOST_VERSION=\"3.0.0\"\nAPP_TYPE=\"hybrid\"\n",
+    )
+    .unwrap();
     let app_type = cccp::audit::read_app_type(p);
-    assert_eq!(app_type, "hybrid", "read_app_type deve extrair o valor de APP_TYPE do GOSTVER");
+    assert_eq!(
+        app_type, "hybrid",
+        "read_app_type deve extrair o valor de APP_TYPE do GOSTVER"
+    );
 
     // Teste de mutação / fallback: GOSTVER sem APP_TYPE em pasta sem Cargo.toml
     let p_mut = dir.path().join("mutant_repo");
     fs::create_dir_all(&p_mut).unwrap();
     fs::write(p_mut.join("GOSTVER"), "GOST_VERSION=\"3.0.0\"\n").unwrap();
     let fallback_type = cccp::audit::read_app_type(&p_mut);
-    assert_eq!(fallback_type, "manifesto", "Sem Cargo.toml e sem APP_TYPE, deve cair em manifesto");
+    assert_eq!(
+        fallback_type, "manifesto",
+        "Sem Cargo.toml e sem APP_TYPE, deve cair em manifesto"
+    );
 }

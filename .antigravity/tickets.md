@@ -1,20 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-04 19:43:55 UTC
+> Synced at: 2026-11-09 11:33:01 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#140] perf(repo-top): inicializacao instantanea e sincronizacao concorrente de ci
+## [#150] feat: integracao do escopo post-build e leitura de APP_TYPE do GOSTVER
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/140
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/150
 
 ### Description
-[Resumo]: Eliminar atrasos de inicialização e lentidão de convergência no 'cccp repo top' através de abertura imediata, consulta prioritária aos mais recentes e concorrência no sync.
-[Contexto]: O repo top executava chamadas de rede síncronas antes de desenhar a primeira tela e iterava sequencialmente por todos os 72 repositórios do catálogo com escritas redundantes em disco a cada resposta, levando 20+ segundos para convergir.
-[Objetivo]:
-1. Abertura instantânea da TUI sem chamadas de rede bloqueantes antes do modo gráfico.
-2. Priorização da busca de commit status nos repositórios recentes (janela de foco).
-3. Concorrência controlada (pool de threads) e gravação agregada no catálogo em lote.
-4. Convergência visual imediata após a atualização da janela prioritária.
+Implementar no cccp o suporte a execucao de regras sob o escopo post-build (cccp check --scope post-build e hook pos-compilacao) e a leitura de APP_TYPE no GOSTVER, adaptando os ciclos e auditorias para os 4 arquetipos de aplicacao.
 
 ---
 ## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado

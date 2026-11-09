@@ -81,7 +81,11 @@ pub fn read_app_type(root: &Path) -> String {
         for line in content.lines() {
             let trimmed = line.trim();
             if let Some(rest) = trimmed.strip_prefix("APP_TYPE=") {
-                let val = rest.trim_matches('"').trim_matches('\'').trim().to_lowercase();
+                let val = rest
+                    .trim_matches('"')
+                    .trim_matches('\'')
+                    .trim()
+                    .to_lowercase();
                 if !val.is_empty() {
                     return val;
                 }

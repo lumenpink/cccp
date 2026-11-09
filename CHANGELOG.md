@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Integração do Escopo post-build e Reconhecimento de APP_TYPE
+- **Auditoria Pós-Compilação e Arquétipos de Aplicação (`src/audit.rs`, `src/cli.rs`, `src/main.rs`, `tests/lua_rules_test.rs`)**:
+  - Implementa flag `--scope` em `cccp check` permitindo avaliar regras sob o escopo canônico `post-build`.
+  - Adiciona parser canônico de `APP_TYPE` no `GOSTVER` com fallback seguro para `binary` ou `manifesto`. (closes #150)
+
 ### Filtragem de Regras por Escopo Canônico
 - **Separação de Escopos na Execução de Regras (`src/lua_rules.rs`, `src/hook_runner.rs`, `tests/lua_rules_test.rs`)**:
   - Implementa `evaluate_lua_rules_for_scope` restringindo a execução de `cccp check` ao escopo `project`.
