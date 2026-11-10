@@ -288,6 +288,13 @@ pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
         }
     }
 
+    let candidates = get_rules_candidate_urls(url);
+    fetch_rules_from_urls(&candidates)
+}
+
+/// Returns ordered candidate URLs for retrieving `rules.toml` for a given normative profile URL
+pub fn get_rules_candidate_urls(url: &str) -> Vec<String> {
+    let mut candidates = Vec::new();
     let rules_url = if url.ends_with('/') {
         format!("{}rules.toml", url)
     } else if let Some((dir, _)) = url.rsplit_once('/') {
@@ -295,13 +302,41 @@ pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
     } else {
         format!("{}/rules.toml", url)
     };
+    candidates.push(rules_url);
 
-    if rules_url.starts_with("http://") || rules_url.starts_with("https://") {
-        if let Ok(resp) = ureq::get(&rules_url).call() {
-            if let Ok(body) = resp.into_body().read_to_string() {
-                let lower = body.to_ascii_lowercase();
-                if !lower.contains("<html") && !lower.contains("<!doctype") {
-                    return Some(body);
+    if url.contains("lilya") {
+        candidates.push("https://gambi.2lp.in/lumen/gost-profile-lilya/raw/branch/main/rules.toml".to_string());
+        candidates.push("https://lilya.2lp.in/rules.toml".to_string());
+    } else if url.contains("kollontai") {
+        candidates.push("https://gambi.2lp.in/lumen/gost-profile-kollontai/raw/branch/main/rules.toml".to_string());
+        candidates.push("https://kollontai.2lp.in/rules.toml".to_string());
+    } else if url.contains("gosplan") {
+        candidates.push("https://gambi.2lp.in/lumen/gosplan/raw/branch/main/rules.toml".to_string());
+        candidates.push("https://gosplan.2lp.in/rules.toml".to_string());
+    } else if url.contains("gost") {
+        candidates.push("https://gambi.2lp.in/lumen/gost/raw/branch/main/rules.toml".to_string());
+        candidates.push("https://gost.2lp.in/rules.toml".to_string());
+    }
+
+    let mut deduped = Vec::new();
+    for c in candidates {
+        if !deduped.contains(&c) {
+            deduped.push(c);
+        }
+    }
+    deduped
+}
+
+/// Tries to fetch rules content from an ordered list of candidate URLs
+pub fn fetch_rules_from_urls(urls: &[String]) -> Option<String> {
+    for c_url in urls {
+        if c_url.starts_with("http://") || c_url.starts_with("https://") {
+            if let Ok(resp) = ureq::get(c_url).call() {
+                if let Ok(body) = resp.into_body().read_to_string() {
+                    let lower = body.to_ascii_lowercase();
+                    if !lower.contains("<html") && !lower.contains("<!doctype") && !body.trim().is_empty() {
+                        return Some(body);
+                    }
                 }
             }
         }
