@@ -309,6 +309,16 @@ pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
     None
 }
 
+/// Sanitizes prohibited imperialist terms from compiled normative specs
+pub fn sanitize_prohibited_terms(text: &str) -> String {
+    text.replace("Soberania", "Autonomia")
+        .replace("soberania", "autonomia")
+        .replace("Soberano", "Canônico")
+        .replace("soberano", "canônico")
+        .replace("Soberana", "Canônica")
+        .replace("soberana", "canônica")
+}
+
 /// Recursively resolves the cascading profile chain starting from the root profile URL down to base GOST
 pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     let mut chain = Vec::new();
@@ -466,6 +476,7 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     let gost_dir = root.join(".gost");
     let _ = fs::create_dir_all(&gost_dir);
     let target_path = gost_dir.join("GOST.md");
+    let output = sanitize_prohibited_terms(&output);
     fs::write(&target_path, &output)?;
 
     // 4. Compile .gost/rules.toml cascading all layers + local custom-rules.toml
