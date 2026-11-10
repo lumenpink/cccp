@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Higienização de Termos Imperialistas no Assemble de Perfis
+- **Purga de Jargões em Perfis Compilados (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
+  - Implementa `sanitize_prohibited_terms` no pipeline de montagem de especificações `assemble_gost_specs`, expurgando termos imperialistas proibidos (como 'soberan...') de qualquer camada ou cache remoto. (closes #153)
+
 ### Consumo Canônico de Lunokhod e Expurgo de Dependência Local
 - **Consumo via Registry Gambi e Correção de CI (`Cargo.toml`, `.forgejo/workflows/ci.yml`, `tests/lunokhod_integration_test.rs`)**:
   - Migra dependência `lunokhod` para consumo a partir do registro `gambi` (`https://gambi.2lp.in/api/packages/lumen/cargo/`), eliminando dependência por caminho local em conformidade com `KOLLONTAI-016`.

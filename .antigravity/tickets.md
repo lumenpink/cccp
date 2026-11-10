@@ -1,14 +1,14 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-09 23:06:42 UTC
+> Synced at: 2026-11-10 01:17:34 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#152] fix(ci): consumir lunokhod via registry gambi e expurgar path dep
+## [#153] fix(profile): purgar termos proibidos na montagem de perfis em cascata
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/152
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/153
 
 ### Description
-Consumir a crate lunokhod a partir do registro gambi (https://gambi.2lp.in/api/packages/lumen/cargo/) em vez de dependência local por caminho (path = "../lunokhod"), garantindo conformidade com a regra KOLLONTAI-016 e corrigindo a falha do CI no Forgejo.
+Higienizar termos imperialistas proibidos (como 'soberan...') durante a montagem em cascata pelo 'assemble_gost_specs', garantindo que o documento compilado '.gost/GOST.md' permaneça estritamente conforme mesmo diante de camadas remotas ou caches legados.
 
 ---
 ## [#137] fix(push): permitir envio de tags e repasse de git_args quando repo estiver sincronizado
