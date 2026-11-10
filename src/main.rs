@@ -907,7 +907,7 @@ fn main() -> ExitCode {
             match cccp::release::execute_release_tag(repo_root, &options) {
                 Ok(tag_name) => {
                     println!(
-                        "\n{}\n{} Release tag '{}' criada com sucesso e sincronizada com VERSION e CHANGELOG.md.\n\n{}\n  git push origin main && git push origin {}\n",
+                        "\n{}\n{} Release tag '{}' criada com sucesso e sincronizada com VERSION e CHANGELOG.md.\n\n{}\n  cccp push && cccp push origin {}\n",
                         theme.gold_bold("★ GOSPLAN RELEASE CONCLUÍDA COM SUCESSO ★"),
                         theme.green("✓"),
                         tag_name,

@@ -200,11 +200,18 @@ pub fn handle_push(push: &PushArgs, dir: Option<&Path>, theme: &Theme) -> ExitCo
 
     match check_and_reconcile_parity(&repo_dir, theme) {
         Ok(ParityAction::AlreadyUpToDate) => {
-            println!(
-                "{} Tudo sincronizado com o remote (nada a enviar).",
-                theme.green("✓")
-            );
-            return ExitCode::SUCCESS;
+            if push.git_args.is_empty() {
+                println!(
+                    "{} Tudo sincronizado com o remote (nada a enviar).",
+                    theme.green("✓")
+                );
+                return ExitCode::SUCCESS;
+            } else {
+                println!(
+                    "{} Branch em paridade. Encaminhando argumentos explícitos ao git push...",
+                    theme.cyan("•")
+                );
+            }
         }
         Ok(ParityAction::FastForwarded) => {
             println!(
