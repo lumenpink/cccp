@@ -773,6 +773,10 @@ pub struct PushArgs {
     #[arg(short = 'n', long = "dry-run")]
     pub dry_run: bool,
 
+    /// Bypass parity checks and force push to remote
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
     /// Arguments to forward directly to git push
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     pub git_args: Vec<String>,

@@ -633,6 +633,7 @@ fn test_handle_push_forwards_git_args_when_already_up_to_date() {
     let push_args = cccp::cli::PushArgs {
         all: false,
         dry_run: false,
+        force: false,
         git_args: vec!["origin".to_string(), "v1.0.0".to_string()],
     };
     let theme = Theme::with_color(false);
@@ -688,6 +689,7 @@ fn test_mutation_handle_push_early_exit_on_empty_args_when_already_up_to_date() 
     let push_args = cccp::cli::PushArgs {
         all: false,
         dry_run: false,
+        force: false,
         git_args: vec![],
     };
     let theme = Theme::with_color(false);
@@ -697,5 +699,104 @@ fn test_mutation_handle_push_early_exit_on_empty_args_when_already_up_to_date() 
         code,
         std::process::ExitCode::SUCCESS,
         "Empty git_args when already up to date must exit early with SUCCESS"
+    );
+}
+
+#[test]
+fn test_handle_push_with_force_bypasses_divergence() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let local_dir = scaffold_test_git_repo();
+    let remote_dir = scaffold_test_bare_remote();
+
+    Command::new("git")
+        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    // Create a divergent commit on remote via cloned peer
+    let peer_dir = tempdir().expect("peer tempdir");
+    let clone_status = Command::new("git")
+        .args([
+            "clone",
+            "-b",
+            "main",
+            remote_dir.path().to_str().unwrap(),
+            peer_dir.path().to_str().unwrap(),
+        ])
+        .status()
+        .unwrap();
+    assert!(clone_status.success());
+    Command::new("git")
+        .args(["config", "user.name", "Peer Worker"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "peer@gost.su"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    fs::write(peer_dir.path().join("peer.txt"), "peer content").unwrap();
+    Command::new("git")
+        .args(["add", "peer.txt"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "feat: peer remote commit"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    let push_status = Command::new("git")
+        .args(["push", "origin", "main"])
+        .current_dir(peer_dir.path())
+        .status()
+        .unwrap();
+    assert!(push_status.success());
+
+    // Local also creates a diverging commit
+    fs::write(local_dir.path().join("local.txt"), "local content").unwrap();
+    Command::new("git")
+        .args(["add", "local.txt"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "feat: local conflicting commit"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    let theme = Theme::with_color(false);
+
+    // Sem force, o push deve falhar devido à divergência
+    let push_no_force = cccp::cli::PushArgs {
+        all: false,
+        dry_run: false,
+        force: false,
+        git_args: vec![],
+    };
+    let code_no_force = cccp::push::handle_push(&push_no_force, Some(local_dir.path()), &theme);
+    assert_eq!(code_no_force, std::process::ExitCode::FAILURE);
+
+    // Com force, deve ignorar a divergência e forçar o envio com sucesso
+    let push_with_force = cccp::cli::PushArgs {
+        all: false,
+        dry_run: false,
+        force: true,
+        git_args: vec![],
+    };
+    let code_with_force = cccp::push::handle_push(&push_with_force, Some(local_dir.path()), &theme);
+    assert_eq!(
+        code_with_force,
+        std::process::ExitCode::SUCCESS,
+        "Push with --force must bypass parity errors and succeed"
     );
 }
