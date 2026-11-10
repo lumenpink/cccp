@@ -1792,6 +1792,26 @@ mod tests {
     }
 
     #[test]
+    fn parse_hidden_root_alias_divan() {
+        let res = Cli::try_parse_from(["cccp", "divan", "--direct"]);
+        assert!(
+            res.is_ok(),
+            "cccp divan must be accepted as root alias: {:?}",
+            res.err()
+        );
+
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        let mut help_buf = Vec::new();
+        cmd.write_help(&mut help_buf).unwrap();
+        let help_text = String::from_utf8_lossy(&help_buf);
+        assert!(
+            !help_text.contains("divan        "),
+            "Root help must not expose hidden alias 'divan'"
+        );
+    }
+
+    #[test]
     fn parse_ticket_args() {
         let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
         match args.command {
