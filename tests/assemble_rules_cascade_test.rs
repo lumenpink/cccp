@@ -73,3 +73,29 @@ script = "return true"
     let content_no_custom = fs::read_to_string(&compiled_no_custom).unwrap();
     assert!(!content_no_custom.contains("[rules.LOCAL-001]"));
 }
+
+#[test]
+fn test_assemble_purges_prohibited_terms_from_custom_md() {
+    let dir = tempdir().expect("tempdir");
+    let p = dir.path();
+    fs::create_dir_all(p.join(".gost")).unwrap();
+    fs::write(
+        p.join("GOSTVER"),
+        "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"https://lilya.2lp.in/profile.md\"\n",
+    )
+    .unwrap();
+    fs::write(p.join("VERSION"), "1.0.0\n").unwrap();
+    fs::write(
+        p.join("CUSTOM.md"),
+        "# Custom Spec\nForja soberana e espelhamento soberano.\n",
+    )
+    .unwrap();
+
+    let res = assemble_gost_specs(p);
+    assert!(res.is_ok(), "assemble must succeed");
+    let gost_md = fs::read_to_string(p.join(".gost/GOST.md")).expect("GOST.md must exist");
+    assert!(
+        !gost_md.to_lowercase().contains("soberan"),
+        "assemble_gost_specs must purge prohibited terms like 'soberan'"
+    );
+}
