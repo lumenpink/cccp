@@ -709,7 +709,12 @@ fn test_handle_push_with_force_bypasses_divergence() {
     let remote_dir = scaffold_test_bare_remote();
 
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();

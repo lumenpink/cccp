@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Suporte Universal à Flag `--force` nos Comandos Operacionais
+- **Flag `--force` e `-f` no Envio Remoto (`src/cli.rs`, `src/push.rs`, `tests/git_locks_push_test.rs`)**:
+  - Adiciona suporte explícito a `--force` / `-f` no comando `cccp push`, completando a paridade de bypass com `commit`, `merge`, `hook`, `sync` e `check`.
+  - Permite contornar verificações prévias de divergência no tracking branch emitindo aviso visual de advertência e repassando `--force` ao git push sob a guarda do Maestro. (closes #130)
+
 ### Repasse de Git Args e Envio de Tags no Push
 - **Encaminhamento de Argumentos Explícitos e Envio de Release Tags (`src/push.rs`, `src/main.rs`, `tests/git_locks_push_test.rs`)**:
   - Permite o encaminhamento de argumentos explícitos (`git_args`, ex.: `origin v1.0.0` ou `--tags`) para o `git push` sob a guarda do Maestro mesmo quando a branch estiver em paridade com o upstream remoto (`ahead == 0`).
