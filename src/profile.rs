@@ -305,13 +305,19 @@ pub fn get_rules_candidate_urls(url: &str) -> Vec<String> {
     candidates.push(rules_url);
 
     if url.contains("lilya") {
-        candidates.push("https://gambi.2lp.in/lumen/gost-profile-lilya/raw/branch/main/rules.toml".to_string());
+        candidates.push(
+            "https://gambi.2lp.in/lumen/gost-profile-lilya/raw/branch/main/rules.toml".to_string(),
+        );
         candidates.push("https://lilya.2lp.in/rules.toml".to_string());
     } else if url.contains("kollontai") {
-        candidates.push("https://gambi.2lp.in/lumen/gost-profile-kollontai/raw/branch/main/rules.toml".to_string());
+        candidates.push(
+            "https://gambi.2lp.in/lumen/gost-profile-kollontai/raw/branch/main/rules.toml"
+                .to_string(),
+        );
         candidates.push("https://kollontai.2lp.in/rules.toml".to_string());
     } else if url.contains("gosplan") {
-        candidates.push("https://gambi.2lp.in/lumen/gosplan/raw/branch/main/rules.toml".to_string());
+        candidates
+            .push("https://gambi.2lp.in/lumen/gosplan/raw/branch/main/rules.toml".to_string());
         candidates.push("https://gosplan.2lp.in/rules.toml".to_string());
     } else if url.contains("gost") {
         candidates.push("https://gambi.2lp.in/lumen/gost/raw/branch/main/rules.toml".to_string());
@@ -334,7 +340,10 @@ pub fn fetch_rules_from_urls(urls: &[String]) -> Option<String> {
             if let Ok(resp) = ureq::get(c_url).call() {
                 if let Ok(body) = resp.into_body().read_to_string() {
                     let lower = body.to_ascii_lowercase();
-                    if !lower.contains("<html") && !lower.contains("<!doctype") && !body.trim().is_empty() {
+                    if !lower.contains("<html")
+                        && !lower.contains("<!doctype")
+                        && !body.trim().is_empty()
+                    {
                         return Some(body);
                     }
                 }
