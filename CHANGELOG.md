@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Atalhos Ocultos no Nível Raiz para Subcomandos
+- **Ocultação de Atalho Raiz `cccp divan` (`src/cli.rs`)**:
+  - Configura o atalho de nível raiz `Divan` com `hide = true`, impedindo a poluição visual do menu principal `cccp --help`.
+  - Documenta explicitamente a disponibilidade do atalho rápido na ajuda contextual do comando pai (`cccp ticket --help`). (closes #131)
+
 ### Suporte Universal à Flag `--force` nos Comandos Operacionais
 - **Flag `--force` e `-f` no Envio Remoto (`src/cli.rs`, `src/push.rs`, `tests/git_locks_push_test.rs`)**:
   - Adiciona suporte explícito a `--force` / `-f` no comando `cccp push`, completando a paridade de bypass com `commit`, `merge`, `hook`, `sync` e `check`.
