@@ -585,3 +585,62 @@ fn test_mutation_parity_fetch_with_invalid_remote_fails_gracefully() {
     let err_msg = res.unwrap_err();
     assert!(err_msg.contains("Falha ao sincronizar") || err_msg.contains("Falha ao verificar"));
 }
+
+#[test]
+fn test_handle_push_forwards_git_args_when_already_up_to_date() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let local_dir = scaffold_test_git_repo();
+    let remote_dir = scaffold_test_bare_remote();
+
+    Command::new("git")
+        .args(["config", "tag.gpgsign", "false"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    // Create a local tag
+    Command::new("git")
+        .args(["tag", "v1.0.0"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    // Verify remote does not have v1.0.0 yet
+    let out = Command::new("git")
+        .args(["tag", "--list"])
+        .current_dir(remote_dir.path())
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).trim().is_empty());
+
+    let push_args = cccp::cli::PushArgs {
+        all: false,
+        dry_run: false,
+        git_args: vec!["origin".to_string(), "v1.0.0".to_string()],
+    };
+    let theme = Theme::with_color(false);
+
+    let code = cccp::push::handle_push(&push_args, Some(local_dir.path()), &theme);
+    assert_eq!(code, std::process::ExitCode::SUCCESS);
+
+    // Verify remote received the tag
+    let out_remote = Command::new("git")
+        .args(["tag", "--list"])
+        .current_dir(remote_dir.path())
+        .output()
+        .unwrap();
+    let remote_tags = String::from_utf8_lossy(&out_remote.stdout).trim().to_string();
+    assert_eq!(remote_tags, "v1.0.0", "Remote must have received tag v1.0.0 via forwarded git_args");
+}
