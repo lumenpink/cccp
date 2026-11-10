@@ -599,7 +599,12 @@ fn test_handle_push_forwards_git_args_when_already_up_to_date() {
         .unwrap();
 
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();
@@ -641,8 +646,13 @@ fn test_handle_push_forwards_git_args_when_already_up_to_date() {
         .current_dir(remote_dir.path())
         .output()
         .unwrap();
-    let remote_tags = String::from_utf8_lossy(&out_remote.stdout).trim().to_string();
-    assert_eq!(remote_tags, "v1.0.0", "Remote must have received tag v1.0.0 via forwarded git_args");
+    let remote_tags = String::from_utf8_lossy(&out_remote.stdout)
+        .trim()
+        .to_string();
+    assert_eq!(
+        remote_tags, "v1.0.0",
+        "Remote must have received tag v1.0.0 via forwarded git_args"
+    );
 }
 
 #[test]
@@ -658,7 +668,12 @@ fn test_mutation_handle_push_early_exit_on_empty_args_when_already_up_to_date() 
         .unwrap();
 
     Command::new("git")
-        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_dir.path().to_str().unwrap(),
+        ])
         .current_dir(local_dir.path())
         .status()
         .unwrap();

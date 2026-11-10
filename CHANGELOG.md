@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Repasse de Git Args e Envio de Tags no Push
+- **Encaminhamento de Argumentos Explícitos e Envio de Release Tags (`src/push.rs`, `src/main.rs`, `tests/git_locks_push_test.rs`)**:
+  - Permite o encaminhamento de argumentos explícitos (`git_args`, ex.: `origin v1.0.0` ou `--tags`) para o `git push` sob a guarda do Maestro mesmo quando a branch estiver em paridade com o upstream remoto (`ahead == 0`).
+  - Alinha as instruções pós-release tag emitidas pelo comando `cccp tag` para recomendar `cccp push` em substituição ao comando manual direto bloqueado pelo pre-push. (closes #137)
+
 ### Expurgar libgit2 e Unificar no Git CLI Nativo
 - **Unificação no Git CLI e Remoção da C-ABI (`src/git.rs`, `src/ci_pipeline.rs`, `Cargo.toml`, `tests/git_native_cli_test.rs`)**:
   - Elimina a dependência da crate `git2` e da biblioteca C `libgit2`, removendo compilação de código C e fragilidades de linkagem estática com musl e multi-arquitetura.
