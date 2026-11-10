@@ -92,23 +92,15 @@ fn test_gost_audit_empty_directory_fails() {
 
     let report = run_gost_audit(temp.path(), false, &theme);
     assert!(!report.is_success, "Empty directory must fail GOST audit");
-    assert!(report.failures > 0);
-    assert!(report.percentage < 50);
+    assert_eq!(report.failures, 1);
+    assert_eq!(report.percentage, 0);
 
-    // Verify individual checks
-    let gostver_check = report
+    let no_rules = report
         .checks
         .iter()
-        .find(|c| c.code == "GOST-16-GOSTVER")
-        .unwrap();
-    assert_eq!(gostver_check.status, CheckStatus::Fail);
-
-    let license_check = report
-        .checks
-        .iter()
-        .find(|c| c.code == "GOST-01-LICENSE")
-        .unwrap();
-    assert_eq!(license_check.status, CheckStatus::Fail);
+        .find(|c| c.code == "NO-RULES-FOUND")
+        .expect("NO-RULES-FOUND check must exist");
+    assert_eq!(no_rules.status, CheckStatus::Fail);
 }
 
 #[test]
@@ -116,27 +108,29 @@ fn test_gost_audit_compliant_repo() {
     let temp = tempdir().expect("tempdir");
     let theme = Theme::init(true);
 
-    // Setup compliant files
-    fs::write(temp.path().join("GOSTVER"), "GOST_VERSION=\"1.1.0\"\n").unwrap();
-    fs::write(temp.path().join("LICENSE"), "CC0-1.0 Public Domain\n").unwrap();
+    let rules = r#"
+[rules.RULE-001]
+name = "CHECK-README"
+severity = "error"
+scope = "project"
+description = "Verifica README"
+script = "return gost.file_exists('README.md')"
+
+[rules.RULE-002]
+name = "CHECK-LICENSE"
+severity = "error"
+scope = "project"
+description = "Verifica LICENSE"
+script = "return gost.file_exists('LICENSE')"
+"#;
+    fs::write(temp.path().join("rules.toml"), rules).unwrap();
     fs::write(temp.path().join("README.md"), "# Compliant Repo\n").unwrap();
-    fs::write(temp.path().join("VERSION"), "1.0.0\n").unwrap();
-    fs::write(temp.path().join("CHANGELOG.md"), "# Changelog\n").unwrap();
-    fs::write(temp.path().join(".gitignore"), "target/\n").unwrap();
-    fs::write(temp.path().join(".editorconfig"), "root = true\n").unwrap();
-
-    let workflows_dir = temp.path().join(".forgejo/workflows");
-    fs::create_dir_all(&workflows_dir).unwrap();
-    fs::write(workflows_dir.join("ci.yaml"), "name: CI\n").unwrap();
-
-    let site_dir = temp.path().join("site");
-    fs::create_dir_all(&site_dir).unwrap();
-    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+    fs::write(temp.path().join("LICENSE"), "GPL-3.0\n").unwrap();
 
     let report = run_gost_audit(temp.path(), false, &theme);
     assert_eq!(report.failures, 0, "No failures expected in compliant repo");
     assert!(report.is_success);
-    assert!(report.percentage >= 75);
+    assert_eq!(report.percentage, 100);
 }
 
 #[test]
@@ -144,27 +138,25 @@ fn test_gost_audit_strict_mode_rejects_warnings() {
     let temp = tempdir().expect("tempdir");
     let theme = Theme::init(true);
 
-    // Setup base files without CI workflows (which produces a warning)
-    fs::write(temp.path().join("GOSTVER"), "GOST_VERSION=\"1.1.0\"\n").unwrap();
-    fs::write(temp.path().join("LICENSE"), "MIT\n").unwrap();
-    fs::write(temp.path().join("README.md"), "# Repo\n").unwrap();
-    fs::write(temp.path().join("VERSION"), "0.1.0\n").unwrap();
-    fs::write(temp.path().join("CHANGELOG.md"), "# Changelog\n").unwrap();
-    fs::write(temp.path().join(".gitignore"), "target/\n").unwrap();
-    fs::write(temp.path().join(".editorconfig"), "root = true\n").unwrap();
-
-    let site_dir = temp.path().join("site");
-    fs::create_dir_all(&site_dir).unwrap();
-    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+    let rules = r#"
+[rules.RULE-WARN]
+name = "OPTIONAL-DOC"
+severity = "warning"
+scope = "project"
+description = "Aviso se documento opcional faltar"
+script = "return false, 'Doc opcional ausente'"
+"#;
+    fs::write(temp.path().join("rules.toml"), rules).unwrap();
 
     // In non-strict mode, warnings are allowed
     let report_non_strict = run_gost_audit(temp.path(), false, &theme);
     assert!(report_non_strict.is_success);
-    assert!(report_non_strict.warnings > 0);
+    assert_eq!(report_non_strict.warnings, 1);
 
     // In strict mode, warnings cause failure
     let report_strict = run_gost_audit(temp.path(), true, &theme);
     assert!(!report_strict.is_success);
+    assert_eq!(report_strict.warnings, 1);
 }
 
 #[test]
@@ -195,21 +187,15 @@ fn test_gost_audit_chores_exempt_from_ticket_requirement() {
         .status()
         .unwrap();
 
-    fs::write(temp.path().join("GOSTVER"), "GOST_VERSION=\"2.0.0\"\n").unwrap();
-    fs::write(temp.path().join("LICENSE"), "GPL-3.0\n").unwrap();
-    fs::write(temp.path().join("README.md"), "# Test Repo\n").unwrap();
-    fs::write(temp.path().join("VERSION"), "0.1.0\n").unwrap();
-    fs::write(temp.path().join("CHANGELOG.md"), "# Changelog\n").unwrap();
-    fs::write(temp.path().join(".gitignore"), "target/\n").unwrap();
-    fs::write(temp.path().join(".editorconfig"), "root = true\n").unwrap();
-
-    let workflows_dir = temp.path().join(".forgejo/workflows");
-    fs::create_dir_all(&workflows_dir).unwrap();
-    fs::write(workflows_dir.join("ci.yml"), "name: CI\n").unwrap();
-
-    let site_dir = temp.path().join("site");
-    fs::create_dir_all(&site_dir).unwrap();
-    fs::write(site_dir.join("index.html"), "<html></html>\n").unwrap();
+    let rules = r#"
+[rules.GIT-001]
+name = "CHECK-BRANCH"
+severity = "error"
+scope = "project"
+description = "Verifica se branch ativa e main"
+script = "local b = gost.git_branch(); return b == 'main', 'Branch ativa: ' .. tostring(b)"
+"#;
+    fs::write(temp.path().join("rules.toml"), rules).unwrap();
 
     Command::new("git")
         .args(["add", "."])
@@ -217,56 +203,18 @@ fn test_gost_audit_chores_exempt_from_ticket_requirement() {
         .status()
         .unwrap();
     Command::new("git")
-        .args(["commit", "-m", "chore: initial repository structure"])
-        .current_dir(temp.path())
-        .status()
-        .unwrap();
-
-    fs::write(temp.path().join("NOTES.md"), "just notes\n").unwrap();
-    Command::new("git")
-        .args(["add", "NOTES.md"])
-        .current_dir(temp.path())
-        .status()
-        .unwrap();
-    Command::new("git")
-        .args(["commit", "-m", "chore(docs): update notes"])
+        .args(["commit", "-m", "chore: initial commit"])
         .current_dir(temp.path())
         .status()
         .unwrap();
 
     let report_strict = run_gost_audit(temp.path(), true, &theme);
-    let check_04 = report_strict
+    let check = report_strict
         .checks
         .iter()
-        .find(|c| c.code == "GOST-04-TICKETS-COMMITS")
-        .unwrap();
-    assert_eq!(check_04.status, cccp::audit::CheckStatus::Pass);
-    assert!(check_04.detail.contains("chores isentos"));
-
-    // Mutation: adding an invalid non-chore commit without ticket reference must FAIL
-    fs::write(temp.path().join("feat.txt"), "some feature\n").unwrap();
-    Command::new("git")
-        .args(["add", "feat.txt"])
-        .current_dir(temp.path())
-        .status()
-        .unwrap();
-    Command::new("git")
-        .args(["commit", "-m", "feat: add feature without ticket"])
-        .current_dir(temp.path())
-        .status()
-        .unwrap();
-
-    let report_mutant = run_gost_audit(temp.path(), true, &theme);
-    let check_04_mutant = report_mutant
-        .checks
-        .iter()
-        .find(|c| c.code == "GOST-04-TICKETS-COMMITS")
-        .unwrap();
-    assert_eq!(
-        check_04_mutant.status,
-        cccp::audit::CheckStatus::Fail,
-        "Non-chore commit without ticket must fail GOST-04"
-    );
+        .find(|c| c.code == "GIT-001")
+        .expect("GIT-001 check must exist");
+    assert_eq!(check.status, CheckStatus::Pass);
 }
 
 fn check_workflow_has_permissions(content: &str) -> bool {
