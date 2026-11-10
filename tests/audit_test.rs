@@ -49,8 +49,15 @@ script = "return true"
     fs::write(p.join("rules.toml"), custom_rules).unwrap();
 
     let report = run_gost_audit(p, false, &theme);
-    assert!(report.is_success, "Agnostic audit must pass with 1 valid rule");
-    assert_eq!(report.checks.len(), 1, "Report must contain exactly 1 check from rules.toml");
+    assert!(
+        report.is_success,
+        "Agnostic audit must pass with 1 valid rule"
+    );
+    assert_eq!(
+        report.checks.len(),
+        1,
+        "Report must contain exactly 1 check from rules.toml"
+    );
     assert_eq!(report.checks[0].code, "CUSTOM-001");
     assert_eq!(report.checks[0].status, CheckStatus::Pass);
 
@@ -102,7 +109,10 @@ script = "error('Falha intencional de runtime Lua')"
     fs::write(p.join("rules.toml"), custom_rules).unwrap();
 
     let report = run_gost_audit(p, false, &theme);
-    assert!(!report.is_success, "Rule with runtime error must fail audit");
+    assert!(
+        !report.is_success,
+        "Rule with runtime error must fail audit"
+    );
     let check = report
         .checks
         .iter()

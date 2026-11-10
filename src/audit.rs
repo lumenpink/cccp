@@ -133,7 +133,9 @@ pub fn run_gost_audit_with_scope(
         checks.push(AuditCheck {
             code: "NO-RULES-FOUND",
             title: "Catálogo de Regras Declarativas",
-            detail: "Nenhum catálogo de regras declarativas encontrado (.gost/rules.toml, rules.toml)".to_string(),
+            detail:
+                "Nenhum catálogo de regras declarativas encontrado (.gost/rules.toml, rules.toml)"
+                    .to_string(),
             status: CheckStatus::Fail,
         });
     } else {
