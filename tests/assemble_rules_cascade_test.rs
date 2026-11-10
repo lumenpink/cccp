@@ -122,4 +122,9 @@ fn test_fetch_rules_candidates_and_raw_forgejo_fallback() {
         content.unwrap().contains("[rules."),
         "Fetched rules must contain [rules.] table"
     );
+
+    // Mutation Test: ensure pure failures return None deterministically
+    let only_invalid = vec!["https://127.0.0.1:9/invalid-rules.toml".to_string()];
+    assert!(fetch_rules_from_urls(&only_invalid).is_none(), "Must return None when all URLs fail");
+    assert!(fetch_rules_from_urls(&[]).is_none(), "Must return None for empty URL list");
 }
