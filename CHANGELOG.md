@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Auditoria Agnóstica e Desacoplamento via Motor Lunokhod
+- **Auditoria 100% Declarativa e Agnóstica (`src/audit.rs`, `tests/audit_test.rs`, `tests/audit_gost2_test.rs`)**:
+  - Elimina todas as verificações estáticas hardcoded em Rust (`GOST-01..28`), convertendo o maestro `cccp` em um executor 100% neutro e agnóstico de regras de negócio.
+  - Delega a totalidade da avaliação de conformidade para o motor `lunokhod` executando regras declarativas a partir de `rules.toml` / `.gost/rules.toml`.
+  - Emite falha explícita (`NO-RULES-FOUND`) na ausência de catálogo de regras declarativas, assegurando que nenhum repositório seja auditado sem especificações explícitas. (closes #155)
+
 ### Fallback Raw Forgejo na Resolução de Regras Declarativas
 - **Fallback Canônico para CDN Fria e CI (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
   - Implementa resolução resiliente de URLs de regras declarativas (`get_rules_candidate_urls` e `fetch_rules_from_urls`) com fallback automático para os endpoints raw do Forgejo, assegurando montagem hermética mesmo sob CDN fria ou em ambientes isolados de CI. (closes #154)
