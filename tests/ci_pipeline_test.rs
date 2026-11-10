@@ -120,8 +120,8 @@ fn test_cargo_toml_disables_git2_default_features() {
     let cargo_toml = fs::read_to_string(&cargo_toml_path).expect("Cargo.toml must exist");
 
     assert!(
-        cargo_toml.contains("default-features = false"),
-        "Cargo.toml must disable git2 default-features to prevent openssl-sys in musl"
+        !cargo_toml.contains("git2 ="),
+        "Cargo.toml must not declare git2 dependency (purged in ticket #156)"
     );
     assert!(
         !cargo_toml.contains("vendored-openssl"),
@@ -135,11 +135,11 @@ fn test_cargo_toml_disables_git2_default_features() {
         "Mutation introducing vendored-openssl must be detectable"
     );
 
-    // Mutation 2: Cargo.toml without default-features = false must be detectable
-    let mutated_without_flag = "git2 = { version = \"0.20\" }";
+    // Mutation 2: Cargo.toml with git2 must be detectable
+    let mutated_with_git2 = "git2 = { version = \"0.20\" }";
     assert!(
-        !mutated_without_flag.contains("default-features = false"),
-        "Mutation omitting default-features = false must be detectable"
+        mutated_with_git2.contains("git2 ="),
+        "Mutation introducing git2 dependency must be detectable"
     );
 }
 
@@ -285,17 +285,41 @@ fn test_deploy_site_dry_run() {
     let theme = Theme::with_color(false);
 
     // Initialize git repo for tree operations
-    let repo = git2::Repository::init(root).unwrap();
+    let init_st = std::process::Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(init_st.success());
+
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Comrade"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.email", "comrade@gosplan.su"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(root)
+        .status()
+        .unwrap();
 
     // Create an initial commit on main so HEAD exists
-    {
-        let mut index = repo.index().unwrap();
-        let sig = git2::Signature::now("Comrade", "comrade@gosplan.su").unwrap();
-        let tree_id = index.write_tree().unwrap();
-        let tree = repo.find_tree(tree_id).unwrap();
-        repo.commit(Some("HEAD"), &sig, &sig, "init", &tree, &[])
-            .unwrap();
-    }
+    fs::write(root.join("init.txt"), "init\n").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "init.txt"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(root)
+        .status()
+        .unwrap();
 
     // Create mock site directory
     let site_dir = root.join("site");
@@ -322,8 +346,15 @@ fn test_deploy_site_dry_run() {
     );
 
     // Verify pages branch exists locally
-    let branch = repo.find_branch("pages", git2::BranchType::Local);
-    assert!(branch.is_ok(), "Local 'pages' branch must be created");
+    let verify_branch = std::process::Command::new("git")
+        .args(["rev-parse", "--verify", "refs/heads/pages"])
+        .current_dir(root)
+        .status()
+        .unwrap();
+    assert!(
+        verify_branch.success(),
+        "Local 'pages' branch must be created"
+    );
 }
 
 #[test]

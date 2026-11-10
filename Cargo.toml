@@ -1,6 +1,6 @@
 [package]
 name = "cccp"
-version = "3.2.0-dev.800+20261110.608bcde"
+version = "3.2.0-dev.801+20261110.453c5e6"
 edition = "2021"
 authors = ["Lumen Pink <hi@lumen.pink>"]
 description = "Conventional Commits Compliance Program (CCCP) - Native Standalone Binary"
@@ -14,7 +14,6 @@ clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
-git2 = { version = "0.20", default-features = false }
 semver = "1.0"
 inquire = "0.9"
 tempfile = "3.17"

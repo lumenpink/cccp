@@ -3,6 +3,7 @@
 use crate::cultural::Theme;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(Debug, Clone, Default)]
 pub struct PublishArtifactsOptions {
@@ -196,21 +197,18 @@ pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Resu
         let _ = fs::write(source.join("CNAME"), domain.trim());
     }
 
-    let repo = git2::Repository::open(root)
-        .map_err(|e| format!("Falha ao abrir repositório git: {}", e))?;
-
     let version = fs::read_to_string(root.join("VERSION"))
         .ok()
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "1.0.0".to_string());
 
-    let commit_oid = create_pages_commit(&repo, &source, &opts.branch, &version)?;
+    let commit_oid = create_pages_commit(root, &source, &opts.branch, &version)?;
 
     println!(
         "{} Commit de páginas criado em '{}' ({})",
         theme.green("✓ [DEPLOY SITE]"),
         theme.bold(&opts.branch),
-        &commit_oid.to_string()[..8]
+        &commit_oid[..8.min(commit_oid.len())]
     );
 
     if opts.dry_run {
@@ -250,73 +248,111 @@ pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Resu
 }
 
 fn create_pages_commit(
-    repo: &git2::Repository,
+    root: &Path,
     source: &Path,
     branch: &str,
     version: &str,
-) -> Result<git2::Oid, String> {
-    let tree_oid = build_tree_recursive(repo, source)?;
-    let tree = repo.find_tree(tree_oid).map_err(|e| e.to_string())?;
+) -> Result<String, String> {
+    let temp_dir = tempfile::tempdir()
+        .map_err(|e| format!("Falha ao criar diretório temporário: {}", e))?;
+    let temp_index_path = temp_dir.path().join("pages_index");
 
-    let branch_ref_name = format!("refs/heads/{}", branch);
-    let parent_commit = match repo.find_reference(&branch_ref_name) {
-        Ok(r) => r.peel_to_commit().ok(),
-        Err(_) => None,
+    let abs_source = if source.is_absolute() {
+        source.to_path_buf()
+    } else {
+        root.join(source)
     };
 
-    let parents: Vec<&git2::Commit> = match &parent_commit {
-        Some(c) => vec![c],
-        None => vec![],
-    };
+    let add_out = Command::new("git")
+        .env("GIT_INDEX_FILE", &temp_index_path)
+        .args([
+            "--work-tree",
+            abs_source.to_str().unwrap_or("."),
+            "add",
+            "-A",
+        ])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao indexar páginas: {}", e))?;
 
-    let sig = repo
-        .signature()
-        .unwrap_or_else(|_| git2::Signature::now("Gosplan CI", "ci@gosplan.su").unwrap());
+    if !add_out.status.success() {
+        return Err(format!(
+            "Erro ao indexar arquivos do site: {}",
+            String::from_utf8_lossy(&add_out.stderr)
+        ));
+    }
 
-    let msg = format!("deploy: site showcase v{}", version);
-    let commit_oid = repo
-        .commit(None, &sig, &sig, &msg, &tree, &parents)
-        .map_err(|e| format!("Falha ao criar commit de páginas: {}", e))?;
+    let write_tree_out = Command::new("git")
+        .env("GIT_INDEX_FILE", &temp_index_path)
+        .args(["write-tree"])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao gerar árvore git: {}", e))?;
 
-    repo.reference(&branch_ref_name, commit_oid, true, "deploy site")
-        .map_err(|e| format!("Falha ao atualizar referência '{}': {}", branch_ref_name, e))?;
+    if !write_tree_out.status.success() {
+        return Err(format!(
+            "Erro ao escrever árvore do site: {}",
+            String::from_utf8_lossy(&write_tree_out.stderr)
+        ));
+    }
 
-    Ok(commit_oid)
-}
+    let tree_oid = String::from_utf8_lossy(&write_tree_out.stdout)
+        .trim()
+        .to_string();
 
-fn build_tree_recursive(repo: &git2::Repository, dir: &Path) -> Result<git2::Oid, String> {
-    let mut builder = repo
-        .treebuilder(None)
-        .map_err(|e| format!("Falha ao criar treebuilder: {}", e))?;
+    let branch_ref = format!("refs/heads/{}", branch);
+    let parent_out = Command::new("git")
+        .args(["rev-parse", "-q", "--verify", &branch_ref])
+        .current_dir(root)
+        .output();
 
-    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
-    for entry in entries {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n,
-            None => continue,
-        };
-
-        if path.is_file() {
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-            let blob_oid = repo
-                .blob(&bytes)
-                .map_err(|e| format!("Falha ao escrever blob para '{}': {}", path.display(), e))?;
-            builder
-                .insert(name, blob_oid, 0o100644)
-                .map_err(|e| format!("Falha ao inserir blob: {}", e))?;
-        } else if path.is_dir() {
-            let subtree_oid = build_tree_recursive(repo, &path)?;
-            builder
-                .insert(name, subtree_oid, 0o040000)
-                .map_err(|e| format!("Falha ao inserir subtree: {}", e))?;
+    let mut commit_args = vec!["commit-tree".to_string(), tree_oid];
+    if let Ok(p_out) = parent_out {
+        if p_out.status.success() {
+            let parent_sha = String::from_utf8_lossy(&p_out.stdout).trim().to_string();
+            if !parent_sha.is_empty() {
+                commit_args.push("-p".to_string());
+                commit_args.push(parent_sha);
+            }
         }
     }
 
-    builder
-        .write()
-        .map_err(|e| format!("Falha ao persistir árvore git: {}", e))
+    let msg = format!("deploy: site showcase v{}", version);
+    commit_args.push("-m".to_string());
+    commit_args.push(msg);
+
+    let commit_tree_out = Command::new("git")
+        .args(&commit_args)
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao criar commit de páginas: {}", e))?;
+
+    if !commit_tree_out.status.success() {
+        return Err(format!(
+            "Erro ao criar commit-tree: {}",
+            String::from_utf8_lossy(&commit_tree_out.stderr)
+        ));
+    }
+
+    let commit_oid = String::from_utf8_lossy(&commit_tree_out.stdout)
+        .trim()
+        .to_string();
+
+    let update_ref_out = Command::new("git")
+        .args(["update-ref", &branch_ref, &commit_oid])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao atualizar branch '{}': {}", branch, e))?;
+
+    if !update_ref_out.status.success() {
+        return Err(format!(
+            "Erro ao atualizar referência {}: {}",
+            branch_ref,
+            String::from_utf8_lossy(&update_ref_out.stderr)
+        ));
+    }
+
+    Ok(commit_oid)
 }
 
 fn format_now_iso8601() -> String {

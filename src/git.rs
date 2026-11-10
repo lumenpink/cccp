@@ -1,7 +1,8 @@
-//! Git repository inspection and commit reader using libgit2 (git2).
-//! Ultra-fast, zero-subprocess reads of Git history, tags, and working tree with native SSL support.
+//! Git repository inspection and commit reader using native Git CLI.
+//! Robust, zero-C-ABI reads of Git history, tags, and working tree.
 
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 /// Detailed Git inspection summary
 #[derive(Debug, Clone)]
@@ -38,73 +39,71 @@ pub struct CommitSummary {
 impl GitRepo {
     /// Discover git repository starting from `path` (or current directory)
     pub fn open(path: Option<&Path>) -> Result<Self, String> {
-        let repo = match path {
-            Some(p) => git2::Repository::discover(p),
-            None => git2::Repository::discover("."),
+        let start_dir = path.unwrap_or_else(|| Path::new("."));
+
+        // Discover repository root
+        let root_out = Command::new("git")
+            .args(["rev-parse", "--show-toplevel"])
+            .current_dir(start_dir)
+            .output()
+            .map_err(|e| format!("Falha ao invocar git rev-parse: {}", e))?;
+
+        if !root_out.status.success() {
+            return Err(format!(
+                "Git repository not found in '{}'",
+                start_dir.display()
+            ));
         }
-        .map_err(|e| format!("Git repository not found: {}", e))?;
 
-        let root_dir = repo
-            .workdir()
-            .map(|p| p.to_path_buf())
-            .or_else(|| repo.path().parent().map(|p| p.to_path_buf()))
-            .unwrap_or_else(|| PathBuf::from("."));
+        let root_dir_str = String::from_utf8_lossy(&root_out.stdout).trim().to_string();
+        let root_dir = PathBuf::from(root_dir_str);
 
-        // Resolve HEAD
-        let head = match repo.head() {
-            Ok(h) => h,
-            Err(_) => {
-                // Empty repository without commits
-                return Ok(Self {
-                    root_dir,
-                    branch: None,
-                    head_id: "0000000000000000000000000000000000000000".to_string(),
-                    head_short_id: "0000000".to_string(),
-                    head_date: format_date_now(),
-                    latest_tag: None,
-                    commits_since_tag: Vec::new(),
-                    is_dirty: false,
-                    head_parent_count: 0,
-                });
-            }
-        };
+        // Check if repository has any commits (resolve HEAD)
+        let head_out = Command::new("git")
+            .args(["rev-parse", "--verify", "HEAD"])
+            .current_dir(&root_dir)
+            .output()
+            .map_err(|e| format!("Falha ao invocar git rev-parse HEAD: {}", e))?;
 
-        let branch = head.shorthand().map(|s| s.to_string());
+        if !head_out.status.success() {
+            // Empty repository without commits
+            let branch = resolve_branch(&root_dir);
+            let is_dirty = check_is_dirty(&root_dir);
 
-        let head_commit = match head.peel_to_commit() {
-            Ok(c) => c,
-            Err(_) => {
-                return Ok(Self {
-                    root_dir,
-                    branch,
-                    head_id: "0000000000000000000000000000000000000000".to_string(),
-                    head_short_id: "0000000".to_string(),
-                    head_date: format_date_now(),
-                    latest_tag: None,
-                    commits_since_tag: Vec::new(),
-                    is_dirty: false,
-                    head_parent_count: 0,
-                });
-            }
-        };
+            return Ok(Self {
+                root_dir,
+                branch,
+                head_id: String::new(),
+                head_short_id: String::new(),
+                head_date: format_date_now(),
+                latest_tag: None,
+                commits_since_tag: Vec::new(),
+                is_dirty,
+                head_parent_count: 0,
+            });
+        }
 
-        let head_id = head_commit.id().to_string();
+        let head_id = String::from_utf8_lossy(&head_out.stdout).trim().to_string();
         let head_short_id = head_id.chars().take(7).collect();
-        let head_parent_count = head_commit.parent_count();
 
-        // Format commit date YYYYMMDD
-        let seconds = head_commit.time().seconds();
-        let head_date = format_timestamp_yyyymmdd(seconds);
+        // Branch
+        let branch = resolve_branch(&root_dir);
 
-        // Collect all tags and find the latest valid SemVer tag reachable from HEAD
-        let latest_tag = find_latest_semver_tag(&repo, head_commit.id())?;
+        // Date of HEAD commit in YYYYMMDD
+        let head_date = get_commit_date_yyyymmdd(&root_dir, &head_id);
+
+        // Count parents of HEAD
+        let head_parent_count = get_parent_count(&root_dir, &head_id);
+
+        // Find latest valid SemVer tag reachable from HEAD
+        let latest_tag = find_latest_semver_tag(&root_dir, &head_id)?;
 
         // Walk commits from HEAD backwards until latest tag commit
         let stop_id = latest_tag.as_ref().map(|t| t.commit_id.clone());
-        let commits_since_tag = walk_commits_since(&repo, head_commit.id(), stop_id.as_deref())?;
+        let commits_since_tag = walk_commits_since(&root_dir, stop_id.as_deref())?;
 
-        // Check if working tree is dirty (modified files)
-        let is_dirty = check_is_dirty(&repo);
+        // Check if working tree is dirty
+        let is_dirty = check_is_dirty(&root_dir);
 
         Ok(Self {
             root_dir,
@@ -118,45 +117,160 @@ impl GitRepo {
             head_parent_count,
         })
     }
+
+    /// Read up to `limit` recent commit messages from HEAD
+    pub fn get_recent_commits(&self, limit: usize) -> Vec<String> {
+        let output = Command::new("git")
+            .args(["log", &format!("-{}", limit), "--format=%s"])
+            .current_dir(&self.root_dir)
+            .output();
+
+        match output {
+            Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+fn resolve_branch(root: &Path) -> Option<String> {
+    let out = Command::new("git")
+        .args(["branch", "--show-current"])
+        .current_dir(root)
+        .output()
+        .ok()?;
+
+    if out.status.success() {
+        let b = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !b.is_empty() {
+            return Some(b);
+        }
+    }
+
+    let out2 = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(root)
+        .output()
+        .ok()?;
+
+    if out2.status.success() {
+        let b = String::from_utf8_lossy(&out2.stdout).trim().to_string();
+        if !b.is_empty() && b != "HEAD" {
+            return Some(b);
+        }
+    }
+
+    None
+}
+
+fn get_commit_date_yyyymmdd(root: &Path, commit_id: &str) -> String {
+    let out = Command::new("git")
+        .args([
+            "log",
+            "-1",
+            "--format=%cd",
+            "--date=format:%Y%m%d",
+            commit_id,
+        ])
+        .current_dir(root)
+        .output();
+
+    match out {
+        Ok(o) if o.status.success() => {
+            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            if s.len() == 8 {
+                return s;
+            }
+        }
+        _ => {}
+    }
+
+    format_date_now()
+}
+
+fn get_parent_count(root: &Path, commit_id: &str) -> usize {
+    let out = Command::new("git")
+        .args(["rev-list", "--parents", "-n", "1", commit_id])
+        .current_dir(root)
+        .output();
+
+    match out {
+        Ok(o) if o.status.success() => {
+            let line = String::from_utf8_lossy(&o.stdout);
+            let hashes: Vec<&str> = line.split_whitespace().collect();
+            if hashes.len() > 1 {
+                hashes.len() - 1
+            } else {
+                0
+            }
+        }
+        _ => 0,
+    }
+}
+
+fn check_is_dirty(root: &Path) -> bool {
+    let out = Command::new("git")
+        .args(["status", "--porcelain=v1", "--untracked-files=no"])
+        .current_dir(root)
+        .output();
+
+    match out {
+        Ok(o) if o.status.success() => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            !stdout.trim().is_empty()
+        }
+        _ => false,
+    }
 }
 
 /// Helper: find all tags and select the most recent valid SemVer tag reachable from HEAD
-fn find_latest_semver_tag(
-    repo: &git2::Repository,
-    head_id: git2::Oid,
-) -> Result<Option<TagInfo>, String> {
-    let tag_names = match repo.tag_names(None) {
-        Ok(names) => names,
-        Err(_) => return Ok(None),
-    };
+fn find_latest_semver_tag(root: &Path, head_id: &str) -> Result<Option<TagInfo>, String> {
+    let out = Command::new("git")
+        .args(["tag", "--list"])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao listar tags: {}", e))?;
 
+    if !out.status.success() {
+        return Ok(None);
+    }
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
     let mut candidate_tags: Vec<TagInfo> = Vec::new();
 
-    for name_opt in tag_names.iter() {
-        let raw_name = match name_opt {
-            Some(n) => n,
-            None => continue,
-        };
+    for line in stdout.lines() {
+        let raw_name = line.trim();
+        if raw_name.is_empty() {
+            continue;
+        }
 
         let trimmed_version = raw_name.strip_prefix('v').unwrap_or(raw_name).to_string();
-
         if is_valid_semver_syntax(&trimmed_version) {
-            let ref_name = format!("refs/tags/{}", raw_name);
-            let obj = match repo.revparse_single(&ref_name) {
-                Ok(o) => o,
-                Err(_) => continue,
-            };
+            let rev_out = Command::new("git")
+                .args([
+                    "rev-parse",
+                    "-q",
+                    "--verify",
+                    &format!("refs/tags/{}^{{commit}}", raw_name),
+                ])
+                .current_dir(root)
+                .output();
 
-            let commit_id = match obj.peel_to_commit() {
-                Ok(c) => c.id().to_string(),
-                Err(_) => continue,
-            };
-
-            candidate_tags.push(TagInfo {
-                name: raw_name.to_string(),
-                version: trimmed_version,
-                commit_id,
-            });
+            if let Ok(rev) = rev_out {
+                if rev.status.success() {
+                    let commit_id = String::from_utf8_lossy(&rev.stdout).trim().to_string();
+                    if !commit_id.is_empty() {
+                        candidate_tags.push(TagInfo {
+                            name: raw_name.to_string(),
+                            version: trimmed_version,
+                            commit_id,
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -165,96 +279,84 @@ fn find_latest_semver_tag(
     }
 
     // Traverse commits backwards from HEAD; the first commit that matches a tag is the latest tag!
-    let mut revwalk = repo
-        .revwalk()
-        .map_err(|e| format!("Failed to create revwalk: {}", e))?;
+    let log_out = Command::new("git")
+        .args(["rev-list", head_id])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao percorrer commits: {}", e))?;
 
-    let _ = revwalk.push(head_id);
+    if log_out.status.success() {
+        let rev_list = String::from_utf8_lossy(&log_out.stdout);
+        for commit_line in rev_list.lines() {
+            let commit_sha = commit_line.trim();
+            if commit_sha.is_empty() {
+                continue;
+            }
 
-    for oid_res in revwalk {
-        let oid = match oid_res {
-            Ok(id) => id,
-            Err(_) => continue,
-        };
+            let mut matches: Vec<TagInfo> = candidate_tags
+                .iter()
+                .filter(|t| t.commit_id == commit_sha)
+                .cloned()
+                .collect();
 
-        let oid_str = oid.to_string();
-
-        let mut matches: Vec<TagInfo> = candidate_tags
-            .iter()
-            .filter(|t| t.commit_id == oid_str)
-            .cloned()
-            .collect();
-
-        if !matches.is_empty() {
-            // Sort matches so highest SemVer wins if multiple tags on same commit
-            matches.sort_by(|a, b| compare_semver(&a.version, &b.version));
-            return Ok(matches.pop());
+            if !matches.is_empty() {
+                matches.sort_by(|a, b| compare_semver(&a.version, &b.version));
+                return Ok(matches.pop());
+            }
         }
     }
 
-    // Fallback if none reachable on HEAD branch history: pick highest SemVer tag overall
+    // Fallback: pick highest SemVer tag overall
     candidate_tags.sort_by(|a, b| compare_semver(&a.version, &b.version));
     Ok(candidate_tags.pop())
 }
 
 /// Helper: walk commits from `start_id` backwards until `stop_id`
 fn walk_commits_since(
-    repo: &git2::Repository,
-    start_id: git2::Oid,
+    root: &Path,
     stop_id: Option<&str>,
 ) -> Result<Vec<CommitSummary>, String> {
-    let mut revwalk = repo
-        .revwalk()
-        .map_err(|e| format!("Failed to create revwalk: {}", e))?;
+    let range = match stop_id {
+        Some(stop) => format!("{}..HEAD", stop),
+        None => "HEAD".to_string(),
+    };
 
-    let _ = revwalk.push(start_id);
+    let out = Command::new("git")
+        .args(["log", &range, "--format=%H%x1f%h%x1f%s%x1f%B%x1e"])
+        .current_dir(root)
+        .output()
+        .map_err(|e| format!("Falha ao ler log de commits: {}", e))?;
 
+    if !out.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
     let mut commits = Vec::new();
 
-    for oid_res in revwalk {
-        let oid = match oid_res {
-            Ok(id) => id,
-            Err(_) => break,
-        };
-
-        let oid_str = oid.to_string();
-
-        if let Some(target) = stop_id {
-            if oid_str == target {
-                break;
-            }
+    for record in stdout.split('\x1e') {
+        let trimmed_record = record.trim();
+        if trimmed_record.is_empty() {
+            continue;
         }
 
-        let commit = match repo.find_commit(oid) {
-            Ok(c) => c,
-            Err(_) => continue,
-        };
+        let parts: Vec<&str> = trimmed_record.split('\x1f').collect();
+        if parts.len() >= 4 {
+            let id = parts[0].trim().to_string();
+            let short_id = parts[1].trim().to_string();
+            let summary = parts[2].trim().to_string();
+            let message = parts[3].to_string();
 
-        let message = commit.message().unwrap_or("").to_string();
-        let summary = commit.summary().unwrap_or("").to_string();
-        let short_id = oid_str.chars().take(7).collect();
-
-        commits.push(CommitSummary {
-            id: oid_str,
-            short_id,
-            summary,
-            message,
-        });
+            commits.push(CommitSummary {
+                id,
+                short_id,
+                summary,
+                message,
+            });
+        }
     }
 
     Ok(commits)
-}
-
-/// Helper: check if working tree or index has uncommitted modifications
-fn check_is_dirty(repo: &git2::Repository) -> bool {
-    let mut opts = git2::StatusOptions::new();
-    opts.include_untracked(false);
-    opts.include_ignored(false);
-
-    match repo.statuses(Some(&mut opts)) {
-        Ok(statuses) => !statuses.is_empty(),
-        Err(_) => false,
-    }
 }
 
 /// Verify if a version string matches standard SemVer syntax (e.g. 1.2.3 or 1.2.3-alpha)
@@ -312,16 +414,8 @@ fn format_date_now() -> String {
     )
 }
 
-/// Fast, low-overhead inspection of remote URL from .git/config
+/// Fast, low-overhead inspection of remote URL from .git/config or git CLI
 pub fn get_remote_url(repo_dir: &Path) -> Option<String> {
-    if let Ok(repo) = git2::Repository::discover(repo_dir) {
-        if let Ok(remote) = repo.find_remote("origin") {
-            if let Some(url) = remote.url() {
-                return Some(url.to_string());
-            }
-        }
-    }
-
     // 1. Direct read of .git/config without subprocess
     let git_dir = repo_dir.join(".git");
     let config_path = if git_dir.is_dir() {
@@ -369,7 +463,7 @@ pub fn get_remote_url(repo_dir: &Path) -> Option<String> {
     }
 
     // 2. Fallback to git subprocess if config was not directly readable
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .args(["remote", "get-url", "origin"])
         .current_dir(repo_dir)
         .output()
@@ -400,7 +494,7 @@ pub fn inspect_local_status(repo_dir: &Path) -> Option<LocalRepoStatus> {
         return None;
     }
 
-    let output = std::process::Command::new("git")
+    let output = Command::new("git")
         .args(["status", "--porcelain=v1", "-b"])
         .current_dir(repo_dir)
         .output()
@@ -485,9 +579,7 @@ mod tests {
 
     #[test]
     fn test_timestamp_formatting() {
-        // Unix epoch 0 = 1970-01-01
         assert_eq!(format_timestamp_yyyymmdd(0), "19700101");
-        // 1790726400 is 2026-09-30 00:00:00 UTC
         let date = format_timestamp_yyyymmdd(1790726400);
         assert_eq!(date, "20260930");
     }
