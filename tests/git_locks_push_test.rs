@@ -644,3 +644,43 @@ fn test_handle_push_forwards_git_args_when_already_up_to_date() {
     let remote_tags = String::from_utf8_lossy(&out_remote.stdout).trim().to_string();
     assert_eq!(remote_tags, "v1.0.0", "Remote must have received tag v1.0.0 via forwarded git_args");
 }
+
+#[test]
+fn test_mutation_handle_push_early_exit_on_empty_args_when_already_up_to_date() {
+    let _guard = TEST_MUTEX.lock().unwrap();
+    let local_dir = scaffold_test_git_repo();
+    let remote_dir = scaffold_test_bare_remote();
+
+    Command::new("git")
+        .args(["config", "tag.gpgsign", "false"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["remote", "add", "origin", remote_dir.path().to_str().unwrap()])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    Command::new("git")
+        .args(["push", "-u", "origin", "main"])
+        .current_dir(local_dir.path())
+        .status()
+        .unwrap();
+
+    // Now branch is up to date and git_args is empty
+    let push_args = cccp::cli::PushArgs {
+        all: false,
+        dry_run: false,
+        git_args: vec![],
+    };
+    let theme = Theme::with_color(false);
+
+    let code = cccp::push::handle_push(&push_args, Some(local_dir.path()), &theme);
+    assert_eq!(
+        code,
+        std::process::ExitCode::SUCCESS,
+        "Empty git_args when already up to date must exit early with SUCCESS"
+    );
+}
