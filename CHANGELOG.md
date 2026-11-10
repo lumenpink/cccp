@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Expurgar libgit2 e Unificar no Git CLI Nativo
+- **Unificação no Git CLI e Remoção da C-ABI (`src/git.rs`, `src/ci_pipeline.rs`, `Cargo.toml`, `tests/git_native_cli_test.rs`)**:
+  - Elimina a dependência da crate `git2` e da biblioteca C `libgit2`, removendo compilação de código C e fragilidades de linkagem estática com musl e multi-arquitetura.
+  - Reimplementa o módulo de inspeção `GitRepo` através de chamadas estruturadas ao binário `git` do sistema (`rev-parse`, `log`, `status --porcelain`, `tag --list`), unificando leitura e escrita sob o mesmo motor confiável e respeitando integralmente as configurações locais do usuário.
+  - Reimplementa a criação de commits de páginas em `ci_pipeline` via encanamento nativo (`write-tree`, `commit-tree`, `update-ref`) com índice isolado. (closes #156)
+
 ### Auditoria Agnóstica e Desacoplamento via Motor Lunokhod
 - **Auditoria 100% Declarativa e Agnóstica (`src/audit.rs`, `tests/audit_test.rs`, `tests/audit_gost2_test.rs`)**:
   - Elimina todas as verificações estáticas hardcoded em Rust (`GOST-01..28`), convertendo o maestro `cccp` em um executor 100% neutro e agnóstico de regras de negócio.
