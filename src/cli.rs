@@ -3,6 +3,56 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
+const ROOT_HELP_TEMPLATE: &str = "\
+{about-with-newline}
+{usage-heading} {usage}
+
+Ciclo DD-TDD (Fases GOST):
+  start        Criar ou alternar para branch de ticket (Fase 2)
+  commit       Commit de fase DD-TDD ou assistente interativo (Fases 3-8)
+  close        Fechar ciclo com laudo de resolução (Fase 9)
+  mutate       Executar testes de mutação de diff (Fase 7)
+  hygiene      Executar linters rápidos e hygiene (Fase 8)
+  fix          Correção automática de formatação e linters (Fase 8)
+  check        Auditoria de conformidade GOST e regras ativas
+  lint         Validar formato de mensagens Conventional Commits
+
+Operações Git & Esteira:
+  merge        Integrar branch com validação compulsória de fechamento (Fase 9)
+  push         Enviar commits e tags com paridade e pré-envio
+  tag          Criar tag anotada de release com SemVer preditivo
+  hook         Instalar ou gerenciar hooks Git do Maestro (--install, -f)
+  status       Auditar integridade de hooks e conformidade de commits
+  ci           Execução hermética da esteira de CI local e publicação
+
+Gestão de Repositórios & Catálogo:
+  repo         Gerenciar repositórios locais e catálogo do workspace
+  sync         Sincronizar tickets remotos, AGENTS.md e catálogo
+  ticket       Consultar e gerenciar tickets na forja remota
+  epic         Gerenciar branches persistentes de épicos de integração
+  inbox        Gerenciar fila de quarentena de contribuições externas
+  deps         Catálogo de dependências e auditoria de ecossistema
+  agent        Gerenciar diretrizes canônicas em AGENTS.md
+
+Ferramental & Utilitários:
+  version      Exibir versões ativas do CCCP, GOST e repositório
+  gen-version  Calcular metadados SemVer 2.0 preditivos
+  changelog    Gerar ou atualizar CHANGELOG.md a partir do histórico
+  config       Inspecionar ou gerenciar configurações do CCCP
+  profile      Gerenciar perfis canônicos GOST (get, list, set)
+  site         Gerenciar documentação do site e banners institucionais
+  update       Verificar atualizações e auto-atualizar binário do CCCP
+  completion   Gerar scripts de autocompleção para shells (bash, zsh, fish)
+  prompt       Helper leve para prompt do shell (branch, fase, dirty)
+  cockpit      Cockpit web interativo do Gosplan & Mayak Bridge
+  spool        Fila offline e spool para Antigravity CLI (agy)
+  soviet       Registro cultural Gosplan e camaradas soviéticos
+  forge        Interagir diretamente com forjas remotas (Gitea/Forgejo/Codeberg)
+
+Options:
+{options}
+";
+
 /// ★ CCCP - Conventional Commits Compliance Program ★
 /// Native, fast, standalone binary for Git governance, SemVer, and Soviet aesthetics.
 #[derive(Debug, Parser)]
@@ -14,6 +64,7 @@ use std::path::PathBuf;
     long_about = "Conventional Commits Compliance Program (CCCP)\n\
                   High-performance, standalone Git tool for Conventional Commits enforcement,\n\
                   predictive Semantic Versioning 2.0.0, automated changelogs, and Forge integration.",
+    help_template = ROOT_HELP_TEMPLATE,
     styles = styling()
 )]
 pub struct Cli {
@@ -61,118 +112,121 @@ fn styling() -> clap::builder::styling::Styles {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Create or switch to ticket branch (GOST Phase 2)
+    // === Ciclo DD-TDD (Fases GOST) ===
+    /// Criar ou alternar para branch de ticket (Fase 2)
     Start(StartArgs),
 
-    /// Interactive Conventional Commits wizard or automated DD-TDD phase commit
+    /// Commit de fase DD-TDD ou assistente interativo (Fases 3-8)
     Commit(CommitArgs),
 
-    /// Close development cycle with resolution report (GOST Phase 9)
+    /// Fechar ciclo com laudo de resolução (Fase 9)
     Close(CloseArgs),
 
-    /// Execute diff mutation testing toolchain (GOST Phase 7)
+    /// Executar testes de mutação de diff (Fase 7)
     Mutate(MutateArgs),
 
-    /// Execute Fast Hygiene linters and formatters (GOST Phase 8)
+    /// Executar linters rápidos e hygiene (Fase 8)
     Hygiene(HygieneArgs),
 
-    /// Automatically fix formatting and auto-fixable linter errors (alias to hygiene --fix)
+    /// Correção automática de formatação e linters (Fase 8)
     Fix(FixArgs),
 
-    /// Validate commit messages against Conventional Commits specification
-    Lint(LintArgs),
-
-    /// Display current installed CCCP, GOST, and repository versions
-    Version(VersionArgs),
-
-    /// Calculate predictive Semantic Versioning (SemVer 2.0.0) metadata
-    #[command(name = "gen-version")]
-    GenVersion(GenVersionArgs),
-
-    /// Manage or dispatch Git hooks in repository (--install, --uninstall)
-    Hook(HookArgs),
-
-    /// Audit repository Conventional Commits compliance, hooks, and integrity
-    Status(StatusArgs),
-
-    /// Query or manage forge issues and pull requests
-    #[command(alias = "tickets")]
-    Ticket(TicketArgs),
-
-    /// Interactive AI ticket triage and consultation bot (shortcut: cccp divan)
-    #[command(hide = true, alias = "diva")]
-    Divan(DivanArgs),
-
-    /// Synchronize forge tickets, AGENTS.md directives, and repository catalog
-    Sync(SyncArgs),
-
-    /// Query and interact with remote Git forge (Codeberg, GitHub, GitLab, Gitea)
-    Forge(ForgeArgs),
-
-    /// Gosplan cultural registry, Order 227 ("Not a step back!"), and Soviet comrades
-    Soviet(SovietArgs),
-
-    /// Create an annotated Git release tag with predicted or explicit SemVer
-    Tag(TagArgs),
-
-    /// Generate or update CHANGELOG.md based on conventional commit history
-    Changelog(ChangelogArgs),
-
-    /// Push commits and tags to remote with pre-push compliance checks
-    Push(PushArgs),
-
-    /// Inspect or manage hierarchical CCCP configuration
-    Config(ConfigArgs),
-
-    /// Comprehensive repository GOST quality and compliance check
+    /// Auditoria completa de conformidade GOST e regras ativas
     Check(CheckArgs),
 
-    /// Generate shell completion scripts (bash, zsh, fish, powershell)
-    Completion(CompletionArgs),
+    /// Validar formato de mensagens Conventional Commits
+    Lint(LintArgs),
 
-    /// Lightweight shell prompt helper displaying branch, phase, ticket, and dirty state
-    Prompt(PromptArgs),
-
-    /// Manage repositories, workspace catalog, and GOST scaffolding
-    Repo(RepoArgs),
-
-    /// Dependency catalog, constraint verification, and ecosystem tools
-    Deps(DepsArgs),
-
-    /// Generate, inspect, and manage AGENTS.md directives
-    Agent(AgentArgs),
-
-    /// Mobile & offline-tolerant queue and spool for Antigravity CLI (agy)
-    Spool(SpoolArgs),
-
-    /// Gosplan Interactive Web Cockpit & Mayak Command Bridge
-    Cockpit(CockpitArgs),
-
-    /// Check for updates and automatically upgrade CCCP
-    Update(UpdateArgs),
-
-    /// Merge a branch with strict GOST Phase 9 closes tag validation
+    // === Operações Git & Esteira ===
+    /// Integrar branch com validação compulsória de fechamento (Fase 9)
     Merge(MergeArgs),
 
-    /// Manage canonical GOST profiles (get, list, set)
-    #[command(subcommand)]
-    Profile(ProfileCommand),
+    /// Enviar commits e tags com paridade e pré-envio
+    Push(PushArgs),
 
-    /// Manage persistent epic integration branches (start, list, finish)
+    /// Criar tag anotada de release com SemVer preditivo
+    Tag(TagArgs),
+
+    /// Instalar ou gerenciar hooks Git do Maestro (--install, -f)
+    Hook(HookArgs),
+
+    /// Auditar integridade de hooks e conformidade de commits
+    Status(StatusArgs),
+
+    /// Execução hermética da esteira de CI local e publicação
+    Ci(CiArgs),
+
+    // === Gestão de Repositórios & Catálogo ===
+    /// Gerenciar repositórios locais e catálogo do workspace
+    Repo(RepoArgs),
+
+    /// Sincronizar tickets remotos, AGENTS.md e catálogo
+    Sync(SyncArgs),
+
+    /// Consultar e gerenciar tickets na forja remota
+    Ticket(TicketArgs),
+
+    /// Gerenciar branches persistentes de épicos de integração
     #[command(subcommand)]
     Epic(EpicCommand),
 
-    /// Manage quarantined external contributions and PRs (list, review, accept)
+    /// Gerenciar fila de quarentena de contribuições externas
     #[command(subcommand)]
     Inbox(InboxCommand),
 
-    /// Manage documentation showcase site and banners (GOST-20, GOST-26)
+    /// Catálogo de dependências e auditoria de ecossistema
+    Deps(DepsArgs),
+
+    /// Gerenciar diretrizes canônicas em AGENTS.md
+    Agent(AgentArgs),
+
+    // === Ferramental & Utilitários ===
+    /// Exibir versões ativas do CCCP, GOST e repositório
+    Version(VersionArgs),
+
+    /// Calcular metadados SemVer 2.0 preditivos
+    #[command(name = "gen-version")]
+    GenVersion(GenVersionArgs),
+
+    /// Gerar ou atualizar CHANGELOG.md a partir do histórico
+    Changelog(ChangelogArgs),
+
+    /// Inspecionar ou gerenciar configurações do CCCP
+    Config(ConfigArgs),
+
+    /// Gerenciar perfis canônicos GOST (get, list, set)
+    #[command(subcommand)]
+    Profile(ProfileCommand),
+
+    /// Gerenciar documentação do site e banners institucionais
     #[command(subcommand)]
     Site(SiteCommand),
 
-    /// Hermetic CI pipeline execution, artifact publishing, and site deployment
-    #[command(alias = "act")]
-    Ci(CiArgs),
+    /// Verificar atualizações e auto-atualizar binário do CCCP
+    Update(UpdateArgs),
+
+    /// Gerar scripts de autocompleção para shells (bash, zsh, fish)
+    Completion(CompletionArgs),
+
+    /// Helper leve para prompt do shell (branch, fase, dirty)
+    Prompt(PromptArgs),
+
+    /// Cockpit web interativo do Gosplan & Mayak Bridge
+    Cockpit(CockpitArgs),
+
+    /// Fila offline e spool para Antigravity CLI (agy)
+    Spool(SpoolArgs),
+
+    /// Registro cultural Gosplan e camaradas soviéticos
+    Soviet(SovietArgs),
+
+    /// Interagir diretamente com forjas remotas (Gitea/Forgejo/Codeberg)
+    Forge(ForgeArgs),
+
+    // === Atalhos Ocultos ===
+    /// Triagem inteligente de tickets (atalho raiz para 'cccp ticket divan')
+    #[command(hide = true, alias = "diva")]
+    Divan(DivanArgs),
 }
 
 #[derive(Debug, Subcommand, Clone)]
