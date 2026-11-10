@@ -33,6 +33,59 @@ fn test_read_gostver_missing_file() {
 }
 
 #[test]
+fn test_agnostic_audit_evaluates_only_declarative_rules() {
+    let temp = tempdir().expect("tempdir");
+    let p = temp.path();
+    let theme = Theme::with_color(false);
+
+    let custom_rules = r#"
+[rules.CUSTOM-001]
+name = "PURE-CUSTOM-RULE"
+severity = "error"
+scope = "project"
+description = "Verifies custom rule evaluation"
+script = "return true"
+"#;
+    fs::write(p.join("rules.toml"), custom_rules).unwrap();
+
+    let report = run_gost_audit(p, false, &theme);
+    assert!(report.is_success, "Agnostic audit must pass with 1 valid rule");
+    assert_eq!(report.checks.len(), 1, "Report must contain exactly 1 check from rules.toml");
+    assert_eq!(report.checks[0].code, "CUSTOM-001");
+    assert_eq!(report.checks[0].status, CheckStatus::Pass);
+
+    let legacy_codes = [
+        "GOST-16-GOSTVER",
+        "GOST-01-LICENSE",
+        "GOST-02-ANATOMY-ROOT",
+        "GOST-20-SITE-TYPE-AND-SSOT-DOCS",
+        "GOST-24-ZERO-BINARIES-IN-GIT",
+        "GOST-26-METADATA-MANIFEST-SSOT",
+        "GOST-27-DDD-HEXAGONAL-PURITY",
+    ];
+    for legacy in &legacy_codes {
+        assert!(
+            report.checks.iter().all(|c| c.code != *legacy),
+            "Legacy hardcoded check '{}' must NOT be evaluated by agnostic engine",
+            legacy
+        );
+    }
+}
+
+#[test]
+fn test_agnostic_audit_without_rules_reports_no_rules_found() {
+    let temp = tempdir().expect("tempdir");
+    let theme = Theme::with_color(false);
+
+    let report = run_gost_audit(temp.path(), false, &theme);
+    assert!(!report.is_success, "Empty repo without rules must fail");
+    assert!(
+        report.checks.iter().any(|c| c.code == "NO-RULES-FOUND"),
+        "Agnostic audit without rules must emit NO-RULES-FOUND"
+    );
+}
+
+#[test]
 fn test_gost_audit_empty_directory_fails() {
     let temp = tempdir().expect("tempdir");
     let theme = Theme::init(true);
