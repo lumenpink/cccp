@@ -1764,6 +1764,34 @@ mod tests {
     }
 
     #[test]
+    fn parse_push_force_args() {
+        let args = Cli::parse_from(["cccp", "push", "--force"]);
+        match args.command {
+            Some(Commands::Push(p)) => {
+                assert!(p.force);
+                assert!(!p.dry_run);
+            }
+            _ => panic!("Expected Commands::Push"),
+        }
+
+        let args_short = Cli::parse_from(["cccp", "push", "-f"]);
+        match args_short.command {
+            Some(Commands::Push(p)) => {
+                assert!(p.force);
+            }
+            _ => panic!("Expected Commands::Push"),
+        }
+
+        let args_default = Cli::parse_from(["cccp", "push"]);
+        match args_default.command {
+            Some(Commands::Push(p)) => {
+                assert!(!p.force);
+            }
+            _ => panic!("Expected Commands::Push"),
+        }
+    }
+
+    #[test]
     fn parse_ticket_args() {
         let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
         match args.command {
