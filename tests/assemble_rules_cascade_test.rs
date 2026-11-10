@@ -99,3 +99,27 @@ fn test_assemble_purges_prohibited_terms_from_custom_md() {
         "assemble_gost_specs must purge prohibited terms like 'soberan'"
     );
 }
+
+#[test]
+fn test_fetch_rules_candidates_and_raw_forgejo_fallback() {
+    use cccp::profile::{fetch_rules_from_urls, get_rules_candidate_urls};
+
+    let candidates = get_rules_candidate_urls("https://lilya.2lp.in/profile.md");
+    assert!(
+        candidates.iter().any(|c| c.contains("gambi.2lp.in/lumen/gost-profile-lilya")),
+        "Candidate URLs must include Forgejo raw fallback: {:?}",
+        candidates
+    );
+
+    // Test fallback when primary URL fails (e.g. 404 or invalid)
+    let fake_and_fallback = vec![
+        "https://127.0.0.1:9/invalid-rules.toml".to_string(),
+        "https://gambi.2lp.in/lumen/gost-profile-lilya/raw/branch/main/rules.toml".to_string(),
+    ];
+    let content = fetch_rules_from_urls(&fake_and_fallback);
+    assert!(content.is_some(), "Fallback to Forgejo raw must succeed");
+    assert!(
+        content.unwrap().contains("[rules."),
+        "Fetched rules must contain [rules.] table"
+    );
+}
