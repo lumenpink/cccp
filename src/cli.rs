@@ -1829,6 +1829,25 @@ mod tests {
     }
 
     #[test]
+    fn test_root_help_organized_into_categories() {
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        let mut help_buf = Vec::new();
+        cmd.write_help(&mut help_buf).unwrap();
+        let help_text = String::from_utf8_lossy(&help_buf);
+        assert!(
+            help_text.contains("Ciclo DD-TDD"),
+            "Root help must organize commands with 'Ciclo DD-TDD' heading:\n{}",
+            help_text
+        );
+        assert!(
+            help_text.contains("Operações Git"),
+            "Root help must organize commands with 'Operações Git' heading:\n{}",
+            help_text
+        );
+    }
+
+    #[test]
     fn parse_ticket_args() {
         let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
         match args.command {
