@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fallback Raw Forgejo na Resolução de Regras Declarativas
+- **Fallback Canônico para CDN Fria e CI (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
+  - Implementa resolução resiliente de URLs de regras declarativas (`get_rules_candidate_urls` e `fetch_rules_from_urls`) com fallback automático para os endpoints raw do Forgejo, assegurando montagem hermética mesmo sob CDN fria ou em ambientes isolados de CI. (closes #154)
+
 ### Higienização de Termos Imperialistas no Assemble de Perfis
 - **Purga de Jargões em Perfis Compilados (`src/profile.rs`, `tests/assemble_rules_cascade_test.rs`)**:
   - Implementa `sanitize_prohibited_terms` no pipeline de montagem de especificações `assemble_gost_specs`, expurgando termos imperialistas proibidos (como 'soberan...') de qualquer camada ou cache remoto. (closes #153)
