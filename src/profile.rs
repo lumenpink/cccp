@@ -309,7 +309,9 @@ pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
     None
 }
 
-/// Sanitizes prohibited imperialist terms from compiled normative specs
+/// Sanitizes prohibited imperialist terms from compiled normative specs.
+/// Enforces compliance with GOST anti-imperialism directives by mapping
+/// prohibited vocabulary to canonical autonomy terminology.
 pub fn sanitize_prohibited_terms(text: &str) -> String {
     text.replace("Soberania", "Autonomia")
         .replace("soberania", "autonomia")
