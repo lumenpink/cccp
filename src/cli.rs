@@ -1812,6 +1812,23 @@ mod tests {
     }
 
     #[test]
+    fn test_mutation_ticket_help_mentions_divan_shortcut() {
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        let ticket_subcmd = cmd
+            .get_subcommands_mut()
+            .find(|c| c.get_name() == "ticket")
+            .expect("ticket subcommand exists");
+        let mut help_buf = Vec::new();
+        ticket_subcmd.write_help(&mut help_buf).unwrap();
+        let help_text = String::from_utf8_lossy(&help_buf);
+        assert!(
+            help_text.contains("cccp divan"),
+            "Parent ticket command help must mention root shortcut 'cccp divan'"
+        );
+    }
+
+    #[test]
     fn parse_ticket_args() {
         let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
         match args.command {
