@@ -312,10 +312,7 @@ fn find_latest_semver_tag(root: &Path, head_id: &str) -> Result<Option<TagInfo>,
 }
 
 /// Helper: walk commits from `start_id` backwards until `stop_id`
-fn walk_commits_since(
-    root: &Path,
-    stop_id: Option<&str>,
-) -> Result<Vec<CommitSummary>, String> {
+fn walk_commits_since(root: &Path, stop_id: Option<&str>) -> Result<Vec<CommitSummary>, String> {
     let range = match stop_id {
         Some(stop) => format!("{}..HEAD", stop),
         None => "HEAD".to_string(),

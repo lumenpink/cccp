@@ -9,7 +9,7 @@ use tempfile::tempdir;
 fn test_cargo_toml_must_not_contain_git2_dependency() {
     let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let content = fs::read_to_string(&manifest_path).expect("Failed to read Cargo.toml");
-    
+
     // RED TEST: Deve falhar enquanto a dependência git2 ainda estiver no Cargo.toml
     let has_git2_dependency = content.lines().any(|line| {
         let trimmed = line.trim();

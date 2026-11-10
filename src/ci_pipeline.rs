@@ -253,8 +253,8 @@ fn create_pages_commit(
     branch: &str,
     version: &str,
 ) -> Result<String, String> {
-    let temp_dir = tempfile::tempdir()
-        .map_err(|e| format!("Falha ao criar diretório temporário: {}", e))?;
+    let temp_dir =
+        tempfile::tempdir().map_err(|e| format!("Falha ao criar diretório temporário: {}", e))?;
     let temp_index_path = temp_dir.path().join("pages_index");
 
     let abs_source = if source.is_absolute() {
