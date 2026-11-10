@@ -86,6 +86,64 @@ fn test_agnostic_audit_without_rules_reports_no_rules_found() {
 }
 
 #[test]
+fn test_agnostic_audit_mutation_lua_runtime_error_does_not_panic() {
+    let temp = tempdir().expect("tempdir");
+    let p = temp.path();
+    let theme = Theme::with_color(false);
+
+    let custom_rules = r#"
+[rules.MUTANT-ERR]
+name = "RUNTIME-ERROR-RULE"
+severity = "error"
+scope = "project"
+description = "Verifica tratamento de erro em Lua"
+script = "error('Falha intencional de runtime Lua')"
+"#;
+    fs::write(p.join("rules.toml"), custom_rules).unwrap();
+
+    let report = run_gost_audit(p, false, &theme);
+    assert!(!report.is_success, "Rule with runtime error must fail audit");
+    let check = report
+        .checks
+        .iter()
+        .find(|c| c.code == "MUTANT-ERR")
+        .expect("MUTANT-ERR check must exist");
+    assert_eq!(check.status, CheckStatus::Fail);
+    assert!(check.detail.contains("Erro de execução no script Lua"));
+}
+
+#[test]
+fn test_agnostic_audit_mutation_scope_isolation() {
+    let temp = tempdir().expect("tempdir");
+    let p = temp.path();
+    let theme = Theme::with_color(false);
+
+    let custom_rules = r#"
+[rules.PROJECT-001]
+name = "PROJECT-SCOPE-RULE"
+severity = "error"
+scope = "project"
+description = "Regra de projeto"
+script = "return true"
+
+[rules.COMMIT-001]
+name = "COMMIT-SCOPE-RULE"
+severity = "error"
+scope = "commit-msg"
+description = "Regra de commit"
+script = "return false"
+"#;
+    fs::write(p.join("rules.toml"), custom_rules).unwrap();
+
+    // Auditoria padrão (escopo "project") não deve avaliar regras com scope="commit"
+    let report = run_gost_audit(p, false, &theme);
+    assert!(report.is_success);
+    assert_eq!(report.checks.len(), 1);
+    assert_eq!(report.checks[0].code, "PROJECT-001");
+    assert!(report.checks.iter().all(|c| c.code != "COMMIT-001"));
+}
+
+#[test]
 fn test_gost_audit_empty_directory_fails() {
     let temp = tempdir().expect("tempdir");
     let theme = Theme::init(true);
