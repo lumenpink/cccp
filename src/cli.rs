@@ -99,8 +99,8 @@ pub enum Commands {
     #[command(alias = "tickets")]
     Ticket(TicketArgs),
 
-    /// Interactive AI ticket triage and consultation bot
-    #[command(alias = "diva")]
+    /// Interactive AI ticket triage and consultation bot (shortcut: cccp divan)
+    #[command(hide = true, alias = "diva")]
     Divan(DivanArgs),
 
     /// Synchronize forge tickets, AGENTS.md directives, and repository catalog
@@ -602,7 +602,7 @@ pub enum TicketAction {
         remote: Option<String>,
     },
 
-    /// Interactive AI ticket triage and consultation bot
+    /// Interactive AI ticket triage and consultation bot (also available directly as 'cccp divan')
     Divan(DivanArgs),
 
     /// Synchronize forge issues and pull requests into local .antigravity/tickets.md
