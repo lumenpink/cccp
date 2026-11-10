@@ -193,48 +193,55 @@ pub fn handle_push(push: &PushArgs, dir: Option<&Path>, theme: &Theme) -> ExitCo
         None => std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()),
     };
 
-    println!(
-        "{} Inspecionando paridade com o tracking branch remoto...",
-        theme.cyan("•")
-    );
+    if push.force {
+        println!(
+            "{} Flag --force detectada: ignorando verificações prévias de paridade.",
+            theme.yellow("!")
+        );
+    } else {
+        println!(
+            "{} Inspecionando paridade com o tracking branch remoto...",
+            theme.cyan("•")
+        );
 
-    match check_and_reconcile_parity(&repo_dir, theme) {
-        Ok(ParityAction::AlreadyUpToDate) => {
-            if push.git_args.is_empty() {
+        match check_and_reconcile_parity(&repo_dir, theme) {
+            Ok(ParityAction::AlreadyUpToDate) => {
+                if push.git_args.is_empty() {
+                    println!(
+                        "{} Tudo sincronizado com o remote (nada a enviar).",
+                        theme.green("✓")
+                    );
+                    return ExitCode::SUCCESS;
+                } else {
+                    println!(
+                        "{} Branch em paridade. Encaminhando argumentos explícitos ao git push...",
+                        theme.cyan("•")
+                    );
+                }
+            }
+            Ok(ParityAction::FastForwarded) => {
                 println!(
-                    "{} Tudo sincronizado com o remote (nada a enviar).",
+                    "{} Paridade reestabelecida via fast-forward.",
                     theme.green("✓")
                 );
-                return ExitCode::SUCCESS;
-            } else {
+            }
+            Ok(ParityAction::ReadyToPush) => {
                 println!(
-                    "{} Branch em paridade. Encaminhando argumentos explícitos ao git push...",
-                    theme.cyan("•")
+                    "{} Paridade confirmada. Pronto para envio.",
+                    theme.green("✓")
                 );
             }
-        }
-        Ok(ParityAction::FastForwarded) => {
-            println!(
-                "{} Paridade reestabelecida via fast-forward.",
-                theme.green("✓")
-            );
-        }
-        Ok(ParityAction::ReadyToPush) => {
-            println!(
-                "{} Paridade confirmada. Pronto para envio.",
-                theme.green("✓")
-            );
-        }
-        Ok(ParityAction::NoRemote) => {
-            println!(
-                "{} Nenhum remote configurado para verificação de paridade.",
-                theme.yellow("!")
-            );
-        }
-        Err(e) => {
-            eprintln!("\n{}", theme.red_bold("★ GOSPLAN PUSH ABORTADO ★"));
-            eprintln!("{}\n", theme.red(&e));
-            return ExitCode::FAILURE;
+            Ok(ParityAction::NoRemote) => {
+                println!(
+                    "{} Nenhum remote configurado para verificação de paridade.",
+                    theme.yellow("!")
+                );
+            }
+            Err(e) => {
+                eprintln!("\n{}", theme.red_bold("★ GOSPLAN PUSH ABORTADO ★"));
+                eprintln!("{}\n", theme.red(&e));
+                return ExitCode::FAILURE;
+            }
         }
     }
 
@@ -242,6 +249,9 @@ pub fn handle_push(push: &PushArgs, dir: Option<&Path>, theme: &Theme) -> ExitCo
     cmd.arg("push");
     cmd.env("CCCP_MAESTRO_ACTIVE", "1");
 
+    if push.force {
+        cmd.arg("--force");
+    }
     if push.dry_run {
         cmd.arg("--dry-run");
     }
