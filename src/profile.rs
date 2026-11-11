@@ -485,21 +485,28 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
     let sanitized_output = sanitize_prohibited_terms(&output);
     fs::write(&target_rules_md, &sanitized_output)?;
 
-    // Compila regras declarativas
+    // Compila regras declarativas com injecao de tier hierarquico
     let mut combined_rules: toml::map::Map<String, toml::Value> = toml::map::Map::new();
-    for (url, _) in &chain {
+    for (idx, (url, _)) in chain.iter().enumerate() {
+        let layer_tier = (idx + 1) as i64;
         if let Some(rules_content) = fetch_rules_for_layer(url) {
             if let Ok(toml_val) = toml::from_str::<toml::Value>(&rules_content) {
                 if let Some(rules_table) = toml_val.get("rules").and_then(|r| r.as_table()) {
                     for (k, v) in rules_table {
-                        combined_rules.insert(k.clone(), v.clone());
+                        let mut rule_val = v.clone();
+                        if let Some(tbl) = rule_val.as_table_mut() {
+                            if !tbl.contains_key("tier") {
+                                tbl.insert("tier".to_string(), toml::Value::Integer(layer_tier));
+                            }
+                        }
+                        combined_rules.insert(k.clone(), rule_val);
                     }
                 }
             }
         }
     }
 
-    // Merge custom-rules.toml from root if exists
+    // Merge custom-rules.toml from root if exists (Tier 99 local)
     let custom_rules_candidates = [
         root.join("custom-rules.toml"),
         root.join("custom_rules.toml"),
@@ -511,7 +518,13 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
                 if let Ok(toml_val) = toml::from_str::<toml::Value>(&cr_content) {
                     if let Some(rules_table) = toml_val.get("rules").and_then(|r| r.as_table()) {
                         for (k, v) in rules_table {
-                            combined_rules.insert(k.clone(), v.clone());
+                            let mut rule_val = v.clone();
+                            if let Some(tbl) = rule_val.as_table_mut() {
+                                if !tbl.contains_key("tier") {
+                                    tbl.insert("tier".to_string(), toml::Value::Integer(99));
+                                }
+                            }
+                            combined_rules.insert(k.clone(), rule_val);
                         }
                     }
                 }
