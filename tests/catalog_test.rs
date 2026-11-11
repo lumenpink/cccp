@@ -1306,3 +1306,62 @@ fn test_alias_mutation_edge_cases() {
     assert!(after_rm_ghost.aliases.contains(&"kv".to_string()));
     assert!(!after_rm_ghost.aliases.contains(&"nonexistent".to_string()));
 }
+
+#[test]
+fn test_fetch_catalog_from_gossnab_and_cache_fallback() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server_url = format!("http://127.0.0.1:{}", port);
+
+    // Mock HTTP server in background thread
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 1024];
+        let _ = stream.read(&mut buf);
+        let payload = r#"[
+            {
+                "name": "gossnab-mock-app",
+                "forge": "gambi",
+                "slug": "lumen/gossnab-mock-app",
+                "description": "App ingested from dynamic gossnab"
+            }
+        ]"#;
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    // 1. Fetch direct from Gossnab
+    let entries = catalog::fetch_catalog_from_gossnab(&server_url)
+        .expect("Should fetch dynamic catalog from gossnab server");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].name, "gossnab-mock-app");
+
+    handle.join().unwrap();
+
+    // 2. Test cache fallback when offline
+    let cache_dir = tempdir().unwrap();
+    let cache_file = cache_dir.path().join("cccp").join("catalog.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).unwrap();
+    fs::write(&cache_file, serde_json::to_string(&entries).unwrap()).unwrap();
+
+    std::env::set_var("XDG_CACHE_HOME", cache_dir.path().to_str().unwrap());
+    std::env::set_var("CCCP_OFFLINE", "1");
+
+    let loaded = catalog::load_catalog(None, None);
+    assert!(
+        loaded.iter().any(|e| e.name == "gossnab-mock-app"),
+        "Catalog should be loaded from cache when CCCP_OFFLINE is set"
+    );
+
+    std::env::remove_var("CCCP_OFFLINE");
+    std::env::remove_var("XDG_CACHE_HOME");
+}
+
