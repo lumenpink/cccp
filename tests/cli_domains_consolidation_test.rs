@@ -31,6 +31,10 @@ fn test_ci_canonical_command() {
     let parsed_act = Cli::parse_from(["cccp", "act", "status"]);
     assert!(matches!(parsed_act.command, Some(Commands::Ci(_))));
 
+    // Ticket #157: Verify act alias preserves all CI arguments and flags
+    let parsed_act_run = Cli::parse_from(["cccp", "act", "run", "--job", "test"]);
+    assert!(matches!(parsed_act_run.command, Some(Commands::Ci(_))));
+
     // Invalid subcommand is rejected
     assert!(Cli::try_parse_from(["cccp", "ci", "nonexistent-subcommand"]).is_err());
 }
