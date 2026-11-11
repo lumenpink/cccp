@@ -509,3 +509,50 @@ fn test_mutation_get_rules_candidate_urls_arbitrary_profile() {
         vec!["https://mycompany.com/standards/v2/RULES.toml".to_string()]
     );
 }
+
+#[test]
+fn test_render_audit_report_failures_only_filters_out_passes() {
+    let theme = Theme::with_color(false);
+    let report = cccp::audit::AuditReport {
+        gost_version: "2.1.0".to_string(),
+        profile: "https://example.org/profile".to_string(),
+        languages: "rust".to_string(),
+        checks: vec![
+            cccp::audit::AuditCheck {
+                code: "PASS-001",
+                title: "Passing Check",
+                detail: "Conforming with guideline".to_string(),
+                status: CheckStatus::Pass,
+            },
+            cccp::audit::AuditCheck {
+                code: "FAIL-001",
+                title: "Failing Check",
+                detail: "Violation detected".to_string(),
+                status: CheckStatus::Fail,
+            },
+        ],
+        passed: 1,
+        warnings: 0,
+        failures: 1,
+        percentage: 50,
+        is_success: false,
+    };
+
+    let rendered = cccp::audit::render_audit_report_with_options(&report, true, true, &theme);
+    assert!(
+        rendered.contains("FAIL-001"),
+        "Failures-only mode must include failed checks: {}",
+        rendered
+    );
+    assert!(
+        !rendered.contains("PASS-001"),
+        "Failures-only mode must NOT include passed checks: {}",
+        rendered
+    );
+    assert!(
+        !rendered.contains("[PASS]"),
+        "Failures-only mode must NOT render [PASS] badges: {}",
+        rendered
+    );
+}
+
