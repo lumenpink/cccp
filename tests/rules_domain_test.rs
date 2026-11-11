@@ -50,12 +50,24 @@ fn test_assemble_rules_into_dot_rules() {
     assert!(!assembled.is_empty());
 
     let rules_dir = root.join(".rules");
-    assert!(rules_dir.join("RULES.md").is_file(), "RULES.md must exist in .rules/");
-    assert!(rules_dir.join("RULES.toml").is_file(), "RULES.toml must exist in .rules/");
+    assert!(
+        rules_dir.join("RULES.md").is_file(),
+        "RULES.md must exist in .rules/"
+    );
+    assert!(
+        rules_dir.join("RULES.toml").is_file(),
+        "RULES.toml must exist in .rules/"
+    );
 
     // Must NOT generate legacy files
-    assert!(!rules_dir.join("rules.json").exists(), "rules.json must NOT be generated");
-    assert!(!rules_dir.join("PROFILE.md").exists(), "PROFILE.md must NOT be generated");
+    assert!(
+        !rules_dir.join("rules.json").exists(),
+        "rules.json must NOT be generated"
+    );
+    assert!(
+        !rules_dir.join("PROFILE.md").exists(),
+        "PROFILE.md must NOT be generated"
+    );
     assert!(!root.join(".gost").exists(), ".gost must NOT be created");
 }
 

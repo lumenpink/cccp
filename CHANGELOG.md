@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Migração da Arquitetura de Normas para `.rules/` e Catálogo de Versões
+- **Padrão Universal e Agnóstico de Normas (`src/profile.rs`, `src/audit.rs`, `src/lua_rules.rs`, `src/main.rs`)**:
+  - Migra a persistência e compilação de especificações e regras para o diretório `.rules/`, encapsulando a configuração em `profile.toml` (`url`, `version`) e gerando estritamente os artefatos compilados `RULES.md` e `RULES.toml`.
+  - Implementa resolução automática de versão estável a partir do catálogo `{url}/versions.json` e suporte determinístico a endpoints versionados.
+  - Elimina a geração de arquivos legados redundantes (`rules.json`, `PROFILE.md`) e expurga acoplamentos estáticos com nomes de normas específicas. (closes #158)
+
 ### Restauração do Alias `act` para Subcomando `ci`
 - **Retrocompatibilidade de Invocação de Esteira Local (`src/cli.rs`, `tests/cli_domains_consolidation_test.rs`)**:
   - Restaura anotação `#[command(alias = "act")]` na variante `Ci(CiArgs)` do enum `Commands`, garantindo paridade total para invocações de esteira e sanando regressão na suíte de testes de consolidação de CLI. (closes #157)

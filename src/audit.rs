@@ -122,7 +122,11 @@ pub fn run_gost_audit_with_scope(
         || root.join("specs/rules.toml").is_file();
 
     // If rules are absent but profile/gostver is present, attempt automatic assembly
-    if !has_rules && (root.join(".rules/profile.toml").is_file() || root.join("GOSTVER").is_file() || root.join("profile.md").is_file()) {
+    if !has_rules
+        && (root.join(".rules/profile.toml").is_file()
+            || root.join("GOSTVER").is_file()
+            || root.join("profile.md").is_file())
+    {
         let _ = crate::profile::assemble_rules_specs(root);
     }
 

@@ -85,8 +85,8 @@ pub fn read_profile_config(root: &Path) -> io::Result<ProfileConfig> {
 pub fn write_profile_config(root: &Path, cfg: &ProfileConfig) -> io::Result<()> {
     let rules_dir = root.join(".rules");
     fs::create_dir_all(&rules_dir)?;
-    let serialized = toml::to_string_pretty(cfg)
-        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    let serialized =
+        toml::to_string_pretty(cfg).map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
     fs::write(rules_dir.join("profile.toml"), serialized)?;
     Ok(())
 }
