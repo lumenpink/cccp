@@ -864,6 +864,10 @@ pub struct AuditArgs {
     #[arg(long = "strict")]
     pub strict: bool,
 
+    /// Show only compliance failures and warnings, automatically running in strict mode
+    #[arg(long = "failures-only", alias = "failed-only", alias = "only-failures")]
+    pub failures_only: bool,
+
     /// Force pass with justification waiver
     #[arg(short = 'f', long = "force")]
     pub force: bool,

@@ -1133,9 +1133,11 @@ fn main() -> ExitCode {
                 .as_deref()
                 .unwrap_or_else(|| std::path::Path::new("."));
             let chosen_lang = gost.lang.as_deref().or(args.lang.as_deref());
-            let report = cccp::audit::run_gost_audit_with_options(
+            let effective_strict = gost.strict || gost.failures_only;
+            let report = cccp::audit::run_gost_audit_full(
                 start_dir,
-                gost.strict,
+                effective_strict,
+                gost.failures_only,
                 gost.scope.as_deref(),
                 chosen_lang,
                 &theme,

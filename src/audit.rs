@@ -133,6 +133,18 @@ pub fn run_gost_audit_with_options(
     lang: Option<&str>,
     theme: &Theme,
 ) -> AuditReport {
+    run_gost_audit_full(root, strict, false, scope, lang, theme)
+}
+
+/// Executes GOST compliance check with scope, language and failures-only filtering
+pub fn run_gost_audit_full(
+    root: &Path,
+    strict: bool,
+    failures_only: bool,
+    scope: Option<&str>,
+    lang: Option<&str>,
+    theme: &Theme,
+) -> AuditReport {
     let (gost_ver, gost_prof, gost_langs) = read_gostver(root);
     let mut checks = Vec::new();
 
@@ -203,15 +215,39 @@ pub fn run_gost_audit_with_options(
         is_success,
     };
 
-    display_audit_report(&report, strict, theme);
+    display_audit_report_with_options(&report, strict, failures_only, theme);
     report
 }
 
 /// Formats the Normative Conformance Audit Report into an English string
 pub fn render_audit_report(report: &AuditReport, strict: bool, theme: &Theme) -> String {
+    render_audit_report_with_options(report, strict, false, theme)
+}
+
+/// Formats the Normative Conformance Audit Report into an English string with optional failure filtering
+pub fn render_audit_report_with_options(
+    report: &AuditReport,
+    strict: bool,
+    failures_only: bool,
+    theme: &Theme,
+) -> String {
+    if failures_only && report.failures == 0 && (!strict || report.warnings == 0) {
+        return format!(
+            "\n{} {}\n\n",
+            theme.green("✔"),
+            theme.bold(&format!(
+                "All {} checks passed (100% compliance)",
+                report.checks.len()
+            ))
+        );
+    }
+
     let mut out = String::new();
     out.push('\n');
     out.push_str(&theme.bold("☭ [RULES] NORMATIVE CONFORMANCE AUDIT"));
+    if failures_only {
+        out.push_str(&format!(" {}", theme.yellow("(FAILURES ONLY)")));
+    }
     out.push('\n');
     out.push_str(&format!(
         "Standard: {} | Profile: {} | Languages: {}\n",
@@ -223,6 +259,9 @@ pub fn render_audit_report(report: &AuditReport, strict: bool, theme: &Theme) ->
     out.push('\n');
 
     for check in &report.checks {
+        if failures_only && check.status != CheckStatus::Fail && check.status != CheckStatus::Warn {
+            continue;
+        }
         let status_badge = match check.status {
             CheckStatus::Pass => theme.green("[PASS]"),
             CheckStatus::Warn => theme.yellow("[WARN]"),
@@ -273,5 +312,18 @@ pub fn render_audit_report(report: &AuditReport, strict: bool, theme: &Theme) ->
 
 /// Renders the Normative Conformance Audit Report to standard output
 pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
-    print!("{}", render_audit_report(report, strict, theme));
+    display_audit_report_with_options(report, strict, false, theme);
+}
+
+/// Renders the Normative Conformance Audit Report to standard output with failure filtering options
+pub fn display_audit_report_with_options(
+    report: &AuditReport,
+    strict: bool,
+    failures_only: bool,
+    theme: &Theme,
+) {
+    print!(
+        "{}",
+        render_audit_report_with_options(report, strict, failures_only, theme)
+    );
 }
