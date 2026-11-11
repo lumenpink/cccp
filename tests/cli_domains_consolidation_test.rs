@@ -245,3 +245,13 @@ fn test_mutation_update_check_flag() {
         _ => panic!("Expected Commands::Update"),
     }
 }
+
+#[test]
+fn test_mutation_ci_act_alias_exactness() {
+    // Ticket #157: mutating alias from 'act' must fail parsing
+    assert!(Cli::try_parse_from(["cccp", "act"]).is_ok());
+    assert!(Cli::try_parse_from(["cccp", "act", "status"]).is_ok());
+    assert!(Cli::try_parse_from(["cccp", "ci"]).is_ok());
+    assert!(Cli::try_parse_from(["cccp", "ci", "status"]).is_ok());
+    assert!(Cli::try_parse_from(["cccp", "act_invalid"]).is_err());
+}
