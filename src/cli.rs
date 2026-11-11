@@ -154,6 +154,7 @@ pub enum Commands {
     Status(StatusArgs),
 
     /// Execução hermética da esteira de CI local e publicação
+    #[command(alias = "act")]
     Ci(CiArgs),
 
     // === Gestão de Repositórios & Catálogo ===
