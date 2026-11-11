@@ -58,3 +58,15 @@ fn test_assemble_rules_into_dot_rules() {
     assert!(!rules_dir.join("PROFILE.md").exists(), "PROFILE.md must NOT be generated");
     assert!(!root.join(".gost").exists(), ".gost must NOT be created");
 }
+
+#[test]
+fn test_mutation_catalog_invalid_payload_returns_none() {
+    let invalid_json = r#"{"invalid": "schema"}"#;
+    assert!(parse_latest_version_from_catalog(invalid_json).is_none());
+}
+
+#[test]
+fn test_mutation_missing_profile_config_returns_not_found() {
+    let dir = tempdir().unwrap();
+    assert!(read_profile_config(dir.path()).is_err());
+}
