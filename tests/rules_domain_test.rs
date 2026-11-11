@@ -82,3 +82,10 @@ fn test_mutation_missing_profile_config_returns_not_found() {
     let dir = tempdir().unwrap();
     assert!(read_profile_config(dir.path()).is_err());
 }
+
+#[test]
+fn test_mutation_build_canonical_rules_urls_clean_slashes() {
+    let (md, toml) = cccp::profile::build_canonical_rules_urls("https://example.org/rules///", "3.0.0");
+    assert_eq!(md, "https://example.org/rules/3.0.0/RULES.md");
+    assert_eq!(toml, "https://example.org/rules/3.0.0/RULES.toml");
+}
