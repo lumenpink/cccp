@@ -1,12 +1,12 @@
 //! Lua Rules Engine for GOST Compliance
-//! Executes declarative rules defined in `rules.toml` with the `gost.*` runtime.
+//! Delegates rule evaluation to the dedicated `lunokhod` engine CLI.
 
 use crate::audit::{AuditCheck, CheckStatus};
-use mlua::Lua;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct RulesManifest {
@@ -173,8 +173,12 @@ pub fn load_locales_from_repo(root: &Path, lang: &str) -> HashMap<String, Locale
     all_locales
 }
 
-pub fn create_lua_environment(root: &Path) -> mlua::Result<Lua> {
-    lunokhod::create_lua_environment(root)
+#[derive(Debug, Deserialize)]
+struct LunokhodAuditItem {
+    code: String,
+    title: String,
+    status: String,
+    detail: String,
 }
 
 pub fn evaluate_lua_rules_for_scope(
@@ -196,16 +200,36 @@ pub fn evaluate_lua_rules_with_lang(
     } else {
         lang.trim()
     };
-    let lk_checks =
-        lunokhod::evaluate_lua_rules_for_scope(root, disabled_rules, effective_lang, target_scope);
-    lk_checks
+
+    let mut cmd = Command::new("lunokhod");
+    cmd.arg("--dir")
+        .arg(root)
+        .arg("check")
+        .arg("--json")
+        .arg("--lang")
+        .arg(effective_lang);
+
+    if let Some(scope) = target_scope {
+        cmd.arg("--scope").arg(scope);
+    }
+
+    let output = match cmd.output() {
+        Ok(out) => out,
+        Err(_) => return Vec::new(),
+    };
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let items: Vec<LunokhodAuditItem> = serde_json::from_str(&stdout_str).unwrap_or_default();
+
+    items
         .into_iter()
+        .filter(|c| !disabled_rules.iter().any(|d| d.trim() == c.code.trim()))
         .map(|c| {
-            let status = match c.status {
-                lunokhod::CheckStatus::Pass => CheckStatus::Pass,
-                lunokhod::CheckStatus::Fail => CheckStatus::Fail,
-                lunokhod::CheckStatus::Warn => CheckStatus::Warn,
-                lunokhod::CheckStatus::Skip => CheckStatus::Skip,
+            let status = match c.status.to_uppercase().as_str() {
+                "PASS" => CheckStatus::Pass,
+                "FAIL" => CheckStatus::Fail,
+                "WARN" => CheckStatus::Warn,
+                _ => CheckStatus::Skip,
             };
             AuditCheck {
                 code: Box::leak(c.code.into_boxed_str()),

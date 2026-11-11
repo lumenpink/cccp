@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Desacoplamento do Motor Lua e Delegação ao Lunokhod
+- **Auditoria Normativa e Remoção de C Vendored (`src/lua_rules.rs`, `Cargo.toml`)**:
+  - Remove dependências diretas de `mlua` e da crate `lunokhod`, tornando o binário do CCCP 100% Rust estático puro.
+  - Delega avaliação de regras em `rules.toml` para o processo CLI `lunokhod check --json`.
+  - Garante resiliência e degradação graciosa caso o motor externo não esteja no PATH. (closes #170)
+
+
 ### Delegação de Catálogo e Scaffolding ao Gossnab
 - **Desacoplamento de Ecossistema (`src/newrepo.rs`, `src/cli.rs`)**:
   - Delega provisionamento de repositórios (`new`) e gerenciamento de catálogo (`repo`) ao `gossnab`.

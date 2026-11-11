@@ -20,20 +20,20 @@ fn test_branch_inference_supports_ci_build_style() {
 #[test]
 fn test_lunokhod_engine_delegation() {
     let checks = cccp::lua_rules::evaluate_lua_rules(Path::new("."), &[]);
-    // Se o repositório não tiver rules.toml local na raiz, retorna lista vazia mas inicializa sem erro
+    // Delega para o binário `lunokhod` caso disponível, ou retorna vazio sem panic
     println!("Checks avaliados: {}", checks.len());
 }
 
 #[test]
-fn test_lunokhod_dependency_is_not_path_dependent() {
+fn test_lunokhod_and_mlua_decoupled_from_dependencies() {
     let cargo_content = std::fs::read_to_string("Cargo.toml").expect("Cargo.toml must exist");
     assert!(
-        !cargo_content.contains("lunokhod = { path ="),
-        "Manifest contains forbidden path dependency for lunokhod"
+        !cargo_content.contains("mlua ="),
+        "Manifest must not depend directly on mlua"
     );
     assert!(
-        cargo_content.contains("registry = \"gambi\""),
-        "Manifest must consume lunokhod via registry = \"gambi\""
+        !cargo_content.contains("lunokhod ="),
+        "Manifest must not depend directly on lunokhod crate"
     );
 }
 
