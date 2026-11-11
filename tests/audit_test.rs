@@ -373,3 +373,59 @@ jobs:
         "Clean workflow without permissions must pass"
     );
 }
+
+#[test]
+fn test_audit_evaluates_rules_from_dot_rules() {
+    let temp = tempdir().expect("tempdir");
+    let p = temp.path();
+    let rules_dir = p.join(".rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+
+    let custom_rules = r#"
+[rules.LOCAL-001]
+name = "Local Test Rule"
+description = "Verifies custom rule in .rules/RULES.toml"
+severity = "error"
+scope = "project"
+script = "return true"
+"#;
+    fs::write(rules_dir.join("RULES.toml"), custom_rules).unwrap();
+
+    let theme = Theme::with_color(false);
+    let report = run_gost_audit(p, false, &theme);
+    assert_eq!(
+        report.checks.len(),
+        1,
+        "Audit must evaluate exactly 1 rule from .rules/RULES.toml"
+    );
+    assert_eq!(report.checks[0].code, "LOCAL-001");
+    assert_eq!(report.checks[0].status, CheckStatus::Pass);
+}
+
+#[test]
+fn test_read_gostver_legacy_gostver_precedence() {
+    let temp = tempdir().expect("tempdir");
+    let p = temp.path();
+
+    // Create both GOSTVER and .rules/profile.toml
+    let gostver_content = r#"
+GOST_VERSION="1.9.9"
+GOST_PROFILE_URL="profiles/legacy.md"
+"#;
+    fs::write(p.join("GOSTVER"), gostver_content).unwrap();
+
+    let rules_dir = p.join(".rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    let profile_toml = r#"
+url = "https://lilya.2lp.in"
+version = "2.1.0"
+"#;
+    fs::write(rules_dir.join("profile.toml"), profile_toml).unwrap();
+
+    let (ver, prof, _) = read_gostver(p);
+    assert_eq!(
+        ver, "1.9.9",
+        "GOSTVER legacy must take precedence if explicitly present"
+    );
+    assert_eq!(prof, "profiles/legacy.md");
+}
