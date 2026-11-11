@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Restauração do Alias `act` para Subcomando `ci`
+- **Retrocompatibilidade de Invocação de Esteira Local (`src/cli.rs`, `tests/cli_domains_consolidation_test.rs`)**:
+  - Restaura anotação `#[command(alias = "act")]` na variante `Ci(CiArgs)` do enum `Commands`, garantindo paridade total para invocações de esteira e sanando regressão na suíte de testes de consolidação de CLI. (closes #157)
+
 ### Compactação e Organização do Menu de Ajuda Principal
 - **Agrupamento e Descrições Sucintas no Root Help (`src/cli.rs`)**:
   - Configura `ROOT_HELP_TEMPLATE` na definição do comando raiz `Cli`, agrupando visualmente os comandos disponíveis por contexto operacional (`Ciclo DD-TDD`, `Operações Git & Esteira`, `Gestão de Repositórios & Catálogo`, `Ferramental & Utilitários`).
