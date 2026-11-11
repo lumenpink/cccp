@@ -121,3 +121,48 @@ fn test_get_rules_candidate_urls_deterministic() {
         "Must return None for empty URL list"
     );
 }
+
+#[test]
+fn test_assemble_rules_injects_hierarchical_tier() {
+    let dir = tempdir().expect("tempdir");
+    let p = dir.path();
+
+    fs::create_dir_all(p.join(".rules")).unwrap();
+    fs::write(
+        p.join(".rules").join("profile.toml"),
+        "url = \"https://lilya.2lp.in\"\nversion = \"2.1.0\"\n",
+    )
+    .unwrap();
+
+    // Create a local custom-rules.toml without tier
+    let custom_rules = r#"
+[rules.LOCAL-TIER-TEST]
+name = "LOCAL-TIER-TEST"
+severity = "error"
+scope = "local"
+description = "Local rule without explicit tier"
+script = "return true"
+"#;
+    fs::write(p.join("custom-rules.toml"), custom_rules).unwrap();
+
+    let res = assemble_gost_specs(p);
+    assert!(res.is_ok(), "assemble must succeed");
+
+    let rules_toml = fs::read_to_string(p.join(".rules/RULES.toml")).expect("RULES.toml must exist");
+    let parsed: toml::Value = toml::from_str(&rules_toml).expect("Must parse RULES.toml as valid TOML");
+    let local_rule = parsed
+        .get("rules")
+        .and_then(|r| r.get("LOCAL-TIER-TEST"))
+        .expect("LOCAL-TIER-TEST must be present in compiled rules");
+
+    let tier = local_rule
+        .get("tier")
+        .and_then(|t| t.as_integer())
+        .expect("LOCAL-TIER-TEST must have an injected tier");
+
+    assert_eq!(
+        tier, 99,
+        "Local custom rules without explicit tier must be injected with tier 99"
+    );
+}
+
