@@ -1369,3 +1369,73 @@ fn test_fetch_catalog_from_gossnab_and_cache_fallback() {
     std::env::remove_var("XDG_CACHE_HOME");
 }
 
+#[test]
+fn test_mutation_gossnab_server_error_and_malformed_json_fallback() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    // 1. Gossnab returns HTTP 500
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server_url = format!("http://127.0.0.1:{}", port);
+
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 1024];
+        let _ = stream.read(&mut buf);
+        let response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let res = catalog::fetch_catalog_from_gossnab(&server_url);
+    assert!(res.is_err(), "HTTP 500 should return an error");
+    handle.join().unwrap();
+
+    // 2. Gossnab returns malformed JSON
+    let listener2 = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port2 = listener2.local_addr().unwrap().port();
+    let server_url2 = format!("http://127.0.0.1:{}", port2);
+
+    let handle2 = std::thread::spawn(move || {
+        let (mut stream, _) = listener2.accept().unwrap();
+        let mut buf = [0u8; 1024];
+        let _ = stream.read(&mut buf);
+        let payload = "{ not a valid json";
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        stream.write_all(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    });
+
+    let res2 = catalog::fetch_catalog_from_gossnab(&server_url2);
+    assert!(res2.is_err(), "Malformed JSON should return an error");
+    handle2.join().unwrap();
+
+    // 3. Resilience in load_catalog when network fails but cache exists
+    let cache_dir = tempdir().unwrap();
+    let cache_file = cache_dir.path().join("cccp").join("catalog.json");
+    fs::create_dir_all(cache_file.parent().unwrap()).unwrap();
+    fs::write(
+        &cache_file,
+        r#"[{"name":"resilient-cache-repo","forge":"gambi","slug":"lumen/resilient-cache-repo"}]"#,
+    )
+    .unwrap();
+
+    std::env::set_var("XDG_CACHE_HOME", cache_dir.path().to_str().unwrap());
+    std::env::set_var("GOSSNAB_URL", "http://127.0.0.1:1"); // Non-existent port
+
+    let loaded = catalog::load_catalog(None, None);
+    assert!(
+        loaded.iter().any(|e| e.name == "resilient-cache-repo"),
+        "Should fall back to cache when network fails"
+    );
+
+    std::env::remove_var("GOSSNAB_URL");
+    std::env::remove_var("XDG_CACHE_HOME");
+}
+
+
