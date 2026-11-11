@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cccp"
-version = "3.2.0-dev.871+20261111.9896cd0"
+version = "3.2.0-dev.874+20261111.172c371"
 dependencies = [
  "clap",
  "clap_complete",

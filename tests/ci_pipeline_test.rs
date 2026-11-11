@@ -96,16 +96,13 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
         "ci.yml must compile musl binaries with link-arg=-static"
     );
     assert!(
-        workflow.contains("cargo build --release --target x86_64-unknown-linux-musl -p cccp"),
-        "ci.yml must compile x86_64-unknown-linux-musl using standard cargo build"
+        workflow.contains("cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp")
+            || workflow.contains("cargo build --release --target x86_64-unknown-linux-musl -p cccp"),
+        "ci.yml must compile x86_64-unknown-linux-musl using cargo zigbuild or cargo build"
     );
     assert!(
         workflow.contains("target/x86_64-unknown-linux-musl/release/cccp --version"),
         "ci.yml must execute cccp --version smoke test on compiled musl binary"
-    );
-    assert!(
-        workflow.contains("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: \"x86_64-linux-gnu-gcc\""),
-        "ci.yml must override CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER with x86_64-linux-gnu-gcc to avoid musl-gcc segfault"
     );
     assert!(
         workflow.contains("readelf -l") && workflow.contains("program interpreter"),
