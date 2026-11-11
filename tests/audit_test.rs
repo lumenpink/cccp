@@ -33,6 +33,22 @@ fn test_read_gostver_missing_file() {
 }
 
 #[test]
+fn test_read_gostver_from_dot_rules_profile_toml() {
+    let temp = tempdir().expect("tempdir");
+    let rules_dir = temp.path().join(".rules");
+    fs::create_dir_all(&rules_dir).unwrap();
+    let content = r#"
+url = "https://lilya.2lp.in"
+version = "2.1.0"
+"#;
+    fs::write(rules_dir.join("profile.toml"), content).unwrap();
+
+    let (ver, prof, _langs) = read_gostver(temp.path());
+    assert_eq!(ver, "2.1.0");
+    assert_eq!(prof, "https://lilya.2lp.in");
+}
+
+#[test]
 fn test_agnostic_audit_evaluates_only_declarative_rules() {
     let temp = tempdir().expect("tempdir");
     let p = temp.path();
