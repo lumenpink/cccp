@@ -31,3 +31,9 @@ A função `resolve_cascading_chain` resolve as camadas da base/raiz até a folh
 - **Fase 7**: Testes de mutação cobrindo preservação de tiers pré-existentes e regras customizadas locais.
 - **Fase 8**: Linters (`cargo fmt`, `cargo clippy`), testes unitários e de integração.
 - **Fase 9**: Fechamento do ticket #163, merge na `main` e push.
+
+## 4. Laudo de Validação e Quality Gate (Fase 8)
+- `cargo fmt --check`: 100% aprovado.
+- `cargo clippy --all-targets -- -D warnings`: 0 warnings, 0 erros.
+- `cargo test --test assemble_rules_cascade_test`: 5 testes aprovados, validando injeção automática de tier por camada e preservação de tiers explícitos.
+

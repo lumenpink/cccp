@@ -148,8 +148,10 @@ script = "return true"
     let res = assemble_gost_specs(p);
     assert!(res.is_ok(), "assemble must succeed");
 
-    let rules_toml = fs::read_to_string(p.join(".rules/RULES.toml")).expect("RULES.toml must exist");
-    let parsed: toml::Value = toml::from_str(&rules_toml).expect("Must parse RULES.toml as valid TOML");
+    let rules_toml =
+        fs::read_to_string(p.join(".rules/RULES.toml")).expect("RULES.toml must exist");
+    let parsed: toml::Value =
+        toml::from_str(&rules_toml).expect("Must parse RULES.toml as valid TOML");
     let local_rule = parsed
         .get("rules")
         .and_then(|r| r.get("LOCAL-TIER-TEST"))
@@ -193,8 +195,10 @@ script = "return true"
     let res = assemble_gost_specs(p);
     assert!(res.is_ok(), "assemble must succeed");
 
-    let rules_toml = fs::read_to_string(p.join(".rules/RULES.toml")).expect("RULES.toml must exist");
-    let parsed: toml::Value = toml::from_str(&rules_toml).expect("Must parse RULES.toml as valid TOML");
+    let rules_toml =
+        fs::read_to_string(p.join(".rules/RULES.toml")).expect("RULES.toml must exist");
+    let parsed: toml::Value =
+        toml::from_str(&rules_toml).expect("Must parse RULES.toml as valid TOML");
     let local_rule = parsed
         .get("rules")
         .and_then(|r| r.get("LOCAL-EXPLICIT-TIER"))
@@ -210,5 +214,3 @@ script = "return true"
         "Explicit tier in rule definition must be preserved by assemble"
     );
 }
-
-
