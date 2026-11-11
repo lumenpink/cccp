@@ -556,3 +556,84 @@ fn test_render_audit_report_failures_only_filters_out_passes() {
     );
 }
 
+#[test]
+fn test_mutation_render_audit_report_failures_only_all_passing() {
+    let theme = Theme::with_color(false);
+    let report = cccp::audit::AuditReport {
+        gost_version: "2.1.0".to_string(),
+        profile: "https://example.org/profile".to_string(),
+        languages: "rust".to_string(),
+        checks: vec![
+            cccp::audit::AuditCheck {
+                code: "PASS-001",
+                title: "Passing 1",
+                detail: "OK".to_string(),
+                status: CheckStatus::Pass,
+            },
+            cccp::audit::AuditCheck {
+                code: "PASS-002",
+                title: "Passing 2",
+                detail: "OK".to_string(),
+                status: CheckStatus::Pass,
+            },
+        ],
+        passed: 2,
+        warnings: 0,
+        failures: 0,
+        percentage: 100,
+        is_success: true,
+    };
+
+    let rendered = cccp::audit::render_audit_report_with_options(&report, true, true, &theme);
+    assert!(
+        rendered.contains("All 2 checks passed (100% compliance)"),
+        "100% passing audit in failures-only mode must produce clean single line success: {}",
+        rendered
+    );
+    assert!(
+        !rendered.contains("NORMATIVE CONFORMANCE AUDIT"),
+        "Passing audit should not display full audit header in failures-only mode"
+    );
+}
+
+#[test]
+fn test_mutation_render_audit_report_failures_only_renders_warnings_in_strict() {
+    let theme = Theme::with_color(false);
+    let report = cccp::audit::AuditReport {
+        gost_version: "2.1.0".to_string(),
+        profile: "https://example.org/profile".to_string(),
+        languages: "rust".to_string(),
+        checks: vec![
+            cccp::audit::AuditCheck {
+                code: "PASS-001",
+                title: "Passing 1",
+                detail: "OK".to_string(),
+                status: CheckStatus::Pass,
+            },
+            cccp::audit::AuditCheck {
+                code: "WARN-001",
+                title: "Warning 1",
+                detail: "Mild divergence".to_string(),
+                status: CheckStatus::Warn,
+            },
+        ],
+        passed: 1,
+        warnings: 1,
+        failures: 0,
+        percentage: 50,
+        is_success: false,
+    };
+
+    let rendered = cccp::audit::render_audit_report_with_options(&report, true, true, &theme);
+    assert!(
+        rendered.contains("WARN-001"),
+        "Warnings must be displayed in failures-only when strict: {}",
+        rendered
+    );
+    assert!(
+        !rendered.contains("PASS-001"),
+        "Passed checks must still be suppressed"
+    );
+}
+
+
