@@ -97,7 +97,8 @@ fn test_ci_workflow_compiles_linux_amd64_musl() {
     );
     assert!(
         workflow.contains("cargo zigbuild --release --target x86_64-unknown-linux-musl -p cccp")
-            || workflow.contains("cargo build --release --target x86_64-unknown-linux-musl -p cccp"),
+            || workflow
+                .contains("cargo build --release --target x86_64-unknown-linux-musl -p cccp"),
         "ci.yml must compile x86_64-unknown-linux-musl using cargo zigbuild or cargo build"
     );
     assert!(
