@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cccp"
-version = "3.2.0-dev.841+20261111.591ab3d"
+version = "3.2.0-dev.842+20261111.71be065"
 dependencies = [
  "clap",
  "clap_complete",
@@ -342,7 +342,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -683,9 +683,9 @@ dependencies = [
 
 [[package]]
 name = "lunokhod"
-version = "0.1.0-dev.33+20261109.27f4e1c"
+version = "0.1.0-dev.39+20261111.c7e87e2"
 source = "sparse+https://gambi.2lp.in/api/packages/lumen/cargo/"
-checksum = "b33a66c4a5799909c2c0da2a8c1c82e0ff126d44a069eb6a6c06a78efbc7c6c5"
+checksum = "0b55f6237f7f767d889f823678e54b68f234106a7b963ddd73281603493dc83d"
 dependencies = [
  "clap",
  "git2",
@@ -914,7 +914,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1136,7 +1136,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

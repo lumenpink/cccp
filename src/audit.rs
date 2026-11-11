@@ -54,6 +54,17 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
         }
     }
 
+    if ver.is_empty() || prof.is_empty() {
+        if let Ok(profile_cfg) = crate::profile::read_profile_config(root) {
+            if ver.is_empty() {
+                ver = profile_cfg.version;
+            }
+            if prof.is_empty() {
+                prof = profile_cfg.url;
+            }
+        }
+    }
+
     (
         if ver.is_empty() {
             "Não declarado".to_string()
@@ -140,7 +151,7 @@ pub fn run_gost_audit_with_scope(
             code: "NO-RULES-FOUND",
             title: "Catálogo de Regras Declarativas",
             detail:
-                "Nenhum catálogo de regras declarativas encontrado (.gost/rules.toml, rules.toml)"
+                "Nenhum catálogo de regras declarativas encontrado (.rules/RULES.toml, .gost/rules.toml, rules.toml)"
                     .to_string(),
             status: CheckStatus::Fail,
         });

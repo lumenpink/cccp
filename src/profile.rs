@@ -613,7 +613,8 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
         root_val.insert("rules".to_string(), toml::Value::Table(combined_rules));
         if let Ok(serialized) = toml::to_string_pretty(&toml::Value::Table(root_val)) {
             let rules_out = rules_dir.join("RULES.toml");
-            let _ = fs::write(&rules_out, serialized);
+            let _ = fs::write(&rules_out, &serialized);
+            let _ = fs::write(rules_dir.join("rules.toml"), &serialized);
         }
     }
 
