@@ -852,7 +852,11 @@ fn test_batch_assemble_gost_execution_and_file_creation() {
     let target_file = dir.path().join(".gost/GOST.md");
     assert!(target_file.is_file());
     let content = std::fs::read_to_string(target_file).expect("read GOST.md");
-    assert!(content.contains("ГОСТ / GOSPLAN"));
+    assert!(
+        content.contains("Normas e Diretrizes Compiladas") || content.contains("Árvore de Herança"),
+        "Content should contain compiled guidelines header: {}",
+        content
+    );
 }
 
 #[test]

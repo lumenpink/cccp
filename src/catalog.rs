@@ -450,11 +450,120 @@ pub fn get_catalog_save_path(config: Option<&crate::config::Config>) -> PathBuf 
     PathBuf::from("catalog.json")
 }
 
-/// Load catalog entries from disk using configured location
+/// Returns the volatile cache path for the ecosystem catalog ($XDG_CACHE_HOME/cccp/catalog.json).
+pub fn get_catalog_cache_path() -> PathBuf {
+    if let Ok(xdg) = std::env::var("XDG_CACHE_HOME") {
+        let trimmed = xdg.trim();
+        if !trimmed.is_empty() {
+            return PathBuf::from(trimmed).join("cccp").join("catalog.json");
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let trimmed = home.trim();
+        if !trimmed.is_empty() {
+            return PathBuf::from(trimmed)
+                .join(".cache")
+                .join("cccp")
+                .join("catalog.json");
+        }
+    }
+    PathBuf::from(".cache").join("cccp").join("catalog.json")
+}
+
+/// Resolves Gossnab SSOT URL from environment or configuration.
+pub fn resolve_gossnab_url(config: Option<&crate::config::Config>) -> Option<String> {
+    if let Ok(url) = std::env::var("CCCP_GOSSNAB_URL").or_else(|_| std::env::var("GOSSNAB_URL")) {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.trim_end_matches('/').to_string());
+        }
+    }
+    if let Some(_cfg) = config {
+        // Future extension: config.gossnab_url if added to Config struct
+    }
+    None
+}
+
+/// Fetches dynamic ecosystem catalog from Gossnab SSOT via HTTP GET /api/v1/catalog.
+pub fn fetch_catalog_from_gossnab(gossnab_url: &str) -> Result<Vec<CatalogEntry>, String> {
+    let clean_url = gossnab_url.trim_end_matches('/');
+    let endpoint = format!("{}/api/v1/catalog", clean_url);
+
+    let ureq_cfg = ureq::config::Config::builder()
+        .timeout_global(Some(std::time::Duration::from_secs(3)))
+        .build();
+    let agent = ureq::Agent::new_with_config(ureq_cfg);
+
+    let resp = agent
+        .get(&endpoint)
+        .call()
+        .map_err(|e| format!("Falha ao consultar catalogo no Gossnab ({}): {}", endpoint, e))?;
+
+    let body = resp
+        .into_body()
+        .read_to_string()
+        .map_err(|e| format!("Erro ao ler resposta do Gossnab: {}", e))?;
+
+    let entries: Vec<CatalogEntry> = serde_json::from_str(&body)
+        .map_err(|e| format!("Erro ao deserializar catalogo do Gossnab: {}", e))?;
+
+    Ok(entries)
+}
+
+/// Saves catalog entries into local volatile cache directory.
+pub fn save_catalog_to_cache(entries: &[CatalogEntry]) {
+    let cache_path = get_catalog_cache_path();
+    if let Some(parent) = cache_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    if let Ok(json_str) = serde_json::to_string_pretty(entries) {
+        let _ = fs::write(&cache_path, json_str);
+    }
+}
+
+/// Load catalog entries with priority:
+/// 1. Dynamic Gossnab SSOT (if online and GOSSNAB_URL is set) with auto-caching.
+/// 2. Volatile local cache ($XDG_CACHE_HOME/cccp/catalog.json).
+/// 3. Traditional static catalog.json on disk (legacy fallback).
 pub fn load_catalog(
     config: Option<&crate::config::Config>,
     start_dir: Option<&Path>,
 ) -> Vec<CatalogEntry> {
+    let is_offline = std::env::var("CCCP_OFFLINE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    // 1. Try Gossnab dynamic SSOT if not in forced offline mode
+    if !is_offline {
+        if let Some(gossnab_url) = resolve_gossnab_url(config) {
+            if let Ok(mut entries) = fetch_catalog_from_gossnab(&gossnab_url) {
+                if !entries.is_empty() {
+                    for entry in &mut entries {
+                        enrich_catalog_entry(entry, config);
+                    }
+                    save_catalog_to_cache(&entries);
+                    return entries;
+                }
+            }
+        }
+    }
+
+    // 2. Try volatile local cache ($XDG_CACHE_HOME/cccp/catalog.json)
+    let cache_path = get_catalog_cache_path();
+    if cache_path.is_file() {
+        if let Ok(content) = fs::read_to_string(&cache_path) {
+            if let Ok(mut entries) = serde_json::from_str::<Vec<CatalogEntry>>(&content) {
+                if !entries.is_empty() {
+                    for entry in &mut entries {
+                        enrich_catalog_entry(entry, config);
+                    }
+                    return entries;
+                }
+            }
+        }
+    }
+
+    // 3. Fallback to local catalog.json discovery
     if let Some(path) = find_catalog_path(config, start_dir) {
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(mut entries) = serde_json::from_str::<Vec<CatalogEntry>>(&content) {
