@@ -36,6 +36,5 @@ pub mod release;
 pub mod repo_top;
 pub mod semver_calc;
 pub mod serve;
-pub mod site_banner;
 pub mod tickets;
 pub mod update;

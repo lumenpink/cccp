@@ -197,10 +197,6 @@ pub enum Commands {
     #[command(subcommand)]
     Profile(ProfileCommand),
 
-    /// Gerenciar documentação do site e banners institucionais
-    #[command(subcommand)]
-    Site(SiteCommand),
-
     /// Verificar atualizações e auto-atualizar binário do CCCP
     Update(UpdateArgs),
 
@@ -220,27 +216,6 @@ pub enum Commands {
     /// Triagem inteligente de tickets (atalho raiz para 'cccp ticket divan')
     #[command(hide = true, alias = "diva")]
     Divan(DivanArgs),
-}
-
-#[derive(Debug, Subcommand, Clone)]
-pub enum SiteCommand {
-    /// Generate deterministic Open Graph preview banner (site/assets/og_preview.png)
-    Banner(SiteBannerArgs),
-}
-
-#[derive(Debug, Args, Clone, Default)]
-pub struct SiteBannerArgs {
-    /// Override project title in banner
-    #[arg(short = 't', long = "title")]
-    pub title: Option<String>,
-
-    /// Override project tagline in banner (max 65 chars)
-    #[arg(long = "tagline")]
-    pub tagline: Option<String>,
-
-    /// Custom output file path (default: site/assets/og_preview.png)
-    #[arg(short = 'o', long = "output")]
-    pub output: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand, Clone)]

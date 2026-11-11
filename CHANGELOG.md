@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Purgatório de Gerador de Site Banner
+- **Desacoplamento de Artefatos Gráficos (`src/cli.rs`, `src/main.rs`, `src/ci_pipeline.rs`)**:
+  - Elimina o gerador de banners Open Graph PNG (`src/site_banner.rs`) e o subcomando `cccp site banner`.
+  - Remove gancho implícito de renderização de preview gráfico no deploy de documentação (`deploy_site`). (closes #167)
+
 ### Purgatório de Cockpit Web e Matraca
 - **Simplificação e Desacoplamento da CLI (`src/cli.rs`, `src/main.rs`, `src/lib.rs`)**:
   - Elimina completamente o servidor web embutido `cockpit` e a fila FIFO `matraca` (`spool`).

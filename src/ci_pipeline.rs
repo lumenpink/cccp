@@ -182,16 +182,6 @@ pub fn deploy_site(root: &Path, opts: &DeploySiteOptions, theme: &Theme) -> Resu
         ));
     }
 
-    // Ensure banner exists in source if metadata exists
-    let banner_path = source.join("assets/og_preview.png");
-    if !banner_path.is_file() && root.join(".gost/metadata.json").is_file() {
-        let banner_opts = crate::site_banner::BannerOptions {
-            output: Some(banner_path),
-            ..Default::default()
-        };
-        let _ = crate::site_banner::generate_site_banner(root, &banner_opts, theme);
-    }
-
     // Write CNAME if specified
     if let Some(ref domain) = opts.cname {
         let _ = fs::write(source.join("CNAME"), domain.trim());
