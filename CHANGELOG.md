@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Padronização de Comandos no Singular e Purgatório de Aliases
+- **Consistência Semântica na CLI (`src/cli.rs`, `tests/divan_cli_test.rs`)**:
+  - Padroniza todos os comandos estritamente no singular (`cccp ticket`), expurgando aliases ambíguos no plural (`tickets`).
+  - Isola credenciais e mitiga vazamento de variáveis globais de ambiente nos testes de configuração e IA.
+  - Sincroniza compilação em cascata com `.rules/` e catálogo de versões. (closes #164)
+
 ### Atualização do Motor Lunokhod e Metadados `.rules/`
 - **Execução Declarativa e Resolução de Metadados (`src/audit.rs`, `src/profile.rs`, `Cargo.lock`)**:
   - Atualiza o motor `lunokhod` para versão com suporte prioritário a `.rules/RULES.toml`, `.rules/rules.toml` e primitivo `gost.git_remotes()`.
