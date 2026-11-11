@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Compactação e Organização do Menu de Ajuda Principal
+- **Agrupamento e Descrições Sucintas no Root Help (`src/cli.rs`)**:
+  - Configura `ROOT_HELP_TEMPLATE` na definição do comando raiz `Cli`, agrupando visualmente os comandos disponíveis por contexto operacional (`Ciclo DD-TDD`, `Operações Git & Esteira`, `Gestão de Repositórios & Catálogo`, `Ferramental & Utilitários`).
+  - Reduz as descrições na listagem principal a uma única linha clara e objetiva, mantendo intactas as documentações aprofundadas e flags contextuais nos menus de ajuda individuais dos subcomandos. (closes #132)
+
 ### Atalhos Ocultos no Nível Raiz para Subcomandos
 - **Ocultação de Atalho Raiz `cccp divan` (`src/cli.rs`)**:
   - Configura o atalho de nível raiz `Divan` com `hide = true`, impedindo a poluição visual do menu principal `cccp --help`.
