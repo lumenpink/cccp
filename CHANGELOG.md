@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Unificação da Compilação Estática Musl com Cargo Zigbuild
+- **Pipeline de Release Multiarch (`.forgejo/workflows/ci.yml`)**:
+  - Unifica a compilação de `x86_64-unknown-linux-musl` sob `cargo zigbuild`, eliminando conflitos de símbolos LFS glibc em dependências C e viabilizando o deploy na Banca. (closes #165)
+
 ### Padronização de Comandos no Singular e Purgatório de Aliases
 - **Consistência Semântica na CLI (`src/cli.rs`, `tests/divan_cli_test.rs`)**:
   - Padroniza todos os comandos estritamente no singular (`cccp ticket`), expurgando aliases ambíguos no plural (`tickets`).
