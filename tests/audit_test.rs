@@ -635,5 +635,3 @@ fn test_mutation_render_audit_report_failures_only_renders_warnings_in_strict() 
         "Passed checks must still be suppressed"
     );
 }
-
-
