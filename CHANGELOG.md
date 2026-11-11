@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Purgatório de Cockpit Web e Matraca
+- **Simplificação e Desacoplamento da CLI (`src/cli.rs`, `src/main.rs`, `src/lib.rs`)**:
+  - Elimina completamente o servidor web embutido `cockpit` e a fila FIFO `matraca` (`spool`).
+  - Remove código morto associado em `src/web.rs`, `src/matraca.rs` e suítes de testes (`tests/web_test.rs`, `tests/matraca_test.rs`).
+  - Introduz lock determinístico de variáveis de ambiente em `tests/config_test.rs`. (closes #166)
+
 ### Unificação da Compilação Estática Musl com Cargo Zigbuild
 - **Pipeline de Release Multiarch (`.forgejo/workflows/ci.yml`)**:
   - Unifica a compilação de `x86_64-unknown-linux-musl` sob `cargo zigbuild`, eliminando conflitos de símbolos LFS glibc em dependências C e viabilizando o deploy na Banca. (closes #165)

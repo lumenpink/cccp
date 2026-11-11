@@ -44,8 +44,6 @@ Ferramental & Utilitários:
   update       Verificar atualizações e auto-atualizar binário do CCCP
   completion   Gerar scripts de autocompleção para shells (bash, zsh, fish)
   prompt       Helper leve para prompt do shell (branch, fase, dirty)
-  cockpit      Cockpit web interativo do Gosplan & Mayak Bridge
-  spool        Fila offline e spool para Antigravity CLI (agy)
   soviet       Registro cultural Gosplan e camaradas soviéticos
   forge        Interagir diretamente com forjas remotas (Gitea/Forgejo/Codeberg)
 
@@ -211,12 +209,6 @@ pub enum Commands {
 
     /// Helper leve para prompt do shell (branch, fase, dirty)
     Prompt(PromptArgs),
-
-    /// Cockpit web interativo do Gosplan & Mayak Bridge
-    Cockpit(CockpitArgs),
-
-    /// Fila offline e spool para Antigravity CLI (agy)
-    Spool(SpoolArgs),
 
     /// Registro cultural Gosplan e camaradas soviéticos
     Soviet(SovietArgs),
@@ -1561,150 +1553,6 @@ impl From<ServeArgs> for crate::serve::ServeOptions {
 }
 
 #[derive(Debug, Args, Clone, Default)]
-pub struct SpoolArgs {
-    #[command(subcommand)]
-    pub action: Option<SpoolSubcommands>,
-
-    /// Raw prompt to send if no subcommand was specified
-    #[arg(trailing_var_arg = true)]
-    pub prompt: Vec<String>,
-}
-
-pub type MatracaArgs = SpoolArgs;
-
-#[derive(Debug, Subcommand, Clone)]
-pub enum SpoolSubcommands {
-    /// Enqueue prompt into FIFO queue (<10ms)
-    Send(SpoolSendArgs),
-    /// Query status and result of a job by ID or client ID
-    Poll {
-        /// Job ID or Client ID to query
-        id: String,
-    },
-    /// Process queued jobs with agy
-    Worker(SpoolWorkerArgs),
-    /// List recently finished or active jobs
-    History {
-        /// Maximum number of messages to return
-        #[arg(short = 'n', long = "limit", default_value = "50")]
-        limit: usize,
-    },
-    /// Show queue health and statistics
-    Status {
-        /// Output status in structured JSON format
-        #[arg(long = "json", action = clap::ArgAction::SetTrue)]
-        json: bool,
-    },
-    /// Clean old completed and failed jobs
-    Clean {
-        /// Number of days to keep jobs (default: 7)
-        #[arg(short = 'd', long = "days", default_value = "7")]
-        days: u64,
-    },
-}
-
-pub type MatracaSubcommands = SpoolSubcommands;
-
-#[derive(Debug, Args, Clone, Default)]
-pub struct SpoolSendArgs {
-    /// Client ID for idempotency tracking
-    #[arg(long = "client-id")]
-    pub client_id: Option<String>,
-
-    /// Target workspace directory (default: current directory)
-    #[arg(long = "workspace")]
-    pub workspace: Option<String>,
-
-    /// Prompt or command for Antigravity
-    #[arg(trailing_var_arg = true)]
-    pub prompt: Vec<String>,
-}
-
-pub type MatracaSendArgs = SpoolSendArgs;
-
-#[derive(Debug, Args, Clone, Default)]
-pub struct SpoolWorkerArgs {
-    /// Run worker continuously in daemon mode
-    #[arg(long = "daemon", action = clap::ArgAction::SetTrue)]
-    pub daemon: bool,
-
-    /// Run single pass over pending queue (default)
-    #[arg(long = "once", action = clap::ArgAction::SetTrue)]
-    pub once: bool,
-
-    /// Target specific job ID
-    #[arg(long = "job-id")]
-    pub job_id: Option<String>,
-}
-
-pub type MatracaWorkerArgs = SpoolWorkerArgs;
-
-#[derive(Debug, Args, Clone, Default)]
-pub struct CockpitArgs {
-    /// Initial tab to display (matraca, diva, status, tickets)
-    pub tab: Option<String>,
-
-    /// Port to listen on (default: 8080)
-    #[arg(short = 'p', long = "port")]
-    pub port: Option<u16>,
-
-    /// Host address to bind to (default: 127.0.0.1)
-    #[arg(long = "host")]
-    pub host: Option<String>,
-
-    /// Open default web browser automatically
-    #[arg(short = 'o', long = "open", action = clap::ArgAction::SetTrue)]
-    pub open: bool,
-
-    /// Do not open web browser
-    #[arg(long = "no-open", action = clap::ArgAction::SetTrue)]
-    pub no_open: bool,
-
-    /// API token for authentication (or via CCCP_TOKEN/CCCP_API_KEY)
-    #[arg(short = 't', long = "token", alias = "key", alias = "api-key")]
-    pub token: Option<String>,
-
-    /// Disable Matraca (Web REPL) tab
-    #[arg(long = "no-matraca", action = clap::ArgAction::SetTrue)]
-    pub no_matraca: bool,
-
-    /// Disable O Divã (triage bot) tab
-    #[arg(long = "no-diva", action = clap::ArgAction::SetTrue)]
-    pub no_diva: bool,
-
-    /// Disable Repository Status tab
-    #[arg(long = "no-status", action = clap::ArgAction::SetTrue)]
-    pub no_status: bool,
-
-    /// Disable Active Tickets tab
-    #[arg(long = "no-tickets", action = clap::ArgAction::SetTrue)]
-    pub no_tickets: bool,
-
-    /// Quiet mode (suppress verbose logs)
-    #[arg(short = 'q', long = "quiet", action = clap::ArgAction::SetTrue)]
-    pub quiet: bool,
-}
-
-impl From<CockpitArgs> for crate::web::CockpitOptions {
-    fn from(args: CockpitArgs) -> Self {
-        let initial_tab = args.tab.unwrap_or_else(|| "matraca".to_string());
-        let open = if args.no_open { false } else { args.open };
-        Self {
-            port: args.port.unwrap_or(8080),
-            host: args.host.unwrap_or_else(|| "127.0.0.1".to_string()),
-            token: args.token,
-            open,
-            quiet: args.quiet,
-            initial_tab,
-            enable_matraca: !args.no_matraca,
-            enable_diva: !args.no_diva,
-            enable_status: !args.no_status,
-            enable_tickets: !args.no_tickets,
-        }
-    }
-}
-
-#[derive(Debug, Args, Clone, Default)]
 pub struct UpdateArgs {
     /// Release channel to track (stable or nightly)
     #[arg(short = 'c', long = "channel")]
@@ -2085,84 +1933,6 @@ mod tests {
                 _ => panic!("Expected RepoSubcommands::Init"),
             },
             _ => panic!("Expected Commands::Repo"),
-        }
-    }
-
-    #[test]
-    fn parse_spool_args() {
-        let args = Cli::parse_from([
-            "cccp",
-            "spool",
-            "send",
-            "--client-id",
-            "cid-99",
-            "--workspace",
-            "/tmp/work",
-            "run",
-            "agent",
-            "task",
-        ]);
-        match args.command {
-            Some(Commands::Spool(spool)) => match spool.action {
-                Some(SpoolSubcommands::Send(send_args)) => {
-                    assert_eq!(send_args.client_id.as_deref(), Some("cid-99"));
-                    assert_eq!(send_args.workspace.as_deref(), Some("/tmp/work"));
-                    assert_eq!(send_args.prompt, vec!["run", "agent", "task"]);
-                }
-                _ => panic!("Expected SpoolSubcommands::Send"),
-            },
-            _ => panic!("Expected Commands::Spool"),
-        }
-
-        let args_poll = Cli::parse_from(["cccp", "spool", "poll", "job-12345"]);
-        match args_poll.command {
-            Some(Commands::Spool(spool)) => match spool.action {
-                Some(SpoolSubcommands::Poll { id }) => {
-                    assert_eq!(id, "job-12345");
-                }
-                _ => panic!("Expected SpoolSubcommands::Poll"),
-            },
-            _ => panic!("Expected Commands::Spool"),
-        }
-    }
-
-    #[test]
-    fn parse_cockpit_args() {
-        let args = Cli::parse_from([
-            "cccp",
-            "cockpit",
-            "divan",
-            "--port",
-            "8090",
-            "--host",
-            "0.0.0.0",
-            "--open",
-            "--token",
-            "my-tok",
-            "--no-matraca",
-            "--quiet",
-        ]);
-        match args.command {
-            Some(Commands::Cockpit(cockpit)) => {
-                assert_eq!(cockpit.tab.as_deref(), Some("divan"));
-                assert_eq!(cockpit.port, Some(8090));
-                assert_eq!(cockpit.host.as_deref(), Some("0.0.0.0"));
-                assert!(cockpit.open);
-                assert_eq!(cockpit.token.as_deref(), Some("my-tok"));
-                assert!(cockpit.no_matraca);
-                assert!(cockpit.quiet);
-
-                let opts: crate::web::CockpitOptions = cockpit.into();
-                assert_eq!(opts.initial_tab, "divan");
-                assert_eq!(opts.port, 8090);
-                assert_eq!(opts.host, "0.0.0.0");
-                assert!(opts.open);
-                assert_eq!(opts.token.as_deref(), Some("my-tok"));
-                assert!(!opts.enable_matraca);
-                assert!(opts.enable_diva);
-                assert!(opts.quiet);
-            }
-            _ => panic!("Expected Commands::Cockpit"),
         }
     }
 

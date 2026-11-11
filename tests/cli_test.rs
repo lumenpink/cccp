@@ -5,8 +5,7 @@
 
 use cccp::cli::{
     AgentSubcommands, BumpType, CiSubcommands, Cli, Commands, DepsSubcommands, ForgeActions,
-    HookSubcommands, ProfileCommand, RepoSubcommands, SpoolSubcommands, TicketAction,
-    VersionFormat,
+    HookSubcommands, ProfileCommand, RepoSubcommands, TicketAction, VersionFormat,
 };
 use clap::error::ErrorKind;
 use clap::Parser;
@@ -995,95 +994,6 @@ fn test_serve_command_removed() {
     assert!(Cli::try_parse_from(["cccp", "serve", "./site"]).is_err());
 }
 
-#[test]
-fn test_spool_command_options() {
-    let cli = Cli::try_parse_from(["cccp", "spool", "history", "-n", "100"])
-        .expect("should parse spool history");
-    match cli.command {
-        Some(Commands::Spool(s)) => match s.action {
-            Some(SpoolSubcommands::History { limit }) => {
-                assert_eq!(limit, 100);
-            }
-            _ => panic!("Expected SpoolSubcommands::History"),
-        },
-        _ => panic!("Expected Commands::Spool"),
-    }
-
-    let cli = Cli::try_parse_from(["cccp", "spool", "status", "--json"])
-        .expect("should parse spool status");
-    match cli.command {
-        Some(Commands::Spool(s)) => match s.action {
-            Some(SpoolSubcommands::Status { json }) => {
-                assert!(json);
-            }
-            _ => panic!("Expected SpoolSubcommands::Status"),
-        },
-        _ => panic!("Expected Commands::Spool"),
-    }
-
-    let cli = Cli::try_parse_from(["cccp", "spool", "clean", "-d", "14"])
-        .expect("should parse spool clean");
-    match cli.command {
-        Some(Commands::Spool(s)) => match s.action {
-            Some(SpoolSubcommands::Clean { days }) => {
-                assert_eq!(days, 14);
-            }
-            _ => panic!("Expected SpoolSubcommands::Clean"),
-        },
-        _ => panic!("Expected Commands::Spool"),
-    }
-
-    let cli = Cli::try_parse_from(["cccp", "spool", "worker", "--daemon", "--job-id", "job-42"])
-        .expect("should parse spool worker");
-    match cli.command {
-        Some(Commands::Spool(s)) => match s.action {
-            Some(SpoolSubcommands::Worker(w)) => {
-                assert!(w.daemon);
-                assert!(!w.once);
-                assert_eq!(w.job_id.as_deref(), Some("job-42"));
-            }
-            _ => panic!("Expected SpoolSubcommands::Worker"),
-        },
-        _ => panic!("Expected Commands::Spool"),
-    }
-}
-
-#[test]
-fn test_cockpit_command_options() {
-    let cli = Cli::try_parse_from([
-        "cccp",
-        "cockpit",
-        "tickets",
-        "-p",
-        "9000",
-        "--host",
-        "0.0.0.0",
-        "--no-open",
-        "-t",
-        "secret-token",
-        "--no-diva",
-        "--no-status",
-        "--no-tickets",
-        "-q",
-    ])
-    .expect("should parse cockpit options");
-
-    match cli.command {
-        Some(Commands::Cockpit(c)) => {
-            assert_eq!(c.tab.as_deref(), Some("tickets"));
-            assert_eq!(c.port, Some(9000));
-            assert_eq!(c.host.as_deref(), Some("0.0.0.0"));
-            assert!(c.no_open);
-            assert_eq!(c.token.as_deref(), Some("secret-token"));
-            assert!(c.no_diva);
-            assert!(c.no_status);
-            assert!(c.no_tickets);
-            assert!(c.quiet);
-        }
-        _ => panic!("Expected Commands::Cockpit"),
-    }
-}
-
 // =============================================================================
 // 3. Validation & Error Handling Tests
 // =============================================================================
@@ -1127,17 +1037,10 @@ fn test_missing_required_arguments_rejected() {
     // agent set requires <KEY> <VALUE>
     let err = Cli::try_parse_from(["cccp", "agent", "set", "only_key"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
-
-    // spool poll requires <ID>
-    let err = Cli::try_parse_from(["cccp", "spool", "poll"]).unwrap_err();
-    assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
 }
 
 #[test]
 fn test_invalid_number_type_rejected() {
-    let err = Cli::try_parse_from(["cccp", "cockpit", "-p", "invalid"]).unwrap_err();
-    assert_eq!(err.kind(), ErrorKind::ValueValidation);
-
     let err = Cli::try_parse_from(["cccp", "ticket", "-l", "not_a_number"]).unwrap_err();
     assert_eq!(err.kind(), ErrorKind::ValueValidation);
 }

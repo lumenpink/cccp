@@ -4,7 +4,10 @@ use cccp::config::{
     find_local_config_path, find_local_env_path, parse_key_value_lines, write_config_key, Config,
 };
 use std::fs;
+use std::sync::Mutex;
 use tempfile::tempdir;
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 #[test]
 fn test_default_configuration_invariants() {
@@ -158,6 +161,7 @@ fn test_scope_policy_flags_cascade() {
 
 #[test]
 fn test_four_layer_precedence_cascade() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = Config::default();
     // Layer 1: Default
     assert_eq!(cfg.default_base_version, "0.0.1");
@@ -270,6 +274,7 @@ fn test_write_config_key_in_place_update() {
 
 #[test]
 fn test_local_env_file_discovery_and_gemini_key_resolution() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let saved_keys: Vec<(&'static str, Option<String>)> = cccp::ai::GEMINI_ENV_KEYS
         .iter()
         .map(|&k| (k, std::env::var(k).ok()))
@@ -297,6 +302,7 @@ fn test_local_env_file_discovery_and_gemini_key_resolution() {
 
 #[test]
 fn test_env_gemini_key_case_insensitivity_and_precedence() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let saved_keys: Vec<(&'static str, Option<String>)> = cccp::ai::GEMINI_ENV_KEYS
         .iter()
         .map(|&k| (k, std::env::var(k).ok()))
@@ -321,6 +327,7 @@ fn test_env_gemini_key_case_insensitivity_and_precedence() {
 
 #[test]
 fn test_ai_configuration_parsing_and_env_overrides() {
+    let _lock = ENV_LOCK.lock().unwrap();
     let mut cfg = Config::default();
     let content = r#"
 ai_provider = ollama
