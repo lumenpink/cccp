@@ -732,16 +732,16 @@ fn main() -> ExitCode {
                 }
             }
 
-            // 2. Sync GOST cascading profile and specs (.gost/GOST.md)
+            // 2. Sync cascading rules profile and specs (.rules/RULES.md)
             if let Some(root) = repo_root {
-                if root.join("GOSTVER").is_file() {
+                if root.join(".rules/profile.toml").is_file() || root.join("GOSTVER").is_file() {
                     println!(
-                        "{} Assembling cascading GOST specification (.gost/GOST.md)...",
+                        "{} Assembling cascading rules specification (.rules/RULES.md)...",
                         theme.cyan("★")
                     );
-                    if let Err(e) = cccp::profile::assemble_gost_specs(root) {
+                    if let Err(e) = cccp::profile::assemble_rules_specs(root) {
                         eprintln!(
-                            "{}: Failed to assemble GOST specs: {}",
+                            "{}: Failed to assemble rules specs: {}",
                             theme.yellow("Warning"),
                             e
                         );

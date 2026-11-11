@@ -114,14 +114,16 @@ pub fn run_gost_audit_with_scope(
     let (gost_ver, gost_prof, gost_langs) = read_gostver(root);
     let mut checks = Vec::new();
 
-    // Check if declarative rules catalog exists (.gost/rules.toml, rules.toml or specs/rules.toml).
-    let has_rules = root.join(".gost/rules.toml").is_file()
+    // Check if declarative rules catalog exists (.rules/RULES.toml, .rules/rules.toml, .gost/rules.toml, rules.toml or specs/rules.toml).
+    let has_rules = root.join(".rules/RULES.toml").is_file()
+        || root.join(".rules/rules.toml").is_file()
+        || root.join(".gost/rules.toml").is_file()
         || root.join("rules.toml").is_file()
         || root.join("specs/rules.toml").is_file();
 
     // If rules are absent but profile/gostver is present, attempt automatic assembly
-    if !has_rules && (root.join("GOSTVER").is_file() || root.join("profile.md").is_file()) {
-        let _ = crate::profile::assemble_gost_specs(root);
+    if !has_rules && (root.join(".rules/profile.toml").is_file() || root.join("GOSTVER").is_file() || root.join("profile.md").is_file()) {
+        let _ = crate::profile::assemble_rules_specs(root);
     }
 
     let disabled_rules = crate::lua_rules::read_disabled_rules(root);

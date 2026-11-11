@@ -120,6 +120,8 @@ fn write_disabled_rules(config_path: &Path, disabled: &[String]) -> std::io::Res
 pub fn load_rules_from_repo(root: &Path) -> HashMap<String, RuleDefinition> {
     let mut all_rules = HashMap::new();
     let candidates = [
+        root.join(".rules").join("RULES.toml"),
+        root.join(".rules").join("rules.toml"),
         root.join(".gost").join("rules.toml"),
         root.join("rules.toml"),
         root.join("specs").join("rules.toml"),

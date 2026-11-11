@@ -7,6 +7,90 @@ use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
+pub struct ProfileConfig {
+    pub url: String,
+    pub version: String,
+}
+
+pub fn parse_latest_version_from_catalog(catalog_json: &str) -> Option<String> {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(catalog_json) {
+        if let Some(latest) = v.get("latest").and_then(|l| l.as_str()) {
+            return Some(latest.to_string());
+        }
+    }
+    None
+}
+
+pub fn fetch_latest_version_from_catalog(base_url: &str) -> Option<String> {
+    let clean_url = base_url.trim_end_matches('/');
+    // Check local checkouts first
+    if clean_url.contains("lilya.2lp.in") || clean_url.contains("gost-profile-lilya") {
+        let p = Path::new("/home/lumen/src/gost-profile-lilya/site/versions.json");
+        if let Ok(c) = fs::read_to_string(p) {
+            if let Some(v) = parse_latest_version_from_catalog(&c) {
+                return Some(v);
+            }
+        }
+    }
+    if clean_url.contains("kollontai.2lp.in") || clean_url.contains("gost-profile-kollontai") {
+        let p = Path::new("/home/lumen/src/gost-profile-kollontai/site/versions.json");
+        if let Ok(c) = fs::read_to_string(p) {
+            if let Some(v) = parse_latest_version_from_catalog(&c) {
+                return Some(v);
+            }
+        }
+    }
+
+    let catalog_url = format!("{}/versions.json", clean_url);
+    if let Ok(resp) = ureq::get(&catalog_url).call() {
+        if let Ok(body) = resp.into_body().read_to_string() {
+            return parse_latest_version_from_catalog(&body);
+        }
+    }
+    None
+}
+
+pub fn read_profile_config(root: &Path) -> io::Result<ProfileConfig> {
+    let profile_toml = root.join(".rules/profile.toml");
+    if profile_toml.is_file() {
+        let content = fs::read_to_string(&profile_toml)?;
+        if let Ok(cfg) = toml::from_str::<ProfileConfig>(&content) {
+            return Ok(cfg);
+        }
+    }
+
+    // Fallback: check GOSTVER
+    if let Ok(url) = get_active_profile(root) {
+        let (ver, _, _) = crate::audit::read_gostver(root);
+        return Ok(ProfileConfig {
+            url,
+            version: if ver.is_empty() || ver == "Nenhuma" {
+                "2.1.0".to_string()
+            } else {
+                ver
+            },
+        });
+    }
+
+    Err(Error::new(
+        ErrorKind::NotFound,
+        format!(
+            "Nenhum perfil configurado em .rules/profile.toml ou GOSTVER em {}",
+            root.display()
+        ),
+    ))
+}
+
+pub fn write_profile_config(root: &Path, cfg: &ProfileConfig) -> io::Result<()> {
+    let rules_dir = root.join(".rules");
+    fs::create_dir_all(&rules_dir)?;
+    let serialized = toml::to_string_pretty(cfg)
+        .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+    fs::write(rules_dir.join("profile.toml"), serialized)?;
+    Ok(())
+}
+
 /// Canonical profile catalog (alias, canonical URL, description)
 pub const KNOWN_PROFILES: &[(&str, &str, &str)] = &[
     (
@@ -417,61 +501,27 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     chain
 }
 
-/// Assembles all cascading profile layers and CUSTOM.md into `.gost/GOST.md`,
-/// synchronizes GOST resources in `.gost/`, and updates GOSTVER to the canonical version.
-pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
-    let gostver_profile = get_active_profile(root).unwrap_or_else(|_| "lilya".to_string());
-    let chain = resolve_cascading_chain(&gostver_profile);
+/// Assembles all cascading profile layers and CUSTOM.md into `.rules/RULES.md` and `.rules/RULES.toml`.
+pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
+    let mut cfg = read_profile_config(root).unwrap_or_else(|_| ProfileConfig {
+        url: "https://lilya.2lp.in".to_string(),
+        version: "2.1.0".to_string(),
+    });
 
-    // Read current settings to synchronize GOST specs
-    let (_, prof, langs) = crate::audit::read_gostver(root);
-    let resolved_profile = if prof == "Nenhum" || prof.is_empty() {
-        crate::newrepo::DEFAULT_PROFILE_URL
-    } else {
-        &prof
-    };
-    let resolved_langs = if langs == "Nenhuma" || langs.is_empty() {
-        "shell"
-    } else {
-        &langs
-    };
-
-    // 1. Synchronize GOST resources (rules, language specs)
-    crate::newrepo::sync_gost_specs(
-        root,
-        resolved_profile,
-        resolved_langs,
-        crate::newrepo::DEFAULT_GOST_VERSION,
-        true,
-        &crate::cultural::Theme::with_color(false),
-    );
-
-    // 2. Update GOSTVER to canonical GOST version
-    let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
-
-    // 3. Update .gost/metadata.json if present
-    let meta_path = root.join(".gost/metadata.json");
-    if meta_path.is_file() {
-        if let Ok(content) = fs::read_to_string(&meta_path) {
-            if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(obj) = json.as_object_mut() {
-                    obj.insert(
-                        "gost_version".to_string(),
-                        serde_json::Value::String(crate::newrepo::DEFAULT_GOST_VERSION.to_string()),
-                    );
-                    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
-                        let _ = fs::write(&meta_path, pretty + "\n");
-                    }
-                }
-            }
+    if cfg.version.is_empty() || cfg.version == "latest" {
+        if let Some(latest) = fetch_latest_version_from_catalog(&cfg.url) {
+            cfg.version = latest;
+            let _ = write_profile_config(root, &cfg);
         }
     }
 
+    let chain = resolve_cascading_chain(&cfg.url);
+
     let mut output = String::new();
-    output.push_str("# ☭ ГОСТ / GOSPLAN — Especificação Canônica Consolidada\n\n");
-    output.push_str("> **Aviso de Integridade Gosplan:**\n");
+    output.push_str("# ☭ Normas e Diretrizes Compiladas do Repositório\n\n");
+    output.push_str("> **Aviso de Integridade:**\n");
     output.push_str(
-        "> Este documento foi montado automaticamente pelo CCCP (`cccp profile assemble`).\n",
+        "> Este documento foi montado automaticamente pelo CCCP (`cccp sync` / `assemble`).\n",
     );
     output.push_str("> A precedência é estrita de baixo para cima: cada camada subsequente sobrepõe as definições anteriores.\n\n");
 
@@ -489,7 +539,6 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     }
     output.push_str("\n---\n\n");
 
-    // Adiciona cada camada da cadeia
     for (idx, (url, content)) in chain.iter().enumerate() {
         output.push_str(
             "<!-- ===================================================================== -->\n",
@@ -502,7 +551,6 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
         output.push_str("\n\n---\n\n");
     }
 
-    // Anexa CUSTOM.md se existir
     if custom_file.is_file() {
         if let Ok(custom_content) = fs::read_to_string(&custom_file) {
             output.push_str(
@@ -519,15 +567,14 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
         }
     }
 
-    let gost_dir = root.join(".gost");
-    let _ = fs::create_dir_all(&gost_dir);
-    let target_path = gost_dir.join("GOST.md");
-    let output = sanitize_prohibited_terms(&output);
-    fs::write(&target_path, &output)?;
+    let rules_dir = root.join(".rules");
+    fs::create_dir_all(&rules_dir)?;
+    let target_rules_md = rules_dir.join("RULES.md");
+    let sanitized_output = sanitize_prohibited_terms(&output);
+    fs::write(&target_rules_md, &sanitized_output)?;
 
-    // 4. Compile .gost/rules.toml cascading all layers + local custom-rules.toml
+    // Compila regras declarativas
     let mut combined_rules: toml::map::Map<String, toml::Value> = toml::map::Map::new();
-
     for (url, _) in &chain {
         if let Some(rules_content) = fetch_rules_for_layer(url) {
             if let Ok(toml_val) = toml::from_str::<toml::Value>(&rules_content) {
@@ -565,11 +612,30 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
         let mut root_val = toml::map::Map::new();
         root_val.insert("rules".to_string(), toml::Value::Table(combined_rules));
         if let Ok(serialized) = toml::to_string_pretty(&toml::Value::Table(root_val)) {
-            let rules_out = gost_dir.join("rules.toml");
+            let rules_out = rules_dir.join("RULES.toml");
             let _ = fs::write(&rules_out, serialized);
         }
     }
 
+    // Purga arquivos obsoletos em .rules/
+    let _ = fs::remove_file(rules_dir.join("rules.json"));
+    let _ = fs::remove_file(rules_dir.join("PROFILE.md"));
+
+    Ok(sanitized_output)
+}
+
+/// Assembles all cascading profile layers and CUSTOM.md into `.gost/GOST.md`,
+/// synchronizes GOST resources in `.gost/`, and updates GOSTVER to the canonical version.
+pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
+    let output = assemble_rules_specs(root)?;
+    let gost_dir = root.join(".gost");
+    if gost_dir.is_dir() {
+        let _ = fs::write(gost_dir.join("GOST.md"), &output);
+        let rules_toml = root.join(".rules/RULES.toml");
+        if rules_toml.is_file() {
+            let _ = fs::copy(&rules_toml, gost_dir.join("rules.toml"));
+        }
+    }
     Ok(output)
 }
 
