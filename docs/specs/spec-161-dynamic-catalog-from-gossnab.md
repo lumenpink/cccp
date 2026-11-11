@@ -36,3 +36,9 @@ Com o advento do **Gossnab** como Single Source of Truth (SSOT) do ecossistema, 
 - **Fase 7**: Testes de mutação cobrindo timeouts, respostas 500, JSON corrompido e flag `CCCP_OFFLINE`.
 - **Fase 8**: Linters (`cargo fmt`, `cargo clippy`), testes de unidade e integração.
 - **Fase 9**: Fechamento do ticket #161 com laudo canônico e integração na branch `main`.
+
+## 5. Laudo de Validação e Quality Gate (Fase 8)
+- `cargo fmt --check`: 100% aprovado.
+- `cargo clippy --all-targets -- -D warnings`: 0 warnings, 0 erros.
+- `cargo test --test catalog_test`: 30 testes aprovados, incluindo cenários nominais, mutantes HTTP 500, payload malformado e fallback em cache volátil `$XDG_CACHE_HOME/cccp/catalog.json`.
+

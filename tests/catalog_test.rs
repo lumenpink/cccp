@@ -1383,7 +1383,8 @@ fn test_mutation_gossnab_server_error_and_malformed_json_fallback() {
         let (mut stream, _) = listener.accept().unwrap();
         let mut buf = [0u8; 1024];
         let _ = stream.read(&mut buf);
-        let response = "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+        let response =
+            "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
         stream.write_all(response.as_bytes()).unwrap();
         stream.flush().unwrap();
     });
@@ -1437,5 +1438,3 @@ fn test_mutation_gossnab_server_error_and_malformed_json_fallback() {
     std::env::remove_var("GOSSNAB_URL");
     std::env::remove_var("XDG_CACHE_HOME");
 }
-
-

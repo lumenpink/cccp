@@ -494,10 +494,12 @@ pub fn fetch_catalog_from_gossnab(gossnab_url: &str) -> Result<Vec<CatalogEntry>
         .build();
     let agent = ureq::Agent::new_with_config(ureq_cfg);
 
-    let resp = agent
-        .get(&endpoint)
-        .call()
-        .map_err(|e| format!("Falha ao consultar catalogo no Gossnab ({}): {}", endpoint, e))?;
+    let resp = agent.get(&endpoint).call().map_err(|e| {
+        format!(
+            "Falha ao consultar catalogo no Gossnab ({}): {}",
+            endpoint, e
+        )
+    })?;
 
     let body = resp
         .into_body()
