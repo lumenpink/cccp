@@ -196,12 +196,8 @@ pub fn evaluate_lua_rules_with_lang(
     } else {
         lang.trim()
     };
-    let lk_checks = lunokhod::evaluate_lua_rules_for_scope(
-        root,
-        disabled_rules,
-        effective_lang,
-        target_scope,
-    );
+    let lk_checks =
+        lunokhod::evaluate_lua_rules_for_scope(root, disabled_rules, effective_lang, target_scope);
     lk_checks
         .into_iter()
         .map(|c| {

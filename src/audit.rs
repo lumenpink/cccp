@@ -256,17 +256,16 @@ pub fn render_audit_report(report: &AuditReport, strict: bool, theme: &Theme) ->
     ));
 
     if report.failures > 0 {
-        out.push_str(&theme.red_bold(
-            "✘ Critical non-conformances detected. Fix items marked with [FAIL].\n",
-        ));
+        out.push_str(
+            &theme
+                .red_bold("✘ Critical non-conformances detected. Fix items marked with [FAIL].\n"),
+        );
     } else if strict && report.warnings > 0 {
-        out.push_str(&theme.red_bold(
-            "✘ Strict mode enabled: warnings treated as blocking failures.\n",
-        ));
+        out.push_str(
+            &theme.red_bold("✘ Strict mode enabled: warnings treated as blocking failures.\n"),
+        );
     } else {
-        out.push_str(&theme.green(
-            "✔ Project conforms with normative technical standards.\n",
-        ));
+        out.push_str(&theme.green("✔ Project conforms with normative technical standards.\n"));
     }
 
     out

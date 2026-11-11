@@ -475,15 +475,18 @@ fn test_render_audit_report_in_english() {
 
 #[test]
 fn test_build_canonical_rules_urls_deterministic() {
-    let (md_url, toml_url) = cccp::profile::build_canonical_rules_urls("https://example.org/rules/", "1.2.0");
+    let (md_url, toml_url) =
+        cccp::profile::build_canonical_rules_urls("https://example.org/rules/", "1.2.0");
     assert_eq!(md_url, "https://example.org/rules/1.2.0/RULES.md");
     assert_eq!(toml_url, "https://example.org/rules/1.2.0/RULES.toml");
 }
 
 #[test]
 fn test_mutation_build_canonical_rules_urls_rejects_trailing_slash_inconsistencies() {
-    let (md1, toml1) = cccp::profile::build_canonical_rules_urls("https://custom.org/spec", "0.9.1");
-    let (md2, toml2) = cccp::profile::build_canonical_rules_urls("https://custom.org/spec/", "0.9.1");
+    let (md1, toml1) =
+        cccp::profile::build_canonical_rules_urls("https://custom.org/spec", "0.9.1");
+    let (md2, toml2) =
+        cccp::profile::build_canonical_rules_urls("https://custom.org/spec/", "0.9.1");
     assert_eq!(md1, md2);
     assert_eq!(toml1, toml2);
     assert_eq!(md1, "https://custom.org/spec/0.9.1/RULES.md");
@@ -492,9 +495,17 @@ fn test_mutation_build_canonical_rules_urls_rejects_trailing_slash_inconsistenci
 
 #[test]
 fn test_mutation_get_rules_candidate_urls_arbitrary_profile() {
-    let candidates = cccp::profile::get_rules_candidate_urls("https://mycompany.com/standards/v2/RULES.md");
-    assert_eq!(candidates, vec!["https://mycompany.com/standards/v2/RULES.toml".to_string()]);
+    let candidates =
+        cccp::profile::get_rules_candidate_urls("https://mycompany.com/standards/v2/RULES.md");
+    assert_eq!(
+        candidates,
+        vec!["https://mycompany.com/standards/v2/RULES.toml".to_string()]
+    );
 
-    let candidates_dir = cccp::profile::get_rules_candidate_urls("https://mycompany.com/standards/v2/");
-    assert_eq!(candidates_dir, vec!["https://mycompany.com/standards/v2/RULES.toml".to_string()]);
+    let candidates_dir =
+        cccp::profile::get_rules_candidate_urls("https://mycompany.com/standards/v2/");
+    assert_eq!(
+        candidates_dir,
+        vec!["https://mycompany.com/standards/v2/RULES.toml".to_string()]
+    );
 }

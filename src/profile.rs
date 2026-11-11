@@ -297,10 +297,7 @@ pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
     let path = Path::new(trimmed);
     if path.is_file() {
         let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        let local_candidates = [
-            parent.join("RULES.toml"),
-            parent.join("rules.toml"),
-        ];
+        let local_candidates = [parent.join("RULES.toml"), parent.join("rules.toml")];
         for cand in &local_candidates {
             if cand.is_file() {
                 if let Ok(c) = fs::read_to_string(cand) {
