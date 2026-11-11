@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Atualização do Motor Lunokhod e Metadados `.rules/`
+- **Execução Declarativa e Resolução de Metadados (`src/audit.rs`, `src/profile.rs`, `Cargo.lock`)**:
+  - Atualiza o motor `lunokhod` para versão com suporte prioritário a `.rules/RULES.toml`, `.rules/rules.toml` e primitivo `gost.git_remotes()`.
+  - Enriquece `read_gostver` para extrair perfil e versão de `.rules/profile.toml` sob ausência de arquivo legado `GOSTVER`.
+  - Gera tanto `RULES.toml` quanto o alias `rules.toml` em `assemble_rules_specs` para máxima robustez de ferramentas. (closes #159)
+
 ### Migração da Arquitetura de Normas para `.rules/` e Catálogo de Versões
 - **Padrão Universal e Agnóstico de Normas (`src/profile.rs`, `src/audit.rs`, `src/lua_rules.rs`, `src/main.rs`)**:
   - Migra a persistência e compilação de especificações e regras para o diretório `.rules/`, encapsulando a configuração em `profile.toml` (`url`, `version`) e gerando estritamente os artefatos compilados `RULES.md` e `RULES.toml`.
