@@ -28,3 +28,8 @@ Para garantir que o Maestro seja estritamente agnóstico, o relatório padrão d
 - **Fase 7 (Mutation Test):** Garantir que requisições com URLs arbitrárias geram o caminho canônico `{url}/{version}/RULES.toml` sem disparar buscas em nomes de normas específicas.
 - **Fase 8 (Quality Gate):** `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings`.
 - **Fase 9 (Close):** Laudo de fechamento e merge na base principal.
+
+## 4. Resultados da Execução
+- **Testes Unitários e Mutantes:** 37 testes automatizados executados e aprovados nas suítes `audit_test`, `rules_domain_test`, `profile_test`, `lua_rules_test`, `lunokhod_integration_test` e `assemble_rules_cascade_test`.
+- **Quality Gate:** `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` sem qualquer advertência ou erro.
+- **Integração Externa:** Lunokhod v0.1.0-dev.45 homologado e integrado via gambi.
