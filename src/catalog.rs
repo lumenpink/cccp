@@ -2228,21 +2228,28 @@ pub fn assemble_repo(
 
     // 3. Auto-commit if requested
     if auto_commit {
+        let mut check_targets = vec![".gost", "GOSTVER"];
+        if path.join(".rules").exists() {
+            check_targets.push(".rules");
+        }
+
         let diff_out = std::process::Command::new("git")
-            .args(["status", "--porcelain", ".gost", "GOSTVER"])
+            .arg("status")
+            .arg("--porcelain")
+            .args(&check_targets)
             .current_dir(path)
             .output()
             .map_err(|e| format!("Falha ao verificar alterações em .gost e GOSTVER: {}", e))?;
 
         if !diff_out.stdout.is_empty() {
-            let add_status = std::process::Command::new("git")
-                .args(["add", ".gost", "GOSTVER"])
-                .current_dir(path)
+            let mut add_cmd = std::process::Command::new("git");
+            add_cmd.arg("add").args(&check_targets).current_dir(path);
+            let add_status = add_cmd
                 .status()
-                .map_err(|e| format!("Falha ao adicionar .gost e GOSTVER ao git stage: {}", e))?;
+                .map_err(|e| format!("Falha ao adicionar arquivos ao git stage: {}", e))?;
 
             if !add_status.success() {
-                return Err("Falha ao adicionar .gost e GOSTVER ao git stage".to_string());
+                return Err("Falha ao adicionar arquivos ao git stage".to_string());
             }
 
             let mut commit_cmd = std::process::Command::new("git");

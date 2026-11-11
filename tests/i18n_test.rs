@@ -163,8 +163,11 @@ fn test_translation_lookups_and_fallbacks() {
     );
 }
 
+static TEST_LOCALE_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn test_interpolation_and_macros() {
+    let _guard = TEST_LOCALE_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     let templ = "Found {count} errors in {file}.";
     let res = interpolate(templ, &[("count", "3"), ("file", "src/main.rs")]);
     assert_eq!(res, "Found 3 errors in src/main.rs.");
@@ -193,6 +196,7 @@ fn test_interpolation_and_macros() {
 
 #[test]
 fn test_init_from_config() {
+    let _guard = TEST_LOCALE_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
     let mut config = Config::default();
     config
         .extra

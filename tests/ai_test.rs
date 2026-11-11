@@ -200,10 +200,13 @@ fn test_mutation_ollama_and_local_case_insensitive_connection_error_mapping() {
 
 #[test]
 fn test_gemini_missing_api_key_error() {
-    let saved_key = std::env::var("GEMINI_API_KEY").ok();
-    let saved_google = std::env::var("GOOGLE_API_KEY").ok();
-    std::env::remove_var("GEMINI_API_KEY");
-    std::env::remove_var("GOOGLE_API_KEY");
+    let saved_keys: Vec<(&'static str, Option<String>)> = cccp::ai::GEMINI_ENV_KEYS
+        .iter()
+        .map(|&k| (k, std::env::var(k).ok()))
+        .collect();
+    for &k in cccp::ai::GEMINI_ENV_KEYS {
+        std::env::remove_var(k);
+    }
 
     let config = Config {
         ai_provider: "gemini".into(),
@@ -214,11 +217,10 @@ fn test_gemini_missing_api_key_error() {
     let client = AiClient::from_config(&config);
     let result = client.triage("problem with auth", None);
 
-    if let Some(key) = saved_key {
-        std::env::set_var("GEMINI_API_KEY", key);
-    }
-    if let Some(key) = saved_google {
-        std::env::set_var("GOOGLE_API_KEY", key);
+    for (k, val) in saved_keys {
+        if let Some(v) = val {
+            std::env::set_var(k, v);
+        }
     }
 
     assert!(result.is_err());

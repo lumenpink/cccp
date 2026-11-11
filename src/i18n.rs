@@ -76,14 +76,14 @@ static CURRENT_LOCALE: RwLock<Locale> = RwLock::new(Locale::EnUs);
 
 /// Set the current active locale.
 pub fn set_locale(locale: Locale) {
-    if let Ok(mut lock) = CURRENT_LOCALE.write() {
-        *lock = locale;
-    }
+    let mut lock = CURRENT_LOCALE.write().unwrap_or_else(|e| e.into_inner());
+    *lock = locale;
 }
 
 /// Retrieve the current active locale.
 pub fn get_locale() -> Locale {
-    CURRENT_LOCALE.read().map(|l| *l).unwrap_or(Locale::EnUs)
+    let lock = CURRENT_LOCALE.read().unwrap_or_else(|e| e.into_inner());
+    *lock
 }
 
 /// Resolve locale according to the five-layer precedence cascade:

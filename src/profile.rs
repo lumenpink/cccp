@@ -419,15 +419,34 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
         }
     }
 
-    let start_url = if cfg.url.ends_with(".md") {
+    let is_local_file = Path::new(&cfg.url).is_file();
+    let (base_profile_url, is_legacy_profile_md) =
+        if !is_local_file && (cfg.url.starts_with("http://") || cfg.url.starts_with("https://")) {
+            if let Some(base) = cfg.url.strip_suffix("/profile.md") {
+                (base.to_string(), true)
+            } else {
+                (cfg.url.trim_end_matches('/').to_string(), false)
+            }
+        } else {
+            (cfg.url.trim_end_matches('/').to_string(), false)
+        };
+
+    let mut start_url = if (cfg.url.ends_with(".md") && !is_legacy_profile_md) || is_local_file {
         cfg.url.clone()
-    } else if cfg.url.ends_with('/') {
-        format!("{}{}/RULES.md", cfg.url, cfg.version)
     } else {
-        format!("{}/{}/RULES.md", cfg.url, cfg.version)
+        format!("{}/{}/RULES.md", base_profile_url, cfg.version)
     };
 
-    let chain = resolve_cascading_chain(&start_url);
+    let mut chain = resolve_cascading_chain(&start_url);
+    if chain.is_empty() {
+        if let Some(latest) = fetch_latest_version_from_catalog(&base_profile_url) {
+            if latest != cfg.version {
+                cfg.version = latest;
+                start_url = format!("{}/{}/RULES.md", base_profile_url, cfg.version);
+                chain = resolve_cascading_chain(&start_url);
+            }
+        }
+    }
 
     let mut output = String::new();
     output.push_str("# ☭ Normas e Diretrizes Compiladas do Repositório\n\n");
@@ -557,11 +576,35 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     let gost_dir = root.join(".gost");
     if gost_dir.is_dir() || root.join("GOSTVER").is_file() {
         let _ = fs::create_dir_all(&gost_dir);
+
+        let (_, prof, langs) = crate::audit::read_gostver(root);
+        let resolved_profile = if prof == "None" || prof == "Nenhum" || prof.is_empty() {
+            crate::newrepo::DEFAULT_PROFILE_URL
+        } else {
+            &prof
+        };
+        let resolved_langs = if langs == "None" || langs == "Nenhuma" || langs.is_empty() {
+            "shell"
+        } else {
+            &langs
+        };
+
+        crate::newrepo::sync_gost_specs(
+            root,
+            resolved_profile,
+            resolved_langs,
+            crate::newrepo::DEFAULT_GOST_VERSION,
+            true,
+            &crate::cultural::Theme::with_color(false),
+        );
+
         let _ = fs::write(gost_dir.join("GOST.md"), &output);
         let rules_toml = root.join(".rules/RULES.toml");
         if rules_toml.is_file() {
             let _ = fs::copy(&rules_toml, gost_dir.join("rules.toml"));
         }
+
+        let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
     }
     Ok(output)
 }

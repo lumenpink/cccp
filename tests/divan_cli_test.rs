@@ -2,9 +2,9 @@ use cccp::cli::{Cli, Commands, TicketAction};
 use clap::Parser;
 
 #[test]
-fn test_tickets_plural_alias_invokes_divan() {
-    let args = Cli::try_parse_from(["cccp", "tickets", "divan", "owner/repo"])
-        .expect("Failed to parse tickets plural alias");
+fn test_ticket_command_invokes_divan() {
+    let args = Cli::try_parse_from(["cccp", "ticket", "divan", "owner/repo"])
+        .expect("Failed to parse ticket command");
     match args.command {
         Some(Commands::Ticket(t)) => match t.action {
             Some(TicketAction::Divan(divan)) => {
@@ -33,10 +33,10 @@ fn test_direct_divan_command() {
 }
 
 #[test]
-fn test_tickets_divan_with_interspersed_options_and_qualified_repo() {
+fn test_ticket_divan_with_interspersed_options_and_qualified_repo() {
     let args = Cli::try_parse_from([
         "cccp",
-        "tickets",
+        "ticket",
         "divan",
         "--dry-run",
         "-r",

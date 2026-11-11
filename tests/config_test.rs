@@ -270,12 +270,13 @@ fn test_write_config_key_in_place_update() {
 
 #[test]
 fn test_local_env_file_discovery_and_gemini_key_resolution() {
-    let saved_key = std::env::var("GEMINI_API_KEY").ok();
-    let saved_google = std::env::var("GOOGLE_API_KEY").ok();
-    let saved_lower = std::env::var("gemini_api_key").ok();
-    std::env::remove_var("GEMINI_API_KEY");
-    std::env::remove_var("GOOGLE_API_KEY");
-    std::env::remove_var("gemini_api_key");
+    let saved_keys: Vec<(&'static str, Option<String>)> = cccp::ai::GEMINI_ENV_KEYS
+        .iter()
+        .map(|&k| (k, std::env::var(k).ok()))
+        .collect();
+    for &k in cccp::ai::GEMINI_ENV_KEYS {
+        std::env::remove_var(k);
+    }
 
     let dir = tempdir().expect("Failed to create tempdir");
     let env_file = dir.path().join(".env");
@@ -287,25 +288,22 @@ fn test_local_env_file_discovery_and_gemini_key_resolution() {
     let cfg = Config::load_hierarchical(Some(dir.path()));
     assert_eq!(cfg.gemini_api_key, Some("AIzaSyFakeKey123".to_string()));
 
-    if let Some(key) = saved_key {
-        std::env::set_var("GEMINI_API_KEY", key);
-    }
-    if let Some(key) = saved_google {
-        std::env::set_var("GOOGLE_API_KEY", key);
-    }
-    if let Some(key) = saved_lower {
-        std::env::set_var("gemini_api_key", key);
+    for (k, val) in saved_keys {
+        if let Some(v) = val {
+            std::env::set_var(k, v);
+        }
     }
 }
 
 #[test]
 fn test_env_gemini_key_case_insensitivity_and_precedence() {
-    let saved_key = std::env::var("GEMINI_API_KEY").ok();
-    let saved_google = std::env::var("GOOGLE_API_KEY").ok();
-    let saved_lower = std::env::var("gemini_api_key").ok();
-    std::env::remove_var("GEMINI_API_KEY");
-    std::env::remove_var("GOOGLE_API_KEY");
-    std::env::remove_var("gemini_api_key");
+    let saved_keys: Vec<(&'static str, Option<String>)> = cccp::ai::GEMINI_ENV_KEYS
+        .iter()
+        .map(|&k| (k, std::env::var(k).ok()))
+        .collect();
+    for &k in cccp::ai::GEMINI_ENV_KEYS {
+        std::env::remove_var(k);
+    }
 
     let dir = tempdir().expect("Failed to create tempdir");
     let env_file = dir.path().join(".env");
@@ -314,14 +312,10 @@ fn test_env_gemini_key_case_insensitivity_and_precedence() {
     let cfg = Config::load_hierarchical(Some(dir.path()));
     assert_eq!(cfg.gemini_api_key, Some("lowercase_key_abc".to_string()));
 
-    if let Some(key) = saved_key {
-        std::env::set_var("GEMINI_API_KEY", key);
-    }
-    if let Some(key) = saved_google {
-        std::env::set_var("GOOGLE_API_KEY", key);
-    }
-    if let Some(key) = saved_lower {
-        std::env::set_var("gemini_api_key", key);
+    for (k, val) in saved_keys {
+        if let Some(v) = val {
+            std::env::set_var(k, v);
+        }
     }
 }
 
