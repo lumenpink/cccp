@@ -182,8 +182,26 @@ pub fn evaluate_lua_rules_for_scope(
     disabled_rules: &[String],
     target_scope: Option<&str>,
 ) -> Vec<AuditCheck> {
-    let lk_checks =
-        lunokhod::evaluate_lua_rules_for_scope(root, disabled_rules, "pt-br", target_scope);
+    evaluate_lua_rules_with_lang(root, disabled_rules, "en", target_scope)
+}
+
+pub fn evaluate_lua_rules_with_lang(
+    root: &Path,
+    disabled_rules: &[String],
+    lang: &str,
+    target_scope: Option<&str>,
+) -> Vec<AuditCheck> {
+    let effective_lang = if lang.trim().is_empty() {
+        "en"
+    } else {
+        lang.trim()
+    };
+    let lk_checks = lunokhod::evaluate_lua_rules_for_scope(
+        root,
+        disabled_rules,
+        effective_lang,
+        target_scope,
+    );
     lk_checks
         .into_iter()
         .map(|c| {

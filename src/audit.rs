@@ -67,17 +67,17 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
 
     (
         if ver.is_empty() {
-            "Não declarado".to_string()
+            "Undeclared".to_string()
         } else {
             ver
         },
         if prof.is_empty() {
-            "Nenhum".to_string()
+            "None".to_string()
         } else {
             prof
         },
         if langs.is_empty() {
-            "Nenhuma".to_string()
+            "None".to_string()
         } else {
             langs
         },
@@ -112,7 +112,7 @@ pub fn read_app_type(root: &Path) -> String {
 
 /// Executes full GOST compliance check on the specified root directory
 pub fn run_gost_audit(root: &Path, strict: bool, theme: &Theme) -> AuditReport {
-    run_gost_audit_with_scope(root, strict, None, theme)
+    run_gost_audit_with_options(root, strict, None, None, theme)
 }
 
 /// Executes GOST compliance check filtering Lua rules by scope
@@ -120,6 +120,17 @@ pub fn run_gost_audit_with_scope(
     root: &Path,
     strict: bool,
     scope: Option<&str>,
+    theme: &Theme,
+) -> AuditReport {
+    run_gost_audit_with_options(root, strict, scope, None, theme)
+}
+
+/// Executes GOST compliance check filtering Lua rules by scope and locale language
+pub fn run_gost_audit_with_options(
+    root: &Path,
+    strict: bool,
+    scope: Option<&str>,
+    lang: Option<&str>,
     theme: &Theme,
 ) -> AuditReport {
     let (gost_ver, gost_prof, gost_langs) = read_gostver(root);
@@ -143,15 +154,20 @@ pub fn run_gost_audit_with_scope(
 
     let disabled_rules = crate::lua_rules::read_disabled_rules(root);
     let target_scope = scope.unwrap_or("project");
-    let lua_checks =
-        crate::lua_rules::evaluate_lua_rules_for_scope(root, &disabled_rules, Some(target_scope));
+    let chosen_lang = lang.unwrap_or("en");
+    let lua_checks = crate::lua_rules::evaluate_lua_rules_with_lang(
+        root,
+        &disabled_rules,
+        chosen_lang,
+        Some(target_scope),
+    );
 
     if lua_checks.is_empty() {
         checks.push(AuditCheck {
             code: "NO-RULES-FOUND",
-            title: "Catálogo de Regras Declarativas",
+            title: "Declarative Rules Catalog",
             detail:
-                "Nenhum catálogo de regras declarativas encontrado (.rules/RULES.toml, .gost/rules.toml, rules.toml)"
+                "No declarative rules catalog found (.rules/RULES.toml, .rules/rules.toml, specs/rules.toml)"
                     .to_string(),
             status: CheckStatus::Fail,
         });
@@ -191,21 +207,20 @@ pub fn run_gost_audit_with_scope(
     report
 }
 
-/// Renders the Gosplan Quality Audit Report to standard output
-pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
-    println!();
-    println!(
-        "{}",
-        theme.bold("☭ [ГОСТ / GOSPLAN] COMISSÃO DE CONTROLE DE QUALIDADE GOST")
-    );
-    println!(
-        "Norma: {} | Perfil: {} | Linguagens: {}",
+/// Formats the Normative Conformance Audit Report into an English string
+pub fn render_audit_report(report: &AuditReport, strict: bool, theme: &Theme) -> String {
+    let mut out = String::new();
+    out.push('\n');
+    out.push_str(&theme.bold("☭ [RULES] NORMATIVE CONFORMANCE AUDIT"));
+    out.push('\n');
+    out.push_str(&format!(
+        "Standard: {} | Profile: {} | Languages: {}\n",
         report.gost_version, report.profile, report.languages
+    ));
+    out.push_str(
+        &theme.dim("────────────────────────────────────────────────────────────────────────────"),
     );
-    println!(
-        "{}",
-        theme.dim("────────────────────────────────────────────────────────────────────────────")
-    );
+    out.push('\n');
 
     for check in &report.checks {
         let status_badge = match check.status {
@@ -214,15 +229,18 @@ pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
             CheckStatus::Fail => theme.red_bold("[FAIL]"),
             CheckStatus::Skip => theme.cyan("[SKIP]"),
         };
-        println!("  {} {:<25} : {}", status_badge, check.code, check.detail);
+        out.push_str(&format!(
+            "  {} {:<25} : {}\n",
+            status_badge, check.code, check.detail
+        ));
     }
 
-    println!(
-        "{}",
-        theme.dim("────────────────────────────────────────────────────────────────────────────")
+    out.push_str(
+        &theme.dim("────────────────────────────────────────────────────────────────────────────"),
     );
-    println!(
-        "Total de verificações: {} | Conformes: {} | Avisos: {} | Falhas: {}",
+    out.push('\n');
+    out.push_str(&format!(
+        "Total checks: {} | Conforming: {} | Warnings: {} | Failures: {}\n",
         report.checks.len(),
         theme.green(&report.passed.to_string()),
         theme.yellow(&report.warnings.to_string()),
@@ -231,29 +249,30 @@ pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
         } else {
             theme.green("0")
         }
-    );
-    println!(
-        "Índice de Conformidade Gosplan: {}",
+    ));
+    out.push_str(&format!(
+        "Compliance Index: {}\n\n",
         theme.bold(&format!("{}%", report.percentage))
-    );
-    println!();
+    ));
 
     if report.failures > 0 {
-        eprintln!(
-            "{}",
-            theme.red_bold(
-                "✘ Inconformidades críticas detectadas. Corrija os itens marcados com [FAIL]."
-            )
-        );
+        out.push_str(&theme.red_bold(
+            "✘ Critical non-conformances detected. Fix items marked with [FAIL].\n",
+        ));
     } else if strict && report.warnings > 0 {
-        eprintln!(
-            "{}",
-            theme.red_bold("✘ Modo estrito ativado: avisos tratados como falhas bloqueantes.")
-        );
+        out.push_str(&theme.red_bold(
+            "✘ Strict mode enabled: warnings treated as blocking failures.\n",
+        ));
     } else {
-        println!(
-            "{}",
-            theme.green("✔ Projeto aprovado pela Comissão de Normas Técnicas GOST.")
-        );
+        out.push_str(&theme.green(
+            "✔ Project conforms with normative technical standards.\n",
+        ));
     }
+
+    out
+}
+
+/// Renders the Normative Conformance Audit Report to standard output
+pub fn display_audit_report(report: &AuditReport, strict: bool, theme: &Theme) {
+    print!("{}", render_audit_report(report, strict, theme));
 }

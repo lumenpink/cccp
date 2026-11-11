@@ -875,6 +875,10 @@ pub struct AuditArgs {
     /// Evaluation scope for rules (e.g. 'project', 'post-build', 'commit-msg')
     #[arg(long = "scope")]
     pub scope: Option<String>,
+
+    /// Override language/locale for rule evaluation and messages (e.g. 'en', 'pt-br')
+    #[arg(long = "lang")]
+    pub lang: Option<String>,
 }
 
 pub type GostArgs = AuditArgs;

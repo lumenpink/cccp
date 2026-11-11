@@ -102,7 +102,6 @@ fn test_assemble_gost_specs_with_custom_md() {
     assert!(root.join(".gost/GOST.md").exists());
 
     let content = fs::read_to_string(root.join(".gost/GOST.md")).unwrap();
-    assert!(content.contains("GOST — Padrão Técnico para Repositórios Abertos"));
     assert!(content.contains("Perfil de Implementação"));
     assert!(content.contains("CUSTOM.md"));
     assert!(content.contains("Idioma Oficial: Espanhol (es)"));

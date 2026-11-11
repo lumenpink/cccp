@@ -5,7 +5,7 @@
 use crate::cultural::Theme;
 use std::fs;
 use std::io::{self, Error, ErrorKind};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
 pub struct ProfileConfig {
@@ -24,28 +24,17 @@ pub fn parse_latest_version_from_catalog(catalog_json: &str) -> Option<String> {
 
 pub fn fetch_latest_version_from_catalog(base_url: &str) -> Option<String> {
     let clean_url = base_url.trim_end_matches('/');
-    // Check local checkouts first
-    if clean_url.contains("lilya.2lp.in") || clean_url.contains("gost-profile-lilya") {
-        let p = Path::new("/home/lumen/src/gost-profile-lilya/site/versions.json");
-        if let Ok(c) = fs::read_to_string(p) {
-            if let Some(v) = parse_latest_version_from_catalog(&c) {
-                return Some(v);
-            }
-        }
-    }
-    if clean_url.contains("kollontai.2lp.in") || clean_url.contains("gost-profile-kollontai") {
-        let p = Path::new("/home/lumen/src/gost-profile-kollontai/site/versions.json");
-        if let Ok(c) = fs::read_to_string(p) {
-            if let Some(v) = parse_latest_version_from_catalog(&c) {
-                return Some(v);
-            }
-        }
-    }
-
     let catalog_url = format!("{}/versions.json", clean_url);
-    if let Ok(resp) = ureq::get(&catalog_url).call() {
-        if let Ok(body) = resp.into_body().read_to_string() {
-            return parse_latest_version_from_catalog(&body);
+    if catalog_url.starts_with("http://") || catalog_url.starts_with("https://") {
+        if let Ok(resp) = ureq::get(&catalog_url).call() {
+            if let Ok(body) = resp.into_body().read_to_string() {
+                return parse_latest_version_from_catalog(&body);
+            }
+        }
+    } else {
+        let p = Path::new(&catalog_url);
+        if let Ok(c) = fs::read_to_string(p) {
+            return parse_latest_version_from_catalog(&c);
         }
     }
     None
@@ -265,6 +254,15 @@ pub fn update_gostver_version(root: &Path, version: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Builds canonical URLs for RULES.md and RULES.toml following the standard agnostic schema:
+/// `{base_url}/{version}/RULES.md` and `{base_url}/{version}/RULES.toml`
+pub fn build_canonical_rules_urls(base_url: &str, version: &str) -> (String, String) {
+    let clean = base_url.trim_end_matches('/');
+    let md = format!("{}/{}/RULES.md", clean, version);
+    let toml = format!("{}/{}/RULES.toml", clean, version);
+    (md, toml)
+}
+
 /// Fetches a document by URL or local path
 pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
     let trimmed = url_or_path.trim();
@@ -275,45 +273,7 @@ pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
         return fs::read_to_string(path);
     }
 
-    // 2. Known local checkouts in ~/src
-    if trimmed.contains("lilya.2lp.in")
-        || trimmed.contains("gost-profile-lilya")
-        || trimmed.contains("gostlumen.2lp.in")
-        || trimmed.contains("gost-profile-lumen")
-    {
-        let local = PathBuf::from("/home/lumen/src/gost-profile-lilya/profile.md");
-        if local.is_file() {
-            if let Ok(c) = fs::read_to_string(&local) {
-                return Ok(c);
-            }
-        }
-    }
-    if trimmed.contains("kollontai.2lp.in") || trimmed.contains("gost-profile-kollontai") {
-        let local = PathBuf::from("/home/lumen/src/gost-profile-kollontai/profile.md");
-        if local.is_file() {
-            if let Ok(c) = fs::read_to_string(&local) {
-                return Ok(c);
-            }
-        }
-    }
-    if trimmed.contains("gosplan.2lp.in") || trimmed.contains("gosplan") {
-        let local = PathBuf::from("/home/lumen/src/gosplan/SPEC.md");
-        if local.is_file() {
-            if let Ok(c) = fs::read_to_string(&local) {
-                return Ok(c);
-            }
-        }
-    }
-    if trimmed.contains("gost.2lp.in") || trimmed.ends_with("SPEC.md") {
-        let local = PathBuf::from("/home/lumen/src/gost/SPEC.md");
-        if local.is_file() {
-            if let Ok(c) = fs::read_to_string(&local) {
-                return Ok(c);
-            }
-        }
-    }
-
-    // 3. HTTP GET via ureq
+    // 2. HTTP GET via ureq
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
         if let Ok(resp) = ureq::get(trimmed).call() {
             if let Ok(body) = resp.into_body().read_to_string() {
@@ -331,90 +291,47 @@ pub fn fetch_document_content(url_or_path: &str) -> io::Result<String> {
     ))
 }
 
-/// Fetches the declarative `rules.toml` content corresponding to a normative layer
+/// Fetches the declarative `RULES.toml` content corresponding to a normative layer
 pub fn fetch_rules_for_layer(url: &str) -> Option<String> {
-    if url.contains("lilya") {
-        let p = Path::new("/home/lumen/src/gost-profile-lilya/rules.toml");
-        if p.is_file() {
-            if let Ok(c) = fs::read_to_string(p) {
-                return Some(c);
-            }
-        }
-    }
-    if url.contains("kollontai") {
-        let p = Path::new("/home/lumen/src/gost-profile-kollontai/rules.toml");
-        if p.is_file() {
-            if let Ok(c) = fs::read_to_string(p) {
-                return Some(c);
-            }
-        }
-    }
-    if url.contains("gosplan") {
-        let p = Path::new("/home/lumen/src/gosplan/rules.toml");
-        if p.is_file() {
-            if let Ok(c) = fs::read_to_string(p) {
-                return Some(c);
-            }
-        }
-    }
-    if url.contains("gost") {
-        let p1 = Path::new("/home/lumen/src/gost/specs/rules.toml");
-        if p1.is_file() {
-            if let Ok(c) = fs::read_to_string(p1) {
-                return Some(c);
-            }
-        }
-        let p2 = Path::new("/home/lumen/src/gost/rules.toml");
-        if p2.is_file() {
-            if let Ok(c) = fs::read_to_string(p2) {
-                return Some(c);
+    let trimmed = url.trim();
+    let path = Path::new(trimmed);
+    if path.is_file() {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        let local_candidates = [
+            parent.join("RULES.toml"),
+            parent.join("rules.toml"),
+        ];
+        for cand in &local_candidates {
+            if cand.is_file() {
+                if let Ok(c) = fs::read_to_string(cand) {
+                    return Some(c);
+                }
             }
         }
     }
 
-    let candidates = get_rules_candidate_urls(url);
+    let candidates = get_rules_candidate_urls(trimmed);
     fetch_rules_from_urls(&candidates)
 }
 
-/// Returns ordered candidate URLs for retrieving `rules.toml` for a given normative profile URL
+/// Returns deterministic candidate URL for retrieving `RULES.toml` for a given normative profile URL
 pub fn get_rules_candidate_urls(url: &str) -> Vec<String> {
+    let trimmed = url.trim();
     let mut candidates = Vec::new();
-    let rules_url = if url.ends_with('/') {
-        format!("{}rules.toml", url)
-    } else if let Some((dir, _)) = url.rsplit_once('/') {
-        format!("{}/rules.toml", dir)
-    } else {
-        format!("{}/rules.toml", url)
-    };
-    candidates.push(rules_url);
-
-    if url.contains("lilya") {
-        candidates.push(
-            "https://gambi.2lp.in/lumen/gost-profile-lilya/raw/branch/main/rules.toml".to_string(),
-        );
-        candidates.push("https://lilya.2lp.in/rules.toml".to_string());
-    } else if url.contains("kollontai") {
-        candidates.push(
-            "https://gambi.2lp.in/lumen/gost-profile-kollontai/raw/branch/main/rules.toml"
-                .to_string(),
-        );
-        candidates.push("https://kollontai.2lp.in/rules.toml".to_string());
-    } else if url.contains("gosplan") {
-        candidates
-            .push("https://gambi.2lp.in/lumen/gosplan/raw/branch/main/rules.toml".to_string());
-        candidates.push("https://gosplan.2lp.in/rules.toml".to_string());
-    } else if url.contains("gost") {
-        candidates.push("https://gambi.2lp.in/lumen/gost/raw/branch/main/rules.toml".to_string());
-        candidates.push("https://gost.2lp.in/rules.toml".to_string());
-    }
-
-    let mut deduped = Vec::new();
-    for c in candidates {
-        if !deduped.contains(&c) {
-            deduped.push(c);
+    if trimmed.ends_with("/RULES.md") {
+        candidates.push(trimmed.replace("/RULES.md", "/RULES.toml"));
+    } else if trimmed.ends_with(".md") {
+        if let Some((dir, _)) = trimmed.rsplit_once('/') {
+            candidates.push(format!("{}/RULES.toml", dir));
+        } else {
+            candidates.push("RULES.toml".to_string());
         }
+    } else if trimmed.ends_with('/') {
+        candidates.push(format!("{}RULES.toml", trimmed));
+    } else {
+        candidates.push(format!("{}/RULES.toml", trimmed));
     }
-    deduped
+    candidates
 }
 
 /// Tries to fetch rules content from an ordered list of candidate URLs
@@ -456,7 +373,23 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     let mut visited = std::collections::HashSet::new();
 
     while !current_url.is_empty() && visited.insert(current_url.clone()) {
-        if let Ok(content) = fetch_document_content(&current_url) {
+        let doc_url = if current_url.ends_with(".md") {
+            current_url.clone()
+        } else if current_url.ends_with('/') {
+            format!("{}RULES.md", current_url)
+        } else {
+            format!("{}/RULES.md", current_url)
+        };
+
+        if let Ok(content) = fetch_document_content(&doc_url) {
+            let next_parent = extract_extends_url(&content);
+            chain.push((doc_url, content));
+            if let Some(parent) = next_parent {
+                current_url = resolve_profile_url(&parent);
+            } else {
+                break;
+            }
+        } else if let Ok(content) = fetch_document_content(&current_url) {
             let next_parent = extract_extends_url(&content);
             chain.push((current_url.clone(), content));
             if let Some(parent) = next_parent {
@@ -466,32 +399,6 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
             }
         } else {
             break;
-        }
-    }
-
-    // Always ensure base GOST spec is included if not present
-    let has_base = chain
-        .iter()
-        .any(|(u, _)| u.contains("gost.2lp.in") || u.ends_with("SPEC.md"));
-    if !has_base {
-        if let Ok(base_spec) = fetch_document_content("https://gost.2lp.in/SPEC.md") {
-            chain.push(("https://gost.2lp.in/SPEC.md".to_string(), base_spec));
-        } else if let Ok(base_spec) =
-            fetch_document_content("https://gambi.2lp.in/lumen/gost/raw/branch/main/SPEC.md")
-        {
-            chain.push((
-                "https://gambi.2lp.in/lumen/gost/raw/branch/main/SPEC.md".to_string(),
-                base_spec,
-            ));
-        } else if let Ok(base_spec) =
-            fetch_document_content("https://git.2lp.in/lumen/gost/raw/branch/main/SPEC.md")
-        {
-            chain.push((
-                "https://git.2lp.in/lumen/gost/raw/branch/main/SPEC.md".to_string(),
-                base_spec,
-            ));
-        } else if let Ok(base_spec) = fetch_document_content("/home/lumen/src/gost/SPEC.md") {
-            chain.push(("GOST Central SPEC.md".to_string(), base_spec));
         }
     }
 
@@ -515,7 +422,15 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
         }
     }
 
-    let chain = resolve_cascading_chain(&cfg.url);
+    let start_url = if cfg.url.ends_with(".md") {
+        cfg.url.clone()
+    } else if cfg.url.ends_with('/') {
+        format!("{}{}/RULES.md", cfg.url, cfg.version)
+    } else {
+        format!("{}/{}/RULES.md", cfg.url, cfg.version)
+    };
+
+    let chain = resolve_cascading_chain(&start_url);
 
     let mut output = String::new();
     output.push_str("# ☭ Normas e Diretrizes Compiladas do Repositório\n\n");
@@ -630,7 +545,8 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
 pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
     let output = assemble_rules_specs(root)?;
     let gost_dir = root.join(".gost");
-    if gost_dir.is_dir() {
+    if gost_dir.is_dir() || root.join("GOSTVER").is_file() {
+        let _ = fs::create_dir_all(&gost_dir);
         let _ = fs::write(gost_dir.join("GOST.md"), &output);
         let rules_toml = root.join(".rules/RULES.toml");
         if rules_toml.is_file() {

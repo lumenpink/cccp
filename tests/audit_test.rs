@@ -27,9 +27,9 @@ GOST_LANGUAGES="rust,shell"
 fn test_read_gostver_missing_file() {
     let temp = tempdir().expect("tempdir");
     let (ver, prof, langs) = read_gostver(temp.path());
-    assert_eq!(ver, "Não declarado");
-    assert_eq!(prof, "Nenhum");
-    assert_eq!(langs, "Nenhuma");
+    assert_eq!(ver, "Undeclared");
+    assert_eq!(prof, "None");
+    assert_eq!(langs, "None");
 }
 
 #[test]

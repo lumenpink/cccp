@@ -99,7 +99,7 @@ script = "this is not valid lua code!!!"
     assert!(test_skipped
         .unwrap()
         .detail
-        .contains("dispensada por configuração"));
+        .contains("Rule skipped by configuration"));
 }
 
 #[test]
