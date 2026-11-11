@@ -1902,6 +1902,27 @@ mod tests {
     }
 
     #[test]
+    fn test_mutation_subcommand_individual_help_preserved() {
+        use clap::CommandFactory;
+        let mut cmd = Cli::command();
+        let commit_subcmd = cmd
+            .get_subcommands_mut()
+            .find(|c| c.get_name() == "commit")
+            .expect("commit subcommand exists");
+        let mut help_buf = Vec::new();
+        commit_subcmd.write_help(&mut help_buf).unwrap();
+        let help_text = String::from_utf8_lossy(&help_buf);
+        assert!(
+            help_text.contains("--phase"),
+            "Commit subcommand help must retain options like --phase"
+        );
+        assert!(
+            help_text.contains("--type"),
+            "Commit subcommand help must retain options like --type"
+        );
+    }
+
+    #[test]
     fn parse_ticket_args() {
         let args = Cli::parse_from(["cccp", "ticket", "--state", "closed", "--limit", "10"]);
         match args.command {
