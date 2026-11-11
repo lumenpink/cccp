@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Delegação de Catálogo e Scaffolding ao Gossnab
+- **Desacoplamento de Ecossistema (`src/newrepo.rs`, `src/cli.rs`)**:
+  - Delega provisionamento de repositórios (`new`) e gerenciamento de catálogo (`repo`) ao `gossnab`.
+  - Mantém fallback local resiliente preservando a experiência da CLI. (closes #169)
+
 ### Delegação de Gestão de Forjas e Tickets ao Gossnab
 - **Desacoplamento e Resiliência no Merge (`src/tickets.rs`, `src/cli.rs`)**:
   - Desacopla o fechamento de tickets durante o `cccp merge`, tornando a operação autônoma e offline-friendly via commit tag `(closes #ID)`.

@@ -156,7 +156,7 @@ pub enum Commands {
     Ci(CiArgs),
 
     // === Gestão de Repositórios & Catálogo ===
-    /// Gerenciar repositórios locais e catálogo do workspace
+    /// Gerenciar repositórios locais e catálogo do workspace (delegado para 'gossnab catalog')
     Repo(RepoArgs),
 
     /// Sincronizar tickets remotos, AGENTS.md e catálogo

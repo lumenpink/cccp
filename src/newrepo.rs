@@ -331,6 +331,24 @@ pub fn cmd_newrepo(opts: NewrepoOptions, theme: &Theme) -> Result<(), String> {
         "Repositório estruturado em estrita conformidade com o padrão GOST v1.1.0".to_string()
     });
 
+    // Delegação preferencial ao gossnab para provisionamento canônico
+    let mut gossnab_cmd = std::process::Command::new("gossnab");
+    gossnab_cmd.arg("new").arg(&project_name);
+    gossnab_cmd.arg("-l").arg(&opts.lang);
+    gossnab_cmd.arg("--license").arg(&opts.license);
+    gossnab_cmd.arg("-d").arg(&target_root);
+    if let Ok(status) = gossnab_cmd.status() {
+        if status.success() {
+            if !opts.quiet {
+                println!(
+                    "  {} Repositório provisionado com sucesso via Gossnab.",
+                    theme.green("✓")
+                );
+            }
+            return Ok(());
+        }
+    }
+
     if !target_root.exists() {
         fs::create_dir_all(&target_root).map_err(|e| {
             format!(
