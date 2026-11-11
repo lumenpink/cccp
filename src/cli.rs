@@ -162,7 +162,7 @@ pub enum Commands {
     /// Sincronizar tickets remotos, AGENTS.md e catálogo
     Sync(SyncArgs),
 
-    /// Consultar e gerenciar tickets na forja remota
+    /// Consultar e gerenciar tickets (delegado para 'gossnab ticket')
     Ticket(TicketArgs),
 
     /// Gerenciar branches persistentes de épicos de integração
@@ -209,7 +209,7 @@ pub enum Commands {
     /// Registro cultural Gosplan e camaradas soviéticos
     Soviet(SovietArgs),
 
-    /// Interagir diretamente com forjas remotas (Gitea/Forgejo/Codeberg)
+    /// Interagir diretamente com forjas remotas (delegado para 'gossnab')
     Forge(ForgeArgs),
 
     // === Atalhos Ocultos ===

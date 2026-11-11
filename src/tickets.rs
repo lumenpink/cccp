@@ -284,27 +284,59 @@ pub fn close_tickets(
         return Ok(());
     }
 
-    let forge_info = detect_forge_from_repo(repo)?;
-    let client = ForgeClient::new();
-
     for &id in ids {
-        println!(
-            "{} Closing ticket #{} on {} ({}/{})...",
-            theme.cyan("★"),
-            id,
-            forge_info.provider,
-            forge_info.owner,
-            forge_info.repo
-        );
+        // 1. Tenta delegar para o gossnab se disponível
+        let mut gossnab_cmd = std::process::Command::new("gossnab");
+        gossnab_cmd
+            .arg("-C")
+            .arg(&repo.root_dir)
+            .arg("ticket")
+            .arg("close")
+            .arg(id.to_string());
+        if let Some(c) = comment {
+            gossnab_cmd.arg("-c").arg(c);
+        }
+        if let Ok(status) = gossnab_cmd.status() {
+            if status.success() {
+                println!(
+                    "  {} Ticket #{} closed successfully via Gossnab.",
+                    theme.green("✓"),
+                    id
+                );
+                continue;
+            }
+        }
 
-        match client.close_issue(&forge_info, id, comment) {
-            Ok(()) => {
-                println!("  {} Ticket #{} closed successfully.", theme.green("✓"), id);
+        // 2. Fallback direto à forja remota se detectável
+        if let Ok(forge_info) = detect_forge_from_repo(repo) {
+            println!(
+                "{} Closing ticket #{} on {} ({}/{})...",
+                theme.cyan("★"),
+                id,
+                forge_info.provider,
+                forge_info.owner,
+                forge_info.repo
+            );
+            let client = ForgeClient::new();
+            match client.close_issue(&forge_info, id, comment) {
+                Ok(()) => {
+                    println!("  {} Ticket #{} closed successfully.", theme.green("✓"), id);
+                }
+                Err(e) => {
+                    println!(
+                        "  {} Fechamento direto falhou ({}). O ticket #{} será fechado automaticamente no push via commit tag.",
+                        theme.yellow("!"),
+                        e,
+                        id
+                    );
+                }
             }
-            Err(e) => {
-                eprintln!("  {} Failed to close ticket #{}: {}", theme.red("✗"), id, e);
-                return Err(e);
-            }
+        } else {
+            println!(
+                "  {} Ticket #{} será fechado automaticamente no push via commit tag.",
+                theme.cyan("•"),
+                id
+            );
         }
     }
 

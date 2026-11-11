@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Delegação de Gestão de Forjas e Tickets ao Gossnab
+- **Desacoplamento e Resiliência no Merge (`src/tickets.rs`, `src/cli.rs`)**:
+  - Desacopla o fechamento de tickets durante o `cccp merge`, tornando a operação autônoma e offline-friendly via commit tag `(closes #ID)`.
+  - Atualiza anotações dos comandos `ticket` e `forge` delegando a autoridade de forjas ao `gossnab`. (closes #168)
+
 ### Purgatório de Gerador de Site Banner
 - **Desacoplamento de Artefatos Gráficos (`src/cli.rs`, `src/main.rs`, `src/ci_pipeline.rs`)**:
   - Elimina o gerador de banners Open Graph PNG (`src/site_banner.rs`) e o subcomando `cccp site banner`.
