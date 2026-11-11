@@ -429,3 +429,53 @@ version = "2.1.0"
     );
     assert_eq!(prof, "profiles/legacy.md");
 }
+
+#[test]
+fn test_render_audit_report_in_english() {
+    let theme = Theme::with_color(false);
+    let report = cccp::audit::AuditReport {
+        gost_version: "2.1.0".to_string(),
+        profile: "https://example.org/profile".to_string(),
+        languages: "rust".to_string(),
+        checks: vec![cccp::audit::AuditCheck {
+            code: "TEST-001",
+            title: "Test Check",
+            detail: "Conforming with guideline".to_string(),
+            status: CheckStatus::Pass,
+        }],
+        passed: 1,
+        warnings: 0,
+        failures: 0,
+        percentage: 100,
+        is_success: true,
+    };
+
+    let rendered = cccp::audit::render_audit_report(&report, false, &theme);
+    assert!(
+        rendered.contains("☭ [RULES] NORMATIVE CONFORMANCE AUDIT"),
+        "Header must be in English and agnostic: {}",
+        rendered
+    );
+    assert!(
+        rendered.contains("Standard: 2.1.0 | Profile: https://example.org/profile"),
+        "Metadata must use English labels: {}",
+        rendered
+    );
+    assert!(
+        rendered.contains("Total checks: 1 | Conforming: 1"),
+        "Summary must use English labels: {}",
+        rendered
+    );
+    assert!(
+        rendered.contains("Compliance Index: 100%"),
+        "Compliance index must use English labels: {}",
+        rendered
+    );
+}
+
+#[test]
+fn test_build_canonical_rules_urls_deterministic() {
+    let (md_url, toml_url) = cccp::profile::build_canonical_rules_urls("https://example.org/rules/", "1.2.0");
+    assert_eq!(md_url, "https://example.org/rules/1.2.0/RULES.md");
+    assert_eq!(toml_url, "https://example.org/rules/1.2.0/RULES.toml");
+}
