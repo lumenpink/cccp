@@ -2,9 +2,10 @@
 
 ## [Unreleased]
 
-### Correção de Falha de CI por Sccache
-- **Desativação de Sccache em Container (`.forgejo/workflows/ci.yml`)**:
-  - Define `SCCACHE_DISABLE=1` e `RUSTC_WRAPPER=""` nos jobs `test` e `deploy-banca` para contornar erro de socket `os error 2` no container `gost-ci-cross`. (closes #171)
+### Inicialização e Aceleração com Sccache na CI
+- **Ativação e Telemetria do Sccache (`.forgejo/workflows/ci.yml`)**:
+  - Restaura o uso do `sccache` como wrapper acelerador de compilação em `gost-ci-cross`.
+  - Inicializa explicitamente o daemon (`sccache --start-server`), cria o diretório de cache `/root/.cache/sccache` e emite relatório de telemetria e cache hits com `sccache --show-stats`. (closes #172)
 
 ### Desacoplamento do Motor Lua e Delegação ao Lunokhod
 - **Auditoria Normativa e Remoção de C Vendored (`src/lua_rules.rs`, `Cargo.toml`)**:
