@@ -27,14 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Initialize Sccache Daemon"
-        run: |
-          mkdir -p "$HOME/.cache/sccache" /root/.cache/sccache
-          if command -v sccache >/dev/null 2>&1; then
-            sccache --start-server || true
-            sccache --show-stats || true
-          fi
-
       - name: "Configure Cargo Registry"
         run: |
           mkdir -p "$HOME/.cargo"
@@ -88,14 +80,6 @@ jobs:
         uses: https://github.com/actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: "Initialize Sccache Daemon"
-        run: |
-          mkdir -p "$HOME/.cache/sccache" /root/.cache/sccache
-          if command -v sccache >/dev/null 2>&1; then
-            sccache --start-server || true
-            sccache --show-stats || true
-          fi
 
       - name: "Determine Release Channel and Version"
         id: meta

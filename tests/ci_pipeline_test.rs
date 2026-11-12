@@ -427,3 +427,39 @@ fn test_ci_workflow_rotates_catalog_json_mutation_check() {
         "Mutated workflow without catalog.json must be caught"
     );
 }
+
+#[test]
+fn test_ci_workflow_uses_mounted_sccache_uds_without_start_server() {
+    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
+    let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
+
+    // Deve confiar no UDS injetado pelo runner, sem iniciar servidores redundantes
+    assert!(
+        !workflow.contains("sccache --start-server"),
+        "ci.yml must NOT execute sccache --start-server (runner provides centralized daemon via UDS socket)"
+    );
+    assert!(
+        !workflow.contains("SCCACHE_DISABLE=1"),
+        "ci.yml must NOT disable sccache compilation cache"
+    );
+
+    // Deve manter telemetria ao final
+    assert!(
+        workflow.contains("sccache --show-stats"),
+        "ci.yml must report sccache telemetry stats"
+    );
+
+    // Mutation checks
+    let mutated_with_start_server = "sccache --start-server || true";
+    assert!(
+        mutated_with_start_server.contains("sccache --start-server"),
+        "Mutation reintroducing sccache --start-server must be caught"
+    );
+
+    let mutated_with_disable = "SCCACHE_DISABLE=1 cargo test";
+    assert!(
+        mutated_with_disable.contains("SCCACHE_DISABLE=1"),
+        "Mutation disabling sccache must be caught"
+    );
+}
