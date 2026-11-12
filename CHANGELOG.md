@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Correção de Falha de CI por Sccache
+- **Desativação de Sccache em Container (`.forgejo/workflows/ci.yml`)**:
+  - Define `SCCACHE_DISABLE=1` e `RUSTC_WRAPPER=""` nos jobs `test` e `deploy-banca` para contornar erro de socket `os error 2` no container `gost-ci-cross`. (closes #171)
+
 ### Desacoplamento do Motor Lua e Delegação ao Lunokhod
 - **Auditoria Normativa e Remoção de C Vendored (`src/lua_rules.rs`, `Cargo.toml`)**:
   - Remove dependências diretas de `mlua` e da crate `lunokhod`, tornando o binário do CCCP 100% Rust estático puro.
