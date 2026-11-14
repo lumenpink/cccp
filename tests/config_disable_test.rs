@@ -59,4 +59,6 @@ script = "return false, 'ERR', {}"
     // Mutation Test: enabled rule does not map to Skip
     let enabled_status = CheckStatus::Fail;
     assert_ne!(enabled_status, CheckStatus::Skip);
+    let enabled_detail = "Rule failed";
+    assert!(!enabled_detail.contains("skipped by configuration"));
 }
