@@ -23,3 +23,8 @@ No Ticket #174, corrigiu-se o mapeamento de regras desabilitadas para emitir `Ch
 - `cargo test --test lua_rules_test` passa com 100% de sucesso.
 - `cargo test --test config_disable_test` passa com 100% de sucesso.
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` limpos com zero advertências.
+
+## 4. Status e Resultados da Validação
+- Status: Aprovado no Quality Gate (Fase 8).
+- `fmt`, `clippy` e suítes incrementais aprovadas com zero advertências.
+- Suíte `lua_rules_test` e `config_disable_test` 100% verdes.
