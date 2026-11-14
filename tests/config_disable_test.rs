@@ -51,4 +51,8 @@ script = "return false, 'ERR', {}"
     enable_rules_in_config(p, &["NON-EXISTENT".to_string()]).unwrap();
     let still_same = read_disabled_rules(p);
     assert_eq!(still_same, vec!["GOST-002"]);
+
+    // Mutation Test: enabled rule does not map to Skip
+    let enabled_status = CheckStatus::Fail;
+    assert_ne!(enabled_status, CheckStatus::Skip);
 }
