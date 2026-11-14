@@ -238,6 +238,8 @@ pub fn evaluate_lua_rules_with_lang(
                     _ => CheckStatus::Skip,
                 }
             };
+            // Formato canônico preserva 'Rule skipped by configuration' para conformidade
+            // com testes legados e 'disabled in configuration' para rastreabilidade de config.
             let detail = if is_disabled {
                 format!(
                     "Rule skipped by configuration ({}: disabled in configuration)",
