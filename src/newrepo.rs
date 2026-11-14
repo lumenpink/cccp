@@ -339,6 +339,14 @@ pub fn cmd_newrepo(opts: NewrepoOptions, theme: &Theme) -> Result<(), String> {
     gossnab_cmd.arg("-d").arg(&target_root);
     if let Ok(status) = gossnab_cmd.status() {
         if status.success() {
+            // Assegura arquivo GOSTVER canônico se não criado pelo gossnab
+            let gostver_file = target_root.join("GOSTVER");
+            if !gostver_file.exists() {
+                let _ = fs::write(&gostver_file, "GOST_VERSION=\"1.1.0\"\n");
+            }
+            if !opts.git && target_root.join(".git").exists() {
+                let _ = fs::remove_dir_all(target_root.join(".git"));
+            }
             if !opts.quiet {
                 println!(
                     "  {} Repositório provisionado com sucesso via Gossnab.",

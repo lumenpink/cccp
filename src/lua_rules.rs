@@ -223,18 +223,27 @@ pub fn evaluate_lua_rules_with_lang(
 
     items
         .into_iter()
-        .filter(|c| !disabled_rules.iter().any(|d| d.trim() == c.code.trim()))
         .map(|c| {
-            let status = match c.status.to_uppercase().as_str() {
-                "PASS" => CheckStatus::Pass,
-                "FAIL" => CheckStatus::Fail,
-                "WARN" => CheckStatus::Warn,
-                _ => CheckStatus::Skip,
+            let is_disabled = disabled_rules.iter().any(|d| d.trim() == c.code.trim());
+            let status = if is_disabled {
+                CheckStatus::Skip
+            } else {
+                match c.status.to_uppercase().as_str() {
+                    "PASS" => CheckStatus::Pass,
+                    "FAIL" => CheckStatus::Fail,
+                    "WARN" => CheckStatus::Warn,
+                    _ => CheckStatus::Skip,
+                }
+            };
+            let detail = if is_disabled {
+                format!("Rule {} disabled in configuration", c.code)
+            } else {
+                c.detail
             };
             AuditCheck {
                 code: Box::leak(c.code.into_boxed_str()),
                 title: Box::leak(c.title.into_boxed_str()),
-                detail: c.detail,
+                detail,
                 status,
             }
         })
