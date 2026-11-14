@@ -41,6 +41,10 @@ script = "return false, 'ERR', {}"
     assert!(check.is_some());
     assert_eq!(check.unwrap().status, CheckStatus::Skip);
     assert!(check.unwrap().detail.contains("disabled in configuration"));
+    assert!(check
+        .unwrap()
+        .detail
+        .contains("Rule skipped by configuration"));
 
     // Mutation Test: duplicates in disable are idempotent
     disable_rules_in_config(p, &["GOST-002".to_string(), "GOST-002".to_string()]).unwrap();
