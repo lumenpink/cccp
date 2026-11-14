@@ -221,6 +221,9 @@ pub fn evaluate_lua_rules_with_lang(
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     let items: Vec<LunokhodAuditItem> = serde_json::from_str(&stdout_str).unwrap_or_default();
 
+    // Regras desabilitadas em DISABLED_RULES recebem status canônico CheckStatus::Skip
+    // em vez de serem excluídas, garantindo rastreabilidade no relatório de auditoria
+    // e evitando falso positivo NO-RULES-FOUND em escopos parciais.
     items
         .into_iter()
         .map(|c| {
