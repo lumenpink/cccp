@@ -31,6 +31,8 @@ name = "TEST-DISABLED"
 severity = "error"
 script = "return false, 'ERR', {}"
 "#;
+    fs::create_dir_all(p.join(".rules")).unwrap();
+    fs::write(p.join(".rules/rules.toml"), rules_toml).unwrap();
     fs::write(p.join("rules.toml"), rules_toml).unwrap();
 
     let theme = Theme::with_color(false);
@@ -38,6 +40,7 @@ script = "return false, 'ERR', {}"
     let check = report.checks.iter().find(|c| c.code == "GOST-002");
     assert!(check.is_some());
     assert_eq!(check.unwrap().status, CheckStatus::Skip);
+    assert!(check.unwrap().detail.contains("disabled in configuration"));
 
     // Mutation Test: duplicates in disable are idempotent
     disable_rules_in_config(p, &["GOST-002".to_string(), "GOST-002".to_string()]).unwrap();
