@@ -239,7 +239,10 @@ pub fn evaluate_lua_rules_with_lang(
                 }
             };
             let detail = if is_disabled {
-                format!("Rule {} disabled in configuration", c.code)
+                format!(
+                    "Rule skipped by configuration ({}: disabled in configuration)",
+                    c.code
+                )
             } else {
                 c.detail
             };
