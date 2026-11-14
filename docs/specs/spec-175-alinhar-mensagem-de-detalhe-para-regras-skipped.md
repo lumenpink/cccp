@@ -25,6 +25,6 @@ No Ticket #174, corrigiu-se o mapeamento de regras desabilitadas para emitir `Ch
 - `cargo fmt --check` e `cargo clippy --all-targets -- -D warnings` limpos com zero advertências.
 
 ## 4. Status e Resultados da Validação
-- Status: Aprovado no Quality Gate (Fase 8).
+- Status: Concluído e Fechado (Fase 9).
 - `fmt`, `clippy` e suítes incrementais aprovadas com zero advertências.
 - Suíte `lua_rules_test` e `config_disable_test` 100% verdes.
