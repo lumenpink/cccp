@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Migração de Governança para GOST v3.0.0 e Perfil Lilya v2.1.0
+- **Adoção do Padrão Canônico e Purga de Manifestos Legados (`.rules/profile.toml`, `src/profile.rs`)**:
+  - Migra repositório cccp para a Metanorma GOST v3.0.0 e Perfil Operacional Lilya v2.1.0 via `cccp upgrade 2.1.0`.
+  - Purgado manifesto legado `GOSTVER` e bloqueada a sua recriação em rotinas de assemble do livro de regras `.gost/GOST.md`.
+  - Gerados e sincronizados `.gost/UPGRADE.md`, `.rules/profile.toml` e `.gost/metadata.json`.
+  - Ajustadas políticas e documentações alcançando 100% de conformidade com auditoria estrita `cccp check --strict`. (closes #177)
+
+
 ### Resolução Linear de Upgrade com valid_since e replaces
 - **Resolução Determinística de Migrações de Perfil (`src/profile.rs`, `src/cli.rs`)**:
   - Implementa algoritmo linear de resolução de upgrade de perfis a partir de `UPGRADE.md` com frontmatter YAML (`valid_since`, `replaces`).
