@@ -1,4 +1,4 @@
-use cccp::profile::{parse_upgrade_frontmatter, resolve_upgrade_chain};
+use cccp::profile::{is_version_below, parse_upgrade_frontmatter, resolve_upgrade_chain};
 use std::fs;
 use tempfile::tempdir;
 
@@ -160,5 +160,47 @@ Body delta 2.1.0 para teste de escrita.
     assert!(
         cfg.contains("2.1.0"),
         "profile.toml deve ser atualizado para 2.1.0"
+    );
+}
+
+#[test]
+fn test_mutation_parse_fails_without_valid_since() {
+    let invalid_content = r#"---
+standard: "lilya"
+tier: "operational"
+version: "2.1.0"
+replaces: "2.0.0"
+breaking: true
+---
+Body content sem valid_since
+"#;
+    let res = parse_upgrade_frontmatter(invalid_content);
+    assert!(
+        res.is_err(),
+        "frontmatter sem valid_since deve falhar obrigatoriamente"
+    );
+}
+
+#[test]
+fn test_mutation_version_comparison() {
+    assert!(is_version_below("1.9.0", "2.0.0"));
+    assert!(is_version_below("2.0.0", "2.0.1"));
+    assert!(is_version_below("2.0.0", "2.1.0"));
+    assert!(!is_version_below("2.0.0", "2.0.0"));
+    assert!(!is_version_below("2.1.0", "2.0.0"));
+    assert!(!is_version_below("3.0.0", "2.1.0"));
+}
+
+#[test]
+fn test_mutation_malformed_frontmatter() {
+    let invalid_content = r#"standard: "lilya"
+version: "2.1.0"
+valid_since: "2.0.0"
+Sem delimitadores YAML
+"#;
+    let res = parse_upgrade_frontmatter(invalid_content);
+    assert!(
+        res.is_err(),
+        "documento sem delimitadores frontmatter deve falhar"
     );
 }
