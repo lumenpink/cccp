@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Resolução Linear de Upgrade com valid_since e replaces
+- **Resolução Determinística de Migrações de Perfil (`src/profile.rs`, `src/cli.rs`)**:
+  - Implementa algoritmo linear de resolução de upgrade de perfis a partir de `UPGRADE.md` com frontmatter YAML (`valid_since`, `replaces`).
+  - Aplica princípio constitucional de Fail-Fast estrito: aborta com erro imediato se a versão instalada for inferior ao piso `valid_since`.
+  - Reúne e sintetiza relatório consolidado de quebras de contrato em `.gost/UPGRADE.md` na raiz do repositório alvo.
+  - Oferece suporte a `--dry-run` para prévia do plano de migração e disponibiliza atalho canônico de 1º nível `cccp upgrade`. (closes #176)
+
+
 ### Inicialização e Aceleração com Sccache na CI
 - **Ativação e Telemetria do Sccache (`.forgejo/workflows/ci.yml`)**:
   - Restaura o uso do `sccache` como wrapper acelerador de compilação em `gost-ci-cross`.
