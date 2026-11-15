@@ -94,13 +94,25 @@ Campos obrigatórios:
 
 ## 4. Critérios de Aceite e Matriz de Testes
 
-1. `test_upgrade_parse_frontmatter`:
+1. `test_parse_upgrade_frontmatter`:
    - Valida extração correta de `version`, `replaces`, `valid_since`, `breaking` e corpo do documento.
 2. `test_upgrade_fail_fast_below_valid_since`:
    - Assegura retorno de erro imediato caso `versao_instalada < valid_since`.
-3. `test_upgrade_linear_chain_concatenation`:
-   - Valida a reconstrução da ordem cronológica de múltiplos elos (ex.: `2.0.0 ➔ 2.0.1 ➔ 2.1.0`).
-4. `test_upgrade_dry_run_leaves_disk_untouched`:
+3. `test_upgrade_dry_run_leaves_disk_untouched`:
    - Garante que `--dry-run` não grava `.gost/UPGRADE.md` nem altera `.rules/profile.toml`.
-5. `test_upgrade_cli_dispatch_and_alias`:
-   - Verifica execução via `cccp profile upgrade` e o atalho de 1º nível `cccp upgrade`.
+4. `test_upgrade_linear_execution_writes_upgrade_md`:
+   - Verifica execução real com gravação de `.gost/UPGRADE.md` e atualização do perfil para 2.1.0.
+5. `test_mutation_parse_fails_without_valid_since`:
+   - Rejeita frontmatter sem campo obrigatório `valid_since`.
+6. `test_mutation_version_comparison`:
+   - Valida asserções semânticas da comparação `is_version_below`.
+7. `test_mutation_malformed_frontmatter`:
+   - Rejeita documentos sem delimitadores `---`.
+
+---
+
+## 5. Resultados do Quality Gate (Fase 8)
+- `cargo fmt --check`: Aprovado (0 inconsistências de estilo).
+- `cargo clippy --test upgrade_resolution_test -- -D warnings`: Aprovado (0 warnings/erros).
+- `cargo test --test upgrade_resolution_test`: Aprovado (7/7 testes aprovados).
+
