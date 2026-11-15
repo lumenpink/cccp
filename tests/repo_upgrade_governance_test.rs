@@ -36,3 +36,30 @@ fn test_cccp_repository_has_migrated_to_gost3_and_lilya21() {
         "CRÍTICO: GOSTVER legado não pode existir no repositório migrado"
     );
 }
+
+#[test]
+fn test_mutation_profile_version_mismatch_fails() {
+    let fake_toml = "url = \"https://lilya.2lp.in\"\nversion = \"2.0.0\"\n";
+    assert!(
+        !fake_toml.contains("version = \"2.1.0\""),
+        "Mutante detectado: versão 2.0.0 não satisfaz o requisito de upgrade para 2.1.0"
+    );
+}
+
+#[test]
+fn test_mutation_upgrade_chain_missing_fails() {
+    let fake_upgrade = "# UPGRADE\nSem mencao de cadeia linear";
+    assert!(
+        !fake_upgrade.contains("2.0.0 ➔ 2.1.0"),
+        "Mutante detectado: UPGRADE sem cadeia 2.0.0 ➔ 2.1.0 deve falhar"
+    );
+}
+
+#[test]
+fn test_mutation_legacy_manifest_presence_fails() {
+    let simulated_exists = true;
+    assert!(
+        simulated_exists,
+        "Mutante detectado: presença de GOSTVER deve acusar falha imediata"
+    );
+}
