@@ -1,7 +1,7 @@
 # Especificação Técnica — Ticket #69: URL Canônica, Host do Servidor e Apelidos Customizáveis no Catálogo
 
 ## 1. Visão Geral
-O catálogo Gosplan State Catalog (`catalog.json`) centraliza o inventário de repositórios do ecossistema. Para melhorar a navegação, interoperabilidade com forjas soberanas e comandos interativos (como Divã e Assemble), é necessário enriquecer os metadados de cada repositório com seu endereço canônico completo (`canonical_url`), o host do servidor de forja (`server_host`), além de atribuir apelidos automáticos derivados do domínio e permitir a fixação de apelidos arbitrários no arquivo de configuração do CCCP (`.cccprc`).
+O catálogo Gosplan State Catalog (`catalog.json`) centraliza o inventário de repositórios do ecossistema. Para melhorar a navegação, interoperabilidade com forjas primárias e comandos interativos (como Divã e Assemble), é necessário enriquecer os metadados de cada repositório com seu endereço canônico completo (`canonical_url`), o host do servidor de forja (`server_host`), além de atribuir apelidos automáticos derivados do domínio e permitir a fixação de apelidos arbitrários no arquivo de configuração do CCCP (`.cccprc`).
 
 ---
 

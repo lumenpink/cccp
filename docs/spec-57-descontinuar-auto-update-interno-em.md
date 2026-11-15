@@ -4,7 +4,7 @@
 `refactor(update): descontinuar auto-update interno em favor da jornaleira`
 
 ## Contexto e Motivação
-A CLI CCCP possuía rotina autônoma de verificação periódica de atualizações (`check_auto_update`) executada no startup (`src/main.rs`). Na arquitetura do ecossistema Kollontai / 2lp.in, o ciclo de vida, compilação e entrega de ferramentas é centralizado no gestor de pacotes soberano **Jornaleira**. O auto-update embutido na CLI viola a previsibilidade de execução local, introduz latência potencial de rede por tentativas de conexão não solicitadas e duplica a responsabilidade da Jornaleira.
+A CLI CCCP possuía rotina autônoma de verificação periódica de atualizações (`check_auto_update`) executada no startup (`src/main.rs`). Na arquitetura do ecossistema Kollontai / 2lp.in, o ciclo de vida, compilação e entrega de ferramentas é centralizado no gestor de pacotes canônico **Jornaleira**. O auto-update embutido na CLI viola a previsibilidade de execução local, introduz latência potencial de rede por tentativas de conexão não solicitadas e duplica a responsabilidade da Jornaleira.
 
 ## Requisitos
 1. **Inicialização Limpa e Offline**:

@@ -14,4 +14,4 @@ O comando `cccp assemble` deve realizar a compilação determinística tanto do 
    - Mesclar as seções `[rules.<ID>]` preservando precedência estrita: camadas inferiores sobrepõem definições anteriores.
    - Caso exista `custom-rules.toml` na raiz do projeto, mesclar suas regras no `.gost/rules.toml` final com precedência máxima local.
 3. **Purga Terminológica:**
-   - Substituição de "Camada Local Soberana" por "Camada Local Autônoma" nos comentários e sumários gerados no `.gost/GOST.md`.
+   - Substituição de "Camada Local Pré-Canônica" por "Camada Local Autônoma" nos comentários e sumários gerados no `.gost/GOST.md`.

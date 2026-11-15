@@ -18,7 +18,7 @@ Garantir que a invocação do Divã aceite parâmetros posicionais (`<repo>`, `o
      - `target`: `Option<String>` (index = 1) com doc e help descritivo.
      - `prompt`: `Vec<String>` ou `Option<String>` (trailing_var_arg = true ou index = 2) de modo a permitir frases livres e opções intercaladas.
    - Suportar precedência clara em `resolve_repo_and_prompt()`:
-     - Se `--repo <R>` ou `-r <R>` for passado, ele define o repositório-alvo soberano, e quaisquer argumentos posicionais são acumulados como `prompt`.
+     - Se `--repo <R>` ou `-r <R>` for passado, ele define o repositório-alvo canônico, e quaisquer argumentos posicionais são acumulados como `prompt`.
      - Se apenas argumentos posicionais forem fornecidos:
        - Se o primeiro argumento contiver formato `owner/repo` ou coincidir com nome de repositório/slug, é tratado como `target_repo` e o restante como `prompt`.
        - Se for uma frase com espaços e nenhum repo for especificado, é tratado como `prompt`.

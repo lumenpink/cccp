@@ -2,7 +2,7 @@
 ## feat(ci): subcomandos de esteira cccp ci publish-artifacts e cccp ci deploy-site
 
 ### 1. Contexto e Motivação
-Em conformidade com a Seção 10 da norma GOST 2.0 e a Seção 5 de Kollontai 2.0, as esteiras de integração e entrega contínua do ecossistema soberano Gosplan operam de forma isolada e declarativa (`.forgejo/workflows/ci.yml`).
+Em conformidade com a Seção 10 da norma GOST 2.0 e a Seção 5 de Kollontai 2.0, as esteiras de integração e entrega contínua do ecossistema coletivo Gosplan operam de forma isolada e declarativa (`.forgejo/workflows/ci.yml`).
 Duas etapas críticas de release vinham sendo orquestradas por scripts de shell dispersos:
 1. Publicação determinística de artefatos binários e manifestos para o Cloudflare R2 / Banca (`banca.2lp.in`).
 2. Publicação e deploy da vitrine estática de documentação em branch órfã stateless `pages`.

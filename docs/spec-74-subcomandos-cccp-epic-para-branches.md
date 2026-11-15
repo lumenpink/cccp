@@ -2,7 +2,7 @@
 ## feat(governance): subcomandos cccp epic para branches persistentes e cccp inbox para quarentena de prs
 
 ### 1. Contexto e Motivação
-Conforme a Seção 15 (Regra GOST-25) e Seção 1.2 da norma Kollontai 2.0, o fluxo de desenvolvimento do ecossistema soberano exige:
+Conforme a Seção 15 (Regra GOST-25) e Seção 1.2 da norma Kollontai 2.0, o fluxo de desenvolvimento do ecossistema coletivo exige:
 1. **Governança de Branches Persistentes (`epic/*`)**: Suporte a ciclos de desenvolvimento que englobam múltiplos tickets relacionados através de branches persistentes com prefixo `epic/<slug>`, permitindo integração contínua antes do merge final na branch canônica (`main`).
 2. **Quarentena de Contribuições Externas (`inbox/*`)**: Mecanismo para receber, listar, revisar e aceitar Pull Requests e contribuições de espelhos públicos (GitHub, Codeberg) isoladas no namespace `refs/heads/inbox/*`, garantindo que espelhos secundários estejam protegidos com `pushurl = no_push` contra envio acidental antes de homologação.
 

@@ -47,7 +47,7 @@ Esta especificação define as regras normativas, critérios de severidade e tes
 * **Severidade:** `MUST`.
 
 ### 2.6 Regra `GOST-25-REMOTES-AND-INBOX-QUARANTINE` (Seção 15)
-* **Objetivo:** Garantir soberania do remote `origin` e proteção de espelhos passivos.
+* **Objetivo:** Garantir integridade e autonomia do remote `origin` e proteção de espelhos passivos.
 * **Critério:** Se existirem remotes adicionais além do `origin` (como `codeberg`, `github`), estes devem ter `pushurl = no_push` configurado no Git.
 * **Severidade:** `WARN` / `MUST` em modo estrito.
 
@@ -55,7 +55,7 @@ Esta especificação define as regras normativas, critérios de severidade e tes
 * **Objetivo:** Integridade do manifesto `.gost/metadata.json` e filtro anti-jargão.
 * **Critério:**
   - Se `.gost/metadata.json` estiver presente, campos obrigatórios devem estar definidos (`slug`, `title`, `site_type`, `tagline`, `summary`, `abstract`, `tags`, `icon`, `theme`).
-  - Prosa não deve conter jargões vazios: `"soberano"`, `"soberana"`, `"hexagonal"`, `"ssot"`, `"rust puro"`, `"em rust"`, `"em php"`, `"wasm"`.
+  - Prosa não deve conter jargões vazios ou imperialistas: termos de dominação, `"hexagonal"`, `"ssot"`, `"rust puro"`, `"em rust"`, `"em php"`, `"wasm"`.
 * **Severidade:** `MUST`.
 
 ### 2.8 Regra `GOST-27-DDD-HEXAGONAL-PURITY` (Seção 12)

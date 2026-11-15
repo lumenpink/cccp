@@ -5,7 +5,7 @@
 **Norma:** GOST 1.4.0
 
 ## 1. Objetivo
-Permitir que o Divã (`cccp divan` / `cccp diva`) utilize servidores locais de inferência de IA compatíveis com o padrão universal OpenAI HTTP API (`/v1/chat/completions`), como LocalAI, llama.cpp server, vLLM, LM Studio ou sidecars Gosplan soberanos. Além disso, padronizar o modelo padrão de inferência local para `llama3.2:3b`, otimizado para hardware com 4GB de VRAM e alta aderência à governança GOST.
+Permitir que o Divã (`cccp divan` / `cccp diva`) utilize servidores locais de inferência de IA compatíveis com o padrão universal OpenAI HTTP API (`/v1/chat/completions`), como LocalAI, llama.cpp server, vLLM, LM Studio ou sidecars Gosplan autônomos. Além disso, padronizar o modelo padrão de inferência local para `llama3.2:3b`, otimizado para hardware com 4GB de VRAM e alta aderência à governança GOST.
 
 ## 2. Requisitos Funcionais e Critérios de Aceitação
 1. **Extensão do Enum `AiProvider`:**

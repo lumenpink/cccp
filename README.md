@@ -7,12 +7,13 @@
 **«В СВЕТЛОЕ БУДУЩЕЕ С ЧИСТЫМ GIT!»** *(Into a bright future with clean Git!)*
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
-[![Norma: GOST](https://img.shields.io/badge/norma-GOST%202.0.0-blueviolet.svg)](.gost/GOST.md)
+[![Norma: GOST](https://img.shields.io/badge/norma-GOST%203.0.0-blueviolet.svg)](.gost/GOST.md)
+[![Identity](https://img.shields.io/badge/identity-lumen.pink-ff79c6.svg)](https://lumen.pink)
 [![Documentation](https://img.shields.io/badge/Documentation-cccp.2lp.in-b81d1d.svg)](https://cccp.2lp.in)
 
 </div>
 
-Zero-dependency toolchain for Conventional Commits enforcement, predictive SemVer 2.0.0, portable Git hooks, multi-forge ticket synchronization, and AI agent directives.
+Zero-dependency toolchain for Conventional Commits enforcement, predictive SemVer 2.0.0, portable Git hooks, multi-forge ticket synchronization, and AI agent directives. Desenvolvido com carinho travesti e rigor de engenharia no ecossistema [lumen.pink](https://lumen.pink).
 
 ---
 

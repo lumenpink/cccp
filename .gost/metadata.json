@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "slug": "cccp",
+  "title": "CCCP",
+  "site_type": "app",
+  "tagline": "Conventional Commits Compliance Program",
+  "summary": "Ferramenta de governança, conformidade com Conventional Commits, SemVer 2.0.0, hooks Git portáteis e maestro DD-TDD da norma GOST.",
+  "abstract": "O CCCP (Conventional Commits Compliance Program) é o maestro de engenharia e conformidade para repositórios governados pelo padrão GOST. Ele orquestra o ciclo de vida DD-TDD em 9 fases determinísticas, sincroniza tickets entre forjas remotas, gerencia hooks nativos de integridade do Git e unifica políticas normativas em camadas.",
+  "tags": [
+    "git",
+    "conventional-commits",
+    "gost",
+    "dd-tdd",
+    "semver",
+    "governance",
+    "transfeminist"
+  ],
+  "icon": "☭",
+  "theme": {
+    "bg_color": "#1a1b26",
+    "accent_color": "#e0af68"
+  }
+}

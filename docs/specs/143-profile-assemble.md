@@ -8,7 +8,7 @@
 Implementar o comando `cccp profile assemble` e integrá-lo ao `cccp sync` para compilar o arquivo canônico e único `.gost/GOST.md` resolvendo em ordem de precedência:
 1. **Norma Central GOST:** Base universal (`SPEC.md`).
 2. **Cadeia em Cascata de Perfis:** Resolve recursivamente as diretivas `extends:` no frontmatter dos perfis (ex: `Lumen` -> `Kollontai` -> `GOST base`).
-3. **Sobreposições Locais de Repositório (`CUSTOM.md`):** Se um arquivo `CUSTOM.md` existir na raiz do repositório, ele é anexado ao final como a autoridade máxima soberana local.
+3. **Sobreposições Locais de Repositório (`CUSTOM.md`):** Se um arquivo `CUSTOM.md` existir na raiz do repositório, ele é anexado ao final como a autoridade máxima autônoma local.
 
 ## 2. Estrutura do Documento Gerado (`.gost/GOST.md`)
 O arquivo compilado congrega:

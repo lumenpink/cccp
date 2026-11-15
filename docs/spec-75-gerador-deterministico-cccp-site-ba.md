@@ -3,7 +3,7 @@
 
 ### 1. Contexto e Motivação
 Em conformidade com as regras GOST-20, GOST-26 e a Seção 6.2 da norma Kollontai 2.0, todo repositório do ecossistema deve possuir um banner minimalista de documentação Open Graph em `site/assets/og_preview.png`.
-Este banner é utilizado por indexadores, mensageiros e forjas soberanas como imagem de pré-visualização de link (1200x630 px com Safe Zone centralizada 4:3).
+Este banner é utilizado por indexadores, mensageiros e forjas autônomas como imagem de pré-visualização de link (1200x630 px com Safe Zone centralizada 4:3).
 A geração deve ser estritamente determinística, nativa e sem dependências externas pesadas (como browsers headless ou Node.js/Puppeteer).
 
 ### 2. Requisitos e Subcomando

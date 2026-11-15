@@ -5,7 +5,7 @@
 **Norma:** GOST 1.4.0  
 
 ## 1. Objetivo
-Migrar os endpoints de distribuição remota do CCCP para a infraestrutura soberana da Banca (`banca.2lp.in`) e introduzir suporte a canais de distribuição configuráveis (`stable` e `nightly`) declarados no arquivo de configuração do projeto (`.cccprc` ou `.cccprs`), garantindo governança previsível sobre atualizações de binários em todo o ecossistema.
+Migrar os endpoints de distribuição remota do CCCP para a infraestrutura central da Banca (`banca.2lp.in`) e introduzir suporte a canais de distribuição configuráveis (`stable` e `nightly`) declarados no arquivo de configuração do projeto (`.cccprc` ou `.cccprs`), garantindo governança previsível sobre atualizações de binários em todo o ecossistema.
 
 ## 2. Requisitos Funcionais e Critérios de Aceitação
 

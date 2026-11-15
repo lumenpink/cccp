@@ -5,7 +5,7 @@
 
 ## Contexto e Motivação
 Identificaram-se três fricções no fluxo diário do CCCP:
-1. `cccp init` gerava licença `CC0-1.0` por padrão em vez da soberana `GPL-3.0`, workflow em formato `ci.yaml` sem formatação e com `runs-on: native` em vez de `ubuntu-latest`, e fallback do GOST como `1.1.0`.
+1. `cccp init` gerava licença `CC0-1.0` por padrão em vez da canônica `GPL-3.0`, workflow em formato `ci.yaml` sem formatação e com `runs-on: native` em vez de `ubuntu-latest`, e fallback do GOST como `1.1.0`.
 2. `cccp merge` sempre gerava um commit extra `chore(version)` na `main`, mesmo em merges *Fast-Forward*, poluindo o histórico e gerando divergências sem necessidade.
 3. `cccp check --strict` exigia tags de ticket em commits `chore:`, inviabilizando manutenções rotineiras pequenas sem abrir tickets formais de 9 fases.
 

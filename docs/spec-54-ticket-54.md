@@ -1,7 +1,7 @@
-# Especificação Técnica — Ticket #54: Migração de Referências Codeberg para Forge Soberana git.2lp.in
+# Especificação Técnica — Ticket #54: Migração de Referências Codeberg para Forge Central git.2lp.in
 
 ## 1. Visão Geral
-O ecossistema migrou sua infraestrutura primária de forjas Git para a instância soberana `git.2lp.in` (Forgejo).
+O ecossistema migrou sua infraestrutura primária de forjas Git para a instância primária `git.2lp.in` (Forgejo).
 No entanto, diversas partes da base de código mantinham fallbacks estáticos para `codeberg.org`, incluindo a resolução padrão de `ForgeType::Forgejo`, fallbacks de slug simplificado (`owner/repo`), templates de `AGENTS.md`, especificação canônica do GOST e detecção de token.
 
 Esta especificação define a substituição dos fallbacks rígidos de `codeberg.org` pela forja padrão `git.2lp.in` (e suporte dinâmico via configuração), preservando a compatibilidade com o Codeberg apenas como provedor explícito.
@@ -20,8 +20,8 @@ Esta especificação define a substituição dos fallbacks rígidos de `codeberg
 
 ### 2.2 Fallbacks de Slugs e Catálogo (`src/catalog.rs`)
 - Ao resolver ou normalizar slugs no formato curto `owner/repo` sem host explícito:
-  - O fallback deve utilizar `ForgeType::Forgejo` e host `git.2lp.in` como padrão do ecossistema soberano.
-- Em `extract_domain_prefix`: manter suporte a hosts soberanos (`git.2lp.in`, `gambi.2lp.in`, etc.).
+  - O fallback deve utilizar `ForgeType::Forgejo` e host `git.2lp.in` como padrão do ecossistema central.
+- Em `extract_domain_prefix`: manter suporte a hosts centrais (`git.2lp.in`, `gambi.2lp.in`, etc.).
 
 ### 2.3 Templates e Documentos Canônicos
 - Em `src/agents.rs` e `src/config.rs`:

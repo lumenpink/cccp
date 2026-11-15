@@ -1,3 +1,4 @@
+primary_forge_domain = "gambi.2lp.in"
 agent_var_project_name = CCCP
 agent_var_project_description = Conventional Commits Compliance Program - Semantic Versioning, Git Hooks & Changelog Manager
 agent_var_tech_stack = POSIX Shell, Git
