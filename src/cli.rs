@@ -197,6 +197,9 @@ pub enum Commands {
     #[command(subcommand)]
     Profile(ProfileCommand),
 
+    /// Upgrade normative profile following linear UPGRADE.md contract (alias for 'profile upgrade')
+    Upgrade(ProfileUpgradeArgs),
+
     /// Verificar atualizações e auto-atualizar binário do CCCP
     Update(UpdateArgs),
 
@@ -269,6 +272,19 @@ pub enum ProfileCommand {
 
     /// Assemble full cascading GOST specification into .gost/GOST.md including CUSTOM.md overrides
     Assemble(ProfileAssembleArgs),
+
+    /// Upgrade normative profile following linear UPGRADE.md contract with valid_since validation
+    Upgrade(ProfileUpgradeArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct ProfileUpgradeArgs {
+    /// Target version to upgrade to (defaults to latest from versions.json)
+    pub target: Option<String>,
+
+    /// Dry run: resolve chain and show migration plan without writing files
+    #[arg(short = 'n', long = "dry-run")]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Args, Clone, Default)]

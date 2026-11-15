@@ -13,6 +13,27 @@ pub struct ProfileConfig {
     pub version: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct UpgradeFrontmatter {
+    pub standard: String,
+    pub tier: String,
+    pub version: String,
+    pub replaces: Option<String>,
+    pub valid_since: String,
+    #[serde(default)]
+    pub breaking: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpgradePlan {
+    pub standard: String,
+    pub current_version: String,
+    pub target_version: String,
+    pub chain: Vec<String>,
+    pub combined_delta: String,
+    pub breaking: bool,
+}
+
 pub fn parse_latest_version_from_catalog(catalog_json: &str) -> Option<String> {
     if let Ok(v) = serde_json::from_str::<serde_json::Value>(catalog_json) {
         if let Some(latest) = v.get("latest").and_then(|l| l.as_str()) {
@@ -711,5 +732,301 @@ pub fn handle_profile_command(
                 )
             }
         }
+        Some(crate::cli::ProfileCommand::Upgrade(ref upgrade_args)) => {
+            handle_profile_upgrade(root, upgrade_args, theme)
+        }
     }
+}
+
+pub fn handle_profile_upgrade(
+    root: &Path,
+    args: &crate::cli::ProfileUpgradeArgs,
+    theme: &Theme,
+) -> Result<(), String> {
+    println!(
+        "{} Iniciando resolução linear de upgrade de perfil...",
+        theme.cyan("★ [GOSPLAN]")
+    );
+
+    let plan = resolve_upgrade_chain(root, args.target.as_deref(), args.dry_run, None)
+        .map_err(|e| format!("Falha no upgrade: {}", e))?;
+
+    if plan.chain.len() <= 1 && plan.current_version == plan.target_version {
+        println!(
+            "{} Perfil já está na versão mais recente: {}",
+            theme.green("✓"),
+            theme.cyan(&plan.target_version)
+        );
+        return Ok(());
+    }
+
+    println!("  Perfil             : {}", theme.cyan(&plan.standard));
+    println!("  Versão Instalada   : {}", theme.yellow(&plan.current_version));
+    println!("  Versão Alvo        : {}", theme.green(&plan.target_version));
+    println!("  Cadeia de Migração : {}", theme.cyan(&plan.chain.join(" ➔ ")));
+    if plan.breaking {
+        println!(
+            "  {}",
+            theme.red_bold("⚠ Atenção: Esta atualização contém quebras de contrato (breaking changes)!")
+        );
+    }
+
+    if args.dry_run {
+        println!();
+        println!(
+            "{} Modo dry-run ativado. Nenhuma alteração foi persistida no disco.",
+            theme.yellow("•")
+        );
+    } else {
+        println!();
+        println!(
+            "{} Relatório de migração gerado com sucesso em {}",
+            theme.green("✓"),
+            theme.cyan(".gost/UPGRADE.md")
+        );
+        println!(
+            "{} Configuração .rules/profile.toml atualizada para a versão {}",
+            theme.green("✓"),
+            theme.cyan(&plan.target_version)
+        );
+        println!(
+            "{} Regras normativas remontadas para o novo perfil.",
+            theme.green("✓")
+        );
+    }
+
+    Ok(())
+}
+
+pub fn parse_upgrade_frontmatter(content: &str) -> io::Result<(UpgradeFrontmatter, String)> {
+    let trimmed = content.trim_start();
+    if !trimmed.starts_with("---") {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "UPGRADE.md deve iniciar com frontmatter delimitado por ---",
+        ));
+    }
+    let parts: Vec<&str> = trimmed.splitn(3, "---").collect();
+    if parts.len() < 3 {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            "Frontmatter YAML malformado em UPGRADE.md",
+        ));
+    }
+    let fm_str = parts[1];
+    let body = parts[2].trim().to_string();
+
+    let mut standard = None;
+    let mut tier = None;
+    let mut version = None;
+    let mut replaces = None;
+    let mut valid_since = None;
+    let mut breaking = false;
+
+    for line in fm_str.lines() {
+        let l = line.trim();
+        if let Some(rest) = l.strip_prefix("standard:") {
+            standard = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+        } else if let Some(rest) = l.strip_prefix("tier:") {
+            tier = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+        } else if let Some(rest) = l.strip_prefix("version:") {
+            version = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+        } else if let Some(rest) = l.strip_prefix("replaces:") {
+            let v = rest.trim().trim_matches('"').trim_matches('\'');
+            if v != "null" && !v.is_empty() && v != "~" {
+                replaces = Some(v.to_string());
+            }
+        } else if let Some(rest) = l.strip_prefix("valid_since:") {
+            valid_since = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+        } else if let Some(rest) = l.strip_prefix("breaking:") {
+            let v = rest.trim().trim_matches('"').trim_matches('\'');
+            breaking = v == "true" || v == "yes" || v == "1";
+        }
+    }
+
+    let standard = standard.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'standard' ausente em UPGRADE.md"))?;
+    let tier = tier.unwrap_or_else(|| "operational".to_string());
+    let version = version.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'version' ausente em UPGRADE.md"))?;
+    let valid_since = valid_since.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'valid_since' ausente em UPGRADE.md"))?;
+
+    Ok((
+        UpgradeFrontmatter {
+            standard,
+            tier,
+            version,
+            replaces,
+            valid_since,
+            breaking,
+        },
+        body,
+    ))
+}
+
+pub fn is_version_below(current: &str, valid_since: &str) -> bool {
+    let clean_cur = current.trim().trim_start_matches('v');
+    let clean_valid = valid_since.trim().trim_start_matches('v');
+    if let (Ok(v_cur), Ok(v_valid)) = (
+        semver::Version::parse(clean_cur),
+        semver::Version::parse(clean_valid),
+    ) {
+        v_cur < v_valid
+    } else {
+        clean_cur < clean_valid
+    }
+}
+
+pub fn fetch_upgrade_file(base_url: &str, version: &str) -> io::Result<String> {
+    let clean_base = base_url.trim_end_matches('/');
+    let url = format!("{}/{}/UPGRADE.md", clean_base, version);
+    if url.starts_with("http://") || url.starts_with("https://") {
+        let resp = ureq::get(&url)
+            .call()
+            .map_err(|e| Error::new(ErrorKind::NotFound, format!("Falha ao obter {}: {}", url, e)))?;
+        resp.into_body().read_to_string().map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!("Falha ao ler resposta de {}: {}", url, e),
+            )
+        })
+    } else {
+        let p = Path::new(&url);
+        fs::read_to_string(p).map_err(|e| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("Arquivo local {} não encontrado: {}", url, e),
+            )
+        })
+    }
+}
+
+pub fn resolve_upgrade_chain(
+    root: &Path,
+    target_version: Option<&str>,
+    dry_run: bool,
+    mock_target_content: Option<&str>,
+) -> io::Result<UpgradePlan> {
+    let mut cfg = read_profile_config(root)?;
+    let current_version = cfg.version.clone();
+    let base_profile_url = if let Some(base) = cfg.url.strip_suffix("/profile.md") {
+        base.to_string()
+    } else {
+        cfg.url.trim_end_matches('/').to_string()
+    };
+
+    let target_ver = match target_version {
+        Some(t) => t.to_string(),
+        None => {
+            fetch_latest_version_from_catalog(&base_profile_url).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::NotFound,
+                    format!("Não foi possível determinar versão latest em {}/versions.json", base_profile_url),
+                )
+            })?
+        }
+    };
+
+    if current_version == target_ver {
+        return Ok(UpgradePlan {
+            standard: cfg.url.clone(),
+            current_version: current_version.clone(),
+            target_version: target_ver,
+            chain: vec![current_version],
+            combined_delta: "# Já atualizado na versão mais recente.\n".to_string(),
+            breaking: false,
+        });
+    }
+
+    // Baixa UPGRADE.md do alvo
+    let target_content = match mock_target_content {
+        Some(c) => c.to_string(),
+        None => fetch_upgrade_file(&base_profile_url, &target_ver)?,
+    };
+
+    let (target_fm, target_body) = parse_upgrade_frontmatter(&target_content)?;
+
+    // Validação Fail-Fast de valid_since
+    if is_version_below(&current_version, &target_fm.valid_since) {
+        return Err(Error::new(
+            ErrorKind::InvalidData,
+            format!(
+                "[FAIL-FAST] ERR_UPGRADE_BELOW_VALID_SINCE: Versão instalada ({}) é inferior ao piso valid_since ({}) exigido pela versão alvo {}. Migre previamente para a baseline {}.",
+                current_version, target_fm.valid_since, target_ver, target_fm.valid_since
+            ),
+        ));
+    }
+
+    let mut deltas = Vec::new();
+    let mut chain = Vec::new();
+    let mut any_breaking = target_fm.breaking;
+
+    deltas.push((target_ver.clone(), target_body));
+    chain.push(target_ver.clone());
+
+    let mut next_replaces = target_fm.replaces;
+
+    while let Some(rep) = next_replaces {
+        if rep == current_version || is_version_below(&rep, &current_version) {
+            break;
+        }
+        let link_content = fetch_upgrade_file(&base_profile_url, &rep)?;
+        let (link_fm, link_body) = parse_upgrade_frontmatter(&link_content)?;
+        if link_fm.breaking {
+            any_breaking = true;
+        }
+        deltas.push((rep.clone(), link_body));
+        chain.push(rep.clone());
+        next_replaces = link_fm.replaces;
+    }
+
+    // Inverte para ficar em ordem cronológica ascendente
+    deltas.reverse();
+    chain.reverse();
+
+    let mut full_chain = vec![current_version.clone()];
+    for c in &chain {
+        if c != &current_version {
+            full_chain.push(c.clone());
+        }
+    }
+
+    let mut combined_delta = format!(
+        "# Relatório Consolidado de Migração (GOST DD-TDD)\n\n\
+         - **Perfil:** `{}`\n\
+         - **Baseline Instalada:** `{}`\n\
+         - **Versão Alvo:** `{}`\n\
+         - **Cadeia Percorrida:** {}\n\
+         - **Quebras de Contrato:** {}\n\n---\n\n",
+        target_fm.standard,
+        current_version,
+        target_ver,
+        full_chain.join(" ➔ "),
+        if any_breaking { "Sim (atenção redobrada requerida)" } else { "Não" }
+    );
+
+    for (v, body) in &deltas {
+        combined_delta.push_str(&format!("## Delta de Migração para {}\n\n{}\n\n---\n\n", v, body));
+    }
+
+    let plan = UpgradePlan {
+        standard: target_fm.standard,
+        current_version,
+        target_version: target_ver.clone(),
+        chain: full_chain,
+        combined_delta: combined_delta.clone(),
+        breaking: any_breaking,
+    };
+
+    if !dry_run {
+        let gost_dir = root.join(".gost");
+        fs::create_dir_all(&gost_dir)?;
+        fs::write(gost_dir.join("UPGRADE.md"), &combined_delta)?;
+
+        cfg.version = target_ver;
+        write_profile_config(root, &cfg)?;
+
+        // Remonta as regras
+        let _ = assemble_rules_specs(root);
+    }
+
+    Ok(plan)
 }

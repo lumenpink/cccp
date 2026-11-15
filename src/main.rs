@@ -1981,6 +1981,25 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Upgrade(ref upgrade_args)) => {
+            let root_dir = match cccp::git::GitRepo::open(args.dir.as_deref()) {
+                Ok(r) => r.root_dir,
+                Err(_) => match std::env::current_dir() {
+                    Ok(d) => d,
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Error"), e);
+                        return ExitCode::FAILURE;
+                    }
+                },
+            };
+            match cccp::profile::handle_profile_upgrade(&root_dir, upgrade_args, &theme) {
+                Ok(_) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{}: {}", theme.red_bold("Error"), e);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some(Commands::Epic(ref epic_cmd)) => {
             let repo = match cccp::git::GitRepo::open(args.dir.as_deref()) {
                 Ok(r) => r,
