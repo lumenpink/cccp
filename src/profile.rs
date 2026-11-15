@@ -761,13 +761,24 @@ pub fn handle_profile_upgrade(
     }
 
     println!("  Perfil             : {}", theme.cyan(&plan.standard));
-    println!("  Versão Instalada   : {}", theme.yellow(&plan.current_version));
-    println!("  Versão Alvo        : {}", theme.green(&plan.target_version));
-    println!("  Cadeia de Migração : {}", theme.cyan(&plan.chain.join(" ➔ ")));
+    println!(
+        "  Versão Instalada   : {}",
+        theme.yellow(&plan.current_version)
+    );
+    println!(
+        "  Versão Alvo        : {}",
+        theme.green(&plan.target_version)
+    );
+    println!(
+        "  Cadeia de Migração : {}",
+        theme.cyan(&plan.chain.join(" ➔ "))
+    );
     if plan.breaking {
         println!(
             "  {}",
-            theme.red_bold("⚠ Atenção: Esta atualização contém quebras de contrato (breaking changes)!")
+            theme.red_bold(
+                "⚠ Atenção: Esta atualização contém quebras de contrato (breaking changes)!"
+            )
         );
     }
 
@@ -844,10 +855,25 @@ pub fn parse_upgrade_frontmatter(content: &str) -> io::Result<(UpgradeFrontmatte
         }
     }
 
-    let standard = standard.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'standard' ausente em UPGRADE.md"))?;
+    let standard = standard.ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            "Campo 'standard' ausente em UPGRADE.md",
+        )
+    })?;
     let tier = tier.unwrap_or_else(|| "operational".to_string());
-    let version = version.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'version' ausente em UPGRADE.md"))?;
-    let valid_since = valid_since.ok_or_else(|| Error::new(ErrorKind::InvalidData, "Campo 'valid_since' ausente em UPGRADE.md"))?;
+    let version = version.ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            "Campo 'version' ausente em UPGRADE.md",
+        )
+    })?;
+    let valid_since = valid_since.ok_or_else(|| {
+        Error::new(
+            ErrorKind::InvalidData,
+            "Campo 'valid_since' ausente em UPGRADE.md",
+        )
+    })?;
 
     Ok((
         UpgradeFrontmatter {
@@ -879,9 +905,12 @@ pub fn fetch_upgrade_file(base_url: &str, version: &str) -> io::Result<String> {
     let clean_base = base_url.trim_end_matches('/');
     let url = format!("{}/{}/UPGRADE.md", clean_base, version);
     if url.starts_with("http://") || url.starts_with("https://") {
-        let resp = ureq::get(&url)
-            .call()
-            .map_err(|e| Error::new(ErrorKind::NotFound, format!("Falha ao obter {}: {}", url, e)))?;
+        let resp = ureq::get(&url).call().map_err(|e| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("Falha ao obter {}: {}", url, e),
+            )
+        })?;
         resp.into_body().read_to_string().map_err(|e| {
             Error::new(
                 ErrorKind::InvalidData,
@@ -915,14 +944,15 @@ pub fn resolve_upgrade_chain(
 
     let target_ver = match target_version {
         Some(t) => t.to_string(),
-        None => {
-            fetch_latest_version_from_catalog(&base_profile_url).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::NotFound,
-                    format!("Não foi possível determinar versão latest em {}/versions.json", base_profile_url),
-                )
-            })?
-        }
+        None => fetch_latest_version_from_catalog(&base_profile_url).ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!(
+                    "Não foi possível determinar versão latest em {}/versions.json",
+                    base_profile_url
+                ),
+            )
+        })?,
     };
 
     if current_version == target_ver {
@@ -1000,11 +1030,18 @@ pub fn resolve_upgrade_chain(
         current_version,
         target_ver,
         full_chain.join(" ➔ "),
-        if any_breaking { "Sim (atenção redobrada requerida)" } else { "Não" }
+        if any_breaking {
+            "Sim (atenção redobrada requerida)"
+        } else {
+            "Não"
+        }
     );
 
     for (v, body) in &deltas {
-        combined_delta.push_str(&format!("## Delta de Migração para {}\n\n{}\n\n---\n\n", v, body));
+        combined_delta.push_str(&format!(
+            "## Delta de Migração para {}\n\n{}\n\n---\n\n",
+            v, body
+        ));
     }
 
     let plan = UpgradePlan {

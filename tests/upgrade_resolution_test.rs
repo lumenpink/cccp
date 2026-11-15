@@ -22,7 +22,8 @@ breaking: true
 - Novas regras operacionais.
 "#;
 
-    let (fm, body) = parse_upgrade_frontmatter(content).expect("deve parsear frontmatter com sucesso");
+    let (fm, body) =
+        parse_upgrade_frontmatter(content).expect("deve parsear frontmatter com sucesso");
     assert_eq!(fm.standard, "lilya");
     assert_eq!(fm.tier, "operational");
     assert_eq!(fm.version, "2.1.0");
@@ -58,7 +59,10 @@ Body delta.
 
     // Tentativa de upgrade direto a partir de 1.8.0 quando valid_since é 2.0.0
     let res = resolve_upgrade_chain(p, Some("2.1.0"), true, Some(target_upgrade_content));
-    assert!(res.is_err(), "deve falhar imediatamente quando versao_instalada < valid_since");
+    assert!(
+        res.is_err(),
+        "deve falhar imediatamente quando versao_instalada < valid_since"
+    );
     let err_msg = res.unwrap_err().to_string();
     assert!(
         err_msg.contains("valid_since") || err_msg.contains("ERR_UPGRADE_BELOW_VALID_SINCE"),
@@ -91,14 +95,24 @@ Body delta 2.1.0.
 "#;
 
     let res = resolve_upgrade_chain(p, Some("2.1.0"), true, Some(target_upgrade_content));
-    assert!(res.is_ok(), "dry-run deve ser bem sucedido: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "dry-run deve ser bem sucedido: {:?}",
+        res.err()
+    );
 
     // Assegura que .gost/UPGRADE.md NÃO foi criado em dry-run
-    assert!(!p.join(".gost/UPGRADE.md").exists(), ".gost/UPGRADE.md não deve ser criado em dry-run");
+    assert!(
+        !p.join(".gost/UPGRADE.md").exists(),
+        ".gost/UPGRADE.md não deve ser criado em dry-run"
+    );
 
     // Assegura que .rules/profile.toml não foi alterado
     let cfg = fs::read_to_string(p.join(".rules/profile.toml")).unwrap();
-    assert!(cfg.contains("2.0.0"), "profile.toml deve permanecer com 2.0.0 em dry-run");
+    assert!(
+        cfg.contains("2.0.0"),
+        "profile.toml deve permanecer com 2.0.0 em dry-run"
+    );
 }
 
 #[test]
@@ -125,16 +139,26 @@ Body delta 2.1.0 para teste de escrita.
 "#;
 
     let res = resolve_upgrade_chain(p, Some("2.1.0"), false, Some(target_upgrade_content));
-    assert!(res.is_ok(), "execução deve ser bem sucedida: {:?}", res.err());
+    assert!(
+        res.is_ok(),
+        "execução deve ser bem sucedida: {:?}",
+        res.err()
+    );
 
     // Assegura que .gost/UPGRADE.md foi criado
     let upgrade_md_path = p.join(".gost/UPGRADE.md");
-    assert!(upgrade_md_path.is_file(), ".gost/UPGRADE.md deve ser criado em execução real");
+    assert!(
+        upgrade_md_path.is_file(),
+        ".gost/UPGRADE.md deve ser criado em execução real"
+    );
     let content = fs::read_to_string(&upgrade_md_path).unwrap();
     assert!(content.contains("Body delta 2.1.0 para teste de escrita"));
     assert!(content.contains("2.0.0 ➔ 2.1.0"));
 
     // Assegura que .rules/profile.toml foi atualizado para 2.1.0
     let cfg = fs::read_to_string(p.join(".rules/profile.toml")).unwrap();
-    assert!(cfg.contains("2.1.0"), "profile.toml deve ser atualizado para 2.1.0");
+    assert!(
+        cfg.contains("2.1.0"),
+        "profile.toml deve ser atualizado para 2.1.0"
+    );
 }
