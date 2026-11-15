@@ -240,37 +240,31 @@ pub fn set_active_profile(root: &Path, name_or_url: &str) -> io::Result<String> 
     Ok(canonical_url)
 }
 
-/// Updates or sets GOST_VERSION in GOSTVER file
+/// Updates GOST_VERSION in GOSTVER file only if the legacy file still exists.
 pub fn update_gostver_version(root: &Path, version: &str) -> io::Result<()> {
     let gostver_path = root.join("GOSTVER");
+    if !gostver_path.exists() {
+        return Ok(());
+    }
 
-    let new_content = if gostver_path.exists() {
-        let content = fs::read_to_string(&gostver_path)?;
-        let mut replaced = false;
-        let mut lines = Vec::new();
+    let content = fs::read_to_string(&gostver_path)?;
+    let mut replaced = false;
+    let mut lines = Vec::new();
 
-        for line in content.lines() {
-            if line.trim().starts_with("GOST_VERSION=") {
-                lines.push(format!("GOST_VERSION=\"{}\"", version));
-                replaced = true;
-            } else {
-                lines.push(line.to_string());
-            }
+    for line in content.lines() {
+        if line.trim().starts_with("GOST_VERSION=") {
+            lines.push(format!("GOST_VERSION=\"{}\"", version));
+            replaced = true;
+        } else {
+            lines.push(line.to_string());
         }
+    }
 
-        if !replaced {
-            lines.insert(0, format!("GOST_VERSION=\"{}\"", version));
-        }
+    if !replaced {
+        lines.insert(0, format!("GOST_VERSION=\"{}\"", version));
+    }
 
-        lines.join("\n") + "\n"
-    } else {
-        format!(
-            "# GOSTVER — Declaração de Conformidade com o Padrão GOST\nGOST_VERSION=\"{}\"\nGOST_PROFILE_URL=\"{}\"\nGOST_LANGUAGES=\"shell\"\n",
-            version,
-            crate::newrepo::DEFAULT_PROFILE_URL
-        )
-    };
-
+    let new_content = lines.join("\n") + "\n";
     fs::write(&gostver_path, new_content)?;
     Ok(())
 }
@@ -625,7 +619,9 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
             let _ = fs::copy(&rules_toml, gost_dir.join("rules.toml"));
         }
 
-        let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
+        if root.join("GOSTVER").is_file() {
+            let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
+        }
     }
     Ok(output)
 }

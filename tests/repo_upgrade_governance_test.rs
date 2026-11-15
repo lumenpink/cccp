@@ -23,8 +23,7 @@ fn test_cccp_repository_has_migrated_to_gost3_and_lilya21() {
         upgrade_md.is_file(),
         "CRÍTICO: .gost/UPGRADE.md deve ser gerado pelo cccp upgrade"
     );
-    let upgrade_content =
-        std::fs::read_to_string(&upgrade_md).expect("deve ler .gost/UPGRADE.md");
+    let upgrade_content = std::fs::read_to_string(&upgrade_md).expect("deve ler .gost/UPGRADE.md");
     assert!(
         upgrade_content.contains("2.0.0 ➔ 2.1.0"),
         ".gost/UPGRADE.md deve relatar o elo de migração 2.0.0 ➔ 2.1.0"
