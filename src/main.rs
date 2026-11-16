@@ -553,6 +553,43 @@ fn main() -> ExitCode {
                             theme.green("clean")
                         }
                     );
+                    let details = repo.get_status_details();
+                    if details.ahead > 0 || details.behind > 0 {
+                        println!(
+                            "  Remote Parity  : {} commit(s) ahead, {} commit(s) behind",
+                            theme.yellow(&details.ahead.to_string()),
+                            theme.cyan(&details.behind.to_string())
+                        );
+                    } else {
+                        println!("  Remote Parity  : {}", theme.green("up to date with tracking branch"));
+                    }
+                    println!(
+                        "  Hooks Status   : pre-commit [{}], pre-push [{}]",
+                        if details.pre_commit_active { theme.green("active") } else { theme.yellow("missing") },
+                        if details.pre_push_active { theme.green("active") } else { theme.yellow("missing") }
+                    );
+
+                    if !details.staged.is_empty() || !details.unstaged.is_empty() || !details.untracked.is_empty() {
+                        println!("\n  {}", theme.cyan("📂 Working Tree Modifications:"));
+                        if !details.staged.is_empty() {
+                            println!("    {} (staged for next commit):", theme.green("✔ Changes to be committed"));
+                            for f in &details.staged {
+                                println!("      • {}", theme.green(f));
+                            }
+                        }
+                        if !details.unstaged.is_empty() {
+                            println!("    {} (unstaged modifications):", theme.yellow("⚡ Changes not staged for commit"));
+                            for f in &details.unstaged {
+                                println!("      • {}", theme.yellow(f));
+                            }
+                        }
+                        if !details.untracked.is_empty() {
+                            println!("    {} (untracked files):", theme.dim("? Untracked files"));
+                            for f in &details.untracked {
+                                println!("      • {}", theme.dim(f));
+                            }
+                        }
+                    }
                     if let Some(ref br) = repo.branch {
                         if let Some((tid, kind, slug)) = cccp::ddtdd::infer_ticket_from_branch(br) {
                             let msgs: Vec<&str> = repo

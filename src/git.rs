@@ -36,6 +36,17 @@ pub struct CommitSummary {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StatusDetails {
+    pub staged: Vec<String>,
+    pub unstaged: Vec<String>,
+    pub untracked: Vec<String>,
+    pub ahead: usize,
+    pub behind: usize,
+    pub pre_commit_active: bool,
+    pub pre_push_active: bool,
+}
+
 impl GitRepo {
     /// Discover git repository starting from `path` (or current directory)
     pub fn open(path: Option<&Path>) -> Result<Self, String> {
@@ -133,6 +144,65 @@ impl GitRepo {
                 .collect(),
             _ => Vec::new(),
         }
+    }
+
+    /// Read comprehensive status details (staged, unstaged, untracked, ahead, behind, hooks)
+    pub fn get_status_details(&self) -> StatusDetails {
+        let mut details = StatusDetails::default();
+
+        // 1. Files status via git status --porcelain=v1
+        let status_out = Command::new("git")
+            .args(["status", "--porcelain=v1"])
+            .current_dir(&self.root_dir)
+            .output();
+
+        if let Ok(ref out) = status_out {
+            if out.status.success() {
+                for line in String::from_utf8_lossy(&out.stdout).lines() {
+                    if line.len() < 3 {
+                        continue;
+                    }
+                    let index_char = line.chars().next().unwrap_or(' ');
+                    let work_char = line.chars().nth(1).unwrap_or(' ');
+                    let file_path = line[3..].trim().to_string();
+
+                    if line.starts_with("??") {
+                        details.untracked.push(file_path);
+                    } else {
+                        if matches!(index_char, 'M' | 'A' | 'D' | 'R' | 'C') {
+                            details.staged.push(file_path.clone());
+                        }
+                        if matches!(work_char, 'M' | 'D') {
+                            details.unstaged.push(file_path);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Ahead / Behind tracking branch
+        let rev_out = Command::new("git")
+            .args(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"])
+            .current_dir(&self.root_dir)
+            .output();
+
+        if let Ok(ref out) = rev_out {
+            if out.status.success() {
+                let txt = String::from_utf8_lossy(&out.stdout);
+                let parts: Vec<&str> = txt.split_whitespace().collect();
+                if parts.len() == 2 {
+                    details.behind = parts[0].parse().unwrap_or(0);
+                    details.ahead = parts[1].parse().unwrap_or(0);
+                }
+            }
+        }
+
+        // 3. Hooks integrity
+        let hooks_dir = self.root_dir.join(".git/hooks");
+        details.pre_commit_active = hooks_dir.join("pre-commit").exists();
+        details.pre_push_active = hooks_dir.join("pre-push").exists();
+
+        details
     }
 }
 
