@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Painel Operacional Consolidado em cccp status
+- **status:** consolidar estado operacional do repositorio e eliminar comandos git manuais (closes #178)
+
 ### Migração de Governança para GOST v3.0.0 e Perfil Lilya v2.1.0
 - **Adoção do Padrão Canônico e Purga de Manifestos Legados (`.rules/profile.toml`, `src/profile.rs`)**:
   - Migra repositório cccp para a Metanorma GOST v3.0.0 e Perfil Operacional Lilya v2.1.0 via `cccp upgrade 2.1.0`.

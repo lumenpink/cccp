@@ -561,24 +561,44 @@ fn main() -> ExitCode {
                             theme.cyan(&details.behind.to_string())
                         );
                     } else {
-                        println!("  Remote Parity  : {}", theme.green("up to date with tracking branch"));
+                        println!(
+                            "  Remote Parity  : {}",
+                            theme.green("up to date with tracking branch")
+                        );
                     }
                     println!(
                         "  Hooks Status   : pre-commit [{}], pre-push [{}]",
-                        if details.pre_commit_active { theme.green("active") } else { theme.yellow("missing") },
-                        if details.pre_push_active { theme.green("active") } else { theme.yellow("missing") }
+                        if details.pre_commit_active {
+                            theme.green("active")
+                        } else {
+                            theme.yellow("missing")
+                        },
+                        if details.pre_push_active {
+                            theme.green("active")
+                        } else {
+                            theme.yellow("missing")
+                        }
                     );
 
-                    if !details.staged.is_empty() || !details.unstaged.is_empty() || !details.untracked.is_empty() {
+                    if !details.staged.is_empty()
+                        || !details.unstaged.is_empty()
+                        || !details.untracked.is_empty()
+                    {
                         println!("\n  {}", theme.cyan("📂 Working Tree Modifications:"));
                         if !details.staged.is_empty() {
-                            println!("    {} (staged for next commit):", theme.green("✔ Changes to be committed"));
+                            println!(
+                                "    {} (staged for next commit):",
+                                theme.green("✔ Changes to be committed")
+                            );
                             for f in &details.staged {
                                 println!("      • {}", theme.green(f));
                             }
                         }
                         if !details.unstaged.is_empty() {
-                            println!("    {} (unstaged modifications):", theme.yellow("⚡ Changes not staged for commit"));
+                            println!(
+                                "    {} (unstaged modifications):",
+                                theme.yellow("⚡ Changes not staged for commit")
+                            );
                             for f in &details.unstaged {
                                 println!("      • {}", theme.yellow(f));
                             }
