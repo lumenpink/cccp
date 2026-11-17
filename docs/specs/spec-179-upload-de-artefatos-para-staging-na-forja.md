@@ -23,3 +23,9 @@ O CCCP, sendo o utilitário universal de ciclo de vida do desenvolvedor e do CI,
   Para eliminar código bash duplicado em dezenas de repositórios, padronizar a autenticação com a forja e manter os manifests de CI enxutos (`cccp package upload site/`).
 - **Por que no CCCP e não no Kombinat?**
   O Kombinat é o agente de CD (egress/consumo), confinado no servidor ou contêiner de orquestração. O CCCP é o utilitário de CI (ingress/produção), já instalado e presente nos runners de compilação da Gambi.
+
+## 4. Laudo de Resolução (Fase 9)
+- **Status:** Concluído com 100% de conformidade GOST.
+- **Implementação:** Módulo `src/package.rs` com funções `upload_package`, `package_dir_to_tarball`, `resolve_package_upload_config`.
+- **CLI:** Subcomando `cccp package upload <CAMINHO> [--app] [--version] [--filename]`.
+- **Verificação:** Cobertura de testes unitários e de integração em `tests/package_spec.rs`, `cargo clippy --all-targets -- -D warnings` limpo e `cccp check --strict` aprovado com índice de 100%.
