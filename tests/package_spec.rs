@@ -76,3 +76,16 @@ fn test_cli_parsing_package_upload() {
         _ => panic!("Expected Commands::Package(PackageCommand::Upload)"),
     }
 }
+
+#[test]
+fn test_resolve_package_upload_config_fails_without_git_repo() {
+    let empty_dir = tempdir().unwrap();
+    let res = cccp::package::resolve_package_upload_config(empty_dir.path(), None, None);
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    assert!(
+        err.contains("origin")
+            || err.contains("Falha ao executar")
+            || err.contains("Nenhum remote")
+    );
+}
