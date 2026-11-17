@@ -4,13 +4,8 @@ use tempfile::tempdir;
 
 #[test]
 fn test_build_generic_package_url() {
-    let url = build_generic_package_url(
-        "gambi.2lp.in",
-        "lumen",
-        "travesti",
-        "1.0.0",
-        "site.tar.gz",
-    );
+    let url =
+        build_generic_package_url("gambi.2lp.in", "lumen", "travesti", "1.0.0", "site.tar.gz");
     assert_eq!(
         url,
         "https://gambi.2lp.in/api/packages/lumen/generic/travesti/1.0.0/site.tar.gz"
@@ -35,4 +30,49 @@ fn test_package_dir_to_tarball_creates_valid_gzip_archive() {
     let bytes = fs::read(&tar_out).unwrap();
     assert_eq!(bytes[0], 0x1f);
     assert_eq!(bytes[1], 0x8b);
+}
+
+#[test]
+fn test_upload_package_fails_if_target_does_not_exist() {
+    let cfg = cccp::package::PackageUploadConfig {
+        host: "gambi.2lp.in".to_string(),
+        owner: "lumen".to_string(),
+        app: "travesti".to_string(),
+        version: "1.0.0".to_string(),
+        token: "secret".to_string(),
+    };
+    let non_existent = std::path::Path::new("/tmp/non-existent-artifact-123456789.tar.gz");
+    let res = cccp::package::upload_package(non_existent, &cfg);
+    assert!(res.is_err());
+    let err_msg = res.unwrap_err().to_string();
+    assert!(err_msg.contains("não encontrado"));
+}
+
+#[test]
+fn test_cli_parsing_package_upload() {
+    use cccp::cli::{Cli, Commands, PackageCommand};
+    use clap::Parser;
+
+    let args = Cli::parse_from([
+        "cccp",
+        "package",
+        "upload",
+        "dist/site",
+        "--app",
+        "travesti",
+        "--version",
+        "2.0.0",
+        "--filename",
+        "site.tar.gz",
+    ]);
+
+    match args.command {
+        Some(Commands::Package(PackageCommand::Upload(up))) => {
+            assert_eq!(up.path, std::path::PathBuf::from("dist/site"));
+            assert_eq!(up.app.as_deref(), Some("travesti"));
+            assert_eq!(up.version.as_deref(), Some("2.0.0"));
+            assert_eq!(up.filename.as_deref(), Some("site.tar.gz"));
+        }
+        _ => panic!("Expected Commands::Package(PackageCommand::Upload)"),
+    }
 }

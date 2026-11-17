@@ -155,6 +155,10 @@ pub enum Commands {
     #[command(alias = "act")]
     Ci(CiArgs),
 
+    /// Publicação e upload de pacotes para o Generic Package Registry da forja
+    #[command(subcommand)]
+    Package(PackageCommand),
+
     // === Gestão de Repositórios & Catálogo ===
     /// Gerenciar repositórios locais e catálogo do workspace (delegado para 'gossnab catalog')
     Repo(RepoArgs),
@@ -1325,6 +1329,31 @@ pub struct DeploySiteArgs {
     /// Dry run: create local orphan commit and branch without pushing to remote
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum PackageCommand {
+    /// Fazer upload de arquivo ou diretório para o Generic Package Registry da forja
+    Upload(PackageUploadArgs),
+}
+
+#[derive(Debug, Args, Clone)]
+pub struct PackageUploadArgs {
+    /// Caminho do arquivo ou diretório a ser empacotado e enviado
+    #[arg(required = true)]
+    pub path: PathBuf,
+
+    /// Nome customizado do pacote/aplicação (padrão: nome do repositório)
+    #[arg(long)]
+    pub app: Option<String>,
+
+    /// Versão customizada do pacote (padrão: VERSION ou Cargo.toml)
+    #[arg(long)]
+    pub version: Option<String>,
+
+    /// Nome customizado do arquivo no registro (padrão: nome do arquivo ou <dir>.tar.gz)
+    #[arg(long)]
+    pub filename: Option<String>,
 }
 
 pub type ActSubcommands = CiSubcommands;

@@ -2176,6 +2176,47 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some(Commands::Package(ref pkg_cmd)) => match pkg_cmd {
+            cli::PackageCommand::Upload(ref up) => {
+                let repo_dir = args
+                    .dir
+                    .as_deref()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                match cccp::package::resolve_package_upload_config(
+                    repo_dir,
+                    up.app.as_deref(),
+                    up.version.as_deref(),
+                ) {
+                    Ok(cfg) => {
+                        let target_path = if up.path.is_absolute() {
+                            up.path.clone()
+                        } else {
+                            repo_dir.join(&up.path)
+                        };
+                        match cccp::package::upload_package(&target_path, &cfg) {
+                            Ok(report) => {
+                                println!(
+                                    "{} Pacote enviado com sucesso: {} ({} bytes)",
+                                    theme.green("✓"),
+                                    report.filename,
+                                    report.size_bytes
+                                );
+                                println!("  URL: {}", report.url);
+                                ExitCode::SUCCESS
+                            }
+                            Err(e) => {
+                                eprintln!("{}: {}", theme.red_bold("Erro no upload de pacote"), e);
+                                ExitCode::FAILURE
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{}: {}", theme.red_bold("Configuração inválida"), e);
+                        ExitCode::FAILURE
+                    }
+                }
+            }
+        },
         Some(Commands::Divan(ref divan_args)) => {
             run_divan_cmd(divan_args, args.dir.as_deref(), &config, &theme)
         }

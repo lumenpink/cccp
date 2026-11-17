@@ -29,6 +29,7 @@ pub mod i18n;
 pub mod lint;
 pub mod lua_rules;
 pub mod newrepo;
+pub mod package;
 pub mod profile;
 pub mod prompt;
 pub mod push;
