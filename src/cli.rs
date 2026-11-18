@@ -198,7 +198,7 @@ pub enum Commands {
     Config(ConfigArgs),
 
     /// Gerenciar perfis canônicos GOST (get, list, set)
-    #[command(subcommand)]
+    #[command(subcommand, alias = "gost")]
     Profile(ProfileCommand),
 
     /// Upgrade normative profile following linear UPGRADE.md contract (alias for 'profile upgrade')
@@ -279,6 +279,20 @@ pub enum ProfileCommand {
 
     /// Upgrade normative profile following linear UPGRADE.md contract with valid_since validation
     Upgrade(ProfileUpgradeArgs),
+
+    /// Setup or migrate repository to modern GOST v3.0 (.gost/ anatomy and purge legacy GOSTVER)
+    Setup(ProfileSetupArgs),
+}
+
+#[derive(Debug, Args, Clone, Default)]
+pub struct ProfileSetupArgs {
+    /// Canonical profile URL or alias override (default: lilya)
+    #[arg(short = 'p', long = "profile")]
+    pub profile: Option<String>,
+
+    /// Force clean reinstall: wipe existing .gost/ and recreate anatomy from scratch
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
 }
 
 #[derive(Debug, Args, Clone, Default)]

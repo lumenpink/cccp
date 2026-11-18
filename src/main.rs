@@ -280,13 +280,8 @@ fn main() -> ExitCode {
         Some(Commands::Version(ver_args)) => {
             let cccp_version = env!("CCCP_CANONICAL_VERSION");
             let repo_dir = args.dir.as_deref().unwrap_or(std::path::Path::new("."));
-            let gost_version_file = repo_dir.join("GOSTVER");
-            let gost_str = if gost_version_file.is_file() {
-                cccp::catalog::extract_gost_version(repo_dir)
-                    .unwrap_or_else(|| "unknown".to_string())
-            } else {
-                "none".to_string()
-            };
+            let gost_str =
+                cccp::catalog::extract_gost_version(repo_dir).unwrap_or_else(|| "none".to_string());
             let repo_version_file = repo_dir.join("VERSION");
             let proj_version = if repo_version_file.is_file() {
                 std::fs::read_to_string(&repo_version_file)

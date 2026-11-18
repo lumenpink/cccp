@@ -1322,26 +1322,14 @@ pub fn count_open_tickets(repo_dir: &Path) -> usize {
     0
 }
 
-/// Extracts declared GOST version (e.g. "1.4.0") from the GOSTVER file in a repository directory
+/// Extracts declared GOST version (e.g. "3.0.0" or "2.1.0") from .gost/GOST.md or legacy GOSTVER
 pub fn extract_gost_version(repo_dir: &Path) -> Option<String> {
-    let gostver_path = repo_dir.join("GOSTVER");
-    if !gostver_path.exists() {
-        return None;
+    let (ver, _, _) = crate::audit::read_gostver(repo_dir);
+    if ver.is_empty() || ver == "Undeclared" {
+        None
+    } else {
+        Some(ver)
     }
-    let content = std::fs::read_to_string(gostver_path).ok()?;
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with('#') || !trimmed.starts_with("GOST_VERSION") {
-            continue;
-        }
-        if let Some((_, val)) = trimmed.split_once('=') {
-            let clean = val.trim().trim_matches(|c| c == '"' || c == '\'');
-            if !clean.is_empty() {
-                return Some(clean.to_string());
-            }
-        }
-    }
-    None
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

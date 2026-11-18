@@ -34,26 +34,97 @@ pub struct AuditReport {
     pub is_success: bool,
 }
 
-/// Parse GOSTVER file if present
-pub fn read_gostver(root: &Path) -> (String, String, String) {
-    let gostver_file = root.join("GOSTVER");
-    let mut ver = String::new();
-    let mut prof = String::new();
-    let mut langs = String::new();
+/// Autodetecta a linguagem/stack predominante inspecionando os manifestos do repositório
+pub fn autodetect_languages(root: &Path) -> String {
+    if root.join("Cargo.toml").is_file() {
+        "rust".to_string()
+    } else if root.join("package.json").is_file() {
+        "javascript".to_string()
+    } else if root.join("composer.json").is_file() {
+        "php".to_string()
+    } else if root.join("go.mod").is_file() {
+        "go".to_string()
+    } else if root.join("pyproject.toml").is_file() || root.join("requirements.txt").is_file() {
+        "python".to_string()
+    } else if root.join("DESCRIPTION").is_file() {
+        "r".to_string()
+    } else {
+        "none".to_string()
+    }
+}
 
-    if let Ok(content) = fs::read_to_string(gostver_file) {
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if let Some(rest) = trimmed.strip_prefix("GOST_VERSION=") {
-                ver = rest.trim_matches('"').trim_matches('\'').to_string();
-            } else if let Some(rest) = trimmed.strip_prefix("GOST_PROFILE_URL=") {
-                prof = rest.trim_matches('"').trim_matches('\'').to_string();
-            } else if let Some(rest) = trimmed.strip_prefix("GOST_LANGUAGES=") {
-                langs = rest.trim_matches('"').trim_matches('\'').to_string();
+/// Extrai metadados do frontmatter YAML de `.gost/GOST.md`
+fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>) {
+    let mut in_frontmatter = false;
+    let mut standard = None;
+    let mut version = None;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            if in_frontmatter {
+                break;
+            } else {
+                in_frontmatter = true;
+                continue;
+            }
+        }
+        if in_frontmatter {
+            if let Some(rest) = trimmed.strip_prefix("standard:") {
+                standard = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+            } else if let Some(rest) = trimmed.strip_prefix("version:") {
+                version = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
             }
         }
     }
 
+    (version, standard)
+}
+
+/// Parse GOST specification and metadata from `.gost/` (with fallback to legacy GOSTVER)
+pub fn read_gostver(root: &Path) -> (String, String, String) {
+    let mut ver = String::new();
+    let mut prof = String::new();
+    let mut langs = String::new();
+
+    // 1. Prioridade GOST v3: extrair do frontmatter de .gost/GOST.md
+    let gost_md = root.join(".gost/GOST.md");
+    if let Ok(content) = fs::read_to_string(&gost_md) {
+        let (extracted_ver, extracted_prof) = extract_gost_frontmatter(&content);
+        if let Some(v) = extracted_ver {
+            ver = v;
+        }
+        if let Some(p) = extracted_prof {
+            prof = p;
+        }
+    }
+
+    // 2. Fallback transiente: checar arquivo legado GOSTVER na raiz
+    let gostver_file = root.join("GOSTVER");
+    if gostver_file.is_file() {
+        if let Ok(content) = fs::read_to_string(&gostver_file) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if ver.is_empty() {
+                    if let Some(rest) = trimmed.strip_prefix("GOST_VERSION=") {
+                        ver = rest.trim_matches('"').trim_matches('\'').to_string();
+                    }
+                }
+                if prof.is_empty() {
+                    if let Some(rest) = trimmed.strip_prefix("GOST_PROFILE_URL=") {
+                        prof = rest.trim_matches('"').trim_matches('\'').to_string();
+                    }
+                }
+                if langs.is_empty() {
+                    if let Some(rest) = trimmed.strip_prefix("GOST_LANGUAGES=") {
+                        langs = rest.trim_matches('"').trim_matches('\'').to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Fallback de perfil: checar .rules/profile.toml
     if ver.is_empty() || prof.is_empty() {
         if let Ok(profile_cfg) = crate::profile::read_profile_config(root) {
             if ver.is_empty() {
@@ -63,6 +134,11 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
                 prof = profile_cfg.url;
             }
         }
+    }
+
+    // 4. Autodetecção de linguagem caso não declarada explicitamente
+    if langs.is_empty() || langs.eq_ignore_ascii_case("none") {
+        langs = autodetect_languages(root);
     }
 
     (

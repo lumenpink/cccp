@@ -731,7 +731,92 @@ pub fn handle_profile_command(
         Some(crate::cli::ProfileCommand::Upgrade(ref upgrade_args)) => {
             handle_profile_upgrade(root, upgrade_args, theme)
         }
+        Some(crate::cli::ProfileCommand::Setup(ref setup_args)) => {
+            setup_gost_environment(root, setup_args.profile.as_deref(), setup_args.force, theme)
+        }
     }
+}
+
+/// Inicializa ou migra um repositório para o GOST v3.0, garantindo a anatomia completa de .gost/ e purgando GOSTVER legado
+pub fn setup_gost_environment(
+    root: &Path,
+    profile_override: Option<&str>,
+    force: bool,
+    theme: &Theme,
+) -> Result<(), String> {
+    let gost_dir = root.join(".gost");
+    if force && gost_dir.exists() {
+        fs::remove_dir_all(&gost_dir)
+            .map_err(|e| format!("Falha ao remover .gost existente: {}", e))?;
+    }
+    fs::create_dir_all(&gost_dir).map_err(|e| format!("Falha ao criar diretório .gost: {}", e))?;
+
+    // 1. Purgar GOSTVER legado da raiz se existir
+    let legacy_gostver = root.join("GOSTVER");
+    if legacy_gostver.exists() {
+        let _ = fs::remove_file(&legacy_gostver);
+        println!(
+            "  {} Purgado arquivo legado GOSTVER da raiz",
+            theme.green("✓")
+        );
+    }
+
+    // 2. Definir perfil se fornecido
+    if let Some(prof) = profile_override {
+        let _ = set_active_profile(root, prof);
+    }
+
+    // 3. Montar / sincronizar GOST.md e rules.toml
+    let _ = assemble_gost_specs(root);
+
+    // 4. Garantir .gost/metadata.json
+    let metadata_file = gost_dir.join("metadata.json");
+    if !metadata_file.exists() {
+        let repo_name = root.file_name().and_then(|s| s.to_str()).unwrap_or("app");
+        let site_type = if root.join("Cargo.toml").exists() {
+            "binary"
+        } else {
+            "doc"
+        };
+        let initial_meta = serde_json::json!({
+            "schema_version": 1,
+            "slug": repo_name,
+            "title": repo_name,
+            "site_type": site_type,
+            "tagline": format!("Repositório {}", repo_name),
+            "summary": format!("Módulo {} do ecossistema Gosplan", repo_name),
+            "abstract": format!("Projeto {} governado conforme a norma técnica GOST v3.0.", repo_name),
+            "tags": ["gost", "tulipa"]
+        });
+        let _ = fs::write(
+            &metadata_file,
+            serde_json::to_string_pretty(&initial_meta).unwrap(),
+        );
+        println!("  {} Criado .gost/metadata.json inicial", theme.green("✓"));
+    }
+
+    // 5. Garantir .gost/delivery.toml declarativo inicial se ausente
+    let delivery_file = gost_dir.join("delivery.toml");
+    if !delivery_file.exists() {
+        let initial_delivery = if root.join("Cargo.toml").exists() {
+            "# Manifesto declarativo de entrega contínua (CD)\n[binaries]\n# Distribuição de binários compilados na Banca R2\n"
+        } else if root.join("site").exists() || root.join("index.html").exists() {
+            "# Manifesto declarativo de entrega contínua (CD)\n[sites]\n# Publicação de site estático no Cloudflare Pages\n"
+        } else {
+            "# Manifesto declarativo de entrega contínua (CD)\n[artifacts]\n# Distribuição de artefatos genéricos no Cloudflare R2\n"
+        };
+        let _ = fs::write(&delivery_file, initial_delivery);
+        println!(
+            "  {} Criado .gost/delivery.toml declarativo inicial",
+            theme.green("✓")
+        );
+    }
+
+    println!(
+        "{} Especificação GOST v3.0 configurada com sucesso em .gost/",
+        theme.green("✓")
+    );
+    Ok(())
 }
 
 pub fn handle_profile_upgrade(

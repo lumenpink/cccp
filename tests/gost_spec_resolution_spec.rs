@@ -50,3 +50,41 @@ fn test_autodetect_languages() {
     fs::write(root.join("package.json"), "{}").unwrap();
     assert_eq!(autodetect_languages(root), "javascript");
 }
+
+#[test]
+fn test_setup_gost_environment_creates_anatomy_and_purges_legacy_gostver() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    let theme = cccp::cultural::Theme::with_color(false);
+
+    // Cria GOSTVER legado
+    fs::write(root.join("GOSTVER"), "GOST_VERSION=\"1.0.0\"\n").unwrap();
+    assert!(root.join("GOSTVER").exists());
+
+    // Cria Cargo.toml
+    fs::write(root.join("Cargo.toml"), "[package]\nname = \"demo\"\n").unwrap();
+
+    let res = cccp::profile::setup_gost_environment(root, None, false, &theme);
+    assert!(res.is_ok());
+
+    // GOSTVER legado deve ter sido purgado
+    assert!(!root.join("GOSTVER").exists());
+
+    // Diretório .gost/ e artefatos devem existir
+    assert!(root.join(".gost/metadata.json").exists());
+    assert!(root.join(".gost/delivery.toml").exists());
+}
+
+#[test]
+fn test_cli_parsing_gost_setup() {
+    use cccp::cli::{Cli, Commands, ProfileCommand};
+    use clap::Parser;
+
+    let args = Cli::parse_from(["cccp", "gost", "setup", "--force"]);
+    match args.command {
+        Some(Commands::Profile(ProfileCommand::Setup(s))) => {
+            assert!(s.force);
+        }
+        _ => panic!("Expected Commands::Profile(ProfileCommand::Setup)"),
+    }
+}
