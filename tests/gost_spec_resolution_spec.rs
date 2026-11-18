@@ -121,3 +121,44 @@ version: '3.0.0'
     assert_eq!(ver, "3.0.0");
     assert_eq!(prof, "kollontai");
 }
+
+#[test]
+fn test_read_gostver_resolves_from_assembled_gost_md_with_markdown_rules_and_headers() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    let gost_dir = root.join(".gost");
+    fs::create_dir_all(&gost_dir).unwrap();
+
+    let assembled_content = r#"# ☭ Normas e Diretrizes Compiladas do Repositório
+
+> **Aviso de Integridade:**
+> Este documento foi montado automaticamente pelo CCCP (`cccp sync` / `assemble`).
+
+### 🌳 Árvore de Herança e Precedência Resolvida:
+1. Camada 1: `https://kollontai.2lp.in/2.1.0/RULES.md`
+2. Camada 2: `https://lilya.2lp.in/2.1.0/RULES.md`
+
+---
+
+<!-- ===================================================================== -->
+<!-- CAMADA 1: https://kollontai.2lp.in/2.1.0/RULES.md -->
+<!-- ===================================================================== -->
+
+---
+standard: "kollontai"
+tier: "tactical"
+version: "2.1.0"
+locale: "pt-br"
+authority: "Standards Committee"
+published_at: "2026-11-08"
+---
+
+# Regras
+"#;
+    fs::write(gost_dir.join("GOST.md"), assembled_content).unwrap();
+
+    let (ver, prof, _) = read_gostver(root);
+    assert_eq!(ver, "2.1.0");
+    assert_eq!(prof, "kollontai");
+}
+
