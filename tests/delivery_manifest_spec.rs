@@ -12,3 +12,13 @@ fn test_cccp_delivery_manifest_exists_and_declares_binaries() {
         ".gost/delivery.toml deve conter a seção [binaries]"
     );
 }
+
+#[test]
+fn test_mutation_delivery_manifest_target_is_banca() {
+    let manifest_path = Path::new(".gost/delivery.toml");
+    let content = fs::read_to_string(manifest_path).unwrap();
+    assert!(
+        content.contains("target = \"banca\""),
+        "A seção binaries deve direcionar para a target 'banca'"
+    );
+}
