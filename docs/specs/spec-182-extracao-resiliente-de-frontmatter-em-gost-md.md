@@ -23,3 +23,10 @@ Em repositórios onde o arquivo de fallback `.rules/profile.toml` não existe (c
 - Teste unitário cobrindo `.gost/GOST.md` gerado pelo `assemble` (com separador horizontal markdown antes do frontmatter da Camada 1).
 - `cccp version` em repositórios sem `.rules/` deve reportar corretamente `GOST Specification: 2.1.0`.
 - Nenhum falso positivo nem regressão nos testes existentes.
+
+## 5. Laudo de Resolução (Fase 9)
+- **Status:** Concluído com 100% de conformidade GOST.
+- **Implementação:**
+  - `src/audit.rs`: `extract_gost_frontmatter` aprimorado para descartar blocos espúrios abertos por réguas horizontais markdown (`---`) seguidas de marcação HTML (`<!--`), tratar comentários inline com `#` e capturar `standard` e `version` de qualquer bloco YAML válido.
+- **Validação:** 8 testes unitários passando em `tests/gost_spec_resolution_spec.rs`, `cargo fmt --check` limpo, `cargo clippy --all-targets -- -D warnings` sem alertas e `cccp check --strict` aprovado com 24 regras conformes (100%).
+
