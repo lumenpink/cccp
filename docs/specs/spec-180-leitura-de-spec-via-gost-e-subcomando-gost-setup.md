@@ -25,3 +25,11 @@ Adicionalmente, falta um comando nativo no CCCP para inicializar ou atualizar re
   Evita que repositórios sem configuração manual rodem checks com `Languages: None`, garantindo a aplicação imediata das regras do toolchain correspondente.
 - **Por que `cccp gost setup` em vez de apenas `cccp profile assemble`?**
   `assemble` monta apenas o documento markdown (`GOST.md`). O `setup` orquestra a anatomia completa do diretório `.gost/` (especificação, regras, metadados e delivery) e purga o passado legado de uma só vez.
+
+## 4. Laudo de Resolução (Fase 9)
+- **Status:** Concluído com 100% de conformidade GOST.
+- **Implementação:**
+  - `src/audit.rs`: Extração de versão/padrão do frontmatter de `.gost/GOST.md`, autodetecção de stack via `autodetect_languages` e fallback resiliente.
+  - `src/catalog.rs` & `src/main.rs`: `extract_gost_version` e `cccp version` integrados a `.gost/GOST.md`.
+  - `src/profile.rs` & `src/cli.rs`: Subcomando `cccp gost setup` (com alias `profile setup`) para montagem da anatomia completa de `.gost/` e purga do arquivo legado `GOSTVER`.
+- **Validação:** 6 cenários de testes automatizados em `tests/gost_spec_resolution_spec.rs`, `cargo clippy --all-targets -- -D warnings` limpo e `cccp check --strict` aprovado com 24 regras conformes.
