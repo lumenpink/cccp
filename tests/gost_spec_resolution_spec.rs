@@ -88,3 +88,36 @@ fn test_cli_parsing_gost_setup() {
         _ => panic!("Expected Commands::Profile(ProfileCommand::Setup)"),
     }
 }
+
+#[test]
+fn test_mutation_autodetect_languages_python_and_php() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+
+    fs::write(root.join("composer.json"), "{}").unwrap();
+    assert_eq!(autodetect_languages(root), "php");
+
+    fs::remove_file(root.join("composer.json")).unwrap();
+    fs::write(root.join("pyproject.toml"), "").unwrap();
+    assert_eq!(autodetect_languages(root), "python");
+}
+
+#[test]
+fn test_mutation_extract_frontmatter_handles_whitespace_and_single_quotes() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    let gost_dir = root.join(".gost");
+    fs::create_dir_all(&gost_dir).unwrap();
+
+    let content = r#"---
+standard: 'kollontai'
+version: '3.0.0'
+---
+# Documento
+"#;
+    fs::write(gost_dir.join("GOST.md"), content).unwrap();
+
+    let (ver, prof, _) = read_gostver(root);
+    assert_eq!(ver, "3.0.0");
+    assert_eq!(prof, "kollontai");
+}
