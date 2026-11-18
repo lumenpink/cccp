@@ -55,25 +55,41 @@ pub fn autodetect_languages(root: &Path) -> String {
 
 /// Extrai metadados do frontmatter YAML de `.gost/GOST.md`
 fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>) {
-    let mut in_frontmatter = false;
     let mut standard = None;
     let mut version = None;
+    let mut in_yaml = false;
 
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed == "---" {
-            if in_frontmatter {
+            in_yaml = !in_yaml;
+            if !in_yaml && standard.is_some() && version.is_some() {
                 break;
-            } else {
-                in_frontmatter = true;
-                continue;
             }
+            continue;
         }
-        if in_frontmatter {
+
+        // Se encontrar tag HTML ou cabeçalho markdown dentro do bloco, invalida bloco YAML atual
+        if in_yaml
+            && (trimmed.starts_with("<!--")
+                || trimmed.starts_with("# ")
+                || trimmed.starts_with("## "))
+        {
+            in_yaml = false;
+            continue;
+        }
+
+        if in_yaml {
             if let Some(rest) = trimmed.strip_prefix("standard:") {
-                standard = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+                let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
+                if standard.is_none() && !val.is_empty() {
+                    standard = Some(val);
+                }
             } else if let Some(rest) = trimmed.strip_prefix("version:") {
-                version = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
+                let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
+                if version.is_none() && !val.is_empty() {
+                    version = Some(val);
+                }
             }
         }
     }
