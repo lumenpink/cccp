@@ -69,26 +69,36 @@ fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>) {
             continue;
         }
 
-        // Se encontrar tag HTML ou cabeçalho markdown dentro do bloco, invalida bloco YAML atual
-        if in_yaml
-            && (trimmed.starts_with("<!--")
-                || trimmed.starts_with("# ")
-                || trimmed.starts_with("## "))
-        {
+        // Se encontrar tags HTML (ex: comentários <!-- ... --> de separação), não é bloco YAML
+        if in_yaml && trimmed.starts_with('<') {
             in_yaml = false;
             continue;
         }
 
         if in_yaml {
             if let Some(rest) = trimmed.strip_prefix("standard:") {
-                let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
-                if standard.is_none() && !val.is_empty() {
-                    standard = Some(val);
+                let clean = rest
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .trim_matches('"')
+                    .trim_matches('\'')
+                    .to_string();
+                if standard.is_none() && !clean.is_empty() {
+                    standard = Some(clean);
                 }
             } else if let Some(rest) = trimmed.strip_prefix("version:") {
-                let val = rest.trim().trim_matches('"').trim_matches('\'').to_string();
-                if version.is_none() && !val.is_empty() {
-                    version = Some(val);
+                let clean = rest
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .trim_matches('"')
+                    .trim_matches('\'')
+                    .to_string();
+                if version.is_none() && !clean.is_empty() {
+                    version = Some(clean);
                 }
             }
         }

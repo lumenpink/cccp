@@ -88,7 +88,7 @@ dependencies = [
 
 [[package]]
 name = "cccp"
-version = "3.2.0-dev.936+20261118.8be6d61"
+version = "3.2.0-dev.941+20261118.526fdda"
 dependencies = [
  "clap",
  "clap_complete",

@@ -162,3 +162,22 @@ published_at: "2026-11-08"
     assert_eq!(prof, "kollontai");
 }
 
+#[test]
+fn test_mutation_extract_frontmatter_handles_comments_inside_yaml_block() {
+    let dir = tempdir().unwrap();
+    let root = dir.path();
+    let gost_dir = root.join(".gost");
+    fs::create_dir_all(&gost_dir).unwrap();
+
+    let content = r#"---
+# Comentário no topo
+standard: "kollontai" # padrão adotado
+version: "2.1.0" # versao alvo
+---
+"#;
+    fs::write(gost_dir.join("GOST.md"), content).unwrap();
+
+    let (ver, prof, _) = read_gostver(root);
+    assert_eq!(ver, "2.1.0");
+    assert_eq!(prof, "kollontai");
+}
