@@ -423,9 +423,9 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
 /// Helper: remove YAML frontmatter from markdown content if present
 pub fn strip_yaml_frontmatter(content: &str) -> &str {
     let trimmed = content.trim_start();
-    if trimmed.starts_with("---") {
-        if let Some(end_idx) = trimmed[3..].find("\n---") {
-            let after = &trimmed[3 + end_idx + 4..];
+    if let Some(stripped) = trimmed.strip_prefix("---") {
+        if let Some(end_idx) = stripped.find("\n---") {
+            let after = &stripped[end_idx + 4..];
             return after.trim_start();
         }
     }
@@ -469,7 +469,8 @@ pub fn fetch_language_spec_content(
         }
 
         if trimmed_url.contains("lilya") {
-            let lilya_cand = Path::new("/home/lumen/src/gost-profile-lilya/languages").join(&lang_file);
+            let lilya_cand =
+                Path::new("/home/lumen/src/gost-profile-lilya/languages").join(&lang_file);
             if lilya_cand.is_file() {
                 if let Ok(c) = fs::read_to_string(&lilya_cand) {
                     return Some(c);
@@ -477,7 +478,8 @@ pub fn fetch_language_spec_content(
             }
         }
         if trimmed_url.contains("kollontai") {
-            let kol_cand = Path::new("/home/lumen/src/gost-profile-kollontai/languages").join(&lang_file);
+            let kol_cand =
+                Path::new("/home/lumen/src/gost-profile-kollontai/languages").join(&lang_file);
             if kol_cand.is_file() {
                 if let Ok(c) = fs::read_to_string(&kol_cand) {
                     return Some(c);
@@ -742,7 +744,7 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
                     ));
                     output.push_str("<!-- ===================================================================== -->\n\n");
                     output.push_str(sanitized.trim());
-                    output.push_str("\n");
+                    output.push('\n');
                 }
             }
         }

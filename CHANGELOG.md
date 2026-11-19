@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Resolução em Cascata de Linguagens e Absorção no GOST.md
+- **gost:** resolucao em cascata de linguagens e montagem no gost.md (closes #183)
+  - Resolve especificações de linguagem a partir da hierarquia de perfis (Lilya -> Kollontai).
+  - Embutir especificações técnicas completas de stacks dentro de `.gost/GOST.md`.
+  - Cessada criação redundante de `.rules/`, `.gost/languages/`, `.gost/rules.json` e `.gost/PROFILE.md`.
+
 ### Painel Operacional Consolidado em cccp status
 - **status:** consolidar estado operacional do repositorio e eliminar comandos git manuais (closes #178)
 

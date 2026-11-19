@@ -109,8 +109,7 @@ fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>, O
                     .trim()
                     .trim_matches('[')
                     .trim_matches(']')
-                    .replace('"', "")
-                    .replace('\'', "")
+                    .replace(['"', '\''], "")
                     .trim()
                     .to_string();
                 if languages.is_none() && !clean.is_empty() {
