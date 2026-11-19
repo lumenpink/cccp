@@ -72,7 +72,10 @@ languages: ["desconhecida123"]
 "#;
     fs::write(root_mut.join(".gost").join("GOST.md"), gost_unknown).unwrap();
     let res_mut = assemble_gost_specs(root_mut);
-    assert!(res_mut.is_ok(), "assemble deve ser resiliente a stacks desconhecidas");
+    assert!(
+        res_mut.is_ok(),
+        "assemble deve ser resiliente a stacks desconhecidas"
+    );
     let content_mut = fs::read_to_string(root_mut.join(".gost").join("GOST.md")).unwrap();
     assert!(!content_mut.contains("ESPECIFICAÇÃO TÁTICA DA STACK: DESCONHECIDA123"));
 }
