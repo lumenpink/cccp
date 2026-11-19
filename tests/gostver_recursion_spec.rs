@@ -27,3 +27,47 @@ GOST_LANGUAGES="shell"
     assert_eq!(report.gost_version, "2.0.0");
     assert_eq!(report.profile, "None");
 }
+
+#[test]
+fn test_mutation_gostver_profile_url_variants_and_error_handling() {
+    let dir = tempdir().expect("tempdir");
+    let root = dir.path();
+
+    // Variante 1: GOST_PROFILE_URL="none"
+    fs::write(
+        root.join("GOSTVER"),
+        "GOST_VERSION=\"3.0.0\"\nGOST_PROFILE_URL=\"none\"\n",
+    )
+    .unwrap();
+    let (_, prof, _) = cccp::audit::read_gostver(root);
+    assert_eq!(prof, "None");
+
+    let cfg_err = cccp::profile::read_profile_config(root);
+    assert!(cfg_err.is_err(), "deve retornar Err para profile 'none'");
+
+    // Variante 2: GOST_PROFILE_URL com espaços
+    fs::write(
+        root.join("GOSTVER"),
+        "GOST_VERSION=\"1.5.0\"\nGOST_PROFILE_URL=\"   \"\n",
+    )
+    .unwrap();
+    let (_, prof2, _) = cccp::audit::read_gostver(root);
+    assert_eq!(prof2, "None");
+
+    let cfg_err2 = cccp::profile::read_profile_config(root);
+    assert!(
+        cfg_err2.is_err(),
+        "deve retornar Err para profile com espacos"
+    );
+
+    // Variante 3: Ausência de GOST_PROFILE_URL
+    fs::write(root.join("GOSTVER"), "GOST_VERSION=\"1.2.0\"\n").unwrap();
+    let (_, prof3, _) = cccp::audit::read_gostver(root);
+    assert_eq!(prof3, "None");
+
+    let cfg_err3 = cccp::profile::read_profile_config(root);
+    assert!(
+        cfg_err3.is_err(),
+        "deve retornar Err na ausencia de GOST_PROFILE_URL"
+    );
+}

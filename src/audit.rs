@@ -156,7 +156,12 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
                 }
                 if prof.is_empty() {
                     if let Some(rest) = trimmed.strip_prefix("GOST_PROFILE_URL=") {
-                        prof = rest.trim_matches('"').trim_matches('\'').to_string();
+                        prof = rest
+                            .trim()
+                            .trim_matches('"')
+                            .trim_matches('\'')
+                            .trim()
+                            .to_string();
                     }
                 }
                 if langs.is_empty() {
@@ -191,7 +196,7 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
         } else {
             ver
         },
-        if prof.is_empty() {
+        if prof.trim().is_empty() || prof.trim().eq_ignore_ascii_case("none") {
             "None".to_string()
         } else {
             prof
