@@ -92,10 +92,7 @@ pub fn read_profile_config(root: &Path) -> io::Result<ProfileConfig> {
                 }
             }
         }
-        return Ok(ProfileConfig {
-            url,
-            version: ver,
-        });
+        return Ok(ProfileConfig { url, version: ver });
     }
 
     Err(Error::new(
