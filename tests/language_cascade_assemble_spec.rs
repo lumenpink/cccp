@@ -57,4 +57,22 @@ languages: ["rust"]
         !root.join(".gost").join("PROFILE.md").exists(),
         "assemble_gost_specs não deve criar PROFILE.md legado"
     );
+
+    // 5. Teste de Mutação: se a linguagem não for suportada, a compilação ainda deve ser resiliente
+    let dir_mut = tempdir().expect("tempdir");
+    let root_mut = dir_mut.path();
+    fs::create_dir_all(root_mut.join(".gost")).unwrap();
+    let gost_unknown = r#"---
+standard: "lilya"
+tier: "operational"
+version: "2.1.0"
+locale: "pt-br"
+languages: ["desconhecida123"]
+---
+"#;
+    fs::write(root_mut.join(".gost").join("GOST.md"), gost_unknown).unwrap();
+    let res_mut = assemble_gost_specs(root_mut);
+    assert!(res_mut.is_ok(), "assemble deve ser resiliente a stacks desconhecidas");
+    let content_mut = fs::read_to_string(root_mut.join(".gost").join("GOST.md")).unwrap();
+    assert!(!content_mut.contains("ESPECIFICAÇÃO TÁTICA DA STACK: DESCONHECIDA123"));
 }
