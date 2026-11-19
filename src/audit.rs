@@ -168,8 +168,8 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
         }
     }
 
-    // 3. Fallback de perfil: checar .rules/profile.toml
-    if ver.is_empty() || prof.is_empty() {
+    // 3. Fallback de perfil: checar .rules/profile.toml se presente
+    if (ver.is_empty() || prof.is_empty()) && root.join(".rules/profile.toml").is_file() {
         if let Ok(profile_cfg) = crate::profile::read_profile_config(root) {
             if ver.is_empty() {
                 ver = profile_cfg.version;

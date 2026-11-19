@@ -70,16 +70,31 @@ pub fn read_profile_config(root: &Path) -> io::Result<ProfileConfig> {
         }
     }
 
-    // Fallback: check GOSTVER
+    // Fallback: check GOSTVER sem invocar recursivamente o audit
     if let Ok(url) = get_active_profile(root) {
-        let (ver, _, _) = crate::audit::read_gostver(root);
+        if url.trim().is_empty() || url.eq_ignore_ascii_case("none") {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                "Perfil não configurado no GOSTVER",
+            ));
+        }
+        let mut ver = "2.1.0".to_string();
+        let gostver_path = root.join("GOSTVER");
+        if let Ok(content) = fs::read_to_string(&gostver_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("GOST_VERSION=") {
+                    let unquoted = rest.trim().trim_matches('"').trim_matches('\'');
+                    if !unquoted.is_empty() {
+                        ver = unquoted.to_string();
+                        break;
+                    }
+                }
+            }
+        }
         return Ok(ProfileConfig {
             url,
-            version: if ver.is_empty() || ver == "Nenhuma" {
-                "2.1.0".to_string()
-            } else {
-                ver
-            },
+            version: ver,
         });
     }
 
@@ -193,7 +208,13 @@ pub fn get_active_profile(root: &Path) -> io::Result<String> {
     for line in content.lines() {
         let line = line.trim();
         if let Some(rest) = line.strip_prefix("GOST_PROFILE_URL=") {
-            let unquoted = rest.trim().trim_matches('"').trim_matches('\'');
+            let unquoted = rest.trim().trim_matches('"').trim_matches('\'').trim();
+            if unquoted.is_empty() || unquoted.eq_ignore_ascii_case("none") {
+                return Err(Error::new(
+                    ErrorKind::NotFound,
+                    "GOST_PROFILE_URL não configurado ou vazio no GOSTVER",
+                ));
+            }
             return Ok(unquoted.to_string());
         }
     }
