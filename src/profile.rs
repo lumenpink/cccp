@@ -420,6 +420,117 @@ pub fn resolve_cascading_chain(start_url: &str) -> Vec<(String, String)> {
     chain
 }
 
+/// Helper: remove YAML frontmatter from markdown content if present
+pub fn strip_yaml_frontmatter(content: &str) -> &str {
+    let trimmed = content.trim_start();
+    if trimmed.starts_with("---") {
+        if let Some(end_idx) = trimmed[3..].find("\n---") {
+            let after = &trimmed[3 + end_idx + 4..];
+            return after.trim_start();
+        }
+    }
+    content
+}
+
+/// Resolves and fetches specification content for a target language stack across the hierarchy
+pub fn fetch_language_spec_content(
+    root: &Path,
+    lang: &str,
+    chain: &[(String, String)],
+) -> Option<String> {
+    let lang_file = format!("{}.md", lang.to_lowercase());
+
+    // 1. Autonomia Local
+    let local_candidates = [
+        root.join(".gost").join("languages").join(&lang_file),
+        root.join("languages").join(&lang_file),
+    ];
+    for cand in &local_candidates {
+        if cand.is_file() {
+            if let Ok(c) = fs::read_to_string(cand) {
+                return Some(c);
+            }
+        }
+    }
+
+    // 2. Cascata da cadeia de perfis (da camada operacional para a tática)
+    for (url, _) in chain {
+        let trimmed_url = url.trim();
+        let path = Path::new(trimmed_url);
+        if path.is_file() {
+            if let Some(parent) = path.parent() {
+                let cand = parent.join("languages").join(&lang_file);
+                if cand.is_file() {
+                    if let Ok(c) = fs::read_to_string(&cand) {
+                        return Some(c);
+                    }
+                }
+            }
+        }
+
+        if trimmed_url.contains("lilya") {
+            let lilya_cand = Path::new("/home/lumen/src/gost-profile-lilya/languages").join(&lang_file);
+            if lilya_cand.is_file() {
+                if let Ok(c) = fs::read_to_string(&lilya_cand) {
+                    return Some(c);
+                }
+            }
+        }
+        if trimmed_url.contains("kollontai") {
+            let kol_cand = Path::new("/home/lumen/src/gost-profile-kollontai/languages").join(&lang_file);
+            if kol_cand.is_file() {
+                if let Ok(c) = fs::read_to_string(&kol_cand) {
+                    return Some(c);
+                }
+            }
+        }
+
+        if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
+            let mut candidate_urls = Vec::new();
+            if let Some(base) = trimmed_url.strip_suffix("/RULES.md") {
+                candidate_urls.push(format!("{}/languages/{}", base, lang_file));
+            } else if let Some(base) = trimmed_url.strip_suffix("/profile.md") {
+                candidate_urls.push(format!("{}/2.1.0/languages/{}", base, lang_file));
+                candidate_urls.push(format!("{}/languages/{}", base, lang_file));
+            } else if let Some((dir, _)) = trimmed_url.rsplit_once('/') {
+                candidate_urls.push(format!("{}/languages/{}", dir, lang_file));
+            }
+
+            for u in candidate_urls {
+                if let Ok(resp) = ureq::get(&u).call() {
+                    if let Ok(body) = resp.into_body().read_to_string() {
+                        let lower = body.to_ascii_lowercase();
+                        if !lower.contains("<html")
+                            && !lower.contains("<!doctype")
+                            && !body.trim().is_empty()
+                        {
+                            return Some(body);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Fallback de transição: repo gost local
+    let gost_cand = Path::new("/home/lumen/src/gost/specs/languages").join(&lang_file);
+    if gost_cand.is_file() {
+        if let Ok(c) = fs::read_to_string(&gost_cand) {
+            return Some(c);
+        }
+    }
+
+    // 4. Fallback de transição: repo gost-profile-kollontai local
+    let kol_direct = Path::new("/home/lumen/src/gost-profile-kollontai/languages").join(&lang_file);
+    if kol_direct.is_file() {
+        if let Ok(c) = fs::read_to_string(&kol_direct) {
+            return Some(c);
+        }
+    }
+
+    None
+}
+
 /// Assembles all cascading profile layers and CUSTOM.md into `.rules/RULES.md` and `.rules/RULES.toml`.
 pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
     let mut cfg = read_profile_config(root).unwrap_or_else(|_| ProfileConfig {
@@ -513,11 +624,13 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
         }
     }
 
-    let rules_dir = root.join(".rules");
-    fs::create_dir_all(&rules_dir)?;
-    let target_rules_md = rules_dir.join("RULES.md");
     let sanitized_output = sanitize_prohibited_terms(&output);
-    fs::write(&target_rules_md, &sanitized_output)?;
+    if root.join(".rules").is_dir() || root.join("GOSTVER").is_file() {
+        let rules_dir = root.join(".rules");
+        let _ = fs::create_dir_all(&rules_dir);
+        let target_rules_md = rules_dir.join("RULES.md");
+        let _ = fs::write(&target_rules_md, &sanitized_output);
+    }
 
     // Compila regras declarativas com injecao de tier hierarquico
     let mut combined_rules: toml::map::Map<String, toml::Value> = toml::map::Map::new();
@@ -571,23 +684,28 @@ pub fn assemble_rules_specs(root: &Path) -> io::Result<String> {
         let mut root_val = toml::map::Map::new();
         root_val.insert("rules".to_string(), toml::Value::Table(combined_rules));
         if let Ok(serialized) = toml::to_string_pretty(&toml::Value::Table(root_val)) {
-            let rules_out = rules_dir.join("RULES.toml");
-            let _ = fs::write(&rules_out, &serialized);
-            let _ = fs::write(rules_dir.join("rules.toml"), &serialized);
+            let gost_dir = root.join(".gost");
+            if gost_dir.is_dir() || root.join("GOSTVER").is_file() {
+                let _ = fs::create_dir_all(&gost_dir);
+                let _ = fs::write(gost_dir.join("rules.toml"), &serialized);
+            }
+            if root.join(".rules").is_dir() || root.join("GOSTVER").is_file() {
+                let rules_dir = root.join(".rules");
+                let _ = fs::create_dir_all(&rules_dir);
+                let rules_out = rules_dir.join("RULES.toml");
+                let _ = fs::write(&rules_out, &serialized);
+                let _ = fs::write(rules_dir.join("rules.toml"), &serialized);
+            }
         }
     }
-
-    // Purga arquivos obsoletos em .rules/
-    let _ = fs::remove_file(rules_dir.join("rules.json"));
-    let _ = fs::remove_file(rules_dir.join("PROFILE.md"));
 
     Ok(sanitized_output)
 }
 
-/// Assembles all cascading profile layers and CUSTOM.md into `.gost/GOST.md`,
+/// Assembles all cascading profile layers, languages, and CUSTOM.md into `.gost/GOST.md`,
 /// synchronizes GOST resources in `.gost/`, and updates GOSTVER to the canonical version.
 pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
-    let output = assemble_rules_specs(root)?;
+    let mut output = assemble_rules_specs(root)?;
     let gost_dir = root.join(".gost");
     if gost_dir.is_dir() || root.join("GOSTVER").is_file() {
         let _ = fs::create_dir_all(&gost_dir);
@@ -599,27 +717,46 @@ pub fn assemble_gost_specs(root: &Path) -> io::Result<String> {
             &prof
         };
         let resolved_langs = if langs == "None" || langs == "Nenhuma" || langs.is_empty() {
-            "shell"
+            crate::audit::autodetect_languages(root)
         } else {
-            &langs
+            langs
         };
 
-        crate::newrepo::sync_gost_specs(
-            root,
-            resolved_profile,
-            resolved_langs,
-            crate::newrepo::DEFAULT_GOST_VERSION,
-            true,
-            &crate::cultural::Theme::with_color(false),
-        );
+        let cfg = read_profile_config(root).unwrap_or_else(|_| ProfileConfig {
+            url: resolved_profile.to_string(),
+            version: crate::newrepo::DEFAULT_GOST_VERSION.to_string(),
+        });
+        let chain = resolve_cascading_chain(&cfg.url);
 
-        let _ = fs::write(gost_dir.join("GOST.md"), &output);
-        let rules_toml = root.join(".rules/RULES.toml");
-        if rules_toml.is_file() {
-            let _ = fs::copy(&rules_toml, gost_dir.join("rules.toml"));
+        // Concatena especificações de linguagens resolvidas na cascata
+        for lang_item in resolved_langs.split(',') {
+            let l = lang_item.trim().to_lowercase();
+            if !l.is_empty() && l != "none" {
+                if let Some(spec_raw) = fetch_language_spec_content(root, &l, &chain) {
+                    let clean_body = strip_yaml_frontmatter(&spec_raw);
+                    let sanitized = sanitize_prohibited_terms(clean_body);
+                    output.push_str("\n\n<!-- ===================================================================== -->\n");
+                    output.push_str(&format!(
+                        "<!-- ESPECIFICAÇÃO TÁTICA DA STACK: {} -->\n",
+                        l.to_uppercase()
+                    ));
+                    output.push_str("<!-- ===================================================================== -->\n\n");
+                    output.push_str(sanitized.trim());
+                    output.push_str("\n");
+                }
+            }
         }
 
-        if root.join("GOSTVER").is_file() {
+        let _ = fs::write(gost_dir.join("GOST.md"), &output);
+
+        // Se for repositório GOST v3 (sem GOSTVER), purga .rules/ e arquivos obsoletos de .gost/
+        if !root.join("GOSTVER").is_file() {
+            let _ = fs::remove_dir_all(root.join(".rules"));
+            let _ = fs::remove_file(gost_dir.join("rules.json"));
+            let _ = fs::remove_file(gost_dir.join("PROFILE.md"));
+            let _ = fs::remove_file(gost_dir.join("UPGRADE.md"));
+            let _ = fs::remove_dir_all(gost_dir.join("languages"));
+        } else {
             let _ = update_gostver_version(root, crate::newrepo::DEFAULT_GOST_VERSION);
         }
     }

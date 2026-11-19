@@ -266,36 +266,17 @@ pub fn fetch_gost_resource(
 /// Synchronizes GOST standard and language specs into `.gost/`
 pub fn sync_gost_specs(
     root_dir: &Path,
-    profile_url: &str,
-    languages: &str,
-    version: &str,
+    _profile_url: &str,
+    _languages: &str,
+    _version: &str,
     quiet: bool,
     theme: &Theme,
 ) {
     let gost_dir = root_dir.join(".gost");
-    let lang_dir = gost_dir.join("languages");
-    let _ = fs::create_dir_all(&lang_dir);
+    let _ = fs::create_dir_all(&gost_dir);
 
-    // 1. SPEC.md -> .gost/GOST.md
-    let _ = fetch_gost_resource("SPEC.md", &gost_dir.join("GOST.md"), version);
-
-    // 2. Profile URL -> .gost/PROFILE.md
-    if !profile_url.is_empty() {
-        let _ = fetch_gost_resource(profile_url, &gost_dir.join("PROFILE.md"), version);
-    }
-
-    // 3. specs/rules.json -> .gost/rules.json
-    let _ = fetch_gost_resource("specs/rules.json", &gost_dir.join("rules.json"), version);
-
-    // 4. Languages specs
-    for lang in languages.split(',') {
-        let l = lang.trim();
-        if !l.is_empty() {
-            let res_name = format!("specs/languages/{}.md", l);
-            let dest_file = lang_dir.join(format!("{}.md", l));
-            let _ = fetch_gost_resource(&res_name, &dest_file, version);
-        }
-    }
+    // No GOST v3, a especificação e as regras canônicas são montadas via assemble_gost_specs
+    let _ = crate::profile::assemble_gost_specs(root_dir);
 
     if !quiet && gost_dir.is_dir() {
         println!(

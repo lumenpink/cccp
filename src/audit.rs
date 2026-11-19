@@ -54,16 +54,17 @@ pub fn autodetect_languages(root: &Path) -> String {
 }
 
 /// Extrai metadados do frontmatter YAML de `.gost/GOST.md`
-fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>) {
+fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>, Option<String>) {
     let mut standard = None;
     let mut version = None;
+    let mut languages = None;
     let mut in_yaml = false;
 
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed == "---" {
             in_yaml = !in_yaml;
-            if !in_yaml && standard.is_some() && version.is_some() {
+            if !in_yaml && standard.is_some() && version.is_some() && languages.is_some() {
                 break;
             }
             continue;
@@ -100,11 +101,26 @@ fn extract_gost_frontmatter(content: &str) -> (Option<String>, Option<String>) {
                 if version.is_none() && !clean.is_empty() {
                     version = Some(clean);
                 }
+            } else if let Some(rest) = trimmed.strip_prefix("languages:") {
+                let clean = rest
+                    .split('#')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .trim_matches('[')
+                    .trim_matches(']')
+                    .replace('"', "")
+                    .replace('\'', "")
+                    .trim()
+                    .to_string();
+                if languages.is_none() && !clean.is_empty() {
+                    languages = Some(clean);
+                }
             }
         }
     }
 
-    (version, standard)
+    (version, standard, languages)
 }
 
 /// Parse GOST specification and metadata from `.gost/` (with fallback to legacy GOSTVER)
@@ -116,12 +132,15 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
     // 1. Prioridade GOST v3: extrair do frontmatter de .gost/GOST.md
     let gost_md = root.join(".gost/GOST.md");
     if let Ok(content) = fs::read_to_string(&gost_md) {
-        let (extracted_ver, extracted_prof) = extract_gost_frontmatter(&content);
+        let (extracted_ver, extracted_prof, extracted_langs) = extract_gost_frontmatter(&content);
         if let Some(v) = extracted_ver {
             ver = v;
         }
         if let Some(p) = extracted_prof {
             prof = p;
+        }
+        if let Some(l) = extracted_langs {
+            langs = l;
         }
     }
 
