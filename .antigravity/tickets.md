@@ -1,19 +1,13 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-19 17:42:24 UTC
+> Synced at: 2026-11-19 23:34:18 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#184] refactor(gost): purga de elementos obsoletos das normas no cccp
+## [#185] fix(audit): quebra de recursao infinita em repositorios grundnorm ou sem perfil
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/184
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/185
 
 ### Description
-## Contexto & Motivação
-Com a implementação da absorção de linguagens no GOST.md (Ticket #183), os artefatos legados (.rules/, rules.json, PROFILE.md, UPGRADE.md e languages/) foram eliminados do cccp.
-
-## Requisitos
-1. Efetivar a purga de .rules/ e arquivos obsoletos em .gost/.
-2. Recompilar .gost/GOST.md auto-contido.
-3. Validar conformidade com cccp check --strict (24/24 pass).
+Evitar stack overflow por recursao mutua entre read_gostver e read_profile_config quando GOST_PROFILE_URL for vazio ou nao declarado (ex: repositorio gost).
 
 ---
