@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Correção de Fallback de Linguagem no read_gostver
+- **audit:** normalizar fallback de linguagem para None no read_gostver (closes #186)
+  - Padroniza o retorno de linguagem para "None" quando vazia ou "none", eliminando assimetria com outros campos no relatório de auditoria e testes.
+
 ### Resolução em Cascata de Linguagens e Absorção no GOST.md
 - **gost:** resolucao em cascata de linguagens e montagem no gost.md (closes #183)
   - Resolve especificações de linguagem a partir da hierarquia de perfis (Lilya -> Kollontai).
