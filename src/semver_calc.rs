@@ -439,18 +439,16 @@ fn scan_manifests_recursive(
             if !IGNORED_MANIFEST_DIRS.contains(&file_name) && !file_name.starts_with('.') {
                 scan_manifests_recursive(&path, depth + 1, max_depth, results);
             }
-        } else if path.is_file()
-            && (file_name == "Cargo.toml"
-                || file_name == "package.json"
-                || file_name == "composer.json")
-        {
+        } else if path.is_file() && (file_name == "Cargo.toml" || file_name == "package.json") {
             results.push(path);
         }
     }
 }
 
 /// Sincroniza a versão canônica em todos os manifestos de projeto suportados
-/// (Cargo.toml, package.json, composer.json) encontrados no repositório.
+/// (Cargo.toml, package.json) encontrados no repositório.
+/// Nota: composer.json é deliberadamente excluído pois o Composer v2 rejeita
+/// versões -dev.N no schema e recomenda derivação via VCS.
 /// Retorna a lista ordenada de caminhos relativos dos arquivos modificados.
 pub fn sync_project_manifests(repo_root: &Path, new_version: &str) -> Result<Vec<PathBuf>, String> {
     let mut manifest_paths = Vec::new();
@@ -463,7 +461,6 @@ pub fn sync_project_manifests(repo_root: &Path, new_version: &str) -> Result<Vec
         let changed = match file_name {
             "Cargo.toml" => update_cargo_toml_file(&path, new_version)?,
             "package.json" => update_json_manifest_file(&path, new_version, false)?,
-            "composer.json" => update_json_manifest_file(&path, new_version, true)?,
             _ => false,
         };
 

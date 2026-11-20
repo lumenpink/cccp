@@ -3,3 +3,8 @@
 
 [binaries]
 target = "banca"
+
+[sites]
+target = "cloudflare-pages"
+domain = "cccp.2lp.in"
+dir = "site"

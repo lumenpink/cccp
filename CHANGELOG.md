@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Remoção de Injeção em composer.json e Migração de CI para Generic Packages
+- **semver,ci:** cessar injeção automática de `version` em `composer.json` e delegar entrega do cccp via Generic Packages da Gambi para o Kombinat (closes #188)
+
 ### Correção do Parser de GOSTVER com Espaços
 - **audit:** tolerar espacos ao redor do operador = no parser de GOSTVER e atualizar KOLLONTAI-018 (closes #187)
 
