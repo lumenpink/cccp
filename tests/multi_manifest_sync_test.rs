@@ -28,48 +28,26 @@ fn test_sync_package_json() {
 }
 
 #[test]
-fn test_sync_composer_json_updates_existing_version() {
+fn test_sync_composer_json_is_never_modified_or_injected() {
     let dir = tempdir().unwrap();
     let comp_path = dir.path().join("composer.json");
-    fs::write(
-        &comp_path,
-        r#"{
-    "name": "vendor/package",
-    "version": "1.0.0",
-    "require": {}
-}
-"#,
-    )
-    .unwrap();
-
-    let updated = sync_project_manifests(dir.path(), "1.1.0").unwrap();
-    assert!(updated.contains(&std::path::PathBuf::from("composer.json")));
-
-    let content = fs::read_to_string(&comp_path).unwrap();
-    assert!(content.contains("\"version\": \"1.1.0\""));
-}
-
-#[test]
-fn test_sync_composer_json_injects_missing_version() {
-    let dir = tempdir().unwrap();
-    let comp_path = dir.path().join("composer.json");
-    fs::write(
-        &comp_path,
-        r#"{
+    let original = r#"{
     "name": "lumenpink/fuxico",
     "description": "Fuxico service",
     "type": "project"
 }
-"#,
-    )
-    .unwrap();
+"#;
+    fs::write(&comp_path, original).unwrap();
 
-    let updated = sync_project_manifests(dir.path(), "0.1.0-dev.10").unwrap();
-    assert!(updated.contains(&std::path::PathBuf::from("composer.json")));
+    let updated = sync_project_manifests(dir.path(), "0.3.0-dev.133+20261120.8d820a6").unwrap();
+    assert!(
+        !updated.contains(&std::path::PathBuf::from("composer.json")),
+        "composer.json nunca deve ser alterado ou receber injecao de version"
+    );
 
     let content = fs::read_to_string(&comp_path).unwrap();
-    assert!(content.contains("\"version\": \"0.1.0-dev.10\""));
-    assert!(content.contains("\"name\": \"lumenpink/fuxico\""));
+    assert_eq!(content, original);
+    assert!(!content.contains("\"version\""));
 }
 
 #[test]
