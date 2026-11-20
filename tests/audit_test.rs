@@ -33,6 +33,26 @@ fn test_read_gostver_missing_file() {
 }
 
 #[test]
+fn test_read_gostver_explicit_none_language() {
+    let temp = tempdir().expect("tempdir");
+    fs::create_dir_all(temp.path().join(".gost")).unwrap();
+    let content = r#"---
+standard: "gost"
+version: "3.0.0"
+profile: "https://kollontai.2lp.in/2.1.0/profile.md"
+languages: "none"
+---
+# Test
+"#;
+    fs::write(temp.path().join(".gost/GOST.md"), content).unwrap();
+
+    let (ver, prof, langs) = read_gostver(temp.path());
+    assert_eq!(ver, "3.0.0");
+    assert_eq!(prof, "https://kollontai.2lp.in/2.1.0/profile.md");
+    assert_eq!(langs, "None");
+}
+
+#[test]
 fn test_read_gostver_from_dot_rules_profile_toml() {
     let temp = tempdir().expect("tempdir");
     let rules_dir = temp.path().join(".rules");
