@@ -201,7 +201,7 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
         } else {
             prof
         },
-        if langs.is_empty() {
+        if langs.is_empty() || langs.eq_ignore_ascii_case("none") {
             "None".to_string()
         } else {
             langs

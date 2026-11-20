@@ -37,9 +37,8 @@ fn test_read_gostver_explicit_none_language() {
     let temp = tempdir().expect("tempdir");
     fs::create_dir_all(temp.path().join(".gost")).unwrap();
     let content = r#"---
-standard: "gost"
+standard: "https://kollontai.2lp.in/2.1.0/profile.md"
 version: "3.0.0"
-profile: "https://kollontai.2lp.in/2.1.0/profile.md"
 languages: "none"
 ---
 # Test
