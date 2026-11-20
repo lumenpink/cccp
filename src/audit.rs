@@ -149,24 +149,18 @@ pub fn read_gostver(root: &Path) -> (String, String, String) {
         if let Ok(content) = fs::read_to_string(&gostver_file) {
             for line in content.lines() {
                 let trimmed = line.trim();
-                if ver.is_empty() {
-                    if let Some(rest) = trimmed.strip_prefix("GOST_VERSION=") {
-                        ver = rest.trim_matches('"').trim_matches('\'').to_string();
-                    }
+                if trimmed.is_empty() || trimmed.starts_with('#') {
+                    continue;
                 }
-                if prof.is_empty() {
-                    if let Some(rest) = trimmed.strip_prefix("GOST_PROFILE_URL=") {
-                        prof = rest
-                            .trim()
-                            .trim_matches('"')
-                            .trim_matches('\'')
-                            .trim()
-                            .to_string();
-                    }
-                }
-                if langs.is_empty() {
-                    if let Some(rest) = trimmed.strip_prefix("GOST_LANGUAGES=") {
-                        langs = rest.trim_matches('"').trim_matches('\'').to_string();
+                if let Some((raw_key, raw_val)) = trimmed.split_once('=') {
+                    let key = raw_key.trim();
+                    let val = raw_val.trim().trim_matches('"').trim_matches('\'').trim();
+                    if key == "GOST_VERSION" && ver.is_empty() {
+                        ver = val.to_string();
+                    } else if key == "GOST_PROFILE_URL" && prof.is_empty() {
+                        prof = val.to_string();
+                    } else if key == "GOST_LANGUAGES" && langs.is_empty() {
+                        langs = val.to_string();
                     }
                 }
             }

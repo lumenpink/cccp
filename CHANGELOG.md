@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Correção do Parser de GOSTVER com Espaços
+- **audit:** tolerar espacos ao redor do operador = no parser de GOSTVER e atualizar KOLLONTAI-018 (closes #187)
+
 ### Correção de Fallback de Linguagem no read_gostver
 - **audit:** normalizar fallback de linguagem para None no read_gostver (closes #186)
   - Padroniza o retorno de linguagem para "None" quando vazia ou "none", eliminando assimetria com outros campos no relatório de auditoria e testes.
