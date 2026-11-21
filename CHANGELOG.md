@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Remoção de Injeção em composer.json e Migração de CI para Generic Packages
+- **test:** alinhar `ci_pipeline_test` com delegação ao Kombinat via Generic Packages (closes #189)
 - **semver,ci:** cessar injeção automática de `version` em `composer.json` e delegar entrega do cccp via Generic Packages da Gambi para o Kombinat (closes #188)
 
 ### Correção do Parser de GOSTVER com Espaços

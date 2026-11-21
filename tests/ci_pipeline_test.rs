@@ -159,14 +159,14 @@ fn test_ci_workflow_overwrites_generic_packages_with_delete_before_put() {
         "Workflow deve executar DELETE prévio contra o endpoint para sobrescrever o pacote sem 409 Conflict"
     );
 
-    // O DELETE deve preceder o PUT
+    // O DELETE deve preceder o PUT de sobrescrita do alias nightly
     let delete_pos = workflow
         .find("-X DELETE")
         .expect("DELETE deve estar presente");
-    let put_pos = workflow.find("-X PUT").expect("PUT deve estar presente");
+    let after_delete = &workflow[delete_pos..];
     assert!(
-        delete_pos < put_pos,
-        "A requisição DELETE deve preceder a requisição PUT para garantir sobrescrita limpa"
+        after_delete.contains("-X PUT") && after_delete.contains(target_endpoint),
+        "A requisição DELETE deve preceder a requisição PUT para garantir sobrescrita limpa no alias nightly"
     );
 }
 
@@ -414,8 +414,12 @@ fn test_ci_workflow_rotates_catalog_json_with_manifest() {
     let workflow_path = manifest_dir.join(".forgejo/workflows/ci.yml");
     let workflow = fs::read_to_string(&workflow_path).expect("ci.yml must exist");
     assert!(
-        workflow.contains("git add site/downloads/cccp/index.json site/downloads/catalog.json"),
-        "ci.yml must stage both index.json and catalog.json on release rotation"
+        workflow.contains("api/packages/lumen/generic/cccp/${VERSION}"),
+        "ci.yml deve publicar pacotes de staging nos Generic Packages da Gambi para o Kombinat"
+    );
+    assert!(
+        !workflow.contains("wrangler") && !workflow.contains("rotate-downloads.py"),
+        "ci.yml nao deve executar deploys diretos em CF/Banca (orquestracao delegada ao Kombinat)"
     );
 }
 
