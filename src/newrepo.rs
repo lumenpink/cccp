@@ -312,29 +312,25 @@ pub fn cmd_newrepo(opts: NewrepoOptions, theme: &Theme) -> Result<(), String> {
         "Repositório estruturado em estrita conformidade com o padrão GOST v1.1.0".to_string()
     });
 
-    // Delegação preferencial ao gossnab para provisionamento canônico
-    let mut gossnab_cmd = std::process::Command::new("gossnab");
-    gossnab_cmd.arg("new").arg(&project_name);
-    gossnab_cmd.arg("-l").arg(&opts.lang);
-    gossnab_cmd.arg("--license").arg(&opts.license);
-    gossnab_cmd.arg("-d").arg(&target_root);
-    if let Ok(status) = gossnab_cmd.status() {
-        if status.success() {
-            // Assegura arquivo GOSTVER canônico se não criado pelo gossnab
-            let gostver_file = target_root.join("GOSTVER");
-            if !gostver_file.exists() {
-                let _ = fs::write(&gostver_file, "GOST_VERSION=\"1.1.0\"\n");
+    // Delegação preferencial ao gossnab para provisionamento canônico (quando sync ativo)
+    if opts.sync {
+        let mut gossnab_cmd = std::process::Command::new("gossnab");
+        gossnab_cmd.arg("new").arg(&project_name);
+        gossnab_cmd.arg("-l").arg(&opts.lang);
+        gossnab_cmd.arg("--license").arg(&opts.license);
+        gossnab_cmd.arg("-d").arg(&target_root);
+        if let Ok(status) = gossnab_cmd.status() {
+            if status.success() {
+                if !opts.git && target_root.join(".git").exists() {
+                    let _ = fs::remove_dir_all(target_root.join(".git"));
+                }
+                if !opts.quiet {
+                    println!(
+                        "  {} Base provisionada via Gossnab; completando artefatos canônicos faltantes...",
+                        theme.green("✓")
+                    );
+                }
             }
-            if !opts.git && target_root.join(".git").exists() {
-                let _ = fs::remove_dir_all(target_root.join(".git"));
-            }
-            if !opts.quiet {
-                println!(
-                    "  {} Repositório provisionado com sucesso via Gossnab.",
-                    theme.green("✓")
-                );
-            }
-            return Ok(());
         }
     }
 

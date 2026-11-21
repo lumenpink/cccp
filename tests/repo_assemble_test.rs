@@ -219,13 +219,11 @@ fn test_assemble_updates_outdated_gostver_and_syncs_gost_artifacts() {
         gostver_content
     );
 
-    // .gost/GOST.md must exist
-    assert!(p.join(".gost/GOST.md").is_file());
-
-    // .gost/languages/shell.md must be synchronized
+    // .gost/GOST.md must exist and be non-empty (language specs are embedded directly in GOST.md)
+    let gost_md_content = fs::read_to_string(p.join(".gost/GOST.md")).expect("read .gost/GOST.md");
     assert!(
-        p.join(".gost/languages/shell.md").is_file(),
-        "Language spec for shell must be synchronized during assemble"
+        !gost_md_content.trim().is_empty(),
+        ".gost/GOST.md must be populated during assemble"
     );
 }
 

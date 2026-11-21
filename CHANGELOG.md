@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Remoção de Injeção em composer.json e Migração de CI para Generic Packages
+- **newrepo,test:** completar scaffolding pós-Gossnab em `cmd_newrepo` e alinhar `repo_assemble_test` e `repo_upgrade_governance_test` ao GOST v3 (closes #191)
 - **test:** hermetizar `language_cascade_assemble_spec` contra dependência de rede na CI (closes #190)
 - **test:** alinhar `ci_pipeline_test` com delegação ao Kombinat via Generic Packages (closes #189)
 - **semver,ci:** cessar injeção automática de `version` em `composer.json` e delegar entrega do cccp via Generic Packages da Gambi para o Kombinat (closes #188)
