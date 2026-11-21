@@ -1,13 +1,13 @@
 # Active Tickets - cccp
-> Synced at: 2026-11-19 23:34:18 UTC
+> Synced at: 2026-11-21 20:43:20 UTC
 > Ceiling: 10240 bytes (strictly uncut tickets)
 
-## [#185] fix(audit): quebra de recursao infinita em repositorios grundnorm ou sem perfil
+## [#192] fix: Tornar cccp package upload idempotente com DELETE+PUT em 409 Conflict
 - **Status**: `open`
 - **Labels**: none
-- **Link**: https://gambi.2lp.in/lumen/cccp/issues/185
+- **Link**: https://gambi.2lp.in/lumen/cccp/issues/192
 
 ### Description
-Evitar stack overflow por recursao mutua entre read_gostver e read_profile_config quando GOST_PROFILE_URL for vazio ou nao declarado (ex: repositorio gost).
+_No description provided._
 
 ---

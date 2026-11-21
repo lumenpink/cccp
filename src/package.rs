@@ -66,6 +66,19 @@ pub fn package_dir_to_tarball(dir_path: &Path, output_path: &Path) -> Result<u64
     Ok(metadata.len())
 }
 
+/// Identifica versões mutáveis (dev/nightly/rolling) onde um rerun de CI pode
+/// sobrescrever com segurança um pacote já existente via DELETE + PUT em caso de 409 Conflict.
+pub fn is_mutable_package_version(version: &str) -> bool {
+    let lower = version.trim().to_ascii_lowercase();
+    lower.contains("-dev")
+        || lower.contains("nightly")
+        || lower == "latest"
+        || lower.contains("-alpha")
+        || lower.contains("-beta")
+        || lower.contains("-rc")
+        || lower.contains("canary")
+}
+
 /// Envia arquivo ou diretório empacotado para o Generic Package Registry da forja
 pub fn upload_package(
     target_path: &Path,
@@ -112,10 +125,24 @@ pub fn upload_package(
         &filename,
     );
 
-    let res = ureq::put(&url)
-        .header("Authorization", &format!("token {}", config.token))
-        .header("Content-Type", "application/octet-stream")
-        .send(&data)?;
+    let auth_header = format!("token {}", config.token);
+    let send_put = || {
+        ureq::put(&url)
+            .header("Authorization", &auth_header)
+            .header("Content-Type", "application/octet-stream")
+            .send(&data)
+    };
+
+    let res = match send_put() {
+        Ok(r) => r,
+        Err(ureq::Error::StatusCode(409)) if is_mutable_package_version(&config.version) => {
+            let _ = ureq::delete(&url)
+                .header("Authorization", &auth_header)
+                .call();
+            send_put()?
+        }
+        Err(e) => return Err(e.into()),
+    };
 
     let status = res.status();
     if status == 200 || status == 201 {

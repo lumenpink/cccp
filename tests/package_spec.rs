@@ -89,3 +89,17 @@ fn test_resolve_package_upload_config_fails_without_git_repo() {
             || err.contains("Nenhum remote")
     );
 }
+
+#[test]
+fn test_is_mutable_package_version_allows_dev_nightly_and_protects_stable() {
+    use cccp::package::is_mutable_package_version;
+
+    assert!(is_mutable_package_version("0.1.0-dev.42+20261121.abc1234"));
+    assert!(is_mutable_package_version("nightly"));
+    assert!(is_mutable_package_version("latest"));
+    assert!(is_mutable_package_version("1.2.0-rc.1"));
+
+    // Versões estáveis permanecem imutáveis
+    assert!(!is_mutable_package_version("1.0.0"));
+    assert!(!is_mutable_package_version("3.2.1"));
+}
