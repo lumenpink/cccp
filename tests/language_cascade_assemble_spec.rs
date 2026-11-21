@@ -7,7 +7,16 @@ fn test_assemble_embeds_languages_and_purges_legacy_dirs() {
     let dir = tempdir().expect("tempdir");
     let root = dir.path();
 
-    fs::create_dir_all(root.join(".gost")).unwrap();
+    fs::create_dir_all(root.join(".gost").join("languages")).unwrap();
+    fs::create_dir_all(root.join(".rules")).unwrap();
+    fs::write(
+        root.join(".gost").join("languages").join("rust.md"),
+        "# GOST Language Specification: Rust\n\n## Arquitetura de Domínio & SOLID Pragmático\n",
+    )
+    .unwrap();
+    fs::write(root.join(".rules").join("legacy.toml"), "# legacy\n").unwrap();
+    fs::write(root.join(".gost").join("rules.json"), "{}\n").unwrap();
+    fs::write(root.join(".gost").join("PROFILE.md"), "# legacy\n").unwrap();
     fs::write(root.join("Cargo.toml"), "[package]\nname = \"test\"\n").unwrap();
     fs::write(root.join("VERSION"), "1.0.0\n").unwrap();
 
