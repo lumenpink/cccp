@@ -1,6 +1,6 @@
 [package]
 name = "cccp"
-version = "3.2.0-dev.971+20261120.75d8133"
+version = "3.2.0-dev.972+20261120.452d9d1"
 edition = "2021"
 authors = ["Lumen Pink <hi@lumen.pink>"]
 description = "Conventional Commits Compliance Program (CCCP) - Native Standalone Binary"
