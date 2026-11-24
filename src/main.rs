@@ -2181,6 +2181,7 @@ fn main() -> ExitCode {
                     repo_dir,
                     up.app.as_deref(),
                     up.version.as_deref(),
+                    up.filename.as_deref(),
                 ) {
                     Ok(cfg) => {
                         let target_path = if up.path.is_absolute() {

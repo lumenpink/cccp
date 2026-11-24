@@ -40,6 +40,7 @@ fn test_upload_package_fails_if_target_does_not_exist() {
         app: "travesti".to_string(),
         version: "1.0.0".to_string(),
         token: "secret".to_string(),
+        filename: None,
     };
     let non_existent = std::path::Path::new("/tmp/non-existent-artifact-123456789.tar.gz");
     let res = cccp::package::upload_package(non_existent, &cfg);
@@ -80,13 +81,39 @@ fn test_cli_parsing_package_upload() {
 #[test]
 fn test_resolve_package_upload_config_fails_without_git_repo() {
     let empty_dir = tempdir().unwrap();
-    let res = cccp::package::resolve_package_upload_config(empty_dir.path(), None, None);
+    let res = cccp::package::resolve_package_upload_config(empty_dir.path(), None, None, None);
     assert!(res.is_err());
     let err = res.unwrap_err();
     assert!(
         err.contains("origin")
             || err.contains("Falha ao executar")
             || err.contains("Nenhum remote")
+    );
+}
+
+#[test]
+fn test_package_upload_config_honors_custom_filename() {
+    let cfg = cccp::package::PackageUploadConfig {
+        host: "gambi.2lp.in".to_string(),
+        owner: "lumen".to_string(),
+        app: "kombinat".to_string(),
+        version: "nightly".to_string(),
+        token: "secret".to_string(),
+        filename: Some("kn-linux-amd64".to_string()),
+    };
+
+    assert_eq!(cfg.filename.as_deref(), Some("kn-linux-amd64"));
+
+    let url = cccp::package::build_generic_package_url(
+        &cfg.host,
+        &cfg.owner,
+        &cfg.app,
+        &cfg.version,
+        cfg.filename.as_deref().unwrap(),
+    );
+    assert_eq!(
+        url,
+        "https://gambi.2lp.in/api/packages/lumen/generic/kombinat/nightly/kn-linux-amd64"
     );
 }
 

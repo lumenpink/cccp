@@ -12,6 +12,7 @@ pub struct PackageUploadConfig {
     pub app: String,
     pub version: String,
     pub token: String,
+    pub filename: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,11 +94,13 @@ pub fn upload_package(
     }
 
     let (upload_file, filename, _tmp_guard) = if target_path.is_dir() {
-        let dir_name = target_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("bundle");
-        let archive_filename = format!("{}.tar.gz", dir_name);
+        let archive_filename = config.filename.clone().unwrap_or_else(|| {
+            let dir_name = target_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("bundle");
+            format!("{}.tar.gz", dir_name)
+        });
         let tmp_file = tempfile::Builder::new()
             .prefix("cccp-pkg-")
             .suffix(".tar.gz")
@@ -107,11 +110,13 @@ pub fn upload_package(
         package_dir_to_tarball(target_path, &tmp_path)?;
         (tmp_path, archive_filename, Some(tmp_file))
     } else {
-        let name = target_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Nome de arquivo inválido"))?
-            .to_string();
+        let name = config.filename.clone().unwrap_or_else(|| {
+            target_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("artifact")
+                .to_string()
+        });
         (target_path.to_path_buf(), name, None)
     };
 
@@ -165,6 +170,7 @@ pub fn resolve_package_upload_config(
     repo_dir: &Path,
     override_app: Option<&str>,
     override_version: Option<&str>,
+    override_filename: Option<&str>,
 ) -> Result<PackageUploadConfig, String> {
     let output = std::process::Command::new("git")
         .args(["remote", "get-url", "origin"])
@@ -201,6 +207,8 @@ pub fn resolve_package_upload_config(
         }
     };
 
+    let filename = override_filename.map(|s| s.to_string());
+
     let token = crate::forges::resolve_token_for_host(&host, forge_info.provider, None)
         .ok_or_else(|| {
             format!(
@@ -216,5 +224,6 @@ pub fn resolve_package_upload_config(
         app,
         version,
         token,
+        filename,
     })
 }
